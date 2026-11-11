@@ -53,9 +53,9 @@ jobs:
         env:
           TARGET: ${{ inputs.target }}
           AD_SSH_HOST: ssh-marsl.alwaysdata.net
-          AD_SFTP_USER_OPENTEST: ${{ secrets.AD_SFTP_USER_OPENTEST }}
-          AD_SFTP_USER_CLASSIC: ${{ secrets.AD_SFTP_USER_CLASSIC }}
-          AD_SFTP_USER_SPEED: ${{ secrets.AD_SFTP_USER_SPEED }}
+          AD_SFTP_USER_OPENTEST: marsl_deploy_opentest
+          AD_SFTP_USER_CLASSIC: marsl_deply_classic
+          AD_SFTP_USER_SPEED: marsl_deploy_speed
           AD_API_TOKEN: ${{ secrets.AD_API_TOKEN }}
         shell: bash
         run: |
