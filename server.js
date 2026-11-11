@@ -167,8 +167,7 @@ app.use((req, res, next) => (req.path === "/api/farm" ? farmJson : smallJson)(re
 // PRODUCTION_SPEED: resources and terra grow this many times faster
 // BUILD_SPEED:      building, training, research and healing this many times faster
 // MOVE_SPEED:       troops and merchants travel this many times faster
-// Food production and troop upkeep scale together, so food balance is stable
-// across server speeds while real-time rates and timers still move faster.
+// Troop upkeep is independent of game speed.
 let PRODUCTION_SPEED = 1;
 let BUILD_SPEED = 1;
 let MOVE_SPEED = 1;
@@ -384,13 +383,7 @@ const STARVE_PATIENCE = 1;
 function starvePatience() {
   return STARVE_PATIENCE * Math.max(1, PRODUCTION_SPEED);
 }
-// Troops eat per REAL hour the upkeep number shown in the wiki times
-// UPKEEP_RATE. Both production and upkeep follow PRODUCTION_SPEED, preserving
-// their balance per game hour at every server speed.
-let UPKEEP_RATE = 1;
-function updateUpkeepRate() {
-  UPKEEP_RATE = Math.max(1, PRODUCTION_SPEED);
-}
+// Troop upkeep is defined per real hour at every game speed.
 
 // ---------- Balancing: spies ----------
 // Spies are only noticed if the target has enough of its OWN spies at home.
@@ -532,7 +525,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.337";
+const GAME_VERSION = "1.0.338";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1886,7 +1879,6 @@ function loadSpeeds() {
     // a new server starts with the speed of its preset
     if (THIS_PRESET.speeds) { PRODUCTION_SPEED = THIS_PRESET.speeds.production; BUILD_SPEED = THIS_PRESET.speeds.build; MOVE_SPEED = THIS_PRESET.speeds.move; }
     else if (THIS_PRESET.speed) PRODUCTION_SPEED = BUILD_SPEED = MOVE_SPEED = THIS_PRESET.speed;
-    updateUpkeepRate();
     return;
   }
   try {
@@ -1903,7 +1895,6 @@ function loadSpeeds() {
     }
     if (ps && !settingOfRaw("speeds_preset2")) db.prepare("INSERT INTO settings (key, value) VALUES ('speeds_preset2', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
   } catch (e) {}
-  updateUpkeepRate();
 }
 loadSpeeds();
 db.exec(`
@@ -2932,7 +2923,7 @@ function upkeep(s, tribe, includeTraining) {
 
 // Upkeep in "game hour" units (what advanceResources works with)
 function upkeepGame(s, tribe, includeTraining) {
-  return (upkeep(s, tribe, includeTraining) * UPKEEP_RATE) / PRODUCTION_SPEED;
+  return (upkeep(s, tribe, includeTraining)) / PRODUCTION_SPEED;
 }
 
 function canAfford(s, cost) {
@@ -3037,7 +3028,7 @@ function starve(s, tribe, missing, at) {
       s.hunger = 0; // nobody at home to starve (troops away get food somehow)
       return;
     }
-    const u = (tribe.units[pickKey].upkeep * UPKEEP_RATE) / PRODUCTION_SPEED;
+    const u = (tribe.units[pickKey].upkeep) / PRODUCTION_SPEED;
     if (s.hunger < u * starvePatience()) return;
     s.hunger -= u * starvePatience();
     s.troops[pickKey] -= 1;
@@ -5829,7 +5820,7 @@ function snapshot(user, colony) {
       defANow: Math.round(u.defA * b),
       speed: Math.round(u.speed * MOVE_SPEED * perkOf(tribe.key, "speed") * 100) / 100, // tiles per REAL hour
       carry: Math.round(u.carry),
-      upkeep: Math.round(u.upkeep * UPKEEP_RATE * 10) / 10,
+      upkeep: Math.round(u.upkeep * 10) / 10,
       scout: isScout(u),
       settler: isSettler(u),
       bombard: isBombard(u),
@@ -9923,7 +9914,7 @@ function botGrow(s, tribe, baseProf, now) {
   if(key&&now>=(s.botNextTroop||0)&&have<want){
     s.botNextTroop=now+botDelay(s.botStyle==='raider'?0.25:1,s.botStyle==='raider'?1:3)*style.sessions;
     const n=Math.min(s.botStyle==='raider'||hunter?4:2,want-have),c=checkTraining(s,tribe,key,n);
-    const foodCost=n*tribe.units[key].upkeep*UPKEEP_RATE/PRODUCTION_SPEED;
+    const foodCost=n*tribe.units[key].upkeep/PRODUCTION_SPEED;
     if(!c.error&&foodLeftForTroops(s,tribe)>foodCost+1&&s.res.food-c.cost.food>=capacities(s).food*0.1){
       pay(s,c.cost);const building=tribe.units[key].building;
       s.training[building].push({unit:key,remaining:n,eachMs:c.eachMs,nextAt:null,at:now});startNextTraining(s,building,now);
@@ -11439,7 +11430,7 @@ app.get("/api/wiki", requireLogin, (req, res) => {
         const u = t.units[k];
         return {
           key: k, name: u.name, icon: u.icon, role: u.role, trait: traitOf(u), type: u.type, atk: u.atk, defG: u.defG, defA: u.defA,
-          speed: Math.round(u.speed * MOVE_SPEED), carry: Math.round(u.carry), upkeep: Math.round(u.upkeep * UPKEEP_RATE * 10) / 10, cost: u.cost, time: realSec(u.time),
+          speed: Math.round(u.speed * MOVE_SPEED), carry: Math.round(u.carry), upkeep: Math.round(u.upkeep * 10) / 10, cost: u.cost, time: realSec(u.time),
           building: u.building, level: u.level, lab: u.lab, quote: u.quote,
           scout: isScout(u), siege: isSiege(u), settler: isSettler(u),
         };
@@ -15620,6 +15611,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.338",date:"2026-11-11",title:"Farm list selection and fixed troop upkeep",groups:[["Farm lists",["Select or clear all targets in an expanded list."]],["Food",["Troops consume their base upkeep per real hour at every game speed."]]]},
   {v:"1.0.337",date:"2026-11-11",title:"Start all farm lists",groups:[["Farm lists",["Start all sends raids from every farm list and lets you stop the remaining queue."]]]},
   {v:"1.0.336",date:"2026-11-11",title:"Restore Send troops",groups:[["Map",["Send troops opens the troop picker after refreshing available troops. Colony startup retries temporary connection failures."]]]},
   {v:"1.0.335",date:"2026-11-11",title:"Send partial farm list batches",groups:[["Farm lists",["Farm lists send raids in list order and skip targets when their preset cannot be filled."]]]},
@@ -28734,6 +28726,19 @@ var farmSelection = {}, farmExpanded = {};
 document.addEventListener("click", function(event) {
   var fold = event.target.closest("[data-farm-fold]");
   if (fold) { var id = fold.getAttribute("data-farm-fold"); farmExpanded[id] = !farmExpanded[id]; renderSheet(); return; }
+  var selectAll = event.target.closest("[data-farm-select-all]");
+  if (selectAll) {
+    var list = farmList(selectAll.getAttribute("data-farm-select-all"));
+    if (!list) return;
+    var allSelected = list.entries.every(function(e) { return farmSelection[list.id + ":" + e.id]; });
+    list.entries.forEach(function(e) {
+      var key = list.id + ":" + e.id;
+      if (allSelected) delete farmSelection[key];
+      else farmSelection[key] = true;
+    });
+    renderSheet();
+    return;
+  }
   var edit=event.target.closest("[data-farm-edit-selected]");
   if(edit){event.preventDefault();var panel=edit.closest('.farmlist').querySelector('.farm-review');if(panel){panel.open=true;panel.scrollIntoView({block:'nearest',behavior:'smooth'});var input=panel.querySelector('input');if(input)input.focus();}return;}
   var action = event.target.closest("[data-farm-active]");
@@ -28926,6 +28931,7 @@ function farmSheet(d) {
     h += '<div class="farmlist"><div class="fl-top"><button class="fl-fold" data-farm-fold="' + l.id + '" aria-expanded="' + !!farmExpanded[l.id] + '">' + (farmExpanded[l.id] ? '▾ ' : '▸ ') + esc(l.name) + farmSummary(l) + '</button><button class="btn small" data-farm-send="' + l.id + '"' + (!on || farmSending ? ' disabled' : '') + '>Start (' + l.entries.length + ')</button></div>';
     if (!farmExpanded[l.id]) { h += '</div>'; return; }
     h += '<input class="fl-name" aria-label="Farm list name" data-farm-name="' + l.id + '" maxlength="30" value="' + esc(l.name) + '">';
+    if (l.entries.length) h += '<button class="btn small ghost" data-farm-select-all="' + l.id + '">' + (selected === l.entries.length ? 'Clear selection' : 'Select all') + '</button>';
     if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button></div>';
     h += '<details class="farm-review"><summary>Troop preset &amp; bulk editor</summary><small>Saved for new targets. Applying replaces troop counts for targets checked in this list.</small>'+farmCountEditor(preset,'data-farm-default',l.id+':')+'<button class="btn small ghost" data-farm-apply="'+l.id+'">Apply preset to '+selected+' selected targets</button></details>';
     if (listTotal) h += '<div class="fl-total">💰 Stolen with this list so far: <b>' + listTotal.toLocaleString() + "</b></div>";
@@ -38240,7 +38246,6 @@ app.post("/api/admin/speeds", requireOwner, (req, res) => {
   PRODUCTION_SPEED = sp.production;
   BUILD_SPEED = sp.build;
   MOVE_SPEED = sp.move;
-  updateUpkeepRate();
   setSetting("speeds", JSON.stringify(sp));
   addNews("⏩ The game speed was changed. Production ×" + sp.production + ", building ×" + sp.build + ", travel ×" + sp.move + ".", now, "server");
   res.json({ ok: true });
