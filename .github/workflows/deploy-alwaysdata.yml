@@ -1,0 +1,107 @@
+name: Deploy MarsL to AlwaysData
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which server should receive this release?
+        required: true
+        type: choice
+        options:
+          - all
+          - opentest
+          - classic
+          - speed
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alwaysdata-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out release
+        uses: actions/checkout@v4
+
+      - name: Configure pinned SSH access
+        env:
+          AD_DEPLOY_SSH_KEY: ${{ secrets.AD_DEPLOY_SSH_KEY }}
+          AD_KNOWN_HOSTS: ${{ secrets.AD_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$AD_DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$AD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          test -s "$HOME/.ssh/id_ed25519"
+          test -s "$HOME/.ssh/known_hosts"
+
+      - name: Verify source file
+        run: |
+          test -s server.js
+          node --check server.js
+
+      - name: Deploy selected servers
+        env:
+          TARGET: ${{ inputs.target }}
+          AD_SSH_HOST: ssh-marsl.alwaysdata.net
+          AD_SFTP_USER_OPENTEST: ${{ secrets.AD_SFTP_USER_OPENTEST }}
+          AD_SFTP_USER_CLASSIC: ${{ secrets.AD_SFTP_USER_CLASSIC }}
+          AD_SFTP_USER_SPEED: ${{ secrets.AD_SFTP_USER_SPEED }}
+          AD_API_TOKEN: ${{ secrets.AD_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          : "${AD_API_TOKEN:?Missing AD_API_TOKEN}"
+          case "$TARGET" in
+            opentest|all) : "${AD_SFTP_USER_OPENTEST:?Missing OpenTest SFTP user}" ;;
+          esac
+          case "$TARGET" in
+            classic|all) : "${AD_SFTP_USER_CLASSIC:?Missing Classic SFTP user}" ;;
+          esac
+          case "$TARGET" in
+            speed|all) : "${AD_SFTP_USER_SPEED:?Missing Speed SFTP user}" ;;
+          esac
+
+          deploy_one() {
+            local label="$1" user="$2" site_id="$3"
+            echo "Deploying server.js to ${label}"
+            printf '%s\n' \
+              'put server.js .server.js.deploy-new' \
+              'rename .server.js.deploy-new server.js' \
+              'chmod 644 server.js' \
+              | sftp -q -b - \
+                  -i "$HOME/.ssh/id_ed25519" \
+                  -o BatchMode=yes \
+                  -o ConnectTimeout=20 \
+                  -o IdentitiesOnly=yes \
+                  -o StrictHostKeyChecking=yes \
+                  -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+                  "${user}@${AD_SSH_HOST}"
+
+            curl --fail --silent --show-error \
+              --connect-timeout 20 --max-time 60 \
+              --request POST \
+              --user "${AD_API_TOKEN} account=marsl:" \
+              "https://api.alwaysdata.com/v1/site/${site_id}/restart/"
+            echo "Restart requested for ${label}"
+          }
+
+          case "$TARGET" in
+            opentest|all) deploy_one "OpenTest" "$AD_SFTP_USER_OPENTEST" "1094171" ;;
+          esac
+          case "$TARGET" in
+            classic|all) deploy_one "Classic" "$AD_SFTP_USER_CLASSIC" "1098921" ;;
+          esac
+          case "$TARGET" in
+            speed|all) deploy_one "Speed" "$AD_SFTP_USER_SPEED" "1098812" ;;
+          esac
