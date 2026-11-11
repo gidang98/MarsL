@@ -8,11 +8,12 @@ on:
         required: true
         type: choice
         options:
+          - verify
           - all
           - opentest
           - classic
           - speed
-        default: all
+        default: verify
 
 permissions:
   contents: read
@@ -71,6 +72,22 @@ jobs:
           case "$TARGET" in
             speed|all) : "${AD_SFTP_USER_SPEED:?Missing Speed SFTP user}" ;;
           esac
+
+          if [[ "$TARGET" == verify ]]; then
+            for entry in "$AD_SFTP_USER_OPENTEST:1094171" "$AD_SFTP_USER_CLASSIC:1098921" "$AD_SFTP_USER_SPEED:1098812"; do
+              user="${entry%:*}"
+              site_id="${entry#*:}"
+              printf '%s\n' 'ls -l server.js' | sftp -q -b - \
+                -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o ConnectTimeout=20 \
+                -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+                -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "${user}@${AD_SSH_HOST}"
+              curl --fail --silent --show-error --max-time 30 --output /dev/null \
+                --user "${AD_API_TOKEN} account=marsl:" \
+                "https://api.alwaysdata.com/v1/site/${site_id}/"
+              echo "Verified SFTP and API read access for site ${site_id}"
+            done
+            exit 0
+          fi
 
           deploy_one() {
             local label="$1" user="$2" site_id="$3"
