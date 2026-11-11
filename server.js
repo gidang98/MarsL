@@ -532,7 +532,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.332";
+const GAME_VERSION = "1.0.333";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15620,6 +15620,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.333",date:"2026-11-11",title:"Restore game startup",groups:[["Game loading",["Fixed a browser script error that left the game on the loading screen."]]]},
   {v:"1.0.332",date:"2026-11-11",title:"Recover reliably when the game cannot load",groups:[["Game loading",["Startup retries temporary network and server errors automatically. If loading still fails, the screen identifies which step failed and offers a retry."]]]},
   {v:"1.0.330",date:"2026-11-11",title:"Hide translated suggestions",groups:[["Translations",["The default list skips translated versions of the same phrase. Search still includes them."]]]},
   {v:"1.0.329",date:"2026-11-11",title:"Remember skipped translations",groups:[["Translations",["Skipped phrases stay hidden in suggestions and remain available through search."]]]},
@@ -37976,7 +37977,7 @@ function showStartupError(err, retry) {
   var panel = document.createElement("div");
   panel.className = "panel auth";
   var message = document.createElement("p");
-  var reason = err && err.status ? "server error " + err.status : err && err.message ? String(err.message).replace(/[\r\n]+/g, " ").slice(0, 140) : "connection failed";
+  var reason = err && err.status ? "server error " + err.status : err && err.message ? String(err.message).replace(/[\\r\\n]+/g, " ").slice(0, 140) : "connection failed";
   message.textContent = "MarsL could not load " + startupStage + " (" + reason + "). Please retry.";
   var button = document.createElement("button");
   button.type = "button";
