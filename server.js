@@ -532,7 +532,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.335";
+const GAME_VERSION = "1.0.336";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15620,6 +15620,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.336",date:"2026-11-11",title:"Restore Send troops",groups:[["Map",["Send troops opens the troop picker after refreshing available troops. Colony startup retries temporary connection failures."]]]},
   {v:"1.0.335",date:"2026-11-11",title:"Send partial farm list batches",groups:[["Farm lists",["Farm lists send raids in list order and skip targets when their preset cannot be filled."]]]},
   {v:"1.0.334",date:"2026-11-11",title:"Restore OpenTest login",groups:[["Game loading",["A server configured as its own hub now shows its login instead of redirecting to itself."]]]},
   {v:"1.0.333",date:"2026-11-11",title:"Restore game startup",groups:[["Game loading",["Fixed a browser script error that left the game on the loading screen."]]]},
@@ -35976,7 +35977,7 @@ function openSend(x, y, mission, prefill) {
   sendCount = prefill ? Object.assign({}, prefill) : {};
   if (!prefill) jpSend = null;
   // fetch fresh troop numbers first
-  return (startup ? startupFetch("/api/colony", 3) : fetch("/api/colony")).then(function (r) {
+  return fetch("/api/colony").then(function (r) {
     if (!r.ok && r.status !== 401) throw new Error("Refresh failed");
     if (handle401(r)) return;
     return r.json().then(function (d) {
@@ -36043,7 +36044,7 @@ function loadColony(auto, startup) {
   var request = ++colonyRequest;
   var epoch = actionEpoch || 0;
   var sentAt = Date.now();
-  return fetch("/api/colony").then(function (r) {
+  return (startup ? startupFetch("/api/colony", 3) : fetch("/api/colony")).then(function (r) {
     if (request !== colonyRequest || epoch !== actionEpoch) return;
     if (!r.ok && r.status !== 401 && r.status !== 409) throw new Error("Refresh failed");
     if (handle401(r)) return;
