@@ -532,7 +532,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.333";
+const GAME_VERSION = "1.0.334";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15620,6 +15620,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.334",date:"2026-11-11",title:"Restore OpenTest login",groups:[["Game loading",["A server configured as its own hub now shows its login instead of redirecting to itself."]]]},
   {v:"1.0.333",date:"2026-11-11",title:"Restore game startup",groups:[["Game loading",["Fixed a browser script error that left the game on the loading screen."]]]},
   {v:"1.0.332",date:"2026-11-11",title:"Recover reliably when the game cannot load",groups:[["Game loading",["Startup retries temporary network and server errors automatically. If loading still fails, the screen identifies which step failed and offers a retry."]]]},
   {v:"1.0.330",date:"2026-11-11",title:"Hide translated suggestions",groups:[["Translations",["The default list skips translated versions of the same phrase. Search still includes them."]]]},
@@ -18389,7 +18390,13 @@ function wikiOnboarding() {
 //  HOP_SECRET   the same secret text on every server (needed for the others)
 //  HUB_URL      only on connected servers: the address of the main server (the main hub leaves it empty)
 // =====================================================================
-const HUB_URL = (process.env.HUB_URL || process.env.HUB_UR || "").trim().replace(/\/+$/, "");
+const configuredHubUrl = (process.env.HUB_URL || process.env.HUB_UR || "").trim().replace(/\/+$/, "");
+const ownServerUrl = process.env.PUBLIC_URL || SERVER_LIST.find((server) => server.id === THIS_SERVER)?.url || "";
+function configuredOrigin(value) {
+  try { return new URL(value).origin; } catch { return ""; }
+}
+const HUB_URL = configuredOrigin(configuredHubUrl) === configuredOrigin(ownServerUrl) && configuredOrigin(ownServerUrl)
+  ? "" : configuredHubUrl;
 const HOP_SECRET = process.env.HOP_SECRET || (HUB_URL ? "" : crypto.randomBytes(24).toString("hex")); // without it: only this server
 const HOP_SHARED = !!process.env.HOP_SECRET;
 const HOP_MINUTES = 10;
