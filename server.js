@@ -532,7 +532,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.336";
+const GAME_VERSION = "1.0.337";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15620,6 +15620,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.337",date:"2026-11-11",title:"Start all farm lists",groups:[["Farm lists",["Start all sends raids from every farm list and lets you stop the remaining queue."]]]},
   {v:"1.0.336",date:"2026-11-11",title:"Restore Send troops",groups:[["Map",["Send troops opens the troop picker after refreshing available troops. Colony startup retries temporary connection failures."]]]},
   {v:"1.0.335",date:"2026-11-11",title:"Send partial farm list batches",groups:[["Farm lists",["Farm lists send raids in list order and skip targets when their preset cannot be filled."]]]},
   {v:"1.0.334",date:"2026-11-11",title:"Restore OpenTest login",groups:[["Game loading",["A server configured as its own hub now shows its login instead of redirecting to itself."]]]},
@@ -28796,18 +28797,23 @@ function farmPlan(list, onlyReady) {
   });
   return {list:list.id,ready:!!onlyReady,entries:entries,demand:demand,skipped:skipped};
 }
-function farmSend(list, onlyReady, confirmed) {
-  if(farmSending) return;
-  if(!data) return;
-  var plan=farmPlan(list,onlyReady);
-  
-  farmReview=null;
-  var todo=plan.entries.map(function(e){return {id:e.id,x:e.x,y:e.y,troops:Object.assign({},e.troops)};});
+function farmSend(list, onlyReady) {
+  farmSendLists([list], onlyReady);
+}
+function farmSendLists(lists, onlyReady) {
+  if (farmSending || !data) return;
+  var todo = [], skipped = 0;
+  lists.forEach(function(list) {
+    var plan = farmPlan(list, onlyReady);
+    skipped += plan.skipped;
+    plan.entries.forEach(function(e, index) {
+      todo.push({list:list, first:index === 0, id:e.id, x:e.x, y:e.y, troops:Object.assign({}, e.troops)});
+    });
+  });
   if (!todo.length) { toast("No active targets with troops configured"); return; }
-  list.lastStarted = serverNow();
-  farmSave();
+  farmReview = null;
   farmSending=true;farmCancelled=false;
-  var run=farmRun={sent:0,skipped:plan.skipped,total:todo.length,done:0};
+  var run=farmRun={sent:0,skipped:skipped,total:todo.length,done:0};
   function redraw(){if(sheet&&sheet.kind==='farm')renderSheet();}
   function next(){
     if(farmCancelled || run.done>=todo.length){
@@ -28815,7 +28821,9 @@ function farmSend(list, onlyReady, confirmed) {
       toast(run.sent+' raids sent · '+run.skipped+' skipped'+(farmCancelled?' · remaining cancelled':''),run.sent>0);
       if(run.sent)sfx('march');loadColony(false);loadFarmStats();return;
     }
-    var e=todo[run.done++];redraw();
+    var e=todo[run.done++], list=e.list;
+    if (e.first) { list.lastStarted = serverNow(); farmSave(); }
+    redraw();
     farmPost({x:e.x,y:e.y,mission:'raid',troops:e.troops,from:list.colonyId,farm:true}).then(function(r){
       var original=farmEntry(list,e.id);
       if(original)original.last=r.ok?'✅ sent':'⚠️ '+r.error;
@@ -28882,16 +28890,20 @@ function farmSummary(list) {
   var started = list.lastStarted ? shortTime(Math.max(0, serverNow() - list.lastStarted)) + " ago" : "never";
   return '<small class="fl-status">' + list.entries.length + ' targets · ⚔️ ' + raided + ' being raided</small><small class="fl-last-start">Last started: ' + started + '</small>';
 }
-function farmSheet(d) {
+function farmOwnedLists(d) {
   var colonies = d.colonies.list;
-  var lists = farmLoad().lists.filter(function(l) {
+  return farmLoad().lists.filter(function(l) {
     return colonies.some(function(c) { return c.id === l.colonyId; });
   }).slice().sort(function(a, b) {
     return colonies.findIndex(function(c) { return c.id === a.colonyId; }) - colonies.findIndex(function(c) { return c.id === b.colonyId; });
   });
+ }
+function farmSheet(d) {
+  var colonies = d.colonies.list;
+  var lists = farmOwnedLists(d);
   var groupColony = null;
   var h = '<div class="sheet-head t-war"><span class="hi">📋</span><div><h3>Farm lists</h3><small>All colonies</small></div></div>';
-  h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with 📋 on the map</small><button class="btn small" data-farm-new="1">＋ New list</button></div>';
+  h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with 📋 on the map</small><button class="btn small" data-farm-new="1">＋ New list</button><button class="btn small" data-farm-start-all="1"' + (farmSending || !lists.some(function(l){return farmPlan(l,false).entries.length;}) ? ' disabled' : '') + '>Start all</button></div>';
   h += '<button class="fl-quiet' + (farmStats.quiet ? " on" : "") + '" data-farm-quiet="1"><span>' + (farmStats.quiet ? "🔕" : "🔔") + '</span><span><b>Only report raids with losses</b><small>' + (farmStats.quiet ? "On: farm raids where nobody died make no report" : "Off: every farm raid makes a report") + '</small></span><i class="fl-switch"></i></button>';
   h += farmReviewHtml(d);
   if (!lists.length) return h + '<p class="empty">No farm list yet. Tap a camp or colony on the map and press 📋.</p>';
@@ -36529,7 +36541,7 @@ document.addEventListener("click", function (e) {
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
-    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-sort],[data-farm-move]," +
+    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
   if (!el) return;
@@ -37377,6 +37389,8 @@ document.addEventListener("click", function (e) {
       toast(qon ? "🔕 Farm raids without losses won’t make reports" : "🔔 Every farm raid makes a report again", true);
       if (sheet && sheet.kind === "farm") renderSheet();
     });
+  } else if (has("data-farm-start-all")) {
+    if (data) farmSendLists(farmOwnedLists(data), false);
   } else if (has("data-farm-send-ready")) {
     var fsr = farmList(attr("data-farm-send-ready"));
     if (fsr) farmSend(fsr, true);
