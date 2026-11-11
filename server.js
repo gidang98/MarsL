@@ -532,7 +532,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.334";
+const GAME_VERSION = "1.0.335";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15620,6 +15620,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.335",date:"2026-11-11",title:"Send partial farm list batches",groups:[["Farm lists",["Farm lists send raids in list order and skip targets when their preset cannot be filled."]]]},
   {v:"1.0.334",date:"2026-11-11",title:"Restore OpenTest login",groups:[["Game loading",["A server configured as its own hub now shows its login instead of redirecting to itself."]]]},
   {v:"1.0.333",date:"2026-11-11",title:"Restore game startup",groups:[["Game loading",["Fixed a browser script error that left the game on the loading screen."]]]},
   {v:"1.0.332",date:"2026-11-11",title:"Recover reliably when the game cannot load",groups:[["Game loading",["Startup retries temporary network and server errors automatically. If loading still fails, the screen identifies which step failed and offers a retry."]]]},
@@ -28799,8 +28800,6 @@ function farmSend(list, onlyReady, confirmed) {
   if(!data) return;
   var plan=farmPlan(list,onlyReady);
   
-  var insufficient=list.colonyId===data.colonyId && Object.keys(plan.demand).some(function(k){var u=data.units.find(function(u){return u.key===k;});return !u||plan.demand[k]>u.home;});
-  if(insufficient){toast('Not enough troops at home for this batch');return;}
   farmReview=null;
   var todo=plan.entries.map(function(e){return {id:e.id,x:e.x,y:e.y,troops:Object.assign({},e.troops)};});
   if (!todo.length) { toast("No active targets with troops configured"); return; }
@@ -28834,7 +28833,7 @@ function farmReviewHtml(d){
   var P=farmPlan(l,farmReview.ready), enough=true;
   var demand=d.units.filter(function(u){return P.demand[u.key];}).map(function(u){if(P.demand[u.key]>u.home)enough=false;return u.icon+' '+P.demand[u.key]+'/'+u.home+' home';}).join(' · ');
   Object.keys(P.demand).forEach(function(k){if(!d.units.some(function(u){return u.key===k;}))enough=false;});
-  return '<div class="farm-review"><b>Review '+P.entries.length+' raids · '+P.skipped+' skipped</b><small>'+demand+'</small><small>Readiness is an estimate, not a safety guarantee. Colony raids end beginner protection.</small>'+(!enough?'<small class="neg">Not enough troops at home. Reduce your selection or troop presets.</small>':'')+'<button class="btn small" data-farm-confirm="1"'+(!enough||!P.entries.length?' disabled':'')+'>Send raids</button> <button class="btn small ghost" data-farm-dismiss="1">Cancel</button></div>';
+  return '<div class="farm-review"><b>Review '+P.entries.length+' raids · '+P.skipped+' skipped</b><small>'+demand+'</small><small>Readiness is an estimate, not a safety guarantee. Colony raids end beginner protection.</small>'+(!enough?'<small class="neg">Targets that need more troops than are available will be skipped.</small>':'')+'<button class="btn small" data-farm-confirm="1"'+(!P.entries.length?' disabled':'')+'>Send raids</button> <button class="btn small ghost" data-farm-dismiss="1">Cancel</button></div>';
 }
 
 // What the farm raids brought home (from the server): per target total + last raid
