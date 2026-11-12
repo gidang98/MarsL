@@ -4,465 +4,98 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MarsL Admin Dashboard</title>
+<link href="/fonts.css" rel="stylesheet">
 <style>
-  :root {
-    --bg: #1a1210;
-    --bg-card: #2d2220;
-    --bg-hover: #3d2e26;
-    --border: #5a443a;
-    --text: #e8d5c4;
-    --text-dim: #9a8575;
-    --accent: #f2784b;
-    --accent-hover: #e06a3f;
-    --green: #3fd6a2;
-    --red: #e0412f;
-    --gold: #f2b53a;
-    --blue: #5c79c9;
-    --radius: 10px;
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-  }
-
-  /* Sidebar */
-  .sidebar {
-    width: 220px;
-    background: var(--bg-card);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    padding: 20px 0;
-    position: fixed;
-    height: 100vh;
-    z-index: 10;
-  }
-  .sidebar .logo {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--accent);
-    padding: 0 20px 20px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 12px;
-  }
-  .sidebar nav a {
-    display: block;
-    padding: 10px 20px;
-    color: var(--text-dim);
-    text-decoration: none;
-    font-size: 14px;
-    border-left: 3px solid transparent;
-    transition: all 0.2s;
-  }
-  .sidebar nav a:hover, .sidebar nav a.active {
-    background: rgba(242,120,75,0.08);
-    color: var(--text);
-    border-left-color: var(--accent);
-  }
-  .sidebar .version {
-    margin-top: auto;
-    padding: 16px 20px;
-    font-size: 11px;
-    color: var(--text-dim);
-    border-top: 1px solid var(--border);
-  }
-
-  /* Main content */
-  .main {
-    flex: 1;
-    margin-left: 220px;
-    padding: 24px 28px;
-    max-width: calc(100vw - 220px);
-  }
-  .page-title {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-  .page-subtitle {
-    font-size: 13px;
-    color: var(--text-dim);
-    margin-bottom: 20px;
-  }
-
-  /* Cards */
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 14px;
-    margin-bottom: 24px;
-  }
-  .card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-  }
-  .card .label {
-    font-size: 12px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-  }
-  .card .value {
-    font-size: 26px;
-    font-weight: 700;
-  }
-  .card .value.green { color: var(--green); }
-  .card .value.red { color: var(--red); }
-  .card .value.gold { color: var(--gold); }
-  .card .value.blue { color: var(--blue); }
-  .card .trend {
-    font-size: 11px;
-    color: var(--text-dim);
-    margin-top: 4px;
-  }
-
-  /* Panels */
-  .panel {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin-bottom: 20px;
-    overflow: hidden;
-  }
-  .panel-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .panel-header h3 {
-    font-size: 15px;
-    font-weight: 600;
-  }
-  .panel-body {
-    padding: 14px 18px;
-  }
-
-  /* Inputs */
-  input, select, textarea, button {
-    background: rgba(0,0,0,0.25);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-family: inherit;
-  }
-  input:focus, select:focus, textarea:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  button {
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-  button:hover { background: var(--bg-hover); }
-  button.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-  button.primary:hover { background: var(--accent-hover); }
-  button.danger {
-    background: var(--red);
-    border-color: var(--red);
-    color: #fff;
-  }
-  button.small { padding: 5px 10px; font-size: 12px; }
-
-  /* Tables */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-  th {
-    text-align: left;
-    padding: 10px 12px;
-    color: var(--text-dim);
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(0,0,0,0.15);
-  }
-  td {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-  }
-  tr:hover td { background: rgba(255,255,255,0.02); }
-  .badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 700;
-  }
-  .badge.online { background: rgba(63,214,162,0.15); color: var(--green); }
-  .badge.offline { background: rgba(154,133,117,0.15); color: var(--text-dim); }
-  .badge.banned { background: rgba(224,65,47,0.15); color: var(--red); }
-
-  /* Pagination */
-  .pagination {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 12px;
-  }
-  .pagination button {
-    min-width: 32px;
-    text-align: center;
-  }
-  .pagination button.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-
-  /* Tabs */
-  .tabs {
-    display: flex;
-    gap: 4px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 16px;
-  }
-  .tab {
-    padding: 10px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-dim);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-  }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-  /* Modal */
-  .modal-overlay {
-    position: fixed;
-    top:0; left:0; right:0; bottom:0;
-    background: rgba(0,0,0,0.7);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    padding: 20px;
-  }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    max-width: 700px;
-    width: 100%;
-    max-height: 85vh;
-    overflow-y: auto;
-  }
-  .modal-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .modal-header h2 { font-size: 18px; }
-  .modal-close {
-    background: none;
-    border: none;
-    font-size: 20px;
-    color: var(--text-dim);
-    cursor: pointer;
-  }
-  .modal-body { padding: 20px; }
-  .modal-footer {
-    padding: 14px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-  }
-
-  /* Logs */
-  .log-entry {
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 12px;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-    display: flex;
-    gap: 12px;
-  }
-  .log-entry .ts { color: var(--text-dim); white-space: nowrap; }
-  .log-entry .lvl { font-weight: 700; width: 44px; }
-  .log-entry .lvl.info { color: var(--blue); }
-  .log-entry .lvl.warn { color: var(--gold); }
-  .log-entry .lvl.error { color: var(--red); }
-
-  /* Sections hidden by default */
-  .section { display: none; }
-  .section.active { display: block; }
-
-  /* Grid for stats */
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
-  }
-  .stat-item {
-    padding: 10px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 6px;
-  }
-  .stat-item .stat-label { font-size: 11px; color: var(--text-dim); }
-  .stat-item .stat-value { font-size: 18px; font-weight: 700; margin-top: 2px; }
-
-  @media (max-width: 768px) {
-    .sidebar { width: 60px; }
-    .sidebar .logo { font-size: 14px; padding: 0 10px 14px; text-align: center; }
-    .sidebar nav a { padding: 10px; font-size: 11px; text-align: center; }
-    .main { margin-left: 60px; max-width: calc(100vw - 60px); padding: 14px; }
-    .cards { grid-template-columns: repeat(2, 1fr); }
-  }
+:root { --ink: #2a1630; --paper: #fff6ea; --accent: #ffd23f; --red: #ff5a5f; --green: #3ccf6e; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 16px; font-family: "Barlow", sans-serif; color: var(--ink);
+  background: linear-gradient(#2a1630, #5b2333 60%, #a8452a); min-height: 100vh;
+}
+.wrap { max-width: 1200px; margin: 0 auto; }
+h1 { font-family: "Chakra Petch", sans-serif; font-weight: 400; color: #fff; margin: 4px 0 14px; letter-spacing: 1px; }
+h1 small { font-family: "Barlow", sans-serif; font-size: 14px; opacity: 0.7; margin-left: 8px; }
+h2 { font-family: "Chakra Petch", sans-serif; font-weight: 400; margin: 0 0 10px; font-size: 22px; }
+h3 { font-family: "Chakra Petch", sans-serif; font-weight: 400; margin: 14px 0 8px; font-size: 17px; }
+.panel { background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); padding: 14px; margin-bottom: 16px; }
+.grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.stat { background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; }
+.stat b { display: block; font-size: 22px; font-family: "Chakra Petch", sans-serif; font-weight: 400; }
+.stat small { font-weight: 600; opacity: 0.7; }
+.btn {
+  font-family: inherit; font-weight: 700; font-size: 14px; padding: 7px 12px; cursor: pointer;
+  background: var(--accent); color: var(--ink); border: 2px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink);
+}
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.btn.ghost { background: #fff; }
+.btn.red { background: var(--red); color: #fff; }
+.btn.small { font-size: 12px; padding: 3px 8px; box-shadow: 0 2px 0 var(--ink); }
+input, textarea, select {
+  font-family: inherit; font-size: 15px; padding: 7px 9px; border: 2px solid var(--ink); border-radius: 10px; width: 100%;
+  background: #fff; color: var(--ink);
+}
+label { font-weight: 700; font-size: 13px; display: block; margin: 8px 0 3px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.hint { font-size: 12px; opacity: 0.75; margin: 6px 0 0; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-size: 12px; text-transform: uppercase; opacity: 0.6; padding: 4px; }
+td { padding: 6px 4px; border-top: 1px dashed rgba(42,22,48,0.25); vertical-align: middle; }
+td .btn { margin: 2px 2px 2px 0; }
+.tag { font-size: 11px; font-weight: 700; padding: 0 6px; border: 1.5px solid var(--ink); border-radius: 8px; margin-left: 4px; display: inline-block; }
+.tag.on { background: #c9f7b4; }
+.tag.ban { background: var(--red); color: #fff; }
+.tag.off { background: #e8e0d8; }
+.tablewrap { overflow-x: auto; }
+#toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 16px; font-weight: 700;
+  background: var(--ink); color: #fff; border-radius: 14px; display: none; max-width: 90%; z-index: 9;
+}
+.center { text-align: center; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; position: sticky; top: 0; z-index: 5; padding: 6px 0; background: rgba(42,22,48,0.92); border-radius: 14px; }
+.tab { font-family: inherit; font-weight: 700; font-size: 14px; padding: 7px 12px; cursor: pointer; background: #fff6ea; color: var(--ink); border: 2px solid var(--ink); border-radius: 12px; opacity: 0.75; }
+.tab.on { background: var(--accent); opacity: 1; box-shadow: 0 3px 0 var(--ink); }
+.search { max-width: 260px; margin-bottom: 8px; }
+.switch { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-weight: 700; }
+.switch input { width: auto; }
+.pagination { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.pagination button { min-width: 32px; text-align: center; }
+.danger { border-color: var(--red); }
+.danger h2 { color: #b3262b; }
+.modal-overlay {
+  position: fixed; top:0; left:0; right:0; bottom:0;
+  background: rgba(42,22,48,0.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--paper); border: 3px solid var(--ink); border-radius: 18px;
+  max-width: 700px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 0 var(--ink);
+}
+.modal-header { padding: 14px 18px; border-bottom: 2px dashed rgba(42,22,48,0.25); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h2 { font-size: 18px; margin: 0; }
+.modal-close { background: none; border: none; font-size: 22px; color: var(--ink); cursor: pointer; font-weight: 700; }
+.modal-body { padding: 16px 18px; }
+.modal-footer { padding: 12px 18px; border-top: 2px dashed rgba(42,22,48,0.25); display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 600px) { .tab { padding: 6px 9px; font-size: 13px; } }
 </style>
 </head>
 <body>
+<div class="wrap">
+  <h1>🛠️ MarsL Admin <small>v2 Dashboard</small> <small style="opacity:.5;font-size:11px">Server Management & Moderation</small></h1>
 
-<div class="sidebar">
-  <div class="logo">MarsL Admin</div>
-  <nav>
-    <a href="#overview" class="nav-link active" data-section="overview">Overview</a>
-    <a href="#players" class="nav-link" data-section="players">Players</a>
-    <a href="#logs" class="nav-link" data-section="logs">Logs</a>
-    <a href="#database" class="nav-link" data-section="database">Database</a>
-    <a href="#tools" class="nav-link" data-section="tools">Tools</a>
-  </nav>
-  <div class="version">v1.0 &middot; Admin Dashboard</div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-tab="overview">📊 Overview</button>
+    <button class="tab" data-tab="players">👤 Players</button>
+    <button class="tab" data-tab="logs">📜 Logs</button>
+    <button class="tab" data-tab="database">🗄️ Database</button>
+    <button class="tab" data-tab="tools">🔧 Tools</button>
+  </div>
+
+  <div id="app"></div>
 </div>
 
-<div class="main">
-
-  <!-- OVERVIEW -->
-  <div id="overview" class="section active">
-    <div class="page-title">Overview</div>
-    <div class="page-subtitle" id="overviewSubtitle">Loading...</div>
-
-    <div class="cards" id="overviewCards"></div>
-
-    <div class="panel">
-      <div class="panel-header"><h3>Server Status</h3></div>
-      <div class="panel-body">
-        <div class="stat-grid" id="serverStatus"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PLAYERS -->
-  <div id="players" class="section">
-    <div class="page-title">Players</div>
-    <div class="page-subtitle">Manage and inspect player accounts</div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <input type="text" id="playerSearch" placeholder="Search players..." style="min-width:200px;">
-        <button class="primary small" onclick="loadPlayers()">Search</button>
-      </div>
-      <div class="panel-body">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Username</th>
-              <th>Colonies</th>
-              <th>Reports</th>
-              <th>Last Seen</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="playersTable"></tbody>
-        </table>
-        <div class="pagination" id="playersPagination"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- LOGS -->
-  <div id="logs" class="section">
-    <div class="page-title">Server Logs</div>
-    <div class="page-subtitle">Real-time structured log output</div>
-
-    <div class="panel">
-      <div class="panel-header">
-        <h3>Today's Logs</h3>
-        <button class="small" onclick="loadLogs()">Refresh</button>
-      </div>
-      <div class="panel-body" id="logsContainer"></div>
-    </div>
-  </div>
-
-  <!-- DATABASE -->
-  <div id="database" class="section">
-    <div class="page-title">Database</div>
-    <div class="page-subtitle">Table statistics and migration status</div>
-
-    <div class="panel">
-      <div class="panel-header"><h3>Table Sizes</h3></div>
-      <div class="panel-body">
-        <table>
-          <thead><tr><th>Table</th><th>Rows</th></tr></thead>
-          <tbody id="dbTable"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header"><h3>Migrations</h3></div>
-      <div class="panel-body" id="migrationsContainer"></div>
-    </div>
-  </div>
-
-  <!-- TOOLS -->
-  <div id="tools" class="section">
-    <div class="page-title">Tools</div>
-    <div class="page-subtitle">Server management utilities</div>
-
-    <div class="panel">
-      <div class="panel-header"><h3>Broadcast Message</h3></div>
-      <div class="panel-body">
-        <textarea id="broadcastText" rows="3" style="width:100%; resize:vertical;" placeholder="Enter message to broadcast to all online players..."></textarea>
-        <div style="margin-top:10px;">
-          <button class="primary" onclick="sendBroadcast()">Send Broadcast</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header"><h3>Maintenance Mode</h3></div>
-      <div class="panel-body">
-        <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-          <input type="checkbox" id="maintenanceToggle" onchange="toggleMaintenance(this.checked)">
-          <span>Enable maintenance mode (blocks new logins)</span>
-        </label>
-        <p style="margin-top:8px; font-size:12px; color:var(--text-dim);">
-          When enabled, new players cannot register and existing players see a maintenance notice.
-        </p>
-      </div>
-    </div>
-  </div>
-
-</div>
+<div id="toast"></div>
 
 <!-- Player Detail Modal -->
 <div class="modal-overlay" id="playerModal">
@@ -473,229 +106,326 @@
     </div>
     <div class="modal-body" id="modalBody"></div>
     <div class="modal-footer" id="modalFooter">
-      <button onclick="closeModal()">Close</button>
+      <button class="btn ghost" onclick="closeModal()">Close</button>
     </div>
   </div>
 </div>
 
 <script>
-const ADMIN_TOKEN = localStorage.getItem('adminToken') || prompt('Enter admin token:');
-if (ADMIN_TOKEN) localStorage.setItem('adminToken', ADMIN_TOKEN);
+var ADMIN_TOKEN = localStorage.getItem('adminToken') || '';
+var currentTab = 'overview';
+var currentPage = 1;
 
-const api = async (path, opts = {}) => {
-  const res = await fetch(path, {
-    ...opts,
-    headers: {
-      'x-admin-token': ADMIN_TOKEN,
-      'Content-Type': 'application/json',
-      ...opts.headers,
-    },
+function esc(t) {
+  return String(t).replace(/[&<>"']/g, function(c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
   });
-  if (res.status === 401) {
-    localStorage.removeItem('adminToken');
-    alert('Invalid admin token');
-    location.reload();
-    return;
-  }
-  return res.json();
-};
+}
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(function() { t.style.display = 'none'; }, 3500);
+}
+function ago(ts) {
+  if (!ts) return 'never';
+  var m = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
+  if (m < 2) return 'just now';
+  if (m < 60) return m + ' min ago';
+  if (m < 1440) return Math.round(m / 60) + ' h ago';
+  return Math.round(m / 1440) + ' days ago';
+}
 
-// Navigation
- document.querySelectorAll('.nav-link').forEach(a => {
-  a.addEventListener('click', e => {
-    e.preventDefault();
-    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-    a.classList.add('active');
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById(a.dataset.section).classList.add('active');
-    if (a.dataset.section === 'players') loadPlayers();
-    if (a.dataset.section === 'logs') loadLogs();
-    if (a.dataset.section === 'database') loadDbStats();
-    if (a.dataset.section === 'tools') loadMaintenanceStatus();
+function api(path, opts) {
+  if (!ADMIN_TOKEN) {
+    ADMIN_TOKEN = prompt('Enter admin token:');
+    if (ADMIN_TOKEN) localStorage.setItem('adminToken', ADMIN_TOKEN);
+  }
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  opts.headers['x-admin-token'] = ADMIN_TOKEN;
+  if (opts.body && typeof opts.body === 'object') {
+    opts.body = JSON.stringify(opts.body);
+    opts.headers['Content-Type'] = 'application/json';
+  }
+  return fetch(path, opts).then(function(r) {
+    return r.json().then(function(d) {
+      if (!r.ok) { toast('⚠️ ' + (d.error || 'Something went wrong')); throw new Error(d.error); }
+      return d;
+    });
+  }).catch(function(e) {
+    if (e.message && e.message !== 'Something went wrong') toast('⚠️ ' + e.message);
+    throw e;
+  });
+}
+
+function setApp(h) { document.getElementById('app').innerHTML = h; }
+
+// Tabs
+document.querySelectorAll('.tab').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('on'); });
+    btn.classList.add('on');
+    currentTab = btn.dataset.tab;
+    try { localStorage.setItem('adminTab', currentTab); } catch(e){}
+    renderTab();
   });
 });
+try { var saved = localStorage.getItem('adminTab'); if (saved) { currentTab = saved; document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('on', t.dataset.tab===saved); }); } } catch(e){}
 
-// Overview
-async function loadOverview() {
-  const data = await api('/api/admin/overview');
-  if (!data) return;
-
-  const uptime = `${Math.floor(data.uptime / 3600)}h ${Math.floor((data.uptime % 3600) / 60)}m`;
-  const dbSize = data.dbSize ? (data.dbSize / 1024 / 1024).toFixed(1) + ' MB' : 'N/A';
-
-  document.getElementById('overviewSubtitle').textContent = `Uptime: ${uptime} | DB: ${dbSize}`;
-
-  document.getElementById('overviewCards').innerHTML = `
-    <div class="card"><div class="label">Players</div><div class="value blue">${data.counts.users}</div></div>
-    <div class="card"><div class="label">Colonies</div><div class="value gold">${data.counts.colonies}</div></div>
-    <div class="card"><div class="label">Active Moves</div><div class="value">${data.counts.activeMovements}</div></div>
-    <div class="card"><div class="label">Reports</div><div class="value">${data.counts.reports}</div></div>
-    <div class="card"><div class="label">Alliances</div><div class="value green">${data.counts.alliances}</div></div>
-    <div class="card"><div class="label">WS Connections</div><div class="value">${data.websocket.totalConnections}</div></div>
-  `;
-
-  document.getElementById('serverStatus').innerHTML = `
-    <div class="stat-item"><div class="stat-label">Memory RSS</div><div class="stat-value">${data.memory.rss} MB</div></div>
-    <div class="stat-item"><div class="stat-label">Heap Used</div><div class="stat-value">${data.memory.heapUsed} MB</div></div>
-    <div class="stat-item"><div class="stat-label">Heap Total</div><div class="stat-value">${data.memory.heapTotal} MB</div></div>
-    <div class="stat-item"><div class="stat-label">WS Auth Users</div><div class="stat-value">${data.websocket.authenticatedUsers}</div></div>
-    <div class="stat-item"><div class="stat-label">Cache Backend</div><div class="stat-value">${data.cache.backend}</div></div>
-    <div class="stat-item"><div class="stat-label">Cache Entries</div><div class="stat-value">${data.cache.memoryEntries || 0}</div></div>
-  `;
+function renderTab() {
+  if (currentTab === 'overview') renderOverview();
+  else if (currentTab === 'players') renderPlayers();
+  else if (currentTab === 'logs') renderLogs();
+  else if (currentTab === 'database') renderDatabase();
+  else if (currentTab === 'tools') renderTools();
 }
 
-// Players
-let currentPage = 1;
-let playerSearch = '';
+// ===== OVERVIEW =====
+function renderOverview() {
+  setApp('<div class="panel">Loading overview...</div>');
+  api('/api/admin/overview').then(function(d) {
+    var uptime = Math.floor(d.uptime / 3600) + 'h ' + Math.floor((d.uptime % 3600) / 60) + 'm';
+    var dbSize = d.dbSize ? (d.dbSize / 1024 / 1024).toFixed(1) + ' MB' : 'N/A';
 
-async function loadPlayers(page = 1) {
+    var h = '<div class="panel"><h2>📊 Server Overview</h2>';
+    h += '<p class="hint">Uptime: <b>' + uptime + '</b> &middot; Database: <b>' + dbSize + '</b></p>';
+    h += '<div class="stats">';
+    h += '<div class="stat"><small>👤 Players</small><b>' + d.counts.users + '</b></div>';
+    h += '<div class="stat"><small>🏘️ Colonies</small><b>' + d.counts.colonies + '</b></div>';
+    h += '<div class="stat"><small>⚔️ Active Moves</small><b>' + d.counts.activeMovements + '</b></div>';
+    h += '<div class="stat"><small>📨 Reports</small><b>' + d.counts.reports + '</b></div>';
+    h += '<div class="stat"><small>🤝 Alliances</small><b>' + d.counts.alliances + '</b></div>';
+    h += '<div class="stat"><small>🔌 WS Conn</small><b>' + d.websocket.totalConnections + '</b></div>';
+    h += '</div></div>';
+
+    h += '<div class="grid">';
+    h += '<div class="panel"><h2>🧠 Memory</h2><div class="stats">';
+    h += '<div class="stat"><small>RSS</small><b>' + d.memory.rss + ' MB</b></div>';
+    h += '<div class="stat"><small>Heap Used</small><b>' + d.memory.heapUsed + ' MB</b></div>';
+    h += '<div class="stat"><small>Heap Total</small><b>' + d.memory.heapTotal + ' MB</b></div>';
+    h += '</div></div>';
+
+    h += '<div class="panel"><h2>📡 WebSocket</h2><div class="stats">';
+    h += '<div class="stat"><small>Total Conn</small><b>' + d.websocket.totalConnections + '</b></div>';
+    h += '<div class="stat"><small>Auth Users</small><b>' + d.websocket.authenticatedUsers + '</b></div>';
+    h += '</div></div>';
+    h += '</div>';
+
+    h += '<div class="panel"><h2>💾 Cache</h2>';
+    h += '<p><b>Backend:</b> ' + esc(d.cache.backend) + ' &middot; <b>Entries:</b> ' + (d.cache.memoryEntries || 0) + '</p>';
+    h += '</div>';
+
+    setApp(h);
+  });
+}
+
+// ===== PLAYERS =====
+function renderPlayers(page) {
+  page = page || 1;
   currentPage = page;
-  playerSearch = document.getElementById('playerSearch').value;
-  const data = await api(`/api/admin/players?page=${page}&limit=50&search=${encodeURIComponent(playerSearch)}`);
-  if (!data) return;
+  var search = document.getElementById && document.getElementById('psearch') ? document.getElementById('psearch').value : '';
+  setApp('<div class="panel">Loading players...</div>');
 
-  const tbody = document.getElementById('playersTable');
-  tbody.innerHTML = data.players.map(p => {
-    const lastSeen = p.lastSeen ? new Date(p.lastSeen).toLocaleString() : 'Never';
-    const status = p.banned ? '<span class="badge banned">Banned</span>' :
-                   (Date.now() - p.lastSeen < 300000 ? '<span class="badge online">Online</span>' : '<span class="badge offline">Offline</span>');
-    return `<tr>
-      <td>${p.id}</td>
-      <td>${p.username}</td>
-      <td>${p.colonies}</td>
-      <td>${p.reports}</td>
-      <td>${lastSeen}</td>
-      <td>${status}</td>
-      <td>
-        <button class="small" onclick="viewPlayer(${p.id})">View</button>
-        ${p.banned
-          ? `<button class="small" onclick="unbanPlayer(${p.id})">Unban</button>`
-          : `<button class="small danger" onclick="banPlayer(${p.id})">Ban</button>`}
-      </td>
-    </tr>`;
-  }).join('');
+  var url = '/api/admin/players?page=' + page + '&limit=50';
+  if (search) url += '&search=' + encodeURIComponent(search);
 
-  // Pagination
-  const pg = document.getElementById('playersPagination');
-  let html = '';
-  if (data.page > 1) html += `<button onclick="loadPlayers(${data.page - 1})">&larr;</button>`;
-  for (let i = Math.max(1, data.page - 2); i <= Math.min(data.pages, data.page + 2); i++) {
-    html += `<button class="${i === data.page ? 'active' : ''}" onclick="loadPlayers(${i})">${i}</button>`;
-  }
-  if (data.page < data.pages) html += `<button onclick="loadPlayers(${data.page + 1})">&rarr;</button>`;
-  pg.innerHTML = html;
+  api(url).then(function(d) {
+    var h = '<div class="panel"><h2>👤 Players</h2>';
+    h += '<div class="row"><input type="text" id="psearch" class="search" placeholder="Search players..." value="' + esc(search) + '"><button class="btn" onclick="renderPlayers(1)">🔍 Search</button></div>';
+    h += '<div class="tablewrap"><table><tr><th>ID</th><th>Username</th><th>Colonies</th><th>Reports</th><th>Last Seen</th><th>Status</th><th>Actions</th></tr>';
+    d.players.forEach(function(p) {
+      var status = p.banned ? '<span class="tag ban">Banned</span>' :
+        (p.lastSeen && (Date.now() - new Date(p.lastSeen).getTime() < 300000) ? '<span class="tag on">Online</span>' : '<span class="tag off">Offline</span>');
+      h += '<tr><td>' + p.id + '</td><td><b>' + esc(p.username) + '</b></td><td>' + p.colonies + '</td><td>' + p.reports + '</td>';
+      h += '<td>' + ago(p.lastSeen) + '</td><td>' + status + '</td>';
+      h += '<td><button class="btn small ghost" onclick="viewPlayer(' + p.id + ')">View</button>';
+      if (p.banned) {
+        h += ' <button class="btn small ghost" onclick="unbanPlayer(' + p.id + ')">Unban</button>';
+      } else {
+        h += ' <button class="btn small red" onclick="banPlayer(' + p.id + ')">Ban</button>';
+      }
+      h += '</td></tr>';
+    });
+    h += '</table></div>';
+
+    // Pagination
+    h += '<div class="pagination">';
+    if (d.page > 1) h += '<button class="btn small ghost" onclick="renderPlayers(' + (d.page - 1) + ')">&larr;</button>';
+    for (var i = Math.max(1, d.page - 2); i <= Math.min(d.pages, d.page + 2); i++) {
+      h += '<button class="btn small ' + (i === d.page ? '' : 'ghost') + '" onclick="renderPlayers(' + i + ')">' + i + '</button>';
+    }
+    if (d.page < d.pages) h += '<button class="btn small ghost" onclick="renderPlayers(' + (d.page + 1) + ')">&rarr;</button>';
+    h += '</div>';
+    h += '</div>';
+    setApp(h);
+    // Restore focus
+    var inp = document.getElementById('psearch');
+    if (inp) { inp.value = search; inp.focus(); }
+  });
 }
 
-async function viewPlayer(id) {
-  const p = await api(`/api/admin/players/${id}`);
-  if (!p) return;
-  document.getElementById('modalTitle').textContent = p.username;
+function viewPlayer(id) {
+  api('/api/admin/players/' + id).then(function(p) {
+    document.getElementById('modalTitle').textContent = esc(p.username);
+    var h = '<p><b>ID:</b> ' + p.id + ' &middot; <b>Created:</b> ' + new Date(p.created_at).toLocaleString() + ' &middot; <b>Last Seen:</b> ' + new Date(p.last_seen).toLocaleString() + '</p>';
 
-  const colonies = p.colonies.map(c => `<li>${c.name} (${c.x},${c.y}) — ${c.tribe}</li>`).join('') || '<li>None</li>';
-  const stats = p.stats ? `
-    <div class="stat-grid" style="margin:10px 0;">
-      <div class="stat-item"><div class="stat-label">Atk Kills</div><div class="stat-value">${p.stats.atk_kills || 0}</div></div>
-      <div class="stat-item"><div class="stat-label">Def Kills</div><div class="stat-value">${p.stats.def_kills || 0}</div></div>
-      <div class="stat-item"><div class="stat-label">NPC Kills</div><div class="stat-value">${p.stats.npc_kills || 0}</div></div>
-      <div class="stat-item"><div class="stat-label">Wins</div><div class="stat-value">${p.stats.wins || 0}</div></div>
-      <div class="stat-item"><div class="stat-label">Battles</div><div class="stat-value">${p.stats.battles || 0}</div></div>
-      <div class="stat-item"><div class="stat-label">Loot</div><div class="stat-value">${p.stats.loot || 0}</div></div>
-    </div>
-  ` : '<p style="color:var(--text-dim)">No stats recorded.</p>';
+    if (p.stats && Object.keys(p.stats).length > 0) {
+      h += '<h3>⚔️ Combat Stats</h3><div class="stats">';
+      h += '<div class="stat"><small>Atk Kills</small><b>' + (p.stats.atk_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>Def Kills</small><b>' + (p.stats.def_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>NPC Kills</small><b>' + (p.stats.npc_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>Wins</small><b>' + (p.stats.wins || 0) + '</b></div>';
+      h += '<div class="stat"><small>Battles</small><b>' + (p.stats.battles || 0) + '</b></div>';
+      h += '<div class="stat"><small>Loot</small><b>' + (p.stats.loot || 0) + '</b></div>';
+      h += '</div>';
+    }
 
-  const alliance = p.alliance ? `<p><strong>Alliance:</strong> ${p.alliance.name} [${p.alliance.tag}] — ${p.alliance.role}</p>` : '<p style="color:var(--text-dim)">No alliance.</p>';
+    if (p.colonies && p.colonies.length) {
+      h += '<h3>🏘️ Colonies</h3><ul style="margin:0 0 0 18px; line-height:1.8;">';
+      p.colonies.forEach(function(c) {
+        h += '<li>' + esc(c.name) + ' (' + c.x + ', ' + c.y + ') &mdash; ' + esc(c.tribe || 'human') + '</li>';
+      });
+      h += '</ul>';
+    }
 
-  document.getElementById('modalBody').innerHTML = `
-    <p><strong>ID:</strong> ${p.id} &nbsp;|&nbsp; <strong>Created:</strong> ${new Date(p.created_at).toLocaleString()} &nbsp;|&nbsp; <strong>Last Seen:</strong> ${new Date(p.last_seen).toLocaleString()}</p>
-    <h4 style="margin:14px 0 6px; font-size:14px; color:var(--text-dim);">Stats</h4>
-    ${stats}
-    <h4 style="margin:14px 0 6px; font-size:14px; color:var(--text-dim);">Colonies</h4>
-    <ul style="margin-left:18px; line-height:1.8;">${colonies}</ul>
-    ${alliance}
-  `;
+    if (p.alliance) {
+      h += '<h3>🤝 Alliance</h3><p>' + esc(p.alliance.name) + ' [' + esc(p.alliance.tag) + '] &mdash; ' + esc(p.alliance.role) + '</p>';
+    }
 
-  document.getElementById('modalFooter').innerHTML = `
-    ${p.banned
-      ? `<button class="primary" onclick="unbanPlayer(${p.id}); closeModal();">Unban</button>`
-      : `<button class="danger" onclick="banPlayer(${p.id}); closeModal();">Ban Player</button>`}
-    <button onclick="closeModal()">Close</button>
-  `;
+    if (p.badges && p.badges.length) {
+      h += '<h3>🏅 Badges</h3><p>' + p.badges.map(function(b) { return b.icon + ' ' + esc(b.title); }).join(' &middot; ') + '</p>';
+    }
 
-  document.getElementById('playerModal').classList.add('show');
+    if (p.reports && p.reports.length) {
+      h += '<h3>📨 Recent Reports</h3><div class="tablewrap"><table><tr><th>Title</th><th>Date</th><th>Seen</th></tr>';
+      p.reports.forEach(function(r) {
+        h += '<tr><td>' + esc(r.title) + '</td><td>' + new Date(r.created_at).toLocaleString() + '</td><td>' + (r.seen ? '✅' : '⬜') + '</td></tr>';
+      });
+      h += '</table></div>';
+    }
+
+    document.getElementById('modalBody').innerHTML = h;
+    document.getElementById('modalFooter').innerHTML =
+      (p.banned
+        ? '<button class="btn" onclick="unbanPlayer(' + p.id + '); closeModal();">👑 Unban</button>'
+        : '<button class="btn red" onclick="banPlayer(' + p.id + '); closeModal();">🚫 Ban</button>') +
+      '<button class="btn ghost" onclick="closeModal()">Close</button>';
+    document.getElementById('playerModal').classList.add('show');
+  });
 }
 
-async function banPlayer(id) {
+function banPlayer(id) {
   if (!confirm('Ban this player?')) return;
-  await api(`/api/admin/players/${id}/ban`, { method: 'POST', body: JSON.stringify({ reason: 'Admin action' }) });
-  loadPlayers(currentPage);
+  api('/api/admin/players/' + id + '/ban', { method: 'POST', body: { reason: 'Administrative action' } })
+    .then(function() { toast('🚫 Player banned'); renderPlayers(currentPage); });
 }
-
-async function unbanPlayer(id) {
-  await api(`/api/admin/players/${id}/unban`, { method: 'POST' });
-  loadPlayers(currentPage);
+function unbanPlayer(id) {
+  api('/api/admin/players/' + id + '/unban', { method: 'POST' })
+    .then(function() { toast('👑 Player unbanned'); renderPlayers(currentPage); });
 }
-
 function closeModal() {
   document.getElementById('playerModal').classList.remove('show');
 }
 
-// Logs
-async function loadLogs() {
-  const data = await api('/api/admin/logs?lines=100');
-  if (!data) return;
-  const container = document.getElementById('logsContainer');
-  container.innerHTML = data.lines.map(l => {
-    const ts = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : '--:--:--';
-    const lvl = (l.level || 'info').toLowerCase();
-    return `<div class="log-entry">
-      <span class="ts">${ts}</span>
-      <span class="lvl ${lvl}">${l.level || 'INFO'}</span>
-      <span>${l.message || l.raw || ''}</span>
-    </div>`;
-  }).join('') || '<p style="color:var(--text-dim)">No logs yet.</p>';
+// ===== LOGS =====
+function renderLogs() {
+  setApp('<div class="panel">Loading logs...</div>');
+  api('/api/admin/logs?lines=100').then(function(d) {
+    var h = '<div class="panel"><h2>📜 Server Logs</h2>';
+    if (!d.lines || !d.lines.length) {
+      h += '<p class="hint">No logs yet.</p>';
+    } else {
+      h += '<div class="tablewrap"><table><tr><th>Time</th><th>Level</th><th>Message</th></tr>';
+      d.lines.forEach(function(l) {
+        var ts = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : '--:--:--';
+        var lvl = (l.level || 'info').toUpperCase();
+        var lvlColor = lvl === 'ERROR' ? 'color:#b3262b;font-weight:700' : lvl === 'WARN' ? 'color:#a67c00;font-weight:700' : 'color:#5c79c9;font-weight:700';
+        h += '<tr><td style="white-space:nowrap">' + ts + '</td><td style="' + lvlColor + '">' + lvl + '</td><td>' + esc(l.message || l.raw || '') + '</td></tr>';
+      });
+      h += '</table></div>';
+    }
+    h += '<div class="row"><button class="btn" onclick="renderLogs()">🔄 Refresh</button></div>';
+    h += '</div>';
+    setApp(h);
+  });
 }
 
-// Database
-async function loadDbStats() {
-  const data = await api('/api/admin/db-stats');
-  if (!data) return;
-  document.getElementById('dbTable').innerHTML = data.tables.map(t =>
-    `<tr><td>${t.name}</td><td>${t.rows.toLocaleString()}</td></tr>`
-  ).join('');
+// ===== DATABASE =====
+function renderDatabase() {
+  setApp('<div class="panel">Loading database stats...</div>');
+  Promise.all([
+    api('/api/admin/db-stats'),
+    api('/api/admin/migrations')
+  ]).then(function(results) {
+    var db = results[0], mig = results[1];
+    var h = '<div class="grid">';
 
-  const mig = await api('/api/admin/migrations');
-  if (mig) {
-    document.getElementById('migrationsContainer').innerHTML = `
-      <p>Applied migrations: <strong>${mig.count}</strong></p>
-      <p>Last applied: <strong>${mig.last || 'None'}</strong></p>
-      ${mig.migrations.length ? '<ul style="margin-top:8px; line-height:1.8;">' + mig.migrations.map(m => `<li>${m.name} — ${new Date(m.applied_at).toLocaleString()}</li>`).join('') + '</ul>' : ''}
-    `;
-  }
+    h += '<div class="panel"><h2>🗄️ Table Sizes</h2>';
+    h += '<div class="tablewrap"><table><tr><th>Table</th><th>Rows</th></tr>';
+    db.tables.forEach(function(t) {
+      h += '<tr><td>' + esc(t.name) + '</td><td>' + t.rows.toLocaleString() + '</td></tr>';
+    });
+    h += '</table></div></div>';
+
+    h += '<div class="panel"><h2>🔄 Migrations</h2>';
+    h += '<p><b>Applied:</b> ' + mig.count + '</p>';
+    h += '<p><b>Last:</b> ' + esc(mig.last || 'None') + '</p>';
+    if (mig.migrations && mig.migrations.length) {
+      h += '<div class="tablewrap"><table><tr><th>Name</th><th>Applied</th></tr>';
+      mig.migrations.forEach(function(m) {
+        h += '<tr><td>' + esc(m.name) + '</td><td>' + new Date(m.applied_at).toLocaleString() + '</td></tr>';
+      });
+      h += '</table></div>';
+    }
+    h += '</div>';
+    h += '</div>';
+    setApp(h);
+  });
 }
 
-// Tools
-async function sendBroadcast() {
-  const text = document.getElementById('broadcastText').value.trim();
+// ===== TOOLS =====
+function renderTools() {
+  setApp('<div class="panel">Loading tools...</div>');
+  api('/api/admin/maintenance').then(function(maint) {
+    var h = '<div class="grid">';
+
+    h += '<div class="panel"><h2>📢 Broadcast</h2>';
+    h += '<label>Message to all online players</label>';
+    h += '<textarea id="bctext" rows="3" placeholder="Enter your announcement..."></textarea>';
+    h += '<div class="row"><button class="btn" onclick="sendBroadcast()">📢 Send Broadcast</button></div>';
+    h += '</div>';
+
+    h += '<div class="panel"><h2>🔧 Maintenance Mode</h2>';
+    h += '<div class="switch"><input type="checkbox" id="maintoggle" ' + (maint.enabled ? 'checked' : '') + ' onchange="toggleMaint(this.checked)"><label for="maintoggle" style="margin:0">Enable maintenance mode</label></div>';
+    h += '<p class="hint">When enabled, new players cannot register and existing players see a maintenance notice.</p>';
+    h += '</div>';
+
+    h += '</div>';
+    setApp(h);
+  });
+}
+
+function sendBroadcast() {
+  var text = document.getElementById('bctext').value.trim();
   if (!text) return;
-  const res = await api('/api/admin/broadcast', { method: 'POST', body: JSON.stringify({ text }) });
-  if (res) {
-    alert(`Broadcast sent to ${res.sentTo} connected client(s)`);
-    document.getElementById('broadcastText').value = '';
-  }
+  api('/api/admin/broadcast', { method: 'POST', body: { text: text } }).then(function(res) {
+    toast('📢 Sent to ' + res.sentTo + ' client(s)');
+    document.getElementById('bctext').value = '';
+  });
 }
-
-async function loadMaintenanceStatus() {
-  const data = await api('/api/admin/maintenance');
-  if (data) document.getElementById('maintenanceToggle').checked = data.enabled;
-}
-
-async function toggleMaintenance(enabled) {
-  await api('/api/admin/maintenance', { method: 'POST', body: JSON.stringify({ enabled }) });
+function toggleMaint(enabled) {
+  api('/api/admin/maintenance', { method: 'POST', body: { enabled: enabled } }).then(function() {
+    toast(enabled ? '🔧 Maintenance mode ON' : '🔧 Maintenance mode OFF');
+  });
 }
 
 // Init
-loadOverview();
-setInterval(loadOverview, 30000);
+renderTab();
+setInterval(function() {
+  if (currentTab === 'overview') renderOverview();
+}, 30000);
 </script>
 </body>
 </html>
