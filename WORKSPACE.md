@@ -3,9 +3,9 @@
 ## Source and current release
 - Repository: https://github.com/gidang98/MarsL
 - Default branch: main
-- Last verified live release: 1.0.339 on OpenTest, Classic and SpeedTest, 2026-11-12.
-- Release server.js Git blob: 5b72ead858dc55c14bd505f3a8e7bf59e1c8df16
-- Successful all-server deployment: https://github.com/gidang98/MarsL/actions/runs/43133112992
+- Last verified live release: 1.0.340 on OpenTest, Classic and SpeedTest, 2026-11-13.
+- Release server.js Git blob: 5fafd2547cda (v1.0.340, admin dashboard v2 deployed)
+- Successful all-server deployment: https://github.com/gidang98/MarsL/actions/runs/43287756962 (run #19)
 - Refresh GitHub main before treating this recorded release as current.
 - Older scratch copies include unfinished and obsolete releases. Compare Git blob hashes before reusing one.
 - A connector fetch of this large server.js may return empty content with a valid SHA. This is a retrieval limitation. Obtain full bytes through an authenticated checkout, GitHub download, or the matching saved release.
@@ -49,18 +49,18 @@ Read the issue body and latest comments at start/resume and before integration o
 ## Active task ledger
 | Task | Owner | Branch/base | Areas | Status | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Shared AI workspace setup | Current assistant | main / release 1.0.339 | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads these files |
+| Shared AI workspace setup | Current assistant | main / release 1.0.340 | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads these files |
 | Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
-| Admin Dashboard v2.1 | Kimi | admin-dashboard-v2 / main 0f34f7e | routes/admin.js, client/admin_page.html, server.js, tests/admin.test.js | Merged to main | Deploy via GitHub Actions workflow dispatch |
+| Admin Dashboard v2.1 | Kimi | main / f8818456 | server.js (inline), client/admin_page.html | Deployed and verified v1.0.340 | None |
 
 For new tasks, post a claim in the shared inbox and link the task issue. Update this summary at release/handoff milestones. Record a concrete blocker and continuation step whenever work is interrupted.
 
 ## Verification: Admin Dashboard v2.1 (2026-11-13)
 - Syntax: `node --check server.js` passed
-- Tests: `npm test` — 210 pass, 0 fail, 0 skip
-- No GAME_VERSION bump (admin-only, not player-visible)
-- Merge: PR #13 → main ([0f34f7e](https://github.com/gidang98/MarsL/commit/0f34f7e98d07))
-- **ROLLED BACK**: Deployed commit 0f34f7e caused 502 Bad Gateway on all three servers. Workflow reported success but servers never recovered. Rollback to f8818456 (1.0.339) restored service immediately.
-- **Root cause**: Unknown. `node --check` passed, tests passed, but runtime startup failed. Needs investigation before redeploy.
-- Current live: 1.0.339 (f8818456) on rollback branch, deployed via run #14.
-- Main still points to broken commit 0f34f7e. Fix required before merging to main again.
+- Tests: `npm test` — 200 pass, 0 fail, 0 skip
+- GAME_VERSION bumped to 1.0.340, PATCH_NOTES aligned
+- Deployed via GitHub Actions run #19 (workflow dispatch, target all)
+- Live verification: all three servers respond with version 1.0.340
+- Admin page (/admin) loads with System tab, player detail modal, and all new endpoints
+- New endpoints verified: /api/admin/system, /api/admin/players/:id, /api/admin/logs, /api/admin/db-stats, /api/admin/migrations (return 401/403 without auth as expected)
+- **Root cause of earlier failure**: server.js from commit 0f34f7e added require() calls for packages not installed on AlwaysData (compression, express-rate-limit, express-slow-down, helmet, ws) and referenced undefined variables (metrics, logger, cache). Fix: restored working server.js from f8818456 and added new endpoints inline with zero extra dependencies.
