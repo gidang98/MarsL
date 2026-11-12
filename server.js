@@ -40203,7 +40203,7 @@ function setupAdminRoutes(app, db, websocket, metrics, cache, requireOwner) {
 
   // Migration status
   app.get('/api/admin/migrations', requireOwner, (req, res) => {
-    const { status } = require('../lib/migrate');
+    const { status } = require('./lib/migrate');
     res.json(status(db));
   });
 }
