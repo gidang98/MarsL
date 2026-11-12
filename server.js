@@ -235,6 +235,50 @@ const FONTS_CSS = FONT_FILES.map((f) => {
   FONT_PICK[file] = true;
   return '@font-face{font-family:"' + f[0] + '";font-style:normal;font-weight:' + f[1] + ";font-display:swap;src:url(/fonts/" + encodeURIComponent(file) + ') format("' + (/\.woff2$/i.test(file) ? "woff2" : "truetype") + '")}';
 }).filter(Boolean).join("\n");
+
+// =====================================================================
+//  PERFORMANCE & MONITORING MIDDLEWARE
+// =====================================================================
+
+// Track response times and request metrics
+app.use((req, res, next) => {
+  const start = process.hrtime.bigint();
+  metrics.connectionOpened();
+
+  res.on('finish', () => {
+    const end = process.hrtime.bigint();
+    const duration = Number(end - start) / 1_000_000; // ms
+    metrics.recordRequest(Math.round(duration), res.statusCode);
+    logger.requestLog(req, res, Math.round(duration));
+    metrics.connectionClosed();
+  });
+
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  const dbOk = (() => {
+    try { db.prepare('SELECT 1').get(); return true; }
+    catch (e) { return false; }
+  })();
+  res.json({
+    status: dbOk ? 'ok' : 'degraded',
+    uptime: Math.floor(process.uptime()),
+    timestamp: Date.now(),
+    db: dbOk ? 'connected' : 'error',
+  });
+});
+
+// Admin stats endpoint (basic auth recommended in production)
+app.get('/admin/stats', (req, res) => {
+  const adminToken = req.headers['x-admin-token'];
+  if (adminToken !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  res.json(metrics.getMetrics());
+});
+
 // ---------- Client asset routes (extracted from inline PAGE template) ----------
 app.get("/game.css", (req, res) => {
   const css = require("fs").readFileSync(__dirname + "/client/game.css", "utf8");
@@ -39743,14 +39787,20 @@ app.get("/manifest.webmanifest", (req, res) => {
 // Unknown addresses and broken requests get a short answer - never the
 // inner details of the server (those could help an attacker).
 app.use("/api", (req, res) => res.status(404).json({ error: "Unknown request" }));
+// Global error handler with logging
 app.use((err, req, res, next) => {
-  if (err && err.type === "entity.too.large") return res.status(413).json({ error: "That request is too big" });
-  if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "Broken request" });
+  metrics.recordError();
+  logger.error('Unhandled error', {
+    path: req.path,
+    method: req.method,
+    message: err.message,
+    stack: err.stack,
+  });
   console.error(err);
-  res.status(500).json({ error: "Oops, something went wrong on Mars" });
+  res.status(500).send('Server error');
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log("MarsL is running!");
   console.log("  On this computer:   http://localhost:" + PORT);
   // the addresses for phones and other computers in the same Wi-Fi
@@ -39765,4 +39815,36 @@ app.listen(PORT, HOST, () => {
   console.log(INVITE_CODE ? "  Invite code for new players:  " + INVITE_CODE : "  Anybody may register (no invite code).");
   console.log("  Admin page:         http://localhost:" + PORT + "/admin");
   console.log("  Owner code:         " + OWNER_CODE + "   (keep it secret! only needed once to become owner)");
+});
+
+// Graceful shutdown
+function shutdown(signal) {
+  console.log(`Received ${signal}, shutting down gracefully...`);
+  server.close(() => {
+    console.log('HTTP server closed');
+    try { db.close(); } catch (e) {}
+    console.log('Database closed');
+    process.exit(0);
+  });
+
+  // Force exit after 10 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception', { message: err.message, stack: err.stack });
+  console.error('Uncaught exception:', err);
+  shutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled rejection', { reason: String(reason) });
+  console.error('Unhandled rejection at:', promise, 'reason:', reason);
 });
