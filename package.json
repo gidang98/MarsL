@@ -13,7 +13,15 @@
     "migrate:rollback": "node scripts/migrate.js down",
     "migrate:create": "node scripts/migrate.js create",
     "security:audit": "node scripts/security-audit.js",
-    "security:check": "npm audit && node scripts/security-audit.js"
+    "security:check": "npm audit && node scripts/security-audit.js",
+    "backup": "node scripts/backup.js create",
+    "backup:status": "node scripts/backup.js status",
+    "backup:list": "node scripts/backup.js list",
+    "restore": "node scripts/restore.js",
+    "docker:build": "docker build -t marsl .",
+    "docker:run": "docker run -p 3000:3000 -v $(pwd)/data:/app/data marsl",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
   },
   "keywords": [],
   "author": "",
