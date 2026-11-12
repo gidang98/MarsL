@@ -7,7 +7,11 @@
     "test": "node --test tests/*.test.js",
     "start": "node server.js",
     "test:verbose": "node --test --test-reporter=spec tests/*.test.js",
-    "test:balance": "node --test tests/balance.test.js"
+    "test:balance": "node --test tests/balance.test.js",
+    "migrate": "node scripts/migrate.js up",
+    "migrate:status": "node scripts/migrate.js status",
+    "migrate:rollback": "node scripts/migrate.js down",
+    "migrate:create": "node scripts/migrate.js create"
   },
   "keywords": [],
   "author": "",
