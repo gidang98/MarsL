@@ -231,6 +231,7 @@ const HIGH_COST_GROWTH = 1.25;
 const HIGH_TIME_GROWTH = 1.22;
 const HIGH_SPEED_SHARE = 0.5;
 const HIGH_CAPACITY_GROWTH = 1.15;
+const STORAGE_CAPACITY_MULTIPLIER = 2 / 3;
 const CAPACITY_LEVEL0 = 1600; // storage without Warehouse / Granary
 const CAPACITY_BASE = 2000; // storage on level 1 (always more than without a warehouse)
 const CAPACITY_GROWTH = 1.4; // level 10: about 41000
@@ -320,8 +321,8 @@ const HOSPITAL_SPEEDUP = 0.92; // every level: healing 8% faster
 const MERCHANTS_PER_LEVEL = 5; // marketplace level 5 = 25 merchants; easier colony-to-colony logistics
 const MERCHANT_CARRY = 600; // resources per merchant
 const MERCHANT_SPEED = 16; // tiles per hour
-const SWAP_RATE_BASE = 0.6; // swapping 100 wood gives 60 of something else...
-const SWAP_RATE_PER_LEVEL = 0.02; // ...+2 per marketplace level (80 on level 10)
+const SWAP_RATE_BASE = 0.45;
+const SWAP_RATE_PER_LEVEL = 0.01; // 46–55% at marketplace levels 1–10 before perks
 // Automatic merchants ("trade routes") between your OWN colonies:
 // marketplace levels 1-2: 1 route, then +1 every 2 levels (up to 5 routes)
 // Players may choose any interval from 5 minutes to 7 days.
@@ -525,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.338";
+const GAME_VERSION = "1.0.339";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1152,11 +1153,11 @@ const PERK_DEFAULT = { wall: 3, rams: 1, bunker: 1, granary: 1, hospital: 4, car
 //   Aliens:   sharper upgrades, good clinics, quicker research | slow builders, slower training, small caravans
 //   (research is a little faster too, but the lasting edge is how hard upgrades hit)
 // Plus one small identity each (an upside and a downside in the same area):
-//   Humans:   the market loses 10% less when swapping | troops travel 5% slower
+//   Humans:   the market loses 5% less when swapping | troops travel 5% slower
 //   Chickens: 5% of the fallen come back as food after a won attack | spies 15% weaker
 //   Aliens:   sharper eyes: spy reports need 25% fewer spies | HQ militia 20% weaker
 const TRIBE_PERKS = {
-  human: { wall: 4, carry: 750, bunker: 0.75, train: 1.08, market: 0.9, speed: 0.95 },
+  human: { wall: 4, carry: 750, bunker: 0.75, train: 1.08, market: 0.95, speed: 0.95 },
   chicken: { train: 0.9, bunker: 1.4, wall: 2, hospital: 3, scavenge: 0.05, spy: 0.85 },
   alien: { research: 0.85, upgradeBonus: 1.2, hospital: 5, build: 1.1, carry: 450, train: 1.05, spyEye: 1.33, militia: 0.8 },
 };
@@ -2498,9 +2499,10 @@ function merchantCarryOf(tribeKey) {
   return Math.round(perkOf(tribeKey, "carry"));
 }
 function capacityAt(level) {
-  if (level === 0) return CAPACITY_LEVEL0;
-  if (level > MAX_LEVEL) return Math.round(CAPACITY_BASE * Math.pow(CAPACITY_GROWTH, MAX_LEVEL - 1) * Math.pow(HIGH_CAPACITY_GROWTH, level - MAX_LEVEL));
-  return Math.round(CAPACITY_BASE * Math.pow(CAPACITY_GROWTH, level - 1));
+  if (level === 0) return Math.round(CAPACITY_LEVEL0 * STORAGE_CAPACITY_MULTIPLIER);
+  const base = CAPACITY_BASE * Math.pow(CAPACITY_GROWTH, Math.min(level, MAX_LEVEL) - 1);
+  const extra = Math.pow(HIGH_CAPACITY_GROWTH, Math.max(0, level - MAX_LEVEL));
+  return Math.round(base * extra * STORAGE_CAPACITY_MULTIPLIER);
 }
 // Levels above 10 count only half where a building adds a fixed amount per level
 function softLevel(level) {
@@ -5047,7 +5049,7 @@ function effectText(type, level, tk) {
       if (level === 0) return "No merchants";
       const routes = Math.min(5, Math.ceil(level / 2));
       const n = level * MERCHANTS_PER_LEVEL;
-      return n + (n === 1 ? " merchant" : " merchants") + " × " + merchantCarryOf(tk) + " · swap rate " + Math.round(100 * swapRate(level, tk)) + "% · " + routes + (routes === 1 ? " auto route" : " auto routes");
+      return n + (n === 1 ? " merchant" : " merchants") + " × " + merchantCarryOf(tk) + " · swap rate " + swapRate(level, tk) + "% · " + routes + (routes === 1 ? " auto route" : " auto routes");
     }
     case "outpost": {
       if (level === 0) return "No expeditions";
@@ -5219,7 +5221,7 @@ function swapRate(level, tribeKey, userId) {
   const hp = userId ? heroPerks(userId) : null;
   // 🧑‍🚀 humans lose less when swapping (a whole percent, so page and server agree); 📦 Quartermaster 100 halves the loss
   const wx = forecastNow();
-  return Math.round((1 - (1 - rate) * perkOf(tribeKey, "market") * (hp && hp.qm100 ? 0.5 : 1) * (wx.swap || 1)) * 100) / 100;
+  return Math.round((1 - (1 - rate) * perkOf(tribeKey, "market") * (hp && hp.qm100 ? 0.5 : 1) * (wx.swap || 1)) * 100);
 }
 
 function merchantsFree(s, colonyId) {
@@ -5237,7 +5239,7 @@ function marketView(s, colony, tribe) {
     free: level ? merchantsFree(s, colony.id) : 0,
     carry: merchantCarry(s),
     speed: MERCHANT_SPEED * MOVE_SPEED, // tiles per real hour
-    rate: Math.round(swapRate(level, colony.tribe, colony.userId) * 100),
+    rate: swapRate(level, colony.tribe, colony.userId),
     maxRoutes: maxRoutes(s),
     routeMode: Number((db.prepare("SELECT route_quiet FROM users WHERE id = ?").get(colony.userId) || {}).route_quiet) || 0, // 0 all reports, 2 only full storage, 1 none
     everyChoices: ROUTE_EVERY_MINUTES,
@@ -7520,7 +7522,7 @@ app.post("/api/swap", requireLogin, (req, res) => {
     if (!RESOURCES.includes(give) || !RESOURCES.includes(get) || give === get) return "Pick two different resources";
     if (!Number.isInteger(amount) || amount < 10) return "Swap at least 10";
     if (amount > Math.floor(s.res[give])) return "You don't have that much";
-    const receive = Math.floor(amount * swapRate(level, s._tribe, s._uid));
+    const receive = Math.floor(amount * swapRate(level, s._tribe, s._uid) / 100);
     const space = capacities(s)[get] - s.res[get];
     if (receive > space) return "Not enough storage space for " + receive + " " + get;
     s.res[give] -= amount;
@@ -7551,7 +7553,7 @@ app.post("/api/redistribute", requireLogin, (req, res) => {
       else got += t - now;
     }
     if (!given) return "Nothing to swap";
-    if (got > Math.floor(given * rate + 1e-9)) return "That's more than the trader gives you";
+    if (got > Math.floor(given * rate / 100)) return "That's more than the trader gives you";
     for (const r of RESOURCES) s.res[r] = next[r] + (s.res[r] - Math.floor(s.res[r]));
     return null;
   });
@@ -15611,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.339",date:"2026-11-12",title:"Storage, marketplace and troop traffic",groups:[["Storage",["Warehouse, Granary and base storage capacities are reduced by one third."]],["Troop traffic",["The sidebar shows totals by movement type. Tap it to see all movements."]],["Marketplace",["Swap and Balance use a base rate of 46–55% as the marketplace levels up. Humans lose 5% less. Cover with market returns you to the build or upgrade after the swap."]]]},
   {v:"1.0.338",date:"2026-11-11",title:"Farm list selection and fixed troop upkeep",groups:[["Farm lists",["Select or clear all targets in an expanded list."]],["Food",["Troops consume their base upkeep per real hour at every game speed."]]]},
   {v:"1.0.337",date:"2026-11-11",title:"Start all farm lists",groups:[["Farm lists",["Start all sends raids from every farm list and lets you stop the remaining queue."]]]},
   {v:"1.0.336",date:"2026-11-11",title:"Restore Send troops",groups:[["Map",["Send troops opens the troop picker after refreshing available troops. Colony startup retries temporary connection failures."]]]},
@@ -23628,25 +23631,17 @@ const PAGE = `<!DOCTYPE html>
 .traffic-compact .tr-head { padding:0 0 5px; gap:8px; }
 .traffic-compact .tr-head b { font:700 17px/1.25 inherit; font-family:inherit; font-size:17px; letter-spacing:0; }
 .traffic-compact .side-x { width:36px;height:36px;min-height:36px;padding:0;box-shadow:none;font-size:22px; }
-.tp-summary {font-size:12px;line-height:1.4;color:var(--muted,#76658a);padding:6px 0;}
-.tp-row {display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:7px;width:100%;min-height:52px;padding:7px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink);text-align:left;font-family:inherit;box-shadow:none;cursor:pointer;}
-.tp-icon {font-size:17px;}
-.tp-copy {min-width:0;}.tp-copy b {display:block;font-size:14px;line-height:1.3;overflow-wrap:anywhere;}
-.tp-copy small {display:block;font-size:11px;line-height:1.5;color:var(--muted,#76658a);}
-.tp-arrival {text-align:right;white-space:nowrap;}.tp-arrival b {display:block;font-size:14px;font-variant-numeric:tabular-nums;}.tp-arrival small {display:block;font-size:10px;opacity:.7;}
-.tp-row.tp-danger {background:#fff0ee;border-left:3px solid #d84343;padding-left:5px;}
-.tp-all {display:block;width:100%;padding:10px 2px 2px;min-height:40px;border:0;background:transparent;color:var(--ink);font:600 12px/1.4 inherit;font-family:inherit;font-size:12px;box-shadow:none;cursor:pointer;}
-.tp-row:focus-visible,.tp-all:focus-visible {outline:2px solid #218665;outline-offset:2px;}
-.tp-children {max-height:220px;overflow-y:auto;padding:2px 0 2px 24px;background:rgba(128,128,128,.04);}
-.traffic-compact .tp-children .mv {min-height:44px;margin:0;padding:6px;box-shadow:none;border:0;border-bottom:1px solid var(--line);border-radius:0;font-size:12px;}
-.traffic-compact .tp-children .mv-bar {display:none;}
-.traffic-compact .tp-children .mv-n b,.traffic-compact .tp-children .mv-t {font-size:12px;}
-.traffic-compact .tp-children .mv-n small {font-size:11px;}
+.tp-summary { display:block; width:100%; min-height:44px; padding:6px 0; border:0; background:transparent; color:var(--ink); text-align:left; font:inherit; box-shadow:none; cursor:pointer; }
+.tp-summary:focus-visible { outline:2px solid #218665; outline-offset:2px; }
+.tp-total { display:block; font-size:13px; margin-bottom:5px; }
+.tp-types { display:flex; flex-wrap:wrap; gap:4px 8px; }
+.tp-type { font-size:12px; color:var(--muted,#76658a); }
+.tp-type.danger { color:var(--danger,#b32323); font-weight:700; }
 
 /* Optional dark palette. Keep status accents and resource colors intact. */
 html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important; color:#eee8f2!important; }
 .dark-mode { --paper:#28232d; --line:#49414f; --line-strong:#716579; --ink:#eee8f2; --muted:#b9adbf; --accent:#345b51; --tribe:#302a35; }
-.dark-mode .card,.dark-mode .panel,.dark-mode .sheet,.dark-mode .sheet-body,.dark-mode .setcard,.dark-mode .traffic,.dark-mode .mv,.dark-mode .tp-row,.dark-mode .farm-card,.dark-mode .report-card,.dark-mode .modal-content { background-color:#28232d!important;color:#eee8f2!important;border-color:#49414f!important; }
+.dark-mode .card,.dark-mode .panel,.dark-mode .sheet,.dark-mode .sheet-body,.dark-mode .setcard,.dark-mode .traffic,.dark-mode .mv,.dark-mode .farm-card,.dark-mode .report-card,.dark-mode .modal-content { background-color:#28232d!important;color:#eee8f2!important;border-color:#49414f!important; }
 .dark-mode input,.dark-mode select,.dark-mode textarea,.dark-mode .code,.dark-mode .searchbox { background:#211d25!important;color:#f5eff8!important;border-color:#615769!important; }
 .dark-mode button:not(.danger):not(.alert):not(.red):not(.green),.dark-mode .btn.ghost { color:#eee8f2; }
 .dark-mode .hint,.dark-mode small,.dark-mode .muted { color:#b9adbf; }
@@ -27996,7 +27991,7 @@ function newCard(o, d, action) {
     if (o.crewOk) h += '<button class="btn small ghost" ' + action.replace('="', '-crew="') + ' title="The commander’s crew builds it next to the queue">🎖️</button>';
     h += "</div>";
     if (o.reason) h += '<p class="reason' + (o.reason === "Not enough resources" ? " wait" : "") + '">' + reasonText(o.reason, o.cost, d) + "</p>";
-    if (o.reason === "Not enough resources" && ndCanFund(d, o.cost)) h += '<button class="btn small ghost" type="button" data-fund="' + costAttr(o.cost) + '">💱 Cover with market</button>';
+    if (o.reason === "Not enough resources" && ndCanFund(d, o.cost)) h += '<button class="btn small ghost" type="button" data-fund-action="' + esc(action) + '" data-fund="' + costAttr(o.cost) + '">💱 Cover with market</button>';
     h += planBtn(d, o.reason, "new:" + o.type);
   }
   return h + "</div>";
@@ -28210,32 +28205,27 @@ function mvRow(m, count) {
   return h + "</button>";
 }
 
-// Sidebar uses summary rows; full mission controls remain in movement details.
-function trafficPreviewGroup(g) {
-  var m=g.head, n=g.items.length, open=!!mvOpenG[g.key];
-  var place=m.x!=null && m.y!=null ? ' ('+m.x+'|'+m.y+')' : '';
-  var label=mvTitle(m), size=g.size.toLocaleString();
-  var count=n>1 ? n+' movements' : '1 movement';
-  var detail=label+' · '+size+(m.merchants && !m.units ? ' merchants' : ' troops')+' · '+count;
-  var attr=n>1 ? 'data-mvgroup="'+esc(g.key)+'" aria-expanded="'+open+'"' : 'data-move-open="'+esc(m.id)+'"';
-  var h='<div class="tp-group"><button class="tp-row'+(g.threat?' tp-danger':'')+'" '+attr+'>';
-  h+='<span class="tp-icon" aria-hidden="true">'+mvIcon(m)+'</span><span class="tp-copy"><b>'+esc(m.name)+esc(place)+'</b><small>'+esc(detail)+'</small></span>';
-  h+='<span class="tp-arrival"><b>'+(m.endAt?mvClock(Math.max(0,m.endAt-serverNow())):'Stationed')+'</b><small>'+(n>1?(open?'Hide ▴':'Next · ▾'):(m.endAt?'Arrives in':'Details'))+'</small></span></button>';
-  if(open && n>1)h+='<div class="tp-children">'+g.items.map(function(item){return mvRow(item);}).join('')+'</div>';
-  return h+'</div>';
-}
+// One sidebar button opens the full traffic sheet.
 function renderTraffic(d) {
-  var n=d.movements.length, incoming=d.movements.filter(function(m){return m.dir==='in' && m.endAt;}).length;
-  var returning=d.movements.filter(function(m){return m.type==='return';}).length;
-  var h='<section class="traffic traffic-compact"><div class="tr-head"><b>Troop traffic</b><button class="side-x" data-side-close="1" aria-label="Close sidebar">×</button></div>';
-  if(n){
-    h+='<div class="tp-summary">'+n+' movements · '+incoming+' incoming · '+returning+' returning</div>';
-    var groups=mvGroups(d.movements).sort(function(a,b){return (a.threat===b.threat?0:a.threat?-1:1)||((a.head.endAt||9e15)-(b.head.endAt||9e15));});
-    var SHOW=5;
-    h+='<div class="tp-list">'+groups.slice(0,SHOW).map(trafficPreviewGroup).join('')+'</div>';
-    h+='<button class="tp-all" data-moves-open="1">View all movements ('+n+')'+(groups.length>SHOW?' · +'+(groups.length-SHOW)+' destinations':'')+' →</button>';
-  }else h+='<div class="tr-quiet"><p>'+trStr('All quiet.')+'</p><button class="btn small" data-view="map">'+trStr('Find a target')+'</button></div>';
-  return h+'</section>';
+  var totals = {};
+  d.movements.forEach(function (m) {
+    var key = m.dir + "-" + m.type;
+    totals[key] = (totals[key] || 0) + 1;
+  });
+  var h = '<section class="traffic traffic-compact"><div class="tr-head"><b>Troop traffic</b><button class="side-x" data-side-close="1" aria-label="Close sidebar">×</button></div>';
+  var count = d.movements.length;
+  h += '<button type="button" class="tp-summary" data-moves-open="1"><b class="tp-total">' + count.toLocaleString() + (count === 1 ? " movement" : " movements") + ' →</b>';
+  h += '<span class="tp-types">';
+  ["in", "out"].forEach(function (dir) {
+    TRAFFIC[dir].forEach(function (cat) {
+      var total = totals[dir + "-" + cat[0]];
+      if (!total) return;
+      var incomingAttack = isThreat({ dir: dir, type: cat[0] });
+      var name = incomingAttack ? "Incoming " + cat[2].toLowerCase() : cat[2];
+      h += '<span class="tp-type' + (incomingAttack ? " danger" : "") + '">' + cat[1] + " " + esc(trStr(name)) + " <b>" + total.toLocaleString() + "</b></span>";
+    });
+  });
+  return h + '</span></button></section>';
 }
 
 // ---- the window: every movement with all details ----
@@ -30871,7 +30861,7 @@ function upgradeBlock(item, d, action) {
   var up = '<button class="btn" ' + action + (item.canBuild ? "" : " disabled") + ">🔨 Upgrade to Level " + item.target + "</button>";
   h += item.crewOk ? '<div class="crewrow">' + up + '<button class="btn ghost" ' + action.replace('="', '-crew="') + ' title="The commander’s crew builds it next to the queue">🎖️ Crew</button></div>' : up;
   if (item.reason) h += '<p class="reason' + (item.reason === "Not enough resources" ? " wait" : "") + '">' + reasonText(item.reason, item.cost, d) + "</p>";
-  if (item.reason === "Not enough resources" && ndCanFund(d, item.cost)) h += '<button class="btn small ghost" type="button" data-fund="' + costAttr(item.cost) + '">💱 Cover with market</button>';
+  if (item.reason === "Not enough resources" && ndCanFund(d, item.cost)) h += '<button class="btn small ghost" type="button" data-fund-action="' + esc(action) + '" data-fund="' + costAttr(item.cost) + '">💱 Cover with market</button>';
   var am = action.match(/data-up-(field|lot)="([0-9]+)"/);
   if (am) h += planBtn(d, item.reason, (am[1] === "field" ? "field:" : "building:") + am[2]);
   return h;
@@ -33013,6 +33003,7 @@ function parseCostAttr(s) {
 // and what's spare elsewhere is worth enough at the swap rate)
 function ndCanFund(d, cost) {
   if (!d.market || !d.market.level || !cost) return false;
+  if (RES.some(function (k) { return (cost[k] || 0) > ndCap(d, k); })) return false;
   var give = 0, need = 0;
   RES.forEach(function (k) {
     var have = Math.floor(d.res[k]), req = Math.max(0, cost[k] || 0);
@@ -37355,7 +37346,28 @@ document.addEventListener("click", function (e) {
   } else if (has("data-nd-reset")) {
     nd = null; ndInit(data); updateNpc(data);
   } else if (has("data-nd-go")) {
-    post("/api/redistribute", { targets: nd.t }, function () { toast("⚖️ Done! The trader swapped your goods.", true); sfx("coins"); nd = null; });
+    var balanceSheet = sheet;
+    var balanceDraft = nd;
+    post("/api/redistribute", { targets: balanceDraft.t }, function (d) {
+      toast("⚖️ Done! The trader swapped your goods.", true);
+      sfx("coins");
+      if (nd === balanceDraft) nd = null;
+      var back = balanceSheet && balanceSheet.fundReturn;
+      if (!back || sheet !== balanceSheet || mkTab !== "balance" || d.colonyId !== balanceDraft.colony) return;
+      if (back.sheet) {
+        sheet = back.sheet;
+      } else {
+        closeSheet();
+      }
+      requestAnimationFrame(function () {
+        if (sheet !== back.sheet || view !== back.view || data.colonyId !== d.colonyId) return;
+        var build = document.querySelector("[" + back.action + "]");
+        if (build) {
+          build.focus({ preventScroll: true });
+          build.scrollIntoView({ block: "center" });
+        }
+      });
+    });
   } else if (has("data-fit")) {
     var fu = data.units.filter(function (x) { return x.key === attr("data-fit"); })[0];
     var fn = fu ? ndForUnit(data, fu.cost) : 0;
@@ -37366,10 +37378,16 @@ document.addEventListener("click", function (e) {
       toast("⚖️ Filled in for " + fn + " " + fu.icon + " - review the swap and tap Redistribute", true);
     }
   } else if (has("data-fund")) {
-    var funded = ndFund(data, parseCostAttr(attr("data-fund")));
+    var fundCost = parseCostAttr(attr("data-fund"));
+    if (!ndCanFund(data, fundCost) || !ndFund(data, fundCost)) {
+      toast("The market cannot cover this build with your current stock.");
+      return;
+    }
+    var fundReturn = { sheet: sheet, view: view, action: attr("data-fund-action") };
     mkTab = "balance";
     openSheet("market", null);
-    if (funded) toast("💱 Filled in - review the swap and tap Redistribute", true);
+    sheet.fundReturn = fundReturn;
+    toast("💱 Filled in - review the swap and tap Redistribute", true);
   } else if (has("data-alerts")) {
     if (alertsOn && Notification.permission === "granted") {
       alertsOn = false;
