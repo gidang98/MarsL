@@ -1895,6 +1895,7 @@ db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT N
 
 // Run database migrations
 const { migrate } = require('./lib/migrate');
+const websocket = require('./lib/websocket');
 migrate(db);
 
 // DATA_DIR) would be one world under two addresses, so a server refuses to start
@@ -3905,6 +3906,10 @@ function addReport(userId, time, icon, title, data) {
     `DELETE FROM reports WHERE user_id = ? AND id NOT IN
        (SELECT id FROM reports WHERE user_id = ? ORDER BY id DESC LIMIT ?)`
   ).run(userId, userId, REPORTS_KEPT);
+  // Push real-time notification to user's WebSocket clients
+  try {
+    websocket.pushReport(userId, { id: Number(ins.lastInsertRowid), at: time, title, icon, data: data || {} });
+  } catch (e) {}
   return Number(ins.lastInsertRowid);
 }
 
@@ -39938,6 +39943,9 @@ const server = app.listen(PORT, HOST, () => {
   console.log("  Admin page:         http://localhost:" + PORT + "/admin");
   console.log("  Owner code:         " + OWNER_CODE + "   (keep it secret! only needed once to become owner)");
 });
+
+// Initialize WebSocket server for real-time updates
+websocket.init(server, db);
 
 // Graceful shutdown
 function shutdown(signal) {

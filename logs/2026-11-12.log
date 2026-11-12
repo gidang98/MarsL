@@ -10,3 +10,12 @@
 {"timestamp":"2026-11-12T15:16:09.497Z","level":"info","message":"test message","foo":"bar"}
 {"timestamp":"2026-11-12T15:16:09.508Z","level":"warn","message":"test warning"}
 {"timestamp":"2026-11-12T15:16:09.509Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T15:40:12.179Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T15:40:12.213Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T15:40:12.213Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T15:40:36.598Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T15:40:36.608Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T15:40:36.610Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T15:41:05.434Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T15:41:05.445Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T15:41:05.445Z","level":"error","message":"test error"}
