@@ -43,3 +43,6 @@
 {"timestamp":"2026-11-12T19:03:42.933Z","level":"info","message":"test message","foo":"bar"}
 {"timestamp":"2026-11-12T19:03:42.960Z","level":"warn","message":"test warning"}
 {"timestamp":"2026-11-12T19:03:42.960Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T19:11:23.027Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T19:11:23.059Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T19:11:23.059Z","level":"error","message":"test error"}

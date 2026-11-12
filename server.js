@@ -62,6 +62,35 @@ const apiSpeedLimiter = slowDown({
   delayMs: (hits) => hits * 100, // add 100ms per request over limit
 });
 
+// Simple in-memory metrics tracker
+const metrics = {
+  requests: 0,
+  errors: 0,
+  activeConnections: 0,
+  responseTimes: [],
+  statusCodes: {},
+  connectionOpened() { this.activeConnections++; },
+  connectionClosed() { this.activeConnections--; },
+  recordRequest(duration, statusCode) {
+    this.requests++;
+    this.responseTimes.push(duration);
+    if (this.responseTimes.length > 1000) this.responseTimes.shift();
+    this.statusCodes[statusCode] = (this.statusCodes[statusCode] || 0) + 1;
+  },
+  recordError() { this.errors++; },
+  getMetrics() {
+    const times = this.responseTimes;
+    const avg = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
+    return {
+      requests: this.requests,
+      errors: this.errors,
+      activeConnections: this.activeConnections,
+      avgResponseTime: avg,
+      statusCodes: this.statusCodes,
+    };
+  },
+};
+
 const app = express();
 app.use(compression()); // gzip all responses
 
