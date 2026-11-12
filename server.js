@@ -39914,6 +39914,14 @@ app.get('/api/player/summary', requireLogin, (req, res) => {
   });
 });
 
+
+// =====================================================================
+//  ADMIN ROUTES
+// =====================================================================
+
+const { setupAdminRoutes } = require('./routes/admin');
+setupAdminRoutes(app, db, websocket, metrics, cache);
+
 // Global error handler with logging
 app.use((err, req, res, next) => {
   metrics.recordError();
