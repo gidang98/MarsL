@@ -20,48 +20,6 @@ require('./game');     // 5 game modules, 131 functions
 require('./lib');      // 4 lib modules: db, bots, heroes, pure
 require('./render');   // 65 render functions
 
-const compression = require('compression');
-
-// =====================================================================
-//  SECURITY MIDDLEWARE
-// =====================================================================
-const rateLimit = require('express-rate-limit');
-const slowDown = require('express-slow-down');
-const helmet = require('helmet');
-
-// Rate limiters
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 requests per window per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: JSON.stringify({ error: 'Too many authentication attempts. Please try again later.' }),
-  skipSuccessfulRequests: true,
-});
-
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 120, // 120 requests per minute per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: JSON.stringify({ error: 'Too many requests. Please slow down.' }),
-});
-
-const strictLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 requests per hour per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: JSON.stringify({ error: 'Too many attempts. Please try again in an hour.' }),
-});
-
-// Speed limiter for API - gradually slow down repeated requests
-const apiSpeedLimiter = slowDown({
-  windowMs: 60 * 1000, // 1 minute
-  delayAfter: 60, // allow 60 requests per minute at full speed
-  delayMs: (hits) => hits * 100, // add 100ms per request over limit
-});
-
 // Simple in-memory metrics tracker
 const metrics = {
   requests: 0,
@@ -97,29 +55,6 @@ const cache = {
 };
 
 const app = express();
-app.use(compression()); // gzip all responses
-
-// Security headers via helmet
-app.use(helmet({
-  contentSecurityPolicy: false, // disabled: game uses inline scripts/styles
-  crossOriginEmbedderPolicy: false, // disabled: allows embedded fonts/images
-  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-  frameguard: { action: 'deny' },
-  noSniff: true,
-  xssFilter: true,
-}));
-
-// Apply general API rate limiting to all /api/* routes
-app.use('/api/', apiLimiter);
-app.use('/api/', apiSpeedLimiter);
-
-// Strict rate limiting for registration (prevent bot signups)
-app.use('/api/register', strictLimiter);
-
-// Auth rate limiting for login/password endpoints
-app.use('/api/login', authLimiter);
-app.use('/api/password', authLimiter);
-app.use('/api/acct/password', authLimiter);
 
 // Request logging for anomaly detection
 app.use((req, res, next) => {
