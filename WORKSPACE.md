@@ -51,5 +51,13 @@ Read the issue body and latest comments at start/resume and before integration o
 | --- | --- | --- | --- | --- | --- |
 | Shared AI workspace setup | Current assistant | main / release 1.0.339 | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads these files |
 | Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
+| Admin Dashboard v2.1 | Kimi | admin-dashboard-v2 / main 0f34f7e | routes/admin.js, client/admin_page.html, server.js, tests/admin.test.js | Merged to main | Deploy via GitHub Actions workflow dispatch |
 
 For new tasks, post a claim in the shared inbox and link the task issue. Update this summary at release/handoff milestones. Record a concrete blocker and continuation step whenever work is interrupted.
+
+## Verification: Admin Dashboard v2.1 (2026-11-13)
+- Syntax: `node --check server.js` passed
+- Tests: `npm test` — 210 pass, 0 fail, 0 skip
+- No GAME_VERSION bump (admin-only, not player-visible)
+- Merge: PR #13 → main ([0f34f7e](https://github.com/gidang98/MarsL/commit/0f34f7e98d07))
+- Deployment blocker: PAT lacks `actions:write` for workflow_dispatch. Trigger deploy-alwaysdata.yml from GitHub UI.
