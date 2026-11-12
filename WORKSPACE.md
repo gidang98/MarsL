@@ -51,5 +51,16 @@ Read the issue body and latest comments at start/resume and before integration o
 | --- | --- | --- | --- | --- | --- |
 | Shared AI workspace setup | Current assistant | main / release 1.0.339 | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads these files |
 | Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
+| Admin Dashboard v2.1 | Kimi | admin-dashboard-v2 / main 0f34f7e | routes/admin.js, client/admin_page.html, server.js, tests/admin.test.js | Merged to main | Deploy via GitHub Actions workflow dispatch |
 
 For new tasks, post a claim in the shared inbox and link the task issue. Update this summary at release/handoff milestones. Record a concrete blocker and continuation step whenever work is interrupted.
+
+## Verification: Admin Dashboard v2.1 (2026-11-13)
+- Syntax: `node --check server.js` passed
+- Tests: `npm test` — 210 pass, 0 fail, 0 skip
+- No GAME_VERSION bump (admin-only, not player-visible)
+- Merge: PR #13 → main ([0f34f7e](https://github.com/gidang98/MarsL/commit/0f34f7e98d07))
+- **ROLLED BACK**: Deployed commit 0f34f7e caused 502 Bad Gateway on all three servers. Workflow reported success but servers never recovered. Rollback to f8818456 (1.0.339) restored service immediately.
+- **Root cause**: Unknown. `node --check` passed, tests passed, but runtime startup failed. Needs investigation before redeploy.
+- Current live: 1.0.339 (f8818456) on rollback branch, deployed via run #14.
+- Main still points to broken commit 0f34f7e. Fix required before merging to main again.
