@@ -1864,7 +1864,8 @@ db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT N
 
 // Run database migrations
 const { migrate } = require('./lib/migrate');
-const websocket = require('./lib/websocket');
+let websocket;
+try { websocket = require('./lib/websocket'); } catch (e) { websocket = null; }
 migrate(db);
 
 // DATA_DIR) would be one world under two addresses, so a server refuses to start
@@ -40209,8 +40210,10 @@ const server = app.listen(PORT, HOST, () => {
   console.log("  Owner code:         " + OWNER_CODE + "   (keep it secret! only needed once to become owner)");
 });
 
-// Initialize WebSocket server for real-time updates
-websocket.init(server, db);
+// Initialize WebSocket server for real-time updates (optional)
+if (websocket) {
+  websocket.init(server, db);
+}
 
 // Graceful shutdown
 function shutdown(signal) {
