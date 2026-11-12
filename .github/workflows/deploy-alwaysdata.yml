@@ -186,6 +186,10 @@ jobs:
         if: ${{ inputs.target == 'verify' }}
         env:
           AD_API_TOKEN: ${{ secrets.AD_API_TOKEN }}
+          AD_SSH_HOST: ssh-marsl.alwaysdata.net
+          AD_SFTP_USER_OPENTEST: marsl_deploy_opentest
+          AD_SFTP_USER_CLASSIC: marsl_deply_classic
+          AD_SFTP_USER_SPEED: marsl_deploy_speed
         run: |
           set -euo pipefail
           for entry in "$AD_SFTP_USER_OPENTEST:1094171" "$AD_SFTP_USER_CLASSIC:1098921" "$AD_SFTP_USER_SPEED:1098812"; do
