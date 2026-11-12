@@ -17,7 +17,7 @@ function checkFile(filepath) {
   }
 }
 
-console.log('Validating modularized MarsL...\n');
+console.log('Validating MarsL...\n');
 
 const files = [
   'server.js',
@@ -29,7 +29,7 @@ const files = [
   'game/index.js',
   'game/terrain.js', 'game/economy.js', 'game/combat.js',
   'game/bonus.js', 'game/utils.js',
-  'lib/index.js', 'lib/db.js', 'lib/bots.js',
+  'lib/index.js', 'lib/db.js', 'lib/bots.js', 'lib/heroes.js', 'lib/pure.js',
   'render/index.js',
   'routes/admin.js', 'routes/alliance.js', 'routes/auth.js', 'routes/static.js',
 ];

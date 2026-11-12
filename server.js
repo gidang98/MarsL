@@ -20,7 +20,11 @@ require('./game');     // 5 game modules, 131 functions
 require('./lib');      // 4 lib modules: db, bots, heroes, pure
 require('./render');   // 65 render functions
 
+const compression = require('compression');
+
 const app = express();
+app.use(compression()); // gzip all responses
+
 
 // ---------- running online: settings come from "environment variables" ----------
 // You don't need any of these at home. They are for special setups:
@@ -111,6 +115,36 @@ const FONTS_CSS = FONT_FILES.map((f) => {
   FONT_PICK[file] = true;
   return '@font-face{font-family:"' + f[0] + '";font-style:normal;font-weight:' + f[1] + ";font-display:swap;src:url(/fonts/" + encodeURIComponent(file) + ') format("' + (/\.woff2$/i.test(file) ? "woff2" : "truetype") + '")}';
 }).filter(Boolean).join("\n");
+// ---------- Client asset routes (extracted from inline PAGE template) ----------
+app.get("/game.css", (req, res) => {
+  const css = require("fs").readFileSync(__dirname + "/client/game.css", "utf8");
+  res.setHeader("Content-Type", "text/css");
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.send(css.replace(/__ARTV__/g, ART_VERSION));
+});
+
+app.get("/game.js", (req, res) => {
+  const js = require("fs").readFileSync(__dirname + "/client/game.js", "utf8");
+  res.setHeader("Content-Type", "application/javascript");
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.send(js.replace(/__ART__/g, artJson()).replace(/__TRIBES__/g, LANDING_TRIBES).replace(/__VER__/g, GAME_VERSION));
+});
+
+app.get("/sw.js", (req, res) => {
+  const sw = require("fs").readFileSync(__dirname + "/client/sw.js", "utf8");
+  res.setHeader("Content-Type", "application/javascript");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Service-Worker-Allowed", "/");
+  res.send(sw);
+});
+
+app.get("/manifest.webmanifest", (req, res) => {
+  const m = require("fs").readFileSync(__dirname + "/client/manifest.webmanifest", "utf8");
+  res.setHeader("Content-Type", "application/manifest+json");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.send(m);
+});
+
 app.get("/fonts.css", (req, res) => {
   res.setHeader("Content-Type", "text/css; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=86400");
@@ -39295,7 +39329,8 @@ app.get('/activity',(req,res)=>{
 });
 app.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
-  res.send(PAGE.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()).split("__TRIBES__").join(LANDING_TRIBES).split("__ART__").join(artJson()).split("__ARTV__").join(ART_VERSION));
+  const page = require("fs").readFileSync(__dirname + "/client/page.html", "utf8");
+  res.send(page.replace(/__VER__/g, GAME_VERSION).replace(/__SRV__/g, thisServerName()).replace(/__ARTV__/g, ART_VERSION));
 });
 
 // ---------- "Add to Home Screen": MarsL opens like an app ----------
