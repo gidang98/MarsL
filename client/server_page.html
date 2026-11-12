@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__SRV__ · MarsL</title>
+<link href="/fonts.css" rel="stylesheet">
+<style>
+  :root { --ink: #2a1630; --paper: #fff6ea; --accent: #ffd23f; --red: #ff5a5f; --green: #2f9e57; --line: rgba(42,22,48,0.18); --soft: #f3e7d6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; font-family: "Barlow", sans-serif; color: var(--ink); background: linear-gradient(#2a1630, #5b2333 60%, #a8452a); min-height: 100vh; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { color: #fff; margin: 4px 0 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  h1 { font-family: "Chakra Petch", sans-serif; font-weight: 600; margin: 0; font-size: 28px; letter-spacing: 1px; }
+  header small { opacity: 0.7; font-size: 13px; }
+  header a { margin-left: auto; color: var(--accent); font-weight: 700; text-decoration: none; }
+  .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+  @media (min-width: 820px) { .grid { grid-template-columns: 1fr 1fr; } .wide { grid-column: 1 / -1; } }
+  .card { background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); padding: 14px 16px; }
+  h2 { font-family: "Chakra Petch", sans-serif; font-weight: 600; font-size: 18px; margin: 0 0 10px; }
+  .muted { opacity: 0.7; font-size: 13px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .stat { background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; }
+  .stat small { display: block; font-weight: 600; opacity: 0.7; font-size: 12px; }
+  .stat b { font-family: "Chakra Petch", sans-serif; font-size: 22px; font-weight: 600; }
+  .track { position: relative; height: 16px; background: var(--soft); border: 2px solid var(--ink); border-radius: 10px; margin: 26px 4px 30px; }
+  .track i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--green); border-radius: 8px; }
+  .mark { position: absolute; top: -22px; transform: translateX(-50%); font-size: 16px; }
+  .mark span { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 700; white-space: nowrap; opacity: 0.75; }
+  .evs { display: grid; gap: 8px; }
+  .ev { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 8px 12px; }
+  .ev.running { border-color: var(--green); background: #effbea; }
+  .ev.ended, .ev.won { opacity: 0.65; }
+  .ev .ic { font-size: 24px; }
+  .ev b { display: block; }
+  .ev small { opacity: 0.7; }
+  .ev .cd { font-family: "Chakra Petch", sans-serif; font-size: 20px; text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { font-size: 11px; font-weight: 700; padding: 0 7px; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--soft); }
+  .tag.on { background: #c9f7b4; }
+  .bars { display: grid; gap: 6px; }
+  .bar { display: grid; grid-template-columns: minmax(110px, 40%) 1fr 34px; gap: 8px; align-items: center; font-size: 14px; }
+  .bar .t { height: 14px; background: var(--soft); border-radius: 7px; overflow: hidden; }
+  .bar .t i { display: block; height: 100%; background: var(--accent); border-right: 2px solid var(--ink); }
+  .bar b { text-align: right; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; opacity: 0.6; padding: 4px; }
+  td { padding: 6px 4px; border-top: 1px dashed var(--line); vertical-align: top; }
+  .scroll { overflow-x: auto; }
+  .empty { text-align: center; padding: 14px 6px; }
+  .empty b { font-size: 18px; }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>🚀 __SRV__</h1><small id="sub">Open Beta · __VER__</small><a href="/">🎮 Play</a></header>
+  <div id="app" class="grid"><div class="card wide">Loading...</div></div>
+</div>
+<script>
+var info = null;
+var fetchedAt = 0;
+var SRVTR = __TR__; // the texts of this page in the player's language (empty for English)
+var SRVTPL = null;
+// one text: numbers become #, then an exact match or a sentence with {0} {1} (names) is looked for
+function trStr(s) {
+  var raw = String(s);
+  var core = raw.trim();
+  if (!core || !SRVTR || !/[A-Za-z]{2}/.test(core)) return s;
+  var nums = [];
+  var key = core.replace(/\\d+/g, function (x) { nums.push(x); return "#"; });
+  var pre = "", e = SRVTR[key], caps = null;
+  if (!e) { var pm = /^([^A-Za-z#{]+)([\\s\\S]*)$/.exec(key); if (pm && SRVTR[pm[2]]) { pre = pm[1]; e = SRVTR[pm[2]]; } }
+  if (!e) {
+    if (!SRVTPL) {
+      SRVTPL = [];
+      Object.keys(SRVTR).forEach(function (k) {
+        if (k.indexOf("{0}") < 0) return;
+        var rx = k.replace(/[.*+?^$()|[\\]\\\\]/g, "\\\\$&").replace(/\\{\\d\\}/g, "(.+?)");
+        SRVTPL.push([new RegExp("^" + rx + "$"), k]);
+      });
+    }
+    for (var i = 0; i < SRVTPL.length && !e; i++) { var m = SRVTPL[i][0].exec(key); if (m) { e = SRVTR[SRVTPL[i][1]]; caps = m.slice(1); } }
+  }
+  if (!e) return s;
+  var out = e;
+  if (caps) out = out.replace(/\\{(\\d)\\}/g, function (x, n) { return trStr(caps[+n] || ""); });
+  var k2 = 0;
+  out = out.replace(/#/g, function () { return k2 < nums.length ? nums[k2++] : "#"; });
+  return raw.replace(core, pre + out);
+}
+// composed sentence: fill {0} {1} with ready HTML
+function T(k, a, b) {
+  var t = SRVTR && SRVTR[k] ? SRVTR[k] : k;
+  return t.replace("{0}", function () { return a; }).replace("{1}", function () { return b; });
+}
+function trWalk(root) {
+  var w = document.createTreeWalker(root, 4, null);
+  var n;
+  while ((n = w.nextNode())) {
+    var p = n.parentNode && n.parentNode.nodeName;
+    if (p === "SCRIPT" || p === "STYLE") continue;
+    var t = trStr(n.nodeValue);
+    if (t !== n.nodeValue) n.nodeValue = t;
+  }
+}
+function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function pad(n) { return n < 10 ? "0" + n : "" + n; }
+// the server time runs on its own clock, so the countdown never depends on this device's time
+function nowMs() { return info.now + (Date.now() - fetchedAt); }
+function countdown(ms) {
+  if (ms <= 0) return trStr("now");
+  var s = Math.floor(ms / 1000);
+  var d = Math.floor(s / 86400);
+  var h = Math.floor((s % 86400) / 3600);
+  var m = Math.floor((s % 3600) / 60);
+  if (d > 0) return d + "d " + pad(h) + "h " + pad(m) + "m";
+  return pad(h) + ":" + pad(m) + ":" + pad(s % 60);
+}
+function since(ms) {
+  var m = Math.max(1, Math.round(ms / 60000));
+  if (m < 60) return T("{0} min", m);
+  if (m < 2880) return T("{0} h", Math.round(m / 60));
+  return T("{0} days", Math.round(m / 1440));
+}
+function who(name, tag) { return "<b>" + esc(name) + "</b>" + (tag ? " [" + esc(tag) + "]" : ""); }
+
+function ageCard(d) {
+  var h = '<div class="card wide"><h2>🕰️ Server age and progress</h2><div class="stats">';
+  h += '<div class="stat"><small>' + trStr("Server day") + '</small><b>' + d.age.day + "</b></div>";
+  h += '<div class="stat"><small>Started</small><b style="font-size:16px">' + new Date(d.age.start).toLocaleDateString() + "</b></div>";
+  h += '<div class="stat"><small>Round progress</small><b>' + Math.round(d.progress * 100) + "%</b></div>";
+  h += '<div class="stat"><small>Speed</small><b>×' + d.server.speed + "</b></div>";
+  h += '<div class="stat"><small>Phase</small><b style="font-size:16px">' + esc(trStr(d.phase)) + "</b></div></div>";
+  var span = d.events[2].at - d.age.start;
+  h += '<div class="track"><i style="width:' + Math.round(d.progress * 100) + '%"></i>';
+  d.events.forEach(function (e) {
+    var at = Math.max(0, Math.min(1, (e.at - d.age.start) / Math.max(1, span)));
+    h += '<div class="mark" style="left:' + Math.round(at * 100) + '%">' + e.icon + "<span>day " + e.day + "</span></div>";
+  });
+  h += "</div><p class=\\"muted\\" style=\\"margin:0\\">" + esc(trStr(d.phaseText)) + "</p></div>";
+  return h;
+}
+function eventsCard(d) {
+  var h = '<div class="card"><h2>⏳ Countdowns</h2><div class="evs">';
+  var t = nowMs();
+  d.events.forEach(function (e) {
+    var label = e.state === "waiting" ? countdown(e.at - t) : e.state === "running" ? "running" : e.state === "won" ? "won" : "ended";
+    h += '<div class="ev ' + e.state + '"><span class="ic">' + e.icon + "</span><span><b>" + e.name + "</b><small><span>day " + e.day + "</span>" + (e.note ? " · <span>" + esc(e.note) + "</span>" : "") + '</small></span><span class="cd" data-at="' + (e.state === "waiting" ? e.at : 0) + '">' + label + "</span></div>";
+  });
+  var m = d.marsEvent;
+  if (m.on) {
+    if (m.current) h += '<div class="ev running"><span class="ic">' + m.current.icon + "</span><span><b>" + esc(trStr(m.current.name)) + "</b><small>" + esc(trStr(m.current.text)) + '</small></span><span class="cd" data-at="' + m.current.endsAt + '" data-end="1">' + countdown(m.current.endsAt - t) + "</span></div>";
+    else if (m.next) h += '<div class="ev"><span class="ic">🌠</span><span><b>Next Mars event</b><small>a surprise for everybody</small></span><span class="cd" data-at="' + m.next + '">' + countdown(m.next - t) + "</span></div>";
+  }
+  return h + "</div></div>";
+}
+function playersCard(d) {
+  var p = d.players;
+  var h = '<div class="card"><h2>👥 Players</h2><div class="stats">';
+  [["Registered", p.total], ["Online now", p.online], ["Active today", p.today], ["Colonies", p.colonies], ["Alliances", p.alliances]].forEach(function (x) {
+    h += '<div class="stat"><small>' + x[0] + "</small><b>" + x[1] + "</b></div>";
+  });
+  h += "</div>";
+  var top = Math.max(1, Math.max.apply(null, d.tribes.map(function (x) { return x.players; })));
+  h += '<h2 style="margin-top:14px">🧬 Tribes</h2><div class="bars">';
+  d.tribes.slice().sort(function (a, b) { return b.players - a.players; }).forEach(function (x) {
+    h += '<div class="bar"><span>' + x.icon + " " + esc(x.name) + '</span><span class="t"><i style="width:' + Math.round((x.players / top) * 100) + '%"></i></span><b>' + x.players + "</b></div>";
+  });
+  return h + "</div></div>";
+}
+function landmarksCard(d) {
+  var h = '<div class="card wide"><h2>🗿 Landmarks</h2>';
+  if (!d.landmarks.length) {
+    h += '<div class="empty"><b>🔒 Not yet on the map</b><p class="muted">' + T("The landmarks appear on server day {0} ({1}).", d.landmarksDay, '<span class="cd" data-at="' + d.landmarksAt + '">' + countdown(d.landmarksAt - nowMs()) + "</span>") + "</p></div></div>";
+    return h;
+  }
+  var t = nowMs();
+  h += '<div class="scroll"><table><tr><th>Landmark</th><th>Where</th><th>Bonus</th><th>Holder</th></tr>';
+  d.landmarks.forEach(function (l) {
+    var holder = l.holder ? who(l.holder, l.tag) + (l.claimEnds ? ' <span class="tag">' + T("claiming {0}", countdown(l.claimEnds - t)) + "</span>" : ' <span class="tag on">' + T("holds {0}", since(t - l.since)) + "</span>") : '<span class="muted">' + T("🗿 {0} guardians", l.guards) + "</span>";
+    h += "<tr><td>" + l.icon + " <b>" + esc(l.name) + "</b></td><td>" + l.x + "|" + l.y + "</td><td>" + esc(l.bonus) + "</td><td>" + holder + "</td></tr>";
+  });
+  return h + "</table></div></div>";
+}
+function zoneCard(d) {
+  var z = d.zone;
+  var h = '<div class="card"><h2>🚩 Landing Zone</h2>';
+  if (z.holder) h += "<p style=\\"margin:0\\">" + T("Held by {0} for {1}.", who(z.holder, z.tag), since(nowMs() - z.since)) + "</p>";
+  else h += "<p style=\\"margin:0\\">Guarded by " + z.robots + " robots. Whoever takes the flag rules Mars.</p>";
+  return h + "</div>";
+}
+function mapCard(d) {
+  return '<div class="card"><h2>🗺️ The planet</h2><div class="stats"><div class="stat"><small>Size</small><b>' + (d.map.radius * 2 + 1) + "²</b></div><div class=\\"stat\\"><small>Monster camps</small><b>" + d.map.camps + "</b></div></div></div>";
+}
+function render() {
+  var d = info;
+  document.getElementById("sub").textContent = trStr(d.server.stage) + " · " + d.server.version + (d.server.maintenance ? " · 🛠️ " + trStr("maintenance") : "") + (d.server.regClosed ? " · " + trStr("registration closed") : "");
+  document.getElementById("app").innerHTML = ageCard(d) + eventsCard(d) + playersCard(d) + landmarksCard(d) + zoneCard(d) + mapCard(d);
+  trWalk(document.body);
+}
+function tick() {
+  if (!info) return;
+  var t = nowMs();
+  var nodes = document.querySelectorAll("[data-at]");
+  for (var i = 0; i < nodes.length; i++) {
+    var at = Number(nodes[i].getAttribute("data-at"));
+    if (!at) continue;
+    if (at - t <= 0 && !nodes[i].getAttribute("data-end")) { if (!tick.reload) { tick.reload = true; setTimeout(load, 1500); } }
+    nodes[i].textContent = countdown(at - t);
+  }
+}
+function load() {
+  tick.reload = false;
+  fetch("/api/server-info").then(function (r) { return r.json(); }).then(function (d) { info = d; fetchedAt = Date.now(); render(); tick(); });
+}
+load();
+setInterval(tick, 1000);
+setInterval(load, 30000);
+</script>
+</body>
+</html>

@@ -9,6 +9,17 @@ const crypto = require("crypto");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 
+// =====================================================================
+//  MODULE EXTRACTION (Phases 1-7 + Deep Refactoring)
+//  Extracted constants and functions are available via require()
+//  Server.js still contains originals for backwards compatibility
+// =====================================================================
+
+require('./config');   // 12 config modules, 127 constants
+require('./game');     // 5 game modules, 131 functions
+require('./lib');      // 4 lib modules: db, bots, heroes, pure
+require('./render');   // 65 render functions
+
 const app = express();
 
 // ---------- running online: settings come from "environment variables" ----------
