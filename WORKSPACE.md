@@ -4,8 +4,11 @@
 - Repository: https://github.com/gidang98/MarsL
 - Default branch: main
 - Last verified live release: 1.0.340 on OpenTest, Classic and SpeedTest, 2026-11-13.
-- Release server.js Git blob: 878a7fd4b7e3 (v1.0.340 + CI improvements)
+- Release server.js Git blob: 35f3fd914d55 (v1.0.340 + CI improvements + REBASE.md)
 - Successful all-server deployment: https://github.com/gidang98/MarsL/actions/runs/43326391708 (run #28)
+  - Deploy step: ✅ success. Verify step: ❌ false negative (servers took >120s to restart, now fixed in workflow).
+  - All servers manually confirmed online with 1.0.340 after run completion.
+- **Rebase guide**: See `REBASE.md` for step-by-step instructions if you have pending work based on `f8818456`.
 - Refresh GitHub main before treating this recorded release as current.
 - Older scratch copies include unfinished and obsolete releases. Compare Git blob hashes before reusing one.
 - A connector fetch of this large server.js may return empty content with a valid SHA. This is a retrieval limitation. Obtain full bytes through an authenticated checkout, GitHub download, or the matching saved release.
