@@ -38586,7 +38586,1025 @@ app.get("/api/admin/backup", requireOwner, (req, res) => {
 });
 
 app.get("/admin", (req, res) => {
-  const html = require("fs").readFileSync(__dirname + "/client/admin_page.html", "utf8");
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MarsL Admin</title>
+<link href="/fonts.css" rel="stylesheet">
+<style>
+  :root { --ink: #2a1630; --paper: #fff6ea; --accent: #ffd23f; --red: #ff5a5f; --green: #3ccf6e; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; font-family: "Barlow", sans-serif; color: var(--ink);
+    background: linear-gradient(#2a1630, #5b2333 60%, #a8452a); min-height: 100vh;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-family: "Chakra Petch", sans-serif; font-weight: 400; color: #fff; margin: 4px 0 14px; letter-spacing: 1px; }
+  h1 small { font-family: "Barlow", sans-serif; font-size: 14px; opacity: 0.7; margin-left: 8px; }
+  h2 { font-family: "Chakra Petch", sans-serif; font-weight: 400; margin: 0 0 10px; font-size: 22px; }
+  .panel { background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); padding: 14px; margin-bottom: 16px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+  .stat { background: #fff; border: 2px solid var(--ink); border-radius: 12px; padding: 6px 10px; }
+  .stat b { display: block; font-size: 22px; font-family: "Chakra Petch", sans-serif; font-weight: 400; }
+  .stat small { font-weight: 600; opacity: 0.7; }
+  .btn {
+    font-family: inherit; font-weight: 700; font-size: 14px; padding: 7px 12px; cursor: pointer;
+    background: var(--accent); color: var(--ink); border: 2px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink);
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .btn.ghost { background: #fff; }
+  .btn.red { background: var(--red); color: #fff; }
+  .btn.small { font-size: 12px; padding: 3px 8px; box-shadow: 0 2px 0 var(--ink); }
+  input, textarea { font-family: inherit; font-size: 15px; padding: 7px 9px; border: 2px solid var(--ink); border-radius: 10px; width: 100%; }
+  label { font-weight: 700; font-size: 13px; display: block; margin: 8px 0 3px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  .hint { font-size: 12px; opacity: 0.75; margin: 6px 0 0; }
+  .code { font-family: "Courier New", monospace; font-weight: 800; font-size: 18px; padding: 2px 8px; background: #fff; border: 2px dashed var(--ink); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; opacity: 0.6; padding: 4px; }
+  td { padding: 6px 4px; border-top: 1px dashed rgba(42,22,48,0.25); vertical-align: middle; }
+  td .btn { margin: 2px 2px 2px 0; }
+  .tag { font-size: 11px; font-weight: 700; padding: 0 6px; border: 1.5px solid var(--ink); border-radius: 8px; margin-left: 4px; }
+  .modrow { padding: 10px 0; border-top: 1px solid rgba(0,0,0,0.1); }
+  .modrow p { margin: 4px 0 6px; }
+  .modrow.done { opacity: 0.55; }
+  .modrow input { margin-bottom: 4px; }
+  .tag.own { background: var(--accent); } .tag.ban { background: var(--red); color: #fff; } .tag.prot { background: #cfe8ff; } .tag.on { background: #c9f7b4; }
+  .tablewrap { overflow-x: auto; }
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 16px; font-weight: 700;
+    background: var(--ink); color: #fff; border-radius: 14px; display: none; max-width: 90%; z-index: 9;
+  }
+  .center { text-align: center; }
+  a { color: inherit; }
+  a.btn { text-decoration: none; display: inline-block; }
+  .search { max-width: 260px; margin-bottom: 8px; }
+  select { font-family: inherit; font-weight: 700; padding: 5px 6px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; }
+  .newslist { margin-top: 12px; display: grid; gap: 8px; }
+  .newsitem { padding: 8px 10px; background: #fff; border: 2px solid var(--ink); border-radius: 12px; }
+  .newsitem.off { opacity: 0.6; background: #f3eee8; }
+  .newsitem input { margin-top: 6px; }
+  .newsitem small { font-weight: 600; }
+  .bars { display: grid; gap: 4px; margin: 8px 0; }
+  .barrow { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: 8px; align-items: center; font-size: 14px; }
+  .bartrack { height: 14px; background: #f1e3cf; border-radius: 7px; overflow: hidden; }
+  .bartrack i { display: block; height: 100%; background: var(--green); border-radius: 7px; }
+  .barrow.drop .bartrack i { background: var(--red); }
+  .barrow b { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 72px; }
+  .days { display: flex; align-items: flex-end; gap: 3px; height: 90px; margin: 10px 0 2px; }
+  .days div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; font-size: 11px; }
+  .days i { display: block; width: 100%; min-height: 2px; background: var(--accent); border: 1.5px solid var(--ink); border-bottom: 0; border-radius: 4px 4px 0 0; }
+  .daylabels { display: flex; gap: 3px; font-size: 10px; color: #8a7480; }
+  .daylabels span { flex: 1; text-align: center; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; position: sticky; top: 0; z-index: 5; padding: 6px 0; background: rgba(42,22,48,0.92); border-radius: 14px; }
+  .tab { font-family: inherit; font-weight: 700; font-size: 14px; padding: 7px 12px; cursor: pointer; background: #fff6ea; color: var(--ink); border: 2px solid var(--ink); border-radius: 12px; opacity: 0.75; }
+  .tab.on { background: var(--accent); opacity: 1; box-shadow: 0 3px 0 var(--ink); }
+  .goal { background: #fff; border: 2px solid var(--ink); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; }
+  .goal.running { border-color: #1f9d4d; background: #effbea; }
+  .goal.ended, .goal.won { background: #f3eee8; }
+  .goal h3 { margin: 0; font-size: 17px; }
+  .goal .row label { margin: 0; font-size: 12px; }
+  .goal input { width: 84px; padding: 4px 6px; }
+  .danger { border-color: var(--red); }
+  .danger h2 { color: #b3262b; }
+  .quarters { width: auto; }
+  .quarters td, .quarters th { text-align: center; padding: 4px 10px; }
+  .logline { font-size: 13px; padding: 3px 0; border-top: 1px dashed rgba(42,22,48,0.25); }
+  .switch { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-weight: 700; }
+  .switch input { width: auto; }
+  .modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(42,22,48,0.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 0 var(--ink); }
+  .modal-header { padding: 14px 18px; border-bottom: 2px dashed rgba(42,22,48,0.25); display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h2 { font-size: 18px; margin: 0; }
+  .modal-close { background: none; border: none; font-size: 22px; color: var(--ink); cursor: pointer; font-weight: 700; }
+  .modal-body { padding: 16px 18px; }
+  .modal-footer { padding: 12px 18px; border-top: 2px dashed rgba(42,22,48,0.25); display: flex; justify-content: flex-end; gap: 8px; }
+  @media (max-width: 600px) { .tab { padding: 6px 9px; font-size: 13px; } .goal input { width: 70px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛠️ MarsL Admin <small id="who"></small> <small style="opacity:.5;font-size:11px">__SRV__ · Open Beta · __VER__</small></h1>
+  <div id="app"><div class="panel">Loading...</div></div>
+</div>
+<div id="toast"></div>
+<div class="modal-overlay" id="pmod"><div class="modal"><div class="modal-header"><h2 id="ptitle">Player</h2><button class="modal-close" onclick="closePlayer()">&times;</button></div><div class="modal-body" id="pbody"></div><div class="modal-footer" id="pfoot"><button class="btn ghost" onclick="closePlayer()">Close</button></div></div></div>
+<script>
+var state = null;
+var search = "";
+
+function esc(t) {
+  return String(t).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function toast(msg) {
+  var t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(function () { t.style.display = "none"; }, 3500);
+}
+function ago(ms) {
+  if (!ms) return "never";
+  var m = Math.round((Date.now() - ms) / 60000);
+  if (m < 2) return "online now";
+  if (m < 60) return m + " min ago";
+  if (m < 1440) return Math.round(m / 60) + " h ago";
+  return Math.round(m / 1440) + " days ago";
+}
+function api(url, body, done) {
+  fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {})
+    .then(function (r) {
+      return r.json().then(function (d) {
+        if (!r.ok) { toast("⚠️ " + (d.error || "Something went wrong")); return; }
+        if (done) done(d);
+      });
+    })
+    .catch(function () { toast("⚠️ The server does not answer"); });
+}
+function setApp(h) { document.getElementById("app").innerHTML = h; }
+
+function start() {
+  fetch("/api/admin/me").then(function (r) {
+    if (r.status === 401) {
+      setApp('<div class="panel center"><h2>🔐 Please log in first</h2><p>Log into the game with your account, then come back here.</p><a class="btn" href="/">Go to the game</a></div>');
+      return;
+    }
+    return r.json().then(function (me) {
+      document.getElementById("who").textContent = "logged in as " + me.username;
+      if (!me.owner) {
+        var h = '<div class="panel"><h2>👑 Become an owner</h2>';
+        h += "<p>Only the person running the server can open this page. Look into the black window where MarsL is running: it shows a line <b>Owner code</b>. Type that code here.</p>";
+        h += '<form id="claim"><label for="code">Owner code</label><input id="code" autocomplete="off" placeholder="OWN-..."><div class="row"><button class="btn" type="submit">👑 Make me owner</button></div></form>';
+        h += '<p class="hint">The code changes every time the server starts. Once you are an owner, you stay one.</p></div>';
+        setApp(h);
+        return;
+      }
+      load();
+    });
+  });
+}
+
+var newsState = null;
+var lmState = null;
+var actState = null;
+var botState = null;
+var evState = null;
+
+// Mars events: good things that happen to everybody
+function eventPanel() {
+  var E = evState;
+  if (!E) return "";
+  var h = '<div class="panel"><h2>🌠 Mars events</h2>';
+  h += "<p>" + E.kinds.map(function (k) { return k.icon + " <b>" + k.name + "</b> (" + k.text + ", " + k.hours + "h)"; }).join(", ") + ". About one every 14-30 hours.</p>";
+  h += '<div class="row"><button class="btn' + (E.on ? "" : " ghost") + '" data-act="ev-on" data-id="1">✅ On</button><button class="btn' + (E.on ? " ghost" : "") + '" data-act="ev-on" data-id="0">⏸️ Off</button></div>';
+  if (E.current) h += "<p>Running now: <b>" + E.current.icon + " " + E.current.name + "</b> until " + new Date(E.current.endsAt).toLocaleTimeString() + ' <button class="btn small ghost" data-act="ev-stop">⏹️ End it</button></p>';
+  else if (E.on && E.next) h += '<p class="hint">Next one around ' + new Date(E.next).toLocaleString() + ".</p>";
+  h += '<p class="hint">Start one right now:</p><div class="row">';
+  E.kinds.forEach(function (k) { h += '<button class="btn ghost" data-act="ev-start" data-id="' + k.key + '"' + (E.current ? " disabled" : "") + ">" + k.icon + " " + k.name + "</button>"; });
+  h += '</div><div class="row"><button class="btn small ghost" data-act="ev-tool" data-id="reroll">🎲 New random timer for the next one</button><button class="btn small red" data-act="ev-tool" data-id="clear">♻️ Reset (end it, clear history)</button></div></div>';
+  return h;
+}
+
+// Fake players: small quiet colonies to raid, adjusting to players and world age
+function botPanel() {
+  var B = botState;
+  if (!B) return "";
+  var label = { off: "Off", few: "Few", normal: "Normal", many: "Many" };
+  var h = '<div class="panel"><h2>🤖 Fake players</h2>';
+  h += "<p>Automated colonies with varied routines and small home guards. They build, train and sometimes explore camps, but never attack players. Automatic mode targets 15 inactive accounts plus NPCs in each quadrant, checking every minute. An account is inactive after seven days. Real accounts are never removed. <b>Off</b> removes them all.</p>";
+  h += '<div class="stats"><div class="stat"><small>🤖 now</small><b>' + B.count + '</b></div><div class="stat"><small>🎯 target</small><b>' + B.target + '</b></div><div class="stat"><small>🌍 world age</small><b>' + B.age + ' d</b></div></div>';
+  if(B.quadrants) h += '<p class="hint">' + B.quadrants.map(function(q){return ['NE','NW','SW','SE'][q.quadrant]+': '+q.inactive+' inactive + '+q.bots+' NPCs (NPC target '+q.target+')';}).join(' · ') + '</p>';
+  var p = B.profile;
+  h += '<p class="hint">Each one aims for about <b>' + p.goal + " points</b> (a fifth of a typical active player, so they keep up with the game speed): fields Lv " + p.fields + ", HQ " + p.hq + ", storage Lv " + p.storage + ", wall " + p.wall + ", " + p.troops + " base guards (adjusted by personality and server speed).</p>";
+  h += '<p class="hint">Farmers, builders and explorers spend normal resources and use real queues. Explorers occasionally raid nearby camps; they never attack players. Sessions are staggered and no missed actions accumulate.</p>';
+  h += '<p class="hint"><b>Automatic</b> (follows the players):</p><div class="row">';
+  B.scales.forEach(function (k) { h += '<button class="btn' + (B.fixed === null && B.scale === k ? "" : " ghost") + '" data-act="bots-scale" data-id="' + k + '">' + label[k] + "</button>"; });
+  h += "</div>";
+  h += '<form id="botfixed"><label for="bfx">Or an exact number (0-100, empty = automatic)</label><div class="row"><input id="bfx" type="number" min="0" max="100" placeholder="automatic" value="' + (B.fixed === null ? "" : B.fixed) + '"><button class="btn" type="submit">💾 Save</button></div>';
+  h += '<p class="hint">' + (B.fixed === null ? "Now: automatic." : "Now: fixed at <b>" + B.fixed + "</b>. They still arrive and leave slowly, like real people.") + "</p></form></div>";
+  return h;
+}
+
+// Who plays, how long, and where new players give up
+function activityPanel() {
+  var A = actState;
+  if (!A) return "";
+  var pct = function (x) { return x.eligible ? Math.round((x.came / x.eligible) * 100) + "%" : "–"; };
+  var h = '<div class="panel"><h2>📈 Player activity</h2><div class="stats">';
+  [["🟢", A.today, "played today"], ["📅", A.week, "played this week"], ["⏱️", A.avgSessionMin + " min", "average session"],
+   ["🔁", pct(A.back1), "came back the next day"], ["📆", pct(A.back7), "still playing after a week"]].forEach(function (x) {
+    h += '<div class="stat"><small>' + x[0] + " " + x[2] + "</small><b>" + x[1] + "</b></div>";
+  });
+  h += "</div>";
+  h += '<p class="hint">Tracking since ' + new Date(A.since).toLocaleDateString() + '. "Came back" only counts players who signed up after that and long enough ago (' + A.back1.came + " of " + A.back1.eligible + " / " + A.back7.came + " of " + A.back7.eligible + "). Time only counts while the game is open on screen.</p>";
+  // last 14 days
+  var max = Math.max(1, Math.max.apply(null, A.days.map(function (d) { return d.players; })));
+  h += '<h3>Players per day</h3><div class="days">';
+  A.days.forEach(function (d) {
+    h += '<div title="' + d.day + ": " + d.players + " players, " + d.newPlayers + " new, " + d.minutes + ' min played"><small>' + (d.players || "") + '</small><i style="height:' + Math.round((d.players / max) * 100) + '%"></i></div>';
+  });
+  h += '</div><div class="daylabels">' + A.days.map(function (d, i) { return "<span>" + (i % 2 ? "" : d.day.slice(8)) + "</span>"; }).join("") + "</div>";
+  // funnel
+  var top = Math.max(1, A.funnel[0][1]);
+  h += '<h3>How far new players get</h3><div class="bars">';
+  var biggest = -1, bigAt = -1;
+  A.funnel.forEach(function (f, i) {
+    if (i > 0) { var lost = A.funnel[i - 1][1] - f[1]; if (lost > biggest) { biggest = lost; bigAt = i; } }
+  });
+  A.funnel.forEach(function (f, i) {
+    h += '<div class="barrow' + (i === bigAt && biggest > 0 ? " drop" : "") + '"><span>' + esc(f[0]) + '</span><span class="bartrack"><i style="width:' + Math.round((f[1] / top) * 100) + '%"></i></span><b>' + f[1] + " · " + Math.round((f[1] / top) * 100) + "%</b></div>";
+  });
+  h += "</div>";
+  if (bigAt > 0 && biggest > 0) h += '<p class="hint">🔴 Most players are lost between <b>' + esc(A.funnel[bigAt - 1][0]) + "</b> and <b>" + esc(A.funnel[bigAt][0]) + "</b> (" + biggest + " players).</p>";
+  // who stopped
+  h += "<h3>Gone for 2+ days</h3>";
+  if (!A.gone.length) h += '<p class="hint">Nobody. Everyone played in the last 2 days. 🎉</p>';
+  else {
+    h += '<div class="tablewrap"><table><tr><th>Name</th><th>Last online</th><th>Days played</th><th>Quests</th><th>Stopped at</th></tr>';
+    A.gone.forEach(function (g) {
+      h += "<tr><td><b>" + esc(g.name) + "</b>" + (g.tour ? "" : ' <span class="tag">skipped tour</span>') + "</td><td>" + dur(A.now - g.lastSeen) + " ago</td><td>" + g.daysPlayed + "</td><td>" + g.questsDone + "</td><td>" + esc(g.stuckAt) + "</td></tr>";
+    });
+    h += "</table></div>";
+  }
+  return h + "</div>";
+}
+// [label, production, build, move, what it feels like]
+var SPEED_PRESETS = [
+  ["🐢 Normal ×1", 1, 1, 1, "slow and steady: the round lasts about 9 months, a server day is 76 h"],
+  ["🎮 Fast ×3", 3, 3, 3, "about 5 months, a server day is 44 h"],
+  ["⚡ Quick ×10", 10, 10, 10, "about 3 months, a server day is 24 h"],
+  ["🧪 Testing ×60", 60, 60, 30, "about 5 weeks, a server day is 10 h"],
+];
+var goalState = null;
+var protState = null;
+var accState = null;
+var legalState = null;
+var worldState = null;
+var accessState = null;
+var logState = null;
+var tab = "overview";
+try { tab = localStorage.getItem("adminTab") || "overview"; } catch (e) {}
+var LOADS = [
+  ["/api/admin/overview", function (d) { state = d; }],
+  ["/api/admin/news", function (d) { newsState = d; }],
+  ["/api/admin/landmarks", function (d) { lmState = d; }],
+  ["/api/admin/activity", function (d) { actState = d; }],
+  ["/api/admin/bots", function (d) { botState = d; }],
+  ["/api/admin/events", function (d) { evState = d; }],
+  ["/api/admin/goals", function (d) { goalState = d; }],
+  ["/api/admin/world", function (d) { worldState = d; }],
+  ["/api/admin/access", function (d) { accessState = d; }],
+  ["/api/admin/log", function (d) { logState = d; }],
+  ["/api/admin/protection-rules", function (d) { protState = d; }],
+  ["/api/admin/accounts", function (d) { accState = d; }],
+  ["/api/admin/legal", function (d) { legalState = d; }],
+  ["/api/admin/starts", function (d) { startState = d; }],
+  ["/api/admin/moderation", function (d) { modState = d; }],
+  ["/api/admin/translations", function (d) { trState = d; }],
+  ["/api/admin/system", function (d) { sysState = d; }],
+];
+var modState = { reports: [], appeals: [], open: 0, now: 0 };
+var trState = { pending: [], counts: {}, langs: [], seen: 0, total: 0 };
+var sysState = null;
+var srvLogs = null;
+var dbState = null;
+var migState = null;
+var TR_NAMES = { de: "Deutsch", it: "Italiano", fr: "Français", tr: "Türkçe", es: "Español", ru: "Русский", vi: "Tiếng Việt", pt: "Português (Brasil)", id: "Bahasa Indonesia", pl: "Polski", cs: "Čeština", sk: "Slovenčina" };
+var balState = null;
+var balDays = 7;
+var balBots = false;
+function loadBalance() {
+  api("/api/admin/balance?days=" + balDays + (balBots ? "&bots=1" : ""), null, function (d) { balState = d; if (tab === "balance") render(); });
+}
+var startState = { starts: [], restartHours: 0 };
+function load() {
+  var left = LOADS.length;
+  LOADS.forEach(function (l) {
+    api(l[0], null, function (d) {
+      l[1](d);
+      left--;
+      if (left === 0) render();
+    });
+  });
+}
+
+function dur(ms) {
+  var m = Math.max(1, Math.round(ms / 60000));
+  if (m < 60) return m + " min";
+  var h = Math.round(m / 60);
+  if (h < 48) return h + " h";
+  return Math.round(h / 24) + " days";
+}
+
+var NEWS_TIMES = [[1, "1 hour"], [6, "6 hours"], [12, "12 hours"], [24, "1 day"], [72, "3 days"], [168, "1 week"], [0, "until I remove it"]];
+function hoursSelect(attr, selected, keep) {
+  var h = "<select " + attr + ">";
+  if (keep) h += '<option value="-1" selected>' + keep + "</option>";
+  NEWS_TIMES.forEach(function (t) { h += '<option value="' + t[0] + '"' + (t[0] === selected ? " selected" : "") + ">" + t[1] + "</option>"; });
+  return h + "</select>";
+}
+var KIND_NAME = { zone: "🚩 Landing Zone", robots: "🤖 Robots", server: "⏩ Server", admin: "📢 Owner", event: "📰 Event", landmark: "🗿 Landmark", season: "🏆 Server goal" };
+
+// The three big events of the server clock: each can be started, stopped and really reset
+var GOAL_LABEL = { waiting: "waiting", running: "running", ended: "ended", won: "won" };
+function goalPanel() {
+  var G = goalState;
+  if (!G) return "";
+  var h = '<div class="panel"><h2>🗓️ Server events · day ' + G.clock.day + ' <small class="muted">1 day = ' + G.dayHours + " h</small></h2>";
+  h += '<p class="hint" style="margin-top:0"><b>Reset</b> puts an event fully back to waiting: it ends, forgets the winner and its progress, and starts again on its day (a day in the past moves to tomorrow).</p>';
+  G.goals.forEach(function (g) {
+    h += '<div class="goal ' + g.status + '"><div class="row" style="margin:0"><h3>' + g.icon + " " + g.name + '</h3><span class="tag ' + (g.status === "running" ? "on" : g.status === "waiting" ? "prot" : "") + '">' + GOAL_LABEL[g.status] + "</span></div>";
+    h += '<p class="hint" style="margin:4px 0 0">' + esc(g.text) + (g.status === "waiting" ? " · " + new Date(g.at).toLocaleString() : "") + "</p>";
+    h += '<div class="row"><label>Server day <input type="number" min="1" max="400" id="gd-' + g.key + '" value="' + g.day + '"></label><button class="btn small ghost" data-act="goal-day" data-key="' + g.key + '">Set day</button></div>';
+    h += '<div class="row">';
+    if (g.key === "relic") {
+      h += '<label>Landmarks <input type="number" min="2" max="8" id="gp-relic-count" value="' + G.defaults.count + '"></label><label>Hours <input type="number" min="1" max="240" id="gp-relic-hours" value="' + G.defaults.hours + '"></label>';
+    } else if (g.key === "aurora") {
+      h += '<label>Charge (h) <input type="number" min="1" max="72" id="gp-aurora-charge" value="' + G.defaults.auroraCharge + '"></label><label>Countdown (h) <input type="number" min="1" max="168" id="gp-aurora-hours" value="' + G.defaults.auroraHours + '"></label>';
+    }
+    h += '<button class="btn small" data-act="goal-start" data-key="' + g.key + '"' + (g.status === "running" ? " disabled" : "") + ">▶️ Start now</button>";
+    h += '<button class="btn small ghost" data-act="goal-stop" data-key="' + g.key + '"' + (g.status === "running" ? "" : " disabled") + ">⏹️ Stop</button>";
+    h += '<button class="btn small red" data-act="goal-reset" data-key="' + g.key + '">♻️ Reset</button></div></div>';
+  });
+  h += '<div class="row"><button class="btn ghost" data-act="clock-restart">🔄 Restart the whole clock</button></div>';
+  h += '<p class="hint">Restarting resets all three events and makes today day 1. Server clock started ' + new Date(G.clock.start).toLocaleString() + ".</p></div>";
+  return h;
+}
+
+var QUARTER_NAME = ["↗️ North-east", "↖️ North-west", "↙️ South-west", "↘️ South-east"];
+function worldPanel() {
+  var W = worldState;
+  var L = lmState;
+  if (!W) return "";
+  var h = '<div class="panel"><h2>🗺️ The map</h2>';
+  h += '<div class="stats"><div class="stat"><small>👹 camps</small><b>' + W.census.total + '</b></div><div class="stat"><small>🌱 layout seed</small><b>' + W.seed + '</b></div><div class="stat"><small>🩹 wounded camps</small><b>' + W.wounded + '</b></div><div class="stat"><small>☄️ crates</small><b>' + W.meteors + '</b></div><div class="stat"><small>🚩 Landing Zone</small><b style="font-size:16px">' + (W.zone.holder ? esc(W.zone.holder) : "🤖 " + W.zone.robots) + "</b></div></div>";
+  h += '<h3>Camps per quarter and danger level</h3><div class="tablewrap"><table class="quarters"><tr><th></th><th>Near</th><th>Mid</th><th>Far</th><th>Edge</th><th>All</th></tr>';
+  W.census.per.forEach(function (q, i) {
+    h += "<tr><td><b>" + QUARTER_NAME[i] + "</b></td>" + q.map(function (n) { return "<td>" + n + "</td>"; }).join("") + "<td><b>" + q.reduce(function (a, b) { return a + b; }, 0) + "</b></td></tr>";
+  });
+  h += '</table></div><p class="hint">Every quarter gets the same number of camps at every level, at least ' + W.spacing + " tiles apart, on rough ground. A re-roll picks a new random layout.</p>";
+  h += '<div class="row"><button class="btn ghost" data-act="world" data-w="camps-regrow">🩹 Heal all camps</button><input id="seedIn" type="number" min="1" placeholder="seed (optional)" style="width:130px"><button class="btn ghost" data-act="world" data-w="camps-reroll">🎲 Re-roll camps</button></div>';
+  h += '<div class="row"><button class="btn ghost" data-act="world" data-w="meteors-clear">☄️ Remove crates</button><button class="btn ghost" data-act="world" data-w="zone-reset">🚩 Reset Landing Zone</button></div>';
+  if (L) {
+    h += '<h3>🗿 Landmarks · ' + (L.open ? "🟢 open" : "🔒 sealed") + '</h3><div class="row" style="margin-top:0"><button class="btn small' + (L.open ? " ghost" : "") + '" data-act="lm-open" data-on="' + (L.open ? 0 : 1) + '">' + (L.open ? "🔒 Seal" : "🗿 Open") + '</button><button class="btn small ghost" data-act="lm-reset">♻️ Free all landmarks</button></div>';
+    h += '<div class="tablewrap"><table><tr><th>Landmark</th><th>Bonus</th><th>Holder</th></tr>';
+    L.landmarks.forEach(function (l) {
+      h += "<tr><td>" + l.icon + " " + esc(l.name) + "</td><td>" + esc(l.bonus) + "</td><td>" + (l.holder ? esc(l.holder) : "🗿 " + l.guards + " guardians") + "</td></tr>";
+    });
+    h += "</table></div>";
+  }
+  h += "</div>";
+  h += '<div class="panel danger"><h2>⚠️ Reset the map</h2><p>New random camps, all landmarks free, Landing Zone back to the robots, crates removed. Players, colonies and alliances stay.</p><div class="row"><button class="btn red" data-act="world" data-w="map-reset" data-type="RESET MAP">💥 Reset the map</button></div></div>';
+  return h;
+}
+
+function protectionPanel() {
+  var P = protState;
+  if (!P) return "";
+  var h = '<div class="panel"><h2>🛡️ Beginner protection</h2>';
+  h += '<p class="hint" style="margin-top:0">Ends after the hours or the points, whichever comes first. Empty = automatic: it follows the game speed (now ' + P.auto.hours + " h or " + P.auto.points + " points).</p>";
+  h += '<form id="prot"><div class="row" style="margin-top:0"><label style="margin:0">Hours <input id="prH" type="number" min="1" max="720" placeholder="auto ' + P.auto.hours + '" value="' + (P.ownHours || "") + '" style="width:110px"></label>';
+  h += '<label style="margin:0">Points <input id="prP" type="number" min="1" max="100000" placeholder="auto ' + P.auto.points + '" value="' + (P.ownPoints || "") + '" style="width:110px"></label><button class="btn" type="submit">💾 Save</button></div></form>';
+  return h + "</div>";
+}
+
+function translationsPanel() {
+  var T = trState;
+  var h = '<div class="panel"><h2>🌍 Translations' + (T.pending.length ? ' <span class="tag ban">' + T.pending.length + " waiting</span>" : "") + "</h2>";
+  h += '<p class="hint" style="margin-top:0">Players suggest texts in ⚙️ Settings › Help translate. Approved texts replace the built-in ones for everybody. ' + T.total + " built-in phrases, " + T.seen + " more seen in play.</p>";
+  if (!T.pending.length) h += "<p>Nothing to review.</p>";
+  T.pending.forEach(function (r) {
+    h += '<div class="modrow"><div><b>' + esc(TR_NAMES[r.lang] || r.lang) + "</b> · " + esc(r.author) + " · " + new Date(r.created_at).toLocaleDateString() + "</div>";
+    h += "<p>" + esc(r.key) + "</p>";
+    if (r.old) h += '<p class="hint" style="margin:0">Now: ' + esc(r.old) + "</p>";
+    h += '<textarea data-tr-text="' + r.id + '" rows="2" style="width:100%;box-sizing:border-box">' + esc(r.text) + "</textarea>";
+    h += '<div class="row"><button class="btn" data-act="tr-ok" data-id="' + r.id + '">✅ Approve</button> <button class="btn ghost" data-act="tr-no" data-id="' + r.id + '">✖ Reject</button></div></div>';
+  });
+  h += "</div>";
+  h += '<div class="panel"><h2>📦 Translation files</h2><p class="hint" style="margin-top:0">One JSON file per language: <code>{ "English phrase": "translation" }</code>. Use them with Crowdin, Weblate or any editor, then import the result. # stands for a number and must stay.</p>';
+  h += "<table>" + ["en"].concat(T.langs).map(function (l) {
+    var c = T.counts[l];
+    return "<tr><td>" + esc(l === "en" ? "English (source)" : TR_NAMES[l] || l) + "</td><td>" + (c ? c.built + " built-in · " + c.approved + " community" : "") + '</td><td><a class="btn ghost" href="/api/admin/i18n-export?lang=' + l + '">⬇ Download</a></td></tr>';
+  }).join("") + "</table>";
+  h += '<h3>Import</h3><select id="trImpLang">' + T.langs.map(function (l) { return '<option value="' + l + '">' + esc(TR_NAMES[l] || l) + "</option>"; }).join("") + '</select> <input type="file" id="trImpFile" accept=".json,application/json"> <button class="btn" data-act="tr-import">⬆ Import and approve</button></div>';
+  return h;
+}
+function accountsPanel() {
+  var A = accState;
+  if (!A) return "";
+  var h = '<div class="panel"><h2>📧 Sign-up</h2>';
+  h += "<p>" + (A.mail.ready ? (A.mail.dev ? "🧪 Test mode: mails are only printed in the server log" : "✅ Mail ready · from " + esc(A.mail.from)) : "⚠️ No mail service yet. Set BREVO_API_KEY and MAIL_FROM on the server.") + "</p>";
+  if (A.mail.problem) h += '<p class="reason">❌ Last mail failed (' + new Date(A.mail.problem.at).toLocaleString() + "): " + esc(A.mail.problem.error) + "</p>";
+  h += '<div class="switch"><input type="checkbox" id="acEm"' + (A.emailRequired ? " checked" : "") + (A.mail.ready ? "" : " disabled") + ' data-act="acc" data-k="emailRequired"> <label for="acEm" style="margin:0">New players must confirm their email</label></div>';
+  h += '<div class="row" style="margin-top:0"><label style="margin:0">Accounts per device <input id="devCap" type="number" min="0" max="20" value="' + A.deviceCap + '" style="width:70px"></label><button class="btn small" data-act="acc-cap">💾 Save</button><span class="muted">0 = no limit</span></div>';
+  h += '<p class="hint">✅ ' + A.verified + " confirmed addresses · ⏳ " + A.waiting + " waiting for their link</p>";
+  if (A.pending && A.pending.length) {
+    h += '<ul class="devlist">';
+    A.pending.forEach(function (x) {
+      h += '<li><span class="dv-tx"><b>' + esc(x.username) + "</b><small>" + esc(x.email) + " · " + new Date(x.created_at).toLocaleString() + '</small></span><button class="btn small ghost" data-act="pend-clear" data-id="' + x.id + '">🗑️ Clear</button></li>';
+    });
+    h += "</ul>";
+  }
+  h += "</div>";
+  return h;
+}
+// ⚖️ the legal page: fill in, save, look at /legal
+function legalPanel() {
+  var A = legalState;
+  if (!A) return "";
+  var h = '<div class="panel"><h2>⚖️ Legal page</h2>';
+  h += '<p class="hint" style="margin-top:0">Shown to everybody at <a href="/legal" target="_blank">/legal</a> (linked on the login page and in the settings). The texts are built from what you enter here. It is a template, not legal advice.</p>';
+  h += A.missing.length ? '<p>⚠️ Still missing: <b>' + esc(A.missing.join(", ")) + "</b></p>" : "<p>✅ Complete</p>";
+  [["imprint", "Legal notice (Impressum)"], ["privacy", "Privacy policy"]].forEach(function (g) {
+    h += "<h3>" + g[1] + "</h3>";
+    A.fields.filter(function (f) { return f.group === g[0]; }).forEach(function (f) {
+      h += '<label for="lg-' + f.key + '">' + esc(f.label) + (f.needed ? " *" : "") + "</label>";
+      h += f.long ? '<textarea id="lg-' + f.key + '" rows="3" maxlength="2000" placeholder="' + esc(f.hint) + '">' + esc(f.value) + "</textarea>"
+        : '<input id="lg-' + f.key + '" maxlength="200" placeholder="' + esc(f.hint) + '" value="' + esc(f.value) + '">';
+    });
+  });
+  if (A.mail) h += '<p class="hint">Email sign-up is on, so the policy also names Brevo as mail provider.</p>';
+  h += '<p></p><button class="btn" data-act="legal-save">💾 Save</button> <a class="btn small ghost" href="/legal" target="_blank">👁️ View page</a></div>';
+  return h;
+}
+function linksPanel() {
+  var A = accState;
+  if (!A) return "";
+  var h = '<div class="panel"><h2>🔗 Linked accounts</h2>';
+  h += '<p class="hint" style="margin-top:0">Accounts on the same device cannot send each other troops or goods. Clear a player if two people really share a device.</p>';
+  if (!A.sameDevice.length) h += '<p class="hint">No linked accounts. 🎉</p>';
+  A.sameDevice.forEach(function (g) {
+    h += '<div class="newsitem"><div class="row" style="margin:0">';
+    g.users.forEach(function (u) {
+      h += "<span><b>" + esc(u.name) + "</b> " + (u.ok ? '<span class="tag on">cleared</span> <button class="btn small ghost" data-act="acc-ok" data-id="' + u.id + '" data-on="0">Link again</button>' : '<button class="btn small ghost" data-act="acc-ok" data-id="' + u.id + '" data-on="1">✅ Clear</button>') + "</span>";
+    });
+    h += "</div></div>";
+  });
+  if (A.sameNetwork.length) {
+    h += '<h3>Same network, different devices</h3><p class="hint" style="margin-top:0">Often a family or a school. Only worth a look when they also play alike.</p>';
+    A.sameNetwork.forEach(function (g) { h += '<p style="margin:2px 0">' + g.users.map(function (u) { return "<b>" + esc(u.name) + "</b>"; }).join(" · ") + "</p>"; });
+  }
+  return h + "</div>";
+}
+
+function accessPanel() {
+  var A = accessState;
+  if (!A) return "";
+  var h = '<div class="panel"><h2>🚪 Access</h2>';
+  h += '<div class="switch"><input type="checkbox" id="acMaint"' + (A.maintenance ? " checked" : "") + ' data-act="access" data-k="maintenance"> <label for="acMaint" style="margin:0">🛠️ Maintenance mode: only owners can play</label></div>';
+  h += '<div class="row" style="margin-top:0"><input id="acNote" maxlength="120" placeholder="Message for players, e.g. Back at 22:00" value="' + esc(A.maintenanceNote || "") + '" style="max-width:340px"><button class="btn small" data-act="access-note">💾 Save message</button></div>';
+  h += '<div class="switch"><input type="checkbox" id="acReg"' + (A.regClosed ? " checked" : "") + ' data-act="access" data-k="regClosed"> <label for="acReg" style="margin:0">🔒 Close registration (nobody new can sign up)</label></div>';
+  return h + "</div>";
+}
+
+function giveForm(title, who) {
+  return '<form id="give" data-who="' + who + '"><div class="row" style="margin-top:0"><b>' + title + '</b>' +
+    ["wood", "stone", "metal", "food"].map(function (r) { return '<label style="margin:0">' + r + ' <input type="number" min="0" max="1000000" id="gv-' + r + '" style="width:90px"></label>'; }).join("") +
+    '<button class="btn small" type="submit">🎁 Give</button></div></form>';
+}
+
+function playerTools() {
+  var h = '<div class="panel"><h2>🎁 Gifts</h2>';
+  h += '<p class="hint" style="margin-top:0">Storage limits still apply. Fill in the amounts and choose who gets them.</p>';
+  h += '<div class="row"><select id="giveWho"><option value="all">Every colony</option>';
+  state.players.forEach(function (p) { if (!p.bot) h += '<option value="' + p.id + '">' + esc(p.name) + "</option>"; });
+  h += "</select>";
+  ["wood", "stone", "metal", "food"].forEach(function (r) { h += '<label style="margin:0">' + r + ' <input type="number" min="0" max="1000000" id="gv-' + r + '" style="width:90px"></label>'; });
+  h += '<label style="margin:0"><input type="checkbox" id="giveNews" style="width:auto"> tell everyone</label><button class="btn small" data-act="give">🎁 Give</button></div></div>';
+  return h;
+}
+
+
+// ---------- 🚩 reports and appeals ----------
+function moderationPanel() {
+  var M = modState;
+  var h = '<div class="panel"><h2>🚩 Reports & appeals' + (M.open ? ' <span class="tag ban">' + M.open + " open</span>" : "") + "</h2>";
+  if (!M.reports.length && !M.appeals.length) return h + '<p class="hint" style="margin-top:0">Nothing reported. Players can report each other from a profile, and blocked or linked players can write an appeal.</p></div>';
+  M.appeals.forEach(function (a) {
+    var open = a.status === "open";
+    h += '<div class="modrow' + (open ? "" : " done") + '"><div><b>📨 ' + esc(a.name) + "</b> " + (a.kind === "ban" ? '<span class="tag ban">blocked</span>' : '<span class="tag">🔗 linked to ' + esc(a.linked.join(", ") || "nobody now") + "</span>") + ' <small>' + ago(a.at) + "</small>";
+    h += "<p>" + esc(a.text) + "</p>";
+    if (open) h += '<input id="ans-' + a.id + '" maxlength="500" placeholder="Answer (optional)"><div class="row"><button class="btn small" data-act="appeal" data-id="' + a.id + '" data-on="1">✅ Accept</button><button class="btn small ghost" data-act="appeal" data-id="' + a.id + '" data-on="0">✖ Deny</button></div>';
+    else h += "<small>" + (a.status === "accepted" ? "✅ accepted" : "✖ denied") + (a.answer ? ": " + esc(a.answer) : "") + "</small>";
+    h += "</div></div>";
+  });
+  M.reports.forEach(function (r) {
+    var open = r.status === "open";
+    h += '<div class="modrow' + (open ? "" : " done") + '"><div><b>🚩 ' + esc(r.target) + "</b> <small>by " + esc(r.by) + " · " + ago(r.at) + (r.count > 1 ? " · " + r.count + " reports in total" : "") + "</small>";
+    h += "<p><b>" + esc(r.reason) + "</b>" + (r.text ? " · " + esc(r.text) : "") + "</p>";
+    if (open) h += '<input id="note-' + r.id + '" maxlength="500" placeholder="Note for the warning (optional)"><div class="row"><button class="btn small ghost" data-act="rep" data-id="' + r.id + '" data-key="dismiss">👌 Nothing to do</button><button class="btn small ghost" data-act="rep" data-id="' + r.id + '" data-key="warn">⚠️ Warn</button><button class="btn small red" data-act="rep" data-id="' + r.id + '" data-key="block">⛔ Block</button></div>';
+    else h += "<small>" + esc(r.outcome) + "</small>";
+    h += "</div></div>";
+  });
+  return h + "</div>";
+}
+
+// ---------- 📊 balance: real battles ----------
+function balancePanel() {
+  var B = balState;
+  var h = '<div class="panel"><h2>📊 Battles</h2><div class="row" style="margin-top:0">';
+  [1, 7, 30].forEach(function (n) { h += '<button class="btn small' + (balDays === n ? "" : " ghost") + '" data-act="bal-days" data-id="' + n + '">' + (n === 1 ? "24 hours" : n + " days") + "</button>"; });
+  h += '<label style="margin:0"><input type="checkbox" data-act="bal-bots"' + (balBots ? " checked" : "") + ' style="width:auto"> include fake players</label></div>';
+  if (!B) return h + '<p class="hint">Loading…</p></div>';
+  h += "<p>" + B.total + " battles · " + B.pvp + " between players · " + B.camp + " at monster camps" + (B.hero !== null ? " · 🎖️ commander in " + B.hero + "%" : "") + "</p>";
+  var p = function (v) { return v === null ? "–" : v + "%"; };
+  h += '<div class="tablewrap"><table><tr><th>Tribe</th><th>Attacks on players</th><th>won</th><th>Defenses</th><th>held</th><th>Camp attacks</th><th>won</th><th>Attackers lost</th></tr>';
+  B.tribes.forEach(function (t) { h += "<tr><td>" + t.icon + " " + esc(t.name) + "</td><td>" + t.pvp + "</td><td>" + p(t.pvpWin) + "</td><td>" + t.def + "</td><td>" + p(t.defWin) + "</td><td>" + t.camp + "</td><td>" + p(t.campWin) + "</td><td>" + p(t.lossRate) + "</td></tr>"; });
+  h += "</table></div></div>";
+  h += '<div class="panel"><h2>⚔️ Attacker vs defender</h2><p class="hint" style="margin-top:0">How often the attacking tribe (row) wins against the defending tribe (column). Around 50% is balanced; a few battles say little.</p><div class="tablewrap"><table><tr><th></th>';
+  B.match[0].vs.forEach(function (v) { h += "<th>vs " + v.icon + "</th>"; });
+  h += "</tr>";
+  B.match.forEach(function (m) {
+    h += "<tr><td>" + m.icon + " " + esc(m.name) + "</td>";
+    m.vs.forEach(function (v) { h += "<td>" + (v.n ? p(v.win) + " <small>(" + v.n + ")</small>" : "–") + "</td>"; });
+    h += "</tr>";
+  });
+  h += "</table></div></div>";
+  h += '<div class="panel"><h2>🪖 Units</h2><p class="hint" style="margin-top:0">"won" = battles this unit took part in that its side won. "lost" = share of the units that died.</p><div class="tablewrap"><table><tr><th>Unit</th><th>Attacks</th><th>won</th><th>sent</th><th>lost</th><th>Defenses</th><th>lost</th></tr>';
+  if (!B.units.length) h += '<tr><td colspan="7">No battles yet.</td></tr>';
+  B.units.forEach(function (u) { h += "<tr><td>" + u.tribe + " " + u.icon + " " + esc(u.name) + "</td><td>" + u.battles + "</td><td>" + p(u.winRate) + "</td><td>" + u.sent + "</td><td>" + p(u.lossRate) + "</td><td>" + u.defBattles + "</td><td>" + p(u.defLossRate) + "</td></tr>"; });
+  return h + "</table></div></div>";
+}
+
+function startsPanel() {
+  var S = startState;
+  var h = '<div class="panel"><h2>📅 Planned rounds</h2>';
+  if (!S.starts.length) h += '<p class="hint" style="margin-top:0">No new round planned.</p>';
+  S.starts.forEach(function (t) {
+    h += '<div class="row" style="margin-top:4px"><b>' + new Date(t).toLocaleString() + "</b><span class='hint' style='margin:0'>in " + dur(t - Date.now()) + '</span><button class="btn small ghost" data-act="start-del" data-id="' + t + '">✖ Remove</button></div>';
+  });
+  h += '<div class="row"><input type="datetime-local" id="startAt" style="width:auto"><button class="btn small" data-act="start-add">📅 Plan a new round</button></div>';
+  h += '<p class="hint">At that moment the server resets by itself: accounts stay, everybody gets a new colony. Players see it in the calendar on the login screen.' + (S.restartHours ? " After Project Aurora the next round is planned " + S.restartHours + " hours later." : "") + "</p></div>";
+  return h;
+}
+
+function serverPanel() {
+  var h = '<div class="panel"><h2>🧹 Housekeeping</h2><div class="row" style="margin-top:0"><a class="btn" href="/api/admin/backup">💾 Download backup</a><label style="margin:0">older than <input type="number" id="cleanDays" min="1" max="365" value="30" style="width:70px"> days</label><button class="btn ghost" data-act="cleanup">🧹 Clean old reports, mail and logins</button></div>';
+  h += '<p class="hint">A backup is a copy of marsl.db. To restore it, stop the server and replace marsl.db with it.</p></div>';
+  h += '<div class="panel danger"><h2>⚠️ Reset the server</h2><p>Starts a new round: all troops, reports, mail, news, alliances, statistics, Mars events and server goals are deleted. The map is re-rolled, landmarks are sealed and the clock starts at day 1. Fake players are removed (they come back by themselves).</p>';
+  h += '<div class="row"><label style="margin:0"><input type="radio" name="rmode" value="fresh" checked style="width:auto"> Keep all accounts, everybody gets a new colony</label></div>';
+  h += '<div class="row" style="margin-top:2px"><label style="margin:0"><input type="radio" name="rmode" value="wipe" style="width:auto"> Delete every account except the owners</label></div>';
+  h += '<div class="row"><button class="btn red" data-act="server-reset">💥 Reset the server</button></div><p class="hint">Download a backup first. This cannot be undone.</p></div>';
+  return h;
+}
+
+function logPanel() {
+  var h = '<div class="panel"><h2>📜 What the owners did</h2>';
+  if (!logState || !logState.log.length) return h + '<p class="hint">Nothing yet.</p></div>';
+  logState.log.forEach(function (x) { h += '<div class="logline"><small>' + new Date(x.at).toLocaleString() + "</small> · <b>" + esc(x.who) + "</b> · " + esc(x.text) + "</div>"; });
+  return h + "</div>";
+}
+
+function newsPanel() {
+  var n = newsState;
+  var h = '<div class="panel"><h2>📰 Mars News</h2>';
+  h += '<p class="hint" style="margin-top:0">Only big events land here automatically: the Landing Zone being conquered or lost, and server changes. The ticker shows at most ' + n.shownMax + " at the same time, newest first.</p>";
+  h += '<form id="newsadd"><label for="nt">New news</label><textarea id="nt" rows="2" maxlength="200" placeholder="e.g. 🎉 Double resources weekend starts now!"></textarea>';
+  h += '<div class="row">Show for ' + hoursSelect('id="nh"', 24) + '<button class="btn" type="submit">📰 Publish</button></div></form>';
+  if (!n.news.length) return h + '<p class="hint">No news yet.</p></div>';
+  h += '<div class="newslist">';
+  n.news.forEach(function (x) {
+    var since = n.now - x.at;
+    var status;
+    if (x.active) status = '<span class="tag on">showing</span> since ' + dur(since) + " · " + (x.until ? "<b>" + dur(x.until - n.now) + " left</b>" : "<b>until removed</b>");
+    else status = '<span class="tag">hidden</span> ended ' + dur(n.now - x.until) + " ago";
+    h += '<div class="newsitem' + (x.active ? "" : " off") + '"><div class="row" style="margin:0"><small>' + (KIND_NAME[x.kind] || x.kind) + " · " + status + "</small></div>";
+    h += '<input data-news-text="' + x.id + '" maxlength="200" value="' + esc(x.text) + '">';
+    h += '<div class="row">' + (x.active ? "Time: " : "Show again for ") + hoursSelect('data-news-hours="' + x.id + '"', x.active ? null : 24, x.active ? "keep as it is" : null);
+    h += '<button class="btn small" data-act="news-save" data-id="' + x.id + '">💾 Save</button>';
+    if (x.active) h += '<button class="btn small ghost" data-act="news-hide" data-id="' + x.id + '">🙈 Hide now</button>';
+    h += '<button class="btn small red" data-act="news-del" data-id="' + x.id + '">🗑️ Delete</button></div></div>';
+  });
+  return h + "</div></div>";
+}
+
+function systemPanel() {
+  var S = sysState;
+  if (!S) return '<div class="panel">Loading system info...</div>';
+  var uptime = Math.floor(S.uptime / 3600) + 'h ' + Math.floor((S.uptime % 3600) / 60) + 'm';
+  var dbSize = S.dbSize ? (S.dbSize / 1024 / 1024).toFixed(1) + ' MB' : 'N/A';
+  var h = '<div class="panel"><h2>🖥️ System</h2><div class="stats">';
+  h += '<div class="stat"><small>👤 Players</small><b>' + S.counts.users + '</b></div>';
+  h += '<div class="stat"><small>🏘️ Colonies</small><b>' + S.counts.colonies + '</b></div>';
+  h += '<div class="stat"><small>⚔️ Active moves</small><b>' + S.counts.activeMovements + '</b></div>';
+  h += '<div class="stat"><small>📨 Reports</small><b>' + S.counts.reports + '</b></div>';
+  h += '<div class="stat"><small>🤝 Alliances</small><b>' + S.counts.alliances + '</b></div>';
+  h += '<div class="stat"><small>⏱️ Uptime</small><b>' + uptime + '</b></div>';
+  h += '<div class="stat"><small>💾 DB size</small><b>' + dbSize + '</b></div>';
+  h += '<div class="stat"><small>🧠 Memory RSS</small><b>' + S.memory.rss + ' MB</b></div>';
+  h += '<div class="stat"><small>🧠 Heap used</small><b>' + S.memory.heapUsed + ' MB</b></div>';
+  h += '<div class="stat"><small>🔌 WS connections</small><b>' + S.websocket.totalConnections + '</b></div>';
+  h += '<div class="stat"><small>🔐 WS auth users</small><b>' + S.websocket.authenticatedUsers + '</b></div>';
+  h += '<div class="stat"><small>💾 Cache backend</small><b>' + esc(S.cache.backend) + '</b></div>';
+  h += '</div></div>';
+  return h;
+}
+
+function logsPanel() {
+  if (!srvLogs) return '<div class="panel">Loading logs...</div>';
+  var h = '<div class="panel"><h2>📜 Server logs</h2>';
+  if (!srvLogs.lines || !srvLogs.lines.length) { h += '<p class="hint">No logs yet.</p>'; }
+  else {
+    h += '<div class="tablewrap"><table><tr><th>Time</th><th>Level</th><th>Message</th></tr>';
+    srvLogs.lines.forEach(function(l) {
+      var ts = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : '--:--:--';
+      var lvl = (l.level || 'info').toUpperCase();
+      var col = lvl === 'ERROR' ? 'color:#b3262b;font-weight:700' : lvl === 'WARN' ? 'color:#a67c00;font-weight:700' : 'color:#5c79c9;font-weight:700';
+      h += '<tr><td style="white-space:nowrap">' + ts + '</td><td style="' + col + '">' + lvl + '</td><td>' + esc(l.message || l.raw || '') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  h += '<div class="row"><button class="btn small ghost" data-act="logs-refresh">🔄 Refresh</button></div></div>';
+  return h;
+}
+
+function dbPanel() {
+  if (!dbState) return '<div class="panel">Loading database stats...</div>';
+  var h = '<div class="panel"><h2>🗄️ Database tables</h2>';
+  h += '<div class="tablewrap"><table><tr><th>Table</th><th>Rows</th></tr>';
+  dbState.tables.forEach(function(t) { h += '<tr><td>' + esc(t.name) + '</td><td>' + t.rows.toLocaleString() + '</td></tr>'; });
+  h += '</table></div></div>';
+  return h;
+}
+
+function migPanel() {
+  if (!migState) return '<div class="panel">Loading migrations...</div>';
+  var h = '<div class="panel"><h2>🔄 Migrations</h2>';
+  h += '<p><b>Applied:</b> ' + migState.count + '</p>';
+  h += '<p><b>Last:</b> ' + esc(migState.last || 'None') + '</p>';
+  if (migState.migrations && migState.migrations.length) {
+    h += '<div class="tablewrap"><table><tr><th>Name</th><th>Applied</th></tr>';
+    migState.migrations.forEach(function(m) { h += '<tr><td>' + esc(m.name) + '</td><td>' + new Date(m.applied_at).toLocaleString() + '</td></tr>'; });
+    h += '</table></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function viewPlayer(id) {
+  fetch('/api/admin/players/' + id).then(function(r) { return r.json(); }).then(function(p) {
+    document.getElementById('ptitle').textContent = esc(p.username);
+    var h = '<p><b>ID:</b> ' + p.id + ' · <b>Created:</b> ' + new Date(p.created_at).toLocaleString() + ' · <b>Last seen:</b> ' + new Date(p.last_seen).toLocaleString() + '</p>';
+    if (p.stats && Object.keys(p.stats).length > 0) {
+      h += '<h3>⚔️ Combat stats</h3><div class="stats">';
+      h += '<div class="stat"><small>Atk kills</small><b>' + (p.stats.atk_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>Def kills</small><b>' + (p.stats.def_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>NPC kills</small><b>' + (p.stats.npc_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>Wins</small><b>' + (p.stats.wins || 0) + '</b></div>';
+      h += '<div class="stat"><small>Battles</small><b>' + (p.stats.battles || 0) + '</b></div>';
+      h += '<div class="stat"><small>Loot</small><b>' + (p.stats.loot || 0) + '</b></div>';
+      h += '</div>';
+    }
+    if (p.colonies && p.colonies.length) {
+      h += '<h3>🏘️ Colonies</h3><ul style="margin:0 0 0 18px; line-height:1.8;">';
+      p.colonies.forEach(function(c) { h += '<li>' + esc(c.name) + ' (' + c.x + ', ' + c.y + ') — ' + esc(c.tribe || 'human') + '</li>'; });
+      h += '</ul>';
+    }
+    if (p.alliance) { h += '<h3>🤝 Alliance</h3><p>' + esc(p.alliance.name) + ' [' + esc(p.alliance.tag) + '] — ' + esc(p.alliance.role) + '</p>'; }
+    if (p.badges && p.badges.length) { h += '<h3>🏅 Badges</h3><p>' + p.badges.map(function(b) { return b.icon + ' ' + esc(b.title); }).join(' · ') + '</p>'; }
+    if (p.reports && p.reports.length) {
+      h += '<h3>📨 Recent reports</h3><div class="tablewrap"><table><tr><th>Title</th><th>Date</th><th>Seen</th></tr>';
+      p.reports.forEach(function(r) { h += '<tr><td>' + esc(r.title) + '</td><td>' + new Date(r.created_at).toLocaleString() + '</td><td>' + (r.seen ? '✅' : '⬜') + '</td></tr>'; });
+      h += '</table></div>';
+    }
+    document.getElementById('pbody').innerHTML = h;
+    document.getElementById('pmod').classList.add('show');
+  });
+}
+function closePlayer() { document.getElementById('pmod').classList.remove('show'); }
+
+function render() {
+  var d = state;
+  var s = d.stats;
+  var h = '<div class="panel"><h2>📊 Server</h2><div class="stats">';
+  [["👥", s.players, "players"], ["🟢", s.online, "online (5 min)"], ["🏠", s.colonies, "colonies"], ["🚶", s.movements, "troops on the road"], ["✉️", s.messages, "messages"], ["💾", s.dbKb + " KB", "save file"], ["⏱️", s.upMinutes + " min", "running for"]].forEach(function (x) {
+    h += '<div class="stat"><small>' + x[0] + " " + x[2] + "</small><b>" + x[1] + "</b></div>";
+  });
+  h += '</div><div class="row"><a class="btn" href="/api/admin/backup">💾 Download backup</a><a class="btn ghost" href="/">🎮 Back to the game</a></div>';
+  h += '<p class="hint">The backup is a copy of marsl.db. To restore it, stop the server and replace marsl.db with it (rename it to marsl.db).</p></div>';
+
+  h += '<div class="grid">';
+  // invite
+  h += '<div class="panel"><h2>🎟️ Invite code</h2>';
+  h += "<p>New players need: " + (d.invite ? '<span class="code">' + esc(d.invite) + "</span>" : "<b>nothing - anybody may register</b>") + "</p>";
+  if (d.inviteFromEnv) {
+    h += '<p class="hint">This code comes from INVITE_CODE when the server starts, so it can only be changed there.</p>';
+  } else {
+    h += '<form id="invite"><label for="inv">Your own code (or "off")</label><input id="inv" maxlength="40" placeholder="e.g. POTATO-PARTY"><div class="row"><button class="btn" type="submit">💾 Save</button><button class="btn ghost" type="button" data-act="inv-random">🎲 New random code</button></div></form>';
+  }
+  h += "</div>";
+  // speeds
+  h += '<div class="panel"><h2>⏩ Game speed</h2><form id="speeds">';
+  h += '<label for="sp1">Production (resources, terra)</label><input id="sp1" type="number" min="1" max="1000" value="' + d.speeds.production + '">';
+  h += '<label for="sp2">Building, training & research</label><input id="sp2" type="number" min="1" max="1000" value="' + d.speeds.build + '">';
+  h += '<label for="sp3">Troop travel</label><input id="sp3" type="number" min="1" max="1000" value="' + d.speeds.move + '">';
+  h += '<div class="row"><button class="btn" type="submit">💾 Save speeds</button></div>';
+  h += '<p class="hint"><b>Presets</b> (a player who checks in every few hours):</p><div class="row">';
+  SPEED_PRESETS.forEach(function (p, i) {
+    h += '<button class="btn ghost" type="button" data-act="speed-preset" data-id="' + i + '" title="' + p[4] + '">' + p[0] + "</button>";
+  });
+  h += "</div>";
+  h += '<p class="hint">' + SPEED_PRESETS.map(function (p) { return "<b>" + p[0] + "</b>: " + p[4]; }).join("<br>") + "</p>";
+  h += '<p class="hint">1 = normal speed. Production and upkeep follow the server speed together; server days get shorter on faster servers. Things already being built keep their time; new ones use the new speed.</p></form></div>';
+  h += "</div>";
+
+  var parts = { overview: h };
+  h = "";
+  h += activityPanel();
+  parts.overview += h;
+  parts.events = goalPanel() + eventPanel();
+  parts.world = worldPanel();
+  parts.server = accountsPanel() + legalPanel() + accessPanel() + protectionPanel() + startsPanel() + serverPanel() + botPanel() + logPanel();
+  parts.system = systemPanel() + logsPanel() + dbPanel() + migPanel();
+  h = newsPanel();
+
+  // announce
+  h += '<div class="panel"><h2>📢 Tell everybody</h2><form id="announce"><textarea id="ann" rows="2" maxlength="300" placeholder="e.g. Server restart tonight at 22:00!"></textarea>';
+  h += '<div class="row"><label style="margin:0"><input type="checkbox" id="annNews" checked style="width:auto"> Mars News (1 day)</label><label style="margin:0"><input type="checkbox" id="annMail" style="width:auto"> Mail to every player</label><button class="btn" type="submit">📢 Send</button></div></form></div>';
+
+  parts.messages = h;
+  h = moderationPanel() + linksPanel() + playerTools();
+
+  // players
+  h += '<div class="panel"><h2>👥 Players</h2><input class="search" id="search" placeholder="🔎 Find a player" value="' + esc(search) + '">';
+  h += '<div class="tablewrap"><table><tr><th>Name</th><th>Colonies</th><th>Points</th><th>Last online</th><th>Actions</th></tr>';
+  // most recently online first
+  var list = d.players.slice().sort(function (a, b) { return b.lastSeen - a.lastSeen || b.points - a.points; });
+  list.forEach(function (p) {
+    if (search && p.name.toLowerCase().indexOf(search.toLowerCase()) < 0) return;
+    h += "<tr><td>" + p.tribe + " <b>" + esc(p.name) + "</b>";
+    if (p.owner) h += '<span class="tag own">owner</span>';
+    if (p.bot) h += '<span class="tag">🤖 fake</span>';
+    if (p.banned) h += '<span class="tag ban">blocked</span>';
+    if (p.protectedUntil) h += '<span class="tag prot">🛡️ protected</span>';
+    if (d.now - p.lastSeen < 300000) h += '<span class="tag on">online</span>';
+    h += "</td><td>" + p.colonies + "</td><td>" + p.points + "</td><td>" + ago(p.lastSeen) + "</td><td>";
+    h += '<button class="btn small ghost" data-act="pview" data-id="' + p.id + '">👁️ View</button>';
+    h += '<button class="btn small ghost" data-act="pw" data-id="' + p.id + '">🔑 New password</button>';
+    if (!p.me) {
+      h += '<button class="btn small ghost" data-act="ban" data-id="' + p.id + '" data-on="' + (p.banned ? 0 : 1) + '">' + (p.banned ? "✅ Unblock" : "⛔ Block") + "</button>";
+      h += '<button class="btn small ghost" data-act="owner" data-id="' + p.id + '" data-on="' + (p.owner ? 0 : 1) + '">' + (p.owner ? "👑 Remove owner" : "👑 Make owner") + "</button>";
+    }
+    h += '<button class="btn small ghost" data-act="prot" data-id="' + p.id + '" data-on="' + (p.protectedUntil ? 0 : 1) + '">' + (p.protectedUntil ? "🛡️ End protection" : "🛡️ Protect " + "") + "</button>";
+    if (!p.bot) h += '<button class="btn small ghost" data-act="plogout" data-id="' + p.id + '">🚪 Log out</button><button class="btn small ghost" data-act="prestart" data-id="' + p.id + '" data-name="' + esc(p.name) + '">🔁 Start over</button>';
+    if (!p.me) h += '<button class="btn small red" data-act="del" data-id="' + p.id + '" data-name="' + esc(p.name) + '">🗑️ Delete</button>';
+    h += "</td></tr>";
+  });
+  h += "</table></div></div>";
+  parts.players = h;
+  parts.balance = balancePanel();
+  parts.languages = translationsPanel();
+  if (tab === "balance" && !balState) setTimeout(loadBalance, 0);
+  var TABS = [["overview", "📊 Overview"], ["events", "🗓️ Events"], ["world", "🗺️ World"], ["players", "👥 Players" + (modState.open ? " 🚩" + modState.open : "")], ["balance", "⚖️ Balance"], ["languages", "🌍 Languages" + (trState.pending.length ? " " + trState.pending.length : "")], ["messages", "📰 News & mail"], ["server", "⚙️ Server"], ["system", "🖥️ System"]];
+  if (!parts[tab]) tab = "overview";
+  var out = '<div class="tabs">' + TABS.map(function (t) { return '<button class="tab' + (t[0] === tab ? " on" : "") + '" data-act="tab" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+  setApp(out + parts[tab]);
+  if (tab === "players") { var sb = document.getElementById("search"); if (sb && search) sb.value = search; }
+}
+
+document.addEventListener("input", function (e) {
+  if (e.target.id !== "search") return;
+  search = e.target.value;
+  render();
+  var s = document.getElementById("search");
+  s.focus();
+  s.setSelectionRange(search.length, search.length);
+});
+
+document.addEventListener("submit", function (e) {
+  e.preventDefault();
+  var id = e.target.id;
+  if (id === "claim") {
+    api("/api/admin/claim", { code: document.getElementById("code").value }, function () { toast("👑 You are now an owner!"); start(); });
+  } else if (id === "botfixed") {
+    api("/api/admin/bots", { fixed: document.getElementById("bfx").value }, function () { toast("🤖 Saved"); load(); });
+  } else if (id === "invite") {
+    api("/api/admin/invite", { code: document.getElementById("inv").value }, function () { toast("🎟️ Saved!"); load(); });
+  } else if (id === "speeds") {
+    api("/api/admin/speeds", {
+      production: Number(document.getElementById("sp1").value),
+      build: Number(document.getElementById("sp2").value),
+      move: Number(document.getElementById("sp3").value),
+    }, function () { toast("⏩ New speeds are active"); load(); });
+  } else if (id === "prot") {
+    api("/api/admin/protection-rules", { hours: Number(document.getElementById("prH").value), points: Number(document.getElementById("prP").value) }, function (r) { toast("🛡️ " + r.message); load(); });
+  } else if (id === "newsadd") {
+    api("/api/admin/news/save", { text: document.getElementById("nt").value, hours: Number(document.getElementById("nh").value) }, function () {
+      toast("📰 Published!");
+      load();
+    });
+  } else if (id === "announce") {
+    var news = document.getElementById("annNews").checked;
+    var mail = document.getElementById("annMail").checked;
+    if (!news && !mail) { toast("Pick the ticker, the mail or both"); return; }
+    api("/api/admin/announce", { text: document.getElementById("ann").value, news: news, mail: mail }, function (r) {
+      toast("📢 Sent!" + (mail ? " (" + r.sent + " mails)" : ""));
+      document.getElementById("ann").value = "";
+    });
+  }
+});
+
+function num(id) { var e = document.getElementById(id); return e ? Number(e.value) : 0; }
+function doWorld(w, extra) {
+  var body = { act: w };
+  if (extra) for (var k in extra) body[k] = extra[k];
+  api("/api/admin/world", body, function (r) { toast("✅ " + r.message); load(); });
+}
+document.addEventListener("change", function (e) {
+  var el = e.target;
+  if (el.getAttribute && el.getAttribute("data-act") === "bal-bots") {
+    balBots = el.checked;
+    loadBalance();
+    return;
+  }
+  if (el.getAttribute && el.getAttribute("data-act") === "acc") {
+    var ab = {};
+    ab[el.getAttribute("data-k")] = el.checked;
+    api("/api/admin/accounts", ab, function (r) { toast("✅ " + r.message); load(); });
+    return;
+  }
+  if (!el.getAttribute || el.getAttribute("data-act") !== "access") return;
+  var body = {};
+  body[el.getAttribute("data-k")] = el.checked;
+  api("/api/admin/access", body, function (r) { toast("✅ " + r.message); load(); });
+});
+document.addEventListener("click", function (e) {
+  var el = e.target.closest ? e.target.closest("[data-act]") : null;
+  if (!el || el.tagName === "INPUT") return;
+  var act = el.getAttribute("data-act");
+  var key = el.getAttribute("data-key");
+  var pid = Number(el.getAttribute("data-id"));
+  var on = el.getAttribute("data-on") === "1";
+  if (act === "news-save") {
+    var txt = document.querySelector('[data-news-text="' + pid + '"]').value;
+    var hrs = Number(document.querySelector('[data-news-hours="' + pid + '"]').value);
+    api("/api/admin/news/save", { id: pid, text: txt, hours: hrs }, function () { toast("💾 Saved"); load(); });
+  } else if (act === "news-hide") {
+    api("/api/admin/news/hide", { id: pid }, function () { toast("🙈 Hidden"); load(); });
+  } else if (act === "news-del") {
+    if (!confirm("Delete this news item for good?")) return;
+    api("/api/admin/news/delete", { id: pid }, function () { toast("🗑️ Deleted"); load(); });
+  } else if (act === "ev-on") {
+    api("/api/admin/events", { on: el.getAttribute("data-id") === "1" }, function () { toast("🌠 Saved"); load(); });
+  } else if (act === "ev-start") {
+    api("/api/admin/events", { start: el.getAttribute("data-id") }, function () { toast("🌠 Started!"); load(); });
+  } else if (act === "ev-stop") {
+    api("/api/admin/events", { stop: true }, function () { toast("🌠 Ended"); load(); });
+  } else if (act === "ev-tool") {
+    api("/api/admin/events/tools", { act: el.getAttribute("data-id") }, function (r) { toast("🌠 " + r.message); load(); });
+  } else if (act === "bots-scale") {
+    api("/api/admin/bots", { scale: el.getAttribute("data-id") }, function () { toast("🤖 Saved"); load(); });
+  } else if (act === "speed-preset") {
+    var sp = SPEED_PRESETS[pid];
+    document.getElementById("sp1").value = sp[1];
+    document.getElementById("sp2").value = sp[2];
+    document.getElementById("sp3").value = sp[3];
+    toast(sp[0] + " filled in - press Save speeds");
+  } else if (act === "lm-open") {
+    api("/api/admin/landmarks/open", { open: on }, function () { toast(on ? "🗿 Landmarks opened" : "🔒 Landmarks sealed"); load(); });
+  } else if (act === "lm-reset") {
+    if (!confirm("Free every landmark? All guards walk home and the holders lose their bonus.")) return;
+    api("/api/admin/landmarks/reset", {}, function () { toast("♻️ All landmarks are free"); load(); });
+  } else if (act === "pview") {
+    viewPlayer(pid);
+  } else if (act === "logs-refresh") {
+    srvLogs = null;
+    api("/api/admin/logs?lines=100", null, function (d) { srvLogs = d; if (tab === "system") render(); });
+  } else if (act === "bal-days") {
+    balDays = pid;
+    balState = null;
+    render();
+    loadBalance();
+  } else if (act === "appeal") {
+    var ansEl = document.getElementById("ans-" + pid);
+    api("/api/admin/moderation", { appeal: pid, action: on ? "accept" : "deny", answer: ansEl ? ansEl.value : "" }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "rep") {
+    var noteEl = document.getElementById("note-" + pid);
+    if (key === "block" && !confirm("Block this player?")) return;
+    api("/api/admin/moderation", { report: pid, action: key, note: noteEl ? noteEl.value : "" }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "tab") {
+    tab = el.getAttribute("data-tab");
+    try { localStorage.setItem("adminTab", tab); } catch (err) {}
+    if (tab === "balance") loadBalance();
+    if (tab === "system" && !srvLogs) {
+      api("/api/admin/logs?lines=100", null, function (d) { srvLogs = d; if (tab === "system") render(); });
+      api("/api/admin/db-stats", null, function (d) { dbState = d; if (tab === "system") render(); });
+      api("/api/admin/migrations", null, function (d) { migState = d; if (tab === "system") render(); });
+    }
+    render();
+    window.scrollTo(0, 0);
+  } else if (act === "goal-day") {
+    api("/api/admin/goal", { key: key, act: "day", day: num("gd-" + key) }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "goal-start") {
+    var b = { key: key, act: "start" };
+    if (key === "relic") { b.count = num("gp-relic-count"); b.hours = num("gp-relic-hours"); }
+    if (key === "aurora") { b.charge = num("gp-aurora-charge"); b.hours = num("gp-aurora-hours"); }
+    api("/api/admin/goal", b, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "goal-stop") {
+    if (!confirm("Stop it now? Nobody wins.")) return;
+    api("/api/admin/goal", { key: key, act: "stop" }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "goal-reset") {
+    if (!confirm("Reset this event completely? Its progress and winner are deleted, and it waits for its day again.")) return;
+    api("/api/admin/goal", { key: key, act: "reset" }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "clock-restart") {
+    var t1 = prompt("This resets ALL three big events and makes today server day 1. Type RESTART to confirm:");
+    if (t1 === null) return;
+    api("/api/admin/clock/restart", { confirm: t1 }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "world") {
+    var w = el.getAttribute("data-w");
+    var typed = el.getAttribute("data-type");
+    var extra = {};
+    if (typed) {
+      var t2 = prompt("Type " + typed + " to confirm:");
+      if (t2 === null) return;
+      extra.confirm = t2;
+    }
+    if (w === "camps-reroll") { var sd = num("seedIn"); if (sd > 0) extra.seed = sd; }
+    doWorld(w, extra);
+  } else if (act === "legal-save") {
+    var lf = {};
+    legalState.fields.forEach(function (f) { lf[f.key] = document.getElementById("lg-" + f.key).value; });
+    api("/api/admin/legal", { fields: lf }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "tr-ok" || act === "tr-no") {
+    var tx = document.querySelector('[data-tr-text="' + pid + '"]');
+    api("/api/admin/translations/decide", { id: pid, ok: act === "tr-ok", text: tx ? tx.value : undefined }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "tr-import") {
+    var f = document.getElementById("trImpFile").files[0];
+    if (!f) { toast("⚠️ Choose a JSON file first"); return; }
+    f.text().then(function (t) {
+      var js;
+      try { js = JSON.parse(t); } catch (er) { toast("⚠️ That is not a JSON file"); return; }
+      api("/api/admin/i18n-import", { lang: document.getElementById("trImpLang").value, strings: js }, function (r) { toast("✅ " + r.message); load(); });
+    });
+  } else if (act === "pend-clear") {
+    if (!confirm("Clear this waiting sign-up? Its confirmation link stops working.")) return;
+    api("/api/admin/pending-clear", { id: pid }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "acc-cap") {
+    api("/api/admin/accounts", { deviceCap: num("devCap") }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "acc-ok") {
+    api("/api/admin/accounts", { userId: pid, ok: on }, function (r) { toast("✅ " + r.message); load(); });
+  } else if (act === "access-note") {
+    api("/api/admin/access", { note: document.getElementById("acNote").value }, function () { toast("✅ Saved"); load(); });
+  } else if (act === "give") {
+    var gb = { all: document.getElementById("giveWho").value === "all", id: Number(document.getElementById("giveWho").value), news: document.getElementById("giveNews").checked };
+    ["wood", "stone", "metal", "food"].forEach(function (r) { gb[r] = num("gv-" + r); });
+    api("/api/admin/give", gb, function (r) { toast("🎁 " + r.message); });
+  } else if (act === "start-add") {
+    var sv = document.getElementById("startAt").value;
+    var st = sv ? new Date(sv).getTime() : NaN;
+    if (!(st > 0)) { toast("⚠️ Pick a date and time"); return; }
+    api("/api/admin/starts", { add: st }, function () { toast("📅 Planned"); load(); });
+  } else if (act === "start-del") {
+    api("/api/admin/starts", { remove: pid }, function () { toast("✖ Removed"); load(); });
+  } else if (act === "cleanup") {
+    api("/api/admin/cleanup", { days: num("cleanDays") }, function (r) { toast("🧹 " + r.message); load(); });
+  } else if (act === "server-reset") {
+    var radios = document.getElementsByName("rmode");
+    var mode = "fresh";
+    for (var q = 0; q < radios.length; q++) if (radios[q].checked) mode = radios[q].value;
+    var t3 = prompt((mode === "wipe" ? "Every account except the owners will be DELETED. " : "Everybody starts over with a new colony. ") + "Type RESET SERVER to confirm:");
+    if (t3 === null) return;
+    api("/api/admin/server-reset", { confirm: t3, mode: mode }, function (r) { toast("💥 " + r.message); load(); });
+  } else if (act === "plogout") {
+    api("/api/admin/logout", { id: pid }, function (r) { toast("🚪 " + r.message); });
+  } else if (act === "prestart") {
+    var nm = el.getAttribute("data-name");
+    var t4 = prompt(nm + " loses ALL colonies and starts again with one new colony. Type the name to confirm:");
+    if (t4 === null) return;
+    api("/api/admin/restart-player", { id: pid, confirm: t4 }, function (r) { toast("🔁 " + r.message); load(); });
+  } else if (act === "inv-random") {
+    api("/api/admin/invite", { random: true }, function () { toast("🎲 New code made"); load(); });
+  } else if (act === "pw") {
+    if (!confirm("Give this player a new password? They will be logged out everywhere.")) return;
+    api("/api/admin/reset-password", { id: pid }, function (r) {
+      prompt("New password for " + r.name + " - copy it and give it to them. They can change it with the ⚙️ button.", r.password);
+    });
+  } else if (act === "ban") {
+    api("/api/admin/ban", { id: pid, banned: on }, function () { toast(on ? "⛔ Blocked" : "✅ Unblocked"); load(); });
+  } else if (act === "owner") {
+    api("/api/admin/owner", { id: pid, owner: on }, function () { toast("👑 Saved"); load(); });
+  } else if (act === "prot") {
+    api("/api/admin/protection", { id: pid, on: on }, function () { toast("🛡️ Saved"); load(); });
+  } else if (act === "del") {
+    var name = el.getAttribute("data-name");
+    var typed = prompt("This deletes " + name + " and ALL their colonies on this server forever. Type the name to confirm:");
+    if (typed === null) return;
+    var wholeAcct = confirm("Also delete the main account of " + name + " and their players on every server?\\\\n\\\\nOK = delete the account everywhere (only works on the main server).\\\\nCancel = remove the player from this server only; the account stays and can start again.");
+    api("/api/admin/delete", { id: pid, confirm: typed, account: wholeAcct }, function (r) { toast("🗑️ " + name + " was deleted" + (r && r.failed && r.failed.length ? " (not reached: " + r.failed.join(", ") + ")" : "")); load(); });
+  }
+});
+
+start();
+</script>
+</body>
+</html>`;
   res.send(html.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()));
 });
 app.get('/admin/journey',requireOwner,(req,res)=>{
@@ -39020,7 +40038,176 @@ app.get('/api/player/summary', requireLogin, (req, res) => {
 //  ADMIN ROUTES
 // =====================================================================
 
-const { setupAdminRoutes } = require('./routes/admin');
+// Inline admin routes (embedded for single-file deployment)
+// MarsL Admin Routes — additional endpoints for the existing admin page
+// These use requireOwner (same auth as all other admin endpoints)
+
+function setupAdminRoutes(app, db, websocket, metrics, cache, requireOwner) {
+  // System stats: memory, WS, cache, uptime (does NOT conflict with /api/admin/overview)
+  app.get('/api/admin/system', requireOwner, (req, res) => {
+    const dbPath = path.join(process.env.DATA_DIR || '.', 'marsl.db');
+    const dbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
+
+    const userCount = db.prepare('SELECT COUNT(*) as n FROM users').get().n;
+    const colonyCount = db.prepare('SELECT COUNT(*) as n FROM colonies').get().n;
+    const activeMovements = db.prepare('SELECT COUNT(*) as n FROM movements WHERE phase = "travel"').get().n;
+    const reportCount = db.prepare('SELECT COUNT(*) as n FROM reports').get().n;
+    const allianceCount = db.prepare('SELECT COUNT(*) as n FROM alliances').get().n;
+
+    const uptime = Math.floor(process.uptime());
+    const mem = process.memoryUsage();
+
+    res.json({
+      uptime,
+      dbSize,
+      counts: {
+        users: userCount,
+        colonies: colonyCount,
+        activeMovements,
+        reports: reportCount,
+        alliances: allianceCount,
+      },
+      memory: {
+        rss: Math.round(mem.rss / 1024 / 1024),
+        heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
+        heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+      },
+      websocket: websocket ? websocket.getStats() : { totalConnections: 0, authenticatedUsers: 0 },
+      cache: cache ? cache.getStats() : { backend: 'none' },
+    });
+  });
+
+  // Paginated player list with search
+  app.get('/api/admin/players', requireOwner, (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const search = req.query.search || '';
+    const offset = (page - 1) * limit;
+
+    let where = '';
+    let params = [];
+    if (search) {
+      where = 'WHERE username LIKE ?';
+      params.push('%' + search + '%');
+    }
+
+    const total = db.prepare(`SELECT COUNT(*) as n FROM users ${where}`).get(...params).n;
+    const players = db.prepare(
+      `SELECT id, username, created_at as createdAt, last_seen as lastSeen, banned
+       FROM users ${where}
+       ORDER BY last_seen DESC
+       LIMIT ? OFFSET ?`
+    ).all(...params, limit, offset);
+
+    for (const p of players) {
+      p.colonies = db.prepare('SELECT COUNT(*) as n FROM colonies WHERE user_id = ?').get(p.id).n;
+      p.reports = db.prepare('SELECT COUNT(*) as n FROM reports WHERE user_id = ?').get(p.id).n;
+    }
+
+    res.json({ players, total, page, limit, pages: Math.ceil(total / limit) });
+  });
+
+  // Single player detail
+  app.get('/api/admin/players/:id', requireOwner, (req, res) => {
+    const id = parseInt(req.params.id);
+    const player = db.prepare(
+      'SELECT id, username, created_at, last_seen, banned FROM users WHERE id = ?'
+    ).get(id);
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    player.colonies = db.prepare('SELECT * FROM colonies WHERE user_id = ?').all(id);
+    player.stats = db.prepare('SELECT * FROM stats WHERE user_id = ?').get(id) || {};
+    player.reports = db.prepare('SELECT id, created_at, title, icon, seen FROM reports WHERE user_id = ? ORDER BY id DESC LIMIT 20').all(id);
+    player.movements = db.prepare(
+      `SELECT m.*, c.name as colonyName
+       FROM movements m
+       JOIN colonies c ON c.id = m.attacker_id
+       WHERE c.user_id = ? ORDER BY m.id DESC LIMIT 20`
+    ).all(id);
+    player.alliance = db.prepare(
+      `SELECT a.id, a.name, a.tag, am.role, am.joined_at
+       FROM alliances a JOIN alliance_members am ON a.id = am.alliance_id
+       WHERE am.user_id = ?`
+    ).get(id);
+    player.badges = db.prepare('SELECT key, icon, title, earned_at FROM badges WHERE user_id = ?').all(id);
+
+    res.json(player);
+  });
+
+  // Ban/unban player
+  app.post('/api/admin/players/:id/ban', requireOwner, (req, res) => {
+    const id = parseInt(req.params.id);
+    const { reason } = req.body || {};
+    db.prepare('UPDATE users SET banned = 1 WHERE id = ?').run(id);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+    if (websocket) {
+      websocket.sendToUser(id, { type: 'banned', reason: reason || 'Administrative action' });
+    }
+    res.json({ ok: true });
+  });
+
+  app.post('/api/admin/players/:id/unban', requireOwner, (req, res) => {
+    const id = parseInt(req.params.id);
+    db.prepare('UPDATE users SET banned = 0 WHERE id = ?').run(id);
+    res.json({ ok: true });
+  });
+
+  // Server logs (last N lines)
+  app.get('/api/admin/logs', requireOwner, (req, res) => {
+    const lines = parseInt(req.query.lines) || 100;
+    const logDir = process.env.LOG_DIR || path.join(__dirname, '../logs');
+    const date = new Date().toISOString().split('T')[0];
+    const logFile = path.join(logDir, `${date}.log`);
+
+    if (!fs.existsSync(logFile)) {
+      return res.json({ lines: [] });
+    }
+
+    const content = fs.readFileSync(logFile, 'utf8');
+    const allLines = content.split('\n').filter(l => l.trim());
+    const lastLines = allLines.slice(-lines);
+
+    const parsed = lastLines.map(line => {
+      try { return JSON.parse(line); } catch (e) { return { raw: line }; }
+    });
+
+    res.json({ lines: parsed });
+  });
+
+  // Database table sizes
+  app.get('/api/admin/db-stats', requireOwner, (req, res) => {
+    const tables = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`
+    ).all().map(r => r.name);
+
+    const stats = [];
+    for (const table of tables) {
+      const count = db.prepare(`SELECT COUNT(*) as n FROM "${table}"`).get().n;
+      stats.push({ name: table, rows: count });
+    }
+
+    res.json({ tables: stats });
+  });
+
+  // Broadcast message to all online players
+  app.post('/api/admin/broadcast', requireOwner, (req, res) => {
+    const { text } = req.body || {};
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Text required' });
+    }
+    if (websocket) {
+      websocket.pushAnnouncement(text);
+    }
+    res.json({ ok: true, sentTo: websocket ? websocket.getStats().totalConnections : 0 });
+  });
+
+  // Migration status
+  app.get('/api/admin/migrations', requireOwner, (req, res) => {
+    const { status } = require('../lib/migrate');
+    res.json(status(db));
+  });
+}
+
 setupAdminRoutes(app, db, websocket, metrics, cache, requireOwner);
 
 // Global error handler with logging
