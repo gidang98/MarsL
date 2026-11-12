@@ -13,7 +13,7 @@ describe('admin dashboard integration', () => {
   test('admin routes are wired in server.js with requireOwner', () => {
     const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
     assert.ok(server.includes('setupAdminRoutes'), 'should call setupAdminRoutes');
-    assert.ok(server.includes("require('./routes/admin')"), 'should require admin routes');
+    assert.ok(server.includes('function setupAdminRoutes'), 'should embed admin routes function');
     assert.ok(server.includes('requireOwner'), 'should use requireOwner for auth');
   });
 

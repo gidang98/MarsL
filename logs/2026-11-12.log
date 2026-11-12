@@ -31,3 +31,12 @@
 {"timestamp":"2026-11-12T16:22:46.458Z","level":"info","message":"test message","foo":"bar"}
 {"timestamp":"2026-11-12T16:22:46.469Z","level":"warn","message":"test warning"}
 {"timestamp":"2026-11-12T16:22:46.469Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T18:55:13.275Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T18:55:13.299Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T18:55:13.299Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T18:55:21.132Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T18:55:21.133Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T18:55:21.134Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T18:55:38.023Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T18:55:38.025Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T18:55:38.025Z","level":"error","message":"test error"}

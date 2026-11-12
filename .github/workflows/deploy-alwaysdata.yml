@@ -45,12 +45,10 @@ jobs:
           test -s "$HOME/.ssh/id_ed25519"
           test -s "$HOME/.ssh/known_hosts"
 
-      - name: Verify source files
+      - name: Verify source file
         run: |
           test -s server.js
           node --check server.js
-          test -s routes/admin.js
-          node --check routes/admin.js
 
       - name: Deploy selected servers
         env:
