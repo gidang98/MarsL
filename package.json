@@ -7,14 +7,19 @@
     "test": "node --test tests/*.test.js",
     "start": "node server.js",
     "test:verbose": "node --test --test-reporter=spec tests/*.test.js",
-    "test:balance": "node --test tests/balance.test.js"
+    "test:balance": "node --test tests/balance.test.js",
+    "security:audit": "node scripts/security-audit.js",
+    "security:check": "npm audit && node scripts/security-audit.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "compression": "^1.7.5",
     "express": "^5.3.0",
-    "compression": "^1.7.5"
+    "express-rate-limit": "^8.7.4",
+    "express-slow-down": "^3.1.1",
+    "helmet": "^8.3.0"
   }
 }
