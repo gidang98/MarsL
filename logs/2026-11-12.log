@@ -7,3 +7,6 @@
 {"timestamp":"2026-11-12T15:08:41.842Z","level":"info","message":"test message","foo":"bar"}
 {"timestamp":"2026-11-12T15:08:41.851Z","level":"warn","message":"test warning"}
 {"timestamp":"2026-11-12T15:08:41.851Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T15:16:09.497Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T15:16:09.508Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T15:16:09.509Z","level":"error","message":"test error"}
