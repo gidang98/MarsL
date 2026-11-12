@@ -1848,6 +1848,11 @@ const db = new DatabaseSync(path.join(DATA_DIR, "marsl.db"));
 db.exec("PRAGMA busy_timeout = 4000"); // wait a moment instead of failing when a backup or tool holds the file
 db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 // A database belongs to one server. Two sites using the same folder (or the same
+
+// Run database migrations
+const { migrate } = require('./lib/migrate');
+migrate(db);
+
 // DATA_DIR) would be one world under two addresses, so a server refuses to start
 // on a database that was made for another one.
 {
