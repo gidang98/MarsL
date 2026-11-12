@@ -22,8 +22,128 @@ require('./render');   // 65 render functions
 
 const compression = require('compression');
 
+// =====================================================================
+//  SECURITY MIDDLEWARE
+// =====================================================================
+const rateLimit = require('express-rate-limit');
+const slowDown = require('express-slow-down');
+const helmet = require('helmet');
+
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: JSON.stringify({ error: 'Too many authentication attempts. Please try again later.' }),
+  skipSuccessfulRequests: true,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120, // 120 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: JSON.stringify({ error: 'Too many requests. Please slow down.' }),
+});
+
+const strictLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 requests per hour per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: JSON.stringify({ error: 'Too many attempts. Please try again in an hour.' }),
+});
+
+// Speed limiter for API - gradually slow down repeated requests
+const apiSpeedLimiter = slowDown({
+  windowMs: 60 * 1000, // 1 minute
+  delayAfter: 60, // allow 60 requests per minute at full speed
+  delayMs: (hits) => hits * 100, // add 100ms per request over limit
+});
+
 const app = express();
 app.use(compression()); // gzip all responses
+
+// Security headers via helmet
+app.use(helmet({
+  contentSecurityPolicy: false, // disabled: game uses inline scripts/styles
+  crossOriginEmbedderPolicy: false, // disabled: allows embedded fonts/images
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  xssFilter: true,
+}));
+
+// Apply general API rate limiting to all /api/* routes
+app.use('/api/', apiLimiter);
+app.use('/api/', apiSpeedLimiter);
+
+// Strict rate limiting for registration (prevent bot signups)
+app.use('/api/register', strictLimiter);
+
+// Auth rate limiting for login/password endpoints
+app.use('/api/login', authLimiter);
+app.use('/api/password', authLimiter);
+app.use('/api/acct/password', authLimiter);
+
+// Request logging for anomaly detection
+app.use((req, res, next) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress;
+  req.clientIp = ip;
+  req.startTime = Date.now();
+
+  // Log suspicious requests (potential scanning)
+  if (req.path.includes('..') || req.path.includes('\x00') || req.path.match(/(\.env|config\.json|\.git)/i)) {
+    console.warn(`[SECURITY] Suspicious request from ${ip}: ${req.method} ${req.path}`);
+  }
+
+  res.on('finish', () => {
+    const duration = Date.now() - req.startTime;
+    // Log slow requests (potential DoS)
+    if (duration > 5000) {
+      console.warn(`[SECURITY] Slow request from ${ip}: ${req.method} ${req.path} took ${duration}ms`);
+    }
+  });
+
+  next();
+});
+
+// Anti-automation: basic bot detection middleware
+app.use((req, res, next) => {
+  // Check for obvious bot signatures
+  const ua = req.headers['user-agent'] || '';
+  const isBot = /(bot|crawler|spider|scraper|curl|wget|python-requests|httpx|aiohttp)/i.test(ua);
+  req.isBot = isBot;
+
+  // Block known bad user-agents from API routes
+  if (isBot && req.path.startsWith('/api/') && req.path !== '/api/config') {
+    return res.status(403).json({ error: 'Automated requests not allowed' });
+  }
+
+  next();
+});
+
+// Input validation middleware for common injection patterns
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    for (const key of Object.keys(req.body)) {
+      const value = req.body[key];
+      if (typeof value === 'string') {
+        // Reject suspicious input patterns
+        if (/[<>"'\x00]|(script|onload|onerror|javascript):/i.test(value) && value.length > 200) {
+          console.warn(`[SECURITY] Potential XSS payload from ${req.clientIp} in ${key}`);
+          return res.status(400).json({ error: 'Invalid input' });
+        }
+        // Trim excessively long strings
+        if (value.length > 10000) {
+          req.body[key] = value.substring(0, 10000);
+        }
+      }
+    }
+  }
+  next();
+});
 
 
 // ---------- running online: settings come from "environment variables" ----------

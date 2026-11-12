@@ -11,14 +11,19 @@
     "migrate": "node scripts/migrate.js up",
     "migrate:status": "node scripts/migrate.js status",
     "migrate:rollback": "node scripts/migrate.js down",
-    "migrate:create": "node scripts/migrate.js create"
+    "migrate:create": "node scripts/migrate.js create",
+    "security:audit": "node scripts/security-audit.js",
+    "security:check": "npm audit && node scripts/security-audit.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "compression": "^1.7.5",
     "express": "^5.3.0",
-    "compression": "^1.7.5"
+    "express-rate-limit": "^8.7.4",
+    "express-slow-down": "^3.1.1",
+    "helmet": "^8.3.0"
   }
 }
