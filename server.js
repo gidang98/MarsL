@@ -38371,15 +38371,21 @@ app.get("/api/admin/backup", requireOwner, (req, res) => {
 app.get("/api/admin/system", requireOwner, (req, res) => {
   try {
     const mem = process.memoryUsage();
-    const players = db.prepare("SELECT COUNT(*) AS n FROM users WHERE bot = 0").get().n;
-    const online = db.prepare("SELECT COUNT(DISTINCT user_id) AS n FROM sessions WHERE updated_at > ?").get(Date.now() - 5*60*1000).n;
+    function count(q, def) { try { return db.prepare(q).get().n; } catch (e) { return def; } }
+    function countP(q, p, def) { try { return db.prepare(q).get(p).n; } catch (e) { return def; } }
     res.json({
-      version: GAME_VERSION,
-      server: thisServerName(),
       uptime: Math.floor(process.uptime()),
-      memory: { rss: Math.round(mem.rss / 1024 / 1024), heap: Math.round(mem.heapUsed / 1024 / 1024) },
-      players: players,
-      online: online,
+      memory: { rss: Math.round(mem.rss / 1024 / 1024), heapUsed: Math.round(mem.heapUsed / 1024 / 1024) },
+      counts: {
+        users: count("SELECT COUNT(*) AS n FROM users", 0),
+        colonies: count("SELECT COUNT(*) AS n FROM colonies", 0),
+        activeMovements: countP("SELECT COUNT(*) AS n FROM movements WHERE arrival > ?", Date.now(), 0),
+        reports: count("SELECT COUNT(*) AS n FROM reports", 0),
+        alliances: count("SELECT COUNT(*) AS n FROM alliances", 0),
+      },
+      websocket: { totalConnections: 0, authenticatedUsers: 0 },
+      cache: { backend: 'none' },
+      dbSize: 0,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -38392,22 +38398,30 @@ app.get("/api/admin/players/:id", requireOwner, (req, res) => {
     const user = db.prepare("SELECT id, username, email, created_at, last_seen, tutorial, banned, bot FROM users WHERE id = ?").get(id);
     if (!user) return res.status(404).json({ error: "Not found" });
     const colonies = db.prepare("SELECT id, name, points, x, y FROM colonies WHERE user_id = ?").all(id);
-    res.json({ ...user, colonies });
+    let alliance = null;
+    try {
+      const member = db.prepare("SELECT alliance_id, role FROM alliance_members WHERE user_id = ?").get(id);
+      if (member) {
+        const a = db.prepare("SELECT id, name, tag FROM alliances WHERE id = ?").get(member.alliance_id);
+        if (a) alliance = { name: a.name, tag: a.tag, role: member.role };
+      }
+    } catch (e) {}
+    res.json({ ...user, colonies, alliance, stats: {}, badges: [], reports: [] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 app.get("/api/admin/logs", requireOwner, (req, res) => {
-  res.json({ lines: ["Server logs not available in this environment"], count: 1 });
+  res.json({ lines: [{ timestamp: Date.now(), level: 'info', message: 'Server logs not available in this environment' }], count: 1 });
 });
 
 app.get("/api/admin/db-stats", requireOwner, (req, res) => {
   try {
     const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name").all();
     const stats = tables.map(t => {
-      const count = db.prepare(`SELECT COUNT(*) AS n FROM "${t.name}"`).get().n;
-      return { name: t.name, rows: count };
+      try { return { name: t.name, rows: db.prepare(`SELECT COUNT(*) AS n FROM "${t.name}"`).get().n }; }
+      catch (e) { return { name: t.name, rows: 0 }; }
     });
     res.json({ tables: stats });
   } catch (e) {
@@ -38416,7 +38430,12 @@ app.get("/api/admin/db-stats", requireOwner, (req, res) => {
 });
 
 app.get("/api/admin/migrations", requireOwner, (req, res) => {
-  res.json({ applied: [], pending: [], current: 0, latest: 0 });
+  try {
+    const rows = db.prepare("SELECT name, applied_at FROM migrations ORDER BY applied_at DESC").all();
+    res.json({ count: rows.length, last: rows.length ? rows[0].name : null, migrations: rows });
+  } catch (e) {
+    res.json({ count: 0, last: null, migrations: [] });
+  }
 });
 
 app.get("/admin", (req, res) => {
@@ -38559,11 +38578,11 @@ function api(url, body, done) {
   fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {})
     .then(function (r) {
       return r.json().then(function (d) {
-        if (!r.ok) { toast("⚠️ " + (d.error || "Something went wrong")); return; }
+        if (!r.ok) { toast("⚠️ " + (d.error || "Something went wrong")); if (done) done(null); return; }
         if (done) done(d);
       });
     })
-    .catch(function () { toast("⚠️ The server does not answer"); });
+    .catch(function () { toast("⚠️ The server does not answer"); if (done) done(null); });
 }
 function setApp(h) { document.getElementById("app").innerHTML = h; }
 
@@ -38725,7 +38744,7 @@ function load() {
   var left = LOADS.length;
   LOADS.forEach(function (l) {
     api(l[0], null, function (d) {
-      l[1](d);
+      if (d !== null) l[1](d);
       left--;
       if (left === 0) render();
     });
