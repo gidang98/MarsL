@@ -1,3 +1,9 @@
 {"timestamp":"2026-11-12T14:59:21.937Z","level":"info","message":"test message","foo":"bar"}
 {"timestamp":"2026-11-12T14:59:21.960Z","level":"warn","message":"test warning"}
 {"timestamp":"2026-11-12T14:59:21.960Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T15:08:17.104Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T15:08:17.125Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T15:08:17.126Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T15:08:41.842Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T15:08:41.851Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T15:08:41.851Z","level":"error","message":"test error"}

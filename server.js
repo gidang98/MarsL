@@ -39787,6 +39787,128 @@ app.get("/manifest.webmanifest", (req, res) => {
 // Unknown addresses and broken requests get a short answer - never the
 // inner details of the server (those could help an attacker).
 app.use("/api", (req, res) => res.status(404).json({ error: "Unknown request" }));
+
+// =====================================================================
+//  PLAYER EXPERIENCE ENDPOINTS
+// =====================================================================
+
+// Get a single report for replay / detailed view
+app.get('/api/replay/:reportId', requireLogin, (req, res) => {
+  const reportId = parseInt(req.params.reportId, 10);
+  if (!reportId) return res.status(400).json({ error: 'Invalid report ID' });
+
+  const row = db.prepare(
+    'SELECT id, created_at, title, icon, data, seen FROM reports WHERE user_id = ? AND id = ?'
+  ).get(req.user.id, reportId);
+
+  if (!row) return res.status(404).json({ error: 'Report not found' });
+
+  let data;
+  try { data = JSON.parse(row.data); } catch (e) { data = {}; }
+
+  // Mark as seen when opened for replay
+  if (!row.seen) {
+    db.prepare('UPDATE reports SET seen = 1 WHERE user_id = ? AND id = ?').run(req.user.id, reportId);
+  }
+
+  res.json({
+    id: row.id,
+    at: row.created_at,
+    title: row.title,
+    icon: row.icon,
+    seen: true,
+    data,
+  });
+});
+
+// Get player onboarding / first-day progress
+app.get('/api/onboarding', requireLogin, (req, res) => {
+  const st = firstDayState(req.user.id);
+  const colony = db.prepare('SELECT * FROM colonies WHERE user_id = ? LIMIT 1').get(req.user.id);
+
+  if (!st) return res.json({ active: false });
+
+  const onb = st.f.onb || {};
+  const stepIndex = onb.i || 0;
+  const totalSteps = ONB_STEPS ? ONB_STEPS.length : 0;
+  const progress = totalSteps > 0 ? Math.round((stepIndex / totalSteps) * 100) : 0;
+
+  res.json({
+    active: onbActive(req.user.id, st),
+    completed: !!onb.done,
+    skipped: !!onb.off,
+    stepIndex,
+    totalSteps,
+    progress,
+    startedAt: onb.at || null,
+    completedAt: onb.done || null,
+    kitRemaining: st.f.kit || 0,
+    hasLander: !!st.f.lander,
+    hasScorp: !!st.f.scorp,
+    colony: colony ? { name: colony.name, x: colony.x, y: colony.y, tribe: colony.tribe } : null,
+  });
+});
+
+// Get player summary stats and progress
+app.get('/api/player/summary', requireLogin, (req, res) => {
+  const userId = req.user.id;
+
+  // Basic user info
+  const user = db.prepare('SELECT username, created_at, last_seen FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Colony count and total points
+  const colonies = db.prepare('SELECT id, name, x, y, tribe, state FROM colonies WHERE user_id = ?').all(userId);
+  let totalPoints = 0;
+  for (const c of colonies) {
+    try { totalPoints += (JSON.parse(c.state).points || 0); } catch (e) {}
+  }
+
+  // Battle stats
+  const stats = db.prepare('SELECT * FROM stats WHERE user_id = ?').get(userId) || {};
+
+  // Report counts
+  const reportCounts = db.prepare(
+    'SELECT COUNT(*) as total, SUM(seen) as seen FROM reports WHERE user_id = ?'
+  ).get(userId);
+
+  // Movement counts
+  const movements = db.prepare(
+    'SELECT mission, COUNT(*) as n FROM movements WHERE attacker_id IN (SELECT id FROM colonies WHERE user_id = ?) GROUP BY mission'
+  ).all(userId);
+  const movementSummary = {};
+  for (const m of movements) movementSummary[m.mission] = m.n;
+
+  // Alliance info
+  const alliance = db.prepare(
+    'SELECT a.id, a.name, a.tag FROM alliances a JOIN alliance_members am ON a.id = am.alliance_id WHERE am.user_id = ?'
+  ).get(userId);
+
+  // Badges
+  const badges = db.prepare('SELECT key, icon, title, earned_at FROM badges WHERE user_id = ? AND shown = 1 ORDER BY earned_at DESC LIMIT 10').all(userId);
+
+  res.json({
+    username: user.username,
+    createdAt: user.created_at,
+    lastSeen: user.last_seen,
+    colonies: colonies.map(c => ({ id: c.id, name: c.name, x: c.x, y: c.y, tribe: c.tribe })),
+    totalPoints,
+    stats: {
+      atkKills: stats.atk_kills || 0,
+      defKills: stats.def_kills || 0,
+      npcKills: stats.npc_kills || 0,
+      lost: stats.lost || 0,
+      loot: stats.loot || 0,
+      wins: stats.wins || 0,
+      battles: stats.battles || 0,
+    },
+    reports: { total: reportCounts.total || 0, unread: (reportCounts.total || 0) - (reportCounts.seen || 0) },
+    movements: movementSummary,
+    alliance: alliance ? { id: alliance.id, name: alliance.name, tag: alliance.tag } : null,
+    badges: badges || [],
+  });
+});
+
 // Global error handler with logging
 app.use((err, req, res, next) => {
   metrics.recordError();
