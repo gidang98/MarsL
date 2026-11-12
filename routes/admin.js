@@ -1,25 +1,12 @@
-// MarsL Admin Routes
-// Protected server management endpoints
+// MarsL Admin Routes — additional endpoints for the existing admin page
+// These use requireOwner (same auth as all other admin endpoints)
 
 const path = require('path');
 const fs = require('fs');
 
-function requireAdmin(req, res, next) {
-  const token = req.headers['x-admin-token'];
-  if (token !== process.env.ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-}
-
-function setupAdminRoutes(app, db, websocket, metrics, cache) {
-  // Admin dashboard page
-  app.get('/admin', requireAdmin, (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/admin.html'));
-  });
-
-  // Server overview stats
-  app.get('/api/admin/overview', requireAdmin, (req, res) => {
+function setupAdminRoutes(app, db, websocket, metrics, cache, requireOwner) {
+  // System stats: memory, WS, cache, uptime (does NOT conflict with /api/admin/overview)
+  app.get('/api/admin/system', requireOwner, (req, res) => {
     const dbPath = path.join(process.env.DATA_DIR || '.', 'marsl.db');
     const dbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
 
@@ -52,8 +39,8 @@ function setupAdminRoutes(app, db, websocket, metrics, cache) {
     });
   });
 
-  // Player list with pagination and search
-  app.get('/api/admin/players', requireAdmin, (req, res) => {
+  // Paginated player list with search
+  app.get('/api/admin/players', requireOwner, (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const search = req.query.search || '';
@@ -74,7 +61,6 @@ function setupAdminRoutes(app, db, websocket, metrics, cache) {
        LIMIT ? OFFSET ?`
     ).all(...params, limit, offset);
 
-    // Get colony counts per player
     for (const p of players) {
       p.colonies = db.prepare('SELECT COUNT(*) as n FROM colonies WHERE user_id = ?').get(p.id).n;
       p.reports = db.prepare('SELECT COUNT(*) as n FROM reports WHERE user_id = ?').get(p.id).n;
@@ -84,7 +70,7 @@ function setupAdminRoutes(app, db, websocket, metrics, cache) {
   });
 
   // Single player detail
-  app.get('/api/admin/players/:id', requireAdmin, (req, res) => {
+  app.get('/api/admin/players/:id', requireOwner, (req, res) => {
     const id = parseInt(req.params.id);
     const player = db.prepare(
       'SELECT id, username, created_at, last_seen, banned FROM users WHERE id = ?'
@@ -111,25 +97,25 @@ function setupAdminRoutes(app, db, websocket, metrics, cache) {
   });
 
   // Ban/unban player
-  app.post('/api/admin/players/:id/ban', requireAdmin, (req, res) => {
+  app.post('/api/admin/players/:id/ban', requireOwner, (req, res) => {
     const id = parseInt(req.params.id);
     const { reason } = req.body || {};
     db.prepare('UPDATE users SET banned = 1 WHERE id = ?').run(id);
-    // Disconnect their WebSocket sessions
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
     if (websocket) {
       websocket.sendToUser(id, { type: 'banned', reason: reason || 'Administrative action' });
     }
     res.json({ ok: true });
   });
 
-  app.post('/api/admin/players/:id/unban', requireAdmin, (req, res) => {
+  app.post('/api/admin/players/:id/unban', requireOwner, (req, res) => {
     const id = parseInt(req.params.id);
     db.prepare('UPDATE users SET banned = 0 WHERE id = ?').run(id);
     res.json({ ok: true });
   });
 
   // Server logs (last N lines)
-  app.get('/api/admin/logs', requireAdmin, (req, res) => {
+  app.get('/api/admin/logs', requireOwner, (req, res) => {
     const lines = parseInt(req.query.lines) || 100;
     const logDir = process.env.LOG_DIR || path.join(__dirname, '../logs');
     const date = new Date().toISOString().split('T')[0];
@@ -151,7 +137,7 @@ function setupAdminRoutes(app, db, websocket, metrics, cache) {
   });
 
   // Database table sizes
-  app.get('/api/admin/db-stats', requireAdmin, (req, res) => {
+  app.get('/api/admin/db-stats', requireOwner, (req, res) => {
     const tables = db.prepare(
       `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`
     ).all().map(r => r.name);
@@ -166,7 +152,7 @@ function setupAdminRoutes(app, db, websocket, metrics, cache) {
   });
 
   // Broadcast message to all online players
-  app.post('/api/admin/broadcast', requireAdmin, (req, res) => {
+  app.post('/api/admin/broadcast', requireOwner, (req, res) => {
     const { text } = req.body || {};
     if (!text || typeof text !== 'string') {
       return res.status(400).json({ error: 'Text required' });
@@ -178,22 +164,9 @@ function setupAdminRoutes(app, db, websocket, metrics, cache) {
   });
 
   // Migration status
-  app.get('/api/admin/migrations', requireAdmin, (req, res) => {
+  app.get('/api/admin/migrations', requireOwner, (req, res) => {
     const { status } = require('../lib/migrate');
     res.json(status(db));
-  });
-
-  // Maintenance mode toggle (simple flag in settings)
-  app.get('/api/admin/maintenance', requireAdmin, (req, res) => {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'maintenance'").get();
-    res.json({ enabled: row ? JSON.parse(row.value) : false });
-  });
-
-  app.post('/api/admin/maintenance', requireAdmin, (req, res) => {
-    const { enabled } = req.body || {};
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('maintenance', ?)")
-      .run(JSON.stringify(!!enabled));
-    res.json({ enabled: !!enabled });
   });
 }
 

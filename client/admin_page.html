@@ -88,6 +88,14 @@
   .logline { font-size: 13px; padding: 3px 0; border-top: 1px dashed rgba(42,22,48,0.25); }
   .switch { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-weight: 700; }
   .switch input { width: auto; }
+  .modal-overlay { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(42,22,48,0.85); display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 0 var(--ink); }
+  .modal-header { padding: 14px 18px; border-bottom: 2px dashed rgba(42,22,48,0.25); display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h2 { font-size: 18px; margin: 0; }
+  .modal-close { background: none; border: none; font-size: 22px; color: var(--ink); cursor: pointer; font-weight: 700; }
+  .modal-body { padding: 16px 18px; }
+  .modal-footer { padding: 12px 18px; border-top: 2px dashed rgba(42,22,48,0.25); display: flex; justify-content: flex-end; gap: 8px; }
   @media (max-width: 600px) { .tab { padding: 6px 9px; font-size: 13px; } .goal input { width: 70px; } }
 </style>
 </head>
@@ -97,6 +105,7 @@
   <div id="app"><div class="panel">Loading...</div></div>
 </div>
 <div id="toast"></div>
+<div class="modal-overlay" id="pmod"><div class="modal"><div class="modal-header"><h2 id="ptitle">Player</h2><button class="modal-close" onclick="closePlayer()">&times;</button></div><div class="modal-body" id="pbody"></div><div class="modal-footer" id="pfoot"><button class="btn ghost" onclick="closePlayer()">Close</button></div></div></div>
 <script>
 var state = null;
 var search = "";
@@ -271,9 +280,14 @@ var LOADS = [
   ["/api/admin/starts", function (d) { startState = d; }],
   ["/api/admin/moderation", function (d) { modState = d; }],
   ["/api/admin/translations", function (d) { trState = d; }],
+  ["/api/admin/system", function (d) { sysState = d; }],
 ];
 var modState = { reports: [], appeals: [], open: 0, now: 0 };
 var trState = { pending: [], counts: {}, langs: [], seen: 0, total: 0 };
+var sysState = null;
+var srvLogs = null;
+var dbState = null;
+var migState = null;
 var TR_NAMES = { de: "Deutsch", it: "Italiano", fr: "Français", tr: "Türkçe", es: "Español", ru: "Русский", vi: "Tiếng Việt", pt: "Português (Brasil)", id: "Bahasa Indonesia", pl: "Polski", cs: "Čeština", sk: "Slovenčina" };
 var balState = null;
 var balDays = 7;
@@ -583,6 +597,101 @@ function newsPanel() {
   return h + "</div></div>";
 }
 
+function systemPanel() {
+  var S = sysState;
+  if (!S) return '<div class="panel">Loading system info...</div>';
+  var uptime = Math.floor(S.uptime / 3600) + 'h ' + Math.floor((S.uptime % 3600) / 60) + 'm';
+  var dbSize = S.dbSize ? (S.dbSize / 1024 / 1024).toFixed(1) + ' MB' : 'N/A';
+  var h = '<div class="panel"><h2>🖥️ System</h2><div class="stats">';
+  h += '<div class="stat"><small>👤 Players</small><b>' + S.counts.users + '</b></div>';
+  h += '<div class="stat"><small>🏘️ Colonies</small><b>' + S.counts.colonies + '</b></div>';
+  h += '<div class="stat"><small>⚔️ Active moves</small><b>' + S.counts.activeMovements + '</b></div>';
+  h += '<div class="stat"><small>📨 Reports</small><b>' + S.counts.reports + '</b></div>';
+  h += '<div class="stat"><small>🤝 Alliances</small><b>' + S.counts.alliances + '</b></div>';
+  h += '<div class="stat"><small>⏱️ Uptime</small><b>' + uptime + '</b></div>';
+  h += '<div class="stat"><small>💾 DB size</small><b>' + dbSize + '</b></div>';
+  h += '<div class="stat"><small>🧠 Memory RSS</small><b>' + S.memory.rss + ' MB</b></div>';
+  h += '<div class="stat"><small>🧠 Heap used</small><b>' + S.memory.heapUsed + ' MB</b></div>';
+  h += '<div class="stat"><small>🔌 WS connections</small><b>' + S.websocket.totalConnections + '</b></div>';
+  h += '<div class="stat"><small>🔐 WS auth users</small><b>' + S.websocket.authenticatedUsers + '</b></div>';
+  h += '<div class="stat"><small>💾 Cache backend</small><b>' + esc(S.cache.backend) + '</b></div>';
+  h += '</div></div>';
+  return h;
+}
+
+function logsPanel() {
+  if (!srvLogs) return '<div class="panel">Loading logs...</div>';
+  var h = '<div class="panel"><h2>📜 Server logs</h2>';
+  if (!srvLogs.lines || !srvLogs.lines.length) { h += '<p class="hint">No logs yet.</p>'; }
+  else {
+    h += '<div class="tablewrap"><table><tr><th>Time</th><th>Level</th><th>Message</th></tr>';
+    srvLogs.lines.forEach(function(l) {
+      var ts = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : '--:--:--';
+      var lvl = (l.level || 'info').toUpperCase();
+      var col = lvl === 'ERROR' ? 'color:#b3262b;font-weight:700' : lvl === 'WARN' ? 'color:#a67c00;font-weight:700' : 'color:#5c79c9;font-weight:700';
+      h += '<tr><td style="white-space:nowrap">' + ts + '</td><td style="' + col + '">' + lvl + '</td><td>' + esc(l.message || l.raw || '') + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  h += '<div class="row"><button class="btn small ghost" data-act="logs-refresh">🔄 Refresh</button></div></div>';
+  return h;
+}
+
+function dbPanel() {
+  if (!dbState) return '<div class="panel">Loading database stats...</div>';
+  var h = '<div class="panel"><h2>🗄️ Database tables</h2>';
+  h += '<div class="tablewrap"><table><tr><th>Table</th><th>Rows</th></tr>';
+  dbState.tables.forEach(function(t) { h += '<tr><td>' + esc(t.name) + '</td><td>' + t.rows.toLocaleString() + '</td></tr>'; });
+  h += '</table></div></div>';
+  return h;
+}
+
+function migPanel() {
+  if (!migState) return '<div class="panel">Loading migrations...</div>';
+  var h = '<div class="panel"><h2>🔄 Migrations</h2>';
+  h += '<p><b>Applied:</b> ' + migState.count + '</p>';
+  h += '<p><b>Last:</b> ' + esc(migState.last || 'None') + '</p>';
+  if (migState.migrations && migState.migrations.length) {
+    h += '<div class="tablewrap"><table><tr><th>Name</th><th>Applied</th></tr>';
+    migState.migrations.forEach(function(m) { h += '<tr><td>' + esc(m.name) + '</td><td>' + new Date(m.applied_at).toLocaleString() + '</td></tr>'; });
+    h += '</table></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function viewPlayer(id) {
+  fetch('/api/admin/players/' + id).then(function(r) { return r.json(); }).then(function(p) {
+    document.getElementById('ptitle').textContent = esc(p.username);
+    var h = '<p><b>ID:</b> ' + p.id + ' · <b>Created:</b> ' + new Date(p.created_at).toLocaleString() + ' · <b>Last seen:</b> ' + new Date(p.last_seen).toLocaleString() + '</p>';
+    if (p.stats && Object.keys(p.stats).length > 0) {
+      h += '<h3>⚔️ Combat stats</h3><div class="stats">';
+      h += '<div class="stat"><small>Atk kills</small><b>' + (p.stats.atk_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>Def kills</small><b>' + (p.stats.def_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>NPC kills</small><b>' + (p.stats.npc_kills || 0) + '</b></div>';
+      h += '<div class="stat"><small>Wins</small><b>' + (p.stats.wins || 0) + '</b></div>';
+      h += '<div class="stat"><small>Battles</small><b>' + (p.stats.battles || 0) + '</b></div>';
+      h += '<div class="stat"><small>Loot</small><b>' + (p.stats.loot || 0) + '</b></div>';
+      h += '</div>';
+    }
+    if (p.colonies && p.colonies.length) {
+      h += '<h3>🏘️ Colonies</h3><ul style="margin:0 0 0 18px; line-height:1.8;">';
+      p.colonies.forEach(function(c) { h += '<li>' + esc(c.name) + ' (' + c.x + ', ' + c.y + ') — ' + esc(c.tribe || 'human') + '</li>'; });
+      h += '</ul>';
+    }
+    if (p.alliance) { h += '<h3>🤝 Alliance</h3><p>' + esc(p.alliance.name) + ' [' + esc(p.alliance.tag) + '] — ' + esc(p.alliance.role) + '</p>'; }
+    if (p.badges && p.badges.length) { h += '<h3>🏅 Badges</h3><p>' + p.badges.map(function(b) { return b.icon + ' ' + esc(b.title); }).join(' · ') + '</p>'; }
+    if (p.reports && p.reports.length) {
+      h += '<h3>📨 Recent reports</h3><div class="tablewrap"><table><tr><th>Title</th><th>Date</th><th>Seen</th></tr>';
+      p.reports.forEach(function(r) { h += '<tr><td>' + esc(r.title) + '</td><td>' + new Date(r.created_at).toLocaleString() + '</td><td>' + (r.seen ? '✅' : '⬜') + '</td></tr>'; });
+      h += '</table></div>';
+    }
+    document.getElementById('pbody').innerHTML = h;
+    document.getElementById('pmod').classList.add('show');
+  });
+}
+function closePlayer() { document.getElementById('pmod').classList.remove('show'); }
+
 function render() {
   var d = state;
   var s = d.stats;
@@ -625,6 +734,7 @@ function render() {
   parts.events = goalPanel() + eventPanel();
   parts.world = worldPanel();
   parts.server = accountsPanel() + legalPanel() + accessPanel() + protectionPanel() + startsPanel() + serverPanel() + botPanel() + logPanel();
+  parts.system = systemPanel() + logsPanel() + dbPanel() + migPanel();
   h = newsPanel();
 
   // announce
@@ -648,6 +758,7 @@ function render() {
     if (p.protectedUntil) h += '<span class="tag prot">🛡️ protected</span>';
     if (d.now - p.lastSeen < 300000) h += '<span class="tag on">online</span>';
     h += "</td><td>" + p.colonies + "</td><td>" + p.points + "</td><td>" + ago(p.lastSeen) + "</td><td>";
+    h += '<button class="btn small ghost" data-act="pview" data-id="' + p.id + '">👁️ View</button>';
     h += '<button class="btn small ghost" data-act="pw" data-id="' + p.id + '">🔑 New password</button>';
     if (!p.me) {
       h += '<button class="btn small ghost" data-act="ban" data-id="' + p.id + '" data-on="' + (p.banned ? 0 : 1) + '">' + (p.banned ? "✅ Unblock" : "⛔ Block") + "</button>";
@@ -663,7 +774,7 @@ function render() {
   parts.balance = balancePanel();
   parts.languages = translationsPanel();
   if (tab === "balance" && !balState) setTimeout(loadBalance, 0);
-  var TABS = [["overview", "📊 Overview"], ["events", "🗓️ Events"], ["world", "🗺️ World"], ["players", "👥 Players" + (modState.open ? " 🚩" + modState.open : "")], ["balance", "⚖️ Balance"], ["languages", "🌍 Languages" + (trState.pending.length ? " " + trState.pending.length : "")], ["messages", "📰 News & mail"], ["server", "⚙️ Server"]];
+  var TABS = [["overview", "📊 Overview"], ["events", "🗓️ Events"], ["world", "🗺️ World"], ["players", "👥 Players" + (modState.open ? " 🚩" + modState.open : "")], ["balance", "⚖️ Balance"], ["languages", "🌍 Languages" + (trState.pending.length ? " " + trState.pending.length : "")], ["messages", "📰 News & mail"], ["server", "⚙️ Server"], ["system", "🖥️ System"]];
   if (!parts[tab]) tab = "overview";
   var out = '<div class="tabs">' + TABS.map(function (t) { return '<button class="tab' + (t[0] === tab ? " on" : "") + '" data-act="tab" data-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   setApp(out + parts[tab]);
@@ -773,6 +884,11 @@ document.addEventListener("click", function (e) {
   } else if (act === "lm-reset") {
     if (!confirm("Free every landmark? All guards walk home and the holders lose their bonus.")) return;
     api("/api/admin/landmarks/reset", {}, function () { toast("♻️ All landmarks are free"); load(); });
+  } else if (act === "pview") {
+    viewPlayer(pid);
+  } else if (act === "logs-refresh") {
+    srvLogs = null;
+    api("/api/admin/logs?lines=100", null, function (d) { srvLogs = d; if (tab === "system") render(); });
   } else if (act === "bal-days") {
     balDays = pid;
     balState = null;
@@ -789,6 +905,11 @@ document.addEventListener("click", function (e) {
     tab = el.getAttribute("data-tab");
     try { localStorage.setItem("adminTab", tab); } catch (err) {}
     if (tab === "balance") loadBalance();
+    if (tab === "system" && !srvLogs) {
+      api("/api/admin/logs?lines=100", null, function (d) { srvLogs = d; if (tab === "system") render(); });
+      api("/api/admin/db-stats", null, function (d) { dbState = d; if (tab === "system") render(); });
+      api("/api/admin/migrations", null, function (d) { migState = d; if (tab === "system") render(); });
+    }
     render();
     window.scrollTo(0, 0);
   } else if (act === "goal-day") {
