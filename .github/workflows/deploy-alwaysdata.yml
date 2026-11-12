@@ -45,10 +45,12 @@ jobs:
           test -s "$HOME/.ssh/id_ed25519"
           test -s "$HOME/.ssh/known_hosts"
 
-      - name: Verify source file
+      - name: Verify source files
         run: |
           test -s server.js
           node --check server.js
+          test -s routes/admin.js
+          node --check routes/admin.js
 
       - name: Deploy selected servers
         env:
@@ -91,11 +93,17 @@ jobs:
 
           deploy_one() {
             local label="$1" user="$2" site_id="$3"
-            echo "Deploying server.js to ${label}"
+            echo "Deploying to ${label}"
             printf '%s\n' \
               'put server.js .server.js.deploy-new' \
               'rename .server.js.deploy-new server.js' \
               'chmod 644 server.js' \
+              'mkdir -p routes' \
+              'put routes/admin.js routes/admin.js' \
+              'chmod 644 routes/admin.js' \
+              'mkdir -p client' \
+              'put client/admin_page.html client/admin_page.html' \
+              'chmod 644 client/admin_page.html' \
               | sftp -q -b - \
                   -i "$HOME/.ssh/id_ed25519" \
                   -o BatchMode=yes \

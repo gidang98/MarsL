@@ -60,4 +60,7 @@ For new tasks, post a claim in the shared inbox and link the task issue. Update 
 - Tests: `npm test` — 210 pass, 0 fail, 0 skip
 - No GAME_VERSION bump (admin-only, not player-visible)
 - Merge: PR #13 → main ([0f34f7e](https://github.com/gidang98/MarsL/commit/0f34f7e98d07))
-- Deployment blocker: PAT lacks `actions:write` for workflow_dispatch. Trigger deploy-alwaysdata.yml from GitHub UI.
+- **ROLLED BACK**: Deployed commit 0f34f7e caused 502 Bad Gateway on all three servers. Workflow reported success but servers never recovered. Rollback to f8818456 (1.0.339) restored service immediately.
+- **Root cause**: Unknown. `node --check` passed, tests passed, but runtime startup failed. Needs investigation before redeploy.
+- Current live: 1.0.339 (f8818456) on rollback branch, deployed via run #14.
+- Main still points to broken commit 0f34f7e. Fix required before merging to main again.
