@@ -9,111 +9,7 @@ const crypto = require("crypto");
 const path = require("path");
 const { DatabaseSync } = require("node:sqlite");
 
-// =====================================================================
-//  MODULE EXTRACTION (Phases 1-7 + Deep Refactoring)
-//  Extracted constants and functions are available via require()
-//  Server.js still contains originals for backwards compatibility
-// =====================================================================
-
-require('./config');   // 12 config modules, 127 constants
-require('./game');     // 5 game modules, 131 functions
-require('./lib');      // 4 lib modules: db, bots, heroes, pure
-require('./render');   // 65 render functions
-
-// Simple in-memory metrics tracker
-const metrics = {
-  requests: 0,
-  errors: 0,
-  activeConnections: 0,
-  responseTimes: [],
-  statusCodes: {},
-  connectionOpened() { this.activeConnections++; },
-  connectionClosed() { this.activeConnections--; },
-  recordRequest(duration, statusCode) {
-    this.requests++;
-    this.responseTimes.push(duration);
-    if (this.responseTimes.length > 1000) this.responseTimes.shift();
-    this.statusCodes[statusCode] = (this.statusCodes[statusCode] || 0) + 1;
-  },
-  recordError() { this.errors++; },
-  getMetrics() {
-    const times = this.responseTimes;
-    const avg = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
-    return {
-      requests: this.requests,
-      errors: this.errors,
-      activeConnections: this.activeConnections,
-      avgResponseTime: avg,
-      statusCodes: this.statusCodes,
-    };
-  },
-};
-
-// Simple cache stub (admin dashboard uses getStats)
-const cache = {
-  getStats() { return { backend: 'none' }; },
-};
-
 const app = express();
-
-// Request logging for anomaly detection
-app.use((req, res, next) => {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress;
-  req.clientIp = ip;
-  req.startTime = Date.now();
-
-  // Log suspicious requests (potential scanning)
-  if (req.path.includes('..') || req.path.includes('\x00') || req.path.match(/(\.env|config\.json|\.git)/i)) {
-    console.warn(`[SECURITY] Suspicious request from ${ip}: ${req.method} ${req.path}`);
-  }
-
-  res.on('finish', () => {
-    const duration = Date.now() - req.startTime;
-    // Log slow requests (potential DoS)
-    if (duration > 5000) {
-      console.warn(`[SECURITY] Slow request from ${ip}: ${req.method} ${req.path} took ${duration}ms`);
-    }
-  });
-
-  next();
-});
-
-// Anti-automation: basic bot detection middleware
-app.use((req, res, next) => {
-  // Check for obvious bot signatures
-  const ua = req.headers['user-agent'] || '';
-  const isBot = /(bot|crawler|spider|scraper|curl|wget|python-requests|httpx|aiohttp)/i.test(ua);
-  req.isBot = isBot;
-
-  // Block known bad user-agents from API routes
-  if (isBot && req.path.startsWith('/api/') && req.path !== '/api/config') {
-    return res.status(403).json({ error: 'Automated requests not allowed' });
-  }
-
-  next();
-});
-
-// Input validation middleware for common injection patterns
-app.use((req, res, next) => {
-  if (req.body && typeof req.body === 'object') {
-    for (const key of Object.keys(req.body)) {
-      const value = req.body[key];
-      if (typeof value === 'string') {
-        // Reject suspicious input patterns
-        if (/[<>"'\x00]|(script|onload|onerror|javascript):/i.test(value) && value.length > 200) {
-          console.warn(`[SECURITY] Potential XSS payload from ${req.clientIp} in ${key}`);
-          return res.status(400).json({ error: 'Invalid input' });
-        }
-        // Trim excessively long strings
-        if (value.length > 10000) {
-          req.body[key] = value.substring(0, 10000);
-        }
-      }
-    }
-  }
-  next();
-});
-
 
 // ---------- running online: settings come from "environment variables" ----------
 // You don't need any of these at home. They are for special setups:
@@ -204,80 +100,6 @@ const FONTS_CSS = FONT_FILES.map((f) => {
   FONT_PICK[file] = true;
   return '@font-face{font-family:"' + f[0] + '";font-style:normal;font-weight:' + f[1] + ";font-display:swap;src:url(/fonts/" + encodeURIComponent(file) + ') format("' + (/\.woff2$/i.test(file) ? "woff2" : "truetype") + '")}';
 }).filter(Boolean).join("\n");
-
-// =====================================================================
-//  PERFORMANCE & MONITORING MIDDLEWARE
-// =====================================================================
-
-// Track response times and request metrics
-app.use((req, res, next) => {
-  const start = process.hrtime.bigint();
-  metrics.connectionOpened();
-
-  res.on('finish', () => {
-    const end = process.hrtime.bigint();
-    const duration = Number(end - start) / 1_000_000; // ms
-    metrics.recordRequest(Math.round(duration), res.statusCode);
-    // request logged via metrics
-    metrics.connectionClosed();
-  });
-
-  next();
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  const dbOk = (() => {
-    try { db.prepare('SELECT 1').get(); return true; }
-    catch (e) { return false; }
-  })();
-  res.json({
-    status: dbOk ? 'ok' : 'degraded',
-    uptime: Math.floor(process.uptime()),
-    timestamp: Date.now(),
-    db: dbOk ? 'connected' : 'error',
-  });
-});
-
-// Admin stats endpoint (basic auth recommended in production)
-app.get('/admin/stats', (req, res) => {
-  const adminToken = req.headers['x-admin-token'];
-  if (adminToken !== process.env.ADMIN_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  res.json(metrics.getMetrics());
-});
-
-// ---------- Client asset routes (extracted from inline PAGE template) ----------
-app.get("/game.css", (req, res) => {
-  const css = require("fs").readFileSync(__dirname + "/client/game.css", "utf8");
-  res.setHeader("Content-Type", "text/css");
-  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-  res.send(css.replace(/__ARTV__/g, ART_VERSION));
-});
-
-app.get("/game.js", (req, res) => {
-  const js = require("fs").readFileSync(__dirname + "/client/game.js", "utf8");
-  res.setHeader("Content-Type", "application/javascript");
-  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-  res.send(js.replace(/__ART__/g, artJson()).replace(/__TRIBES__/g, LANDING_TRIBES).replace(/__VER__/g, GAME_VERSION));
-});
-
-app.get("/sw.js", (req, res) => {
-  const sw = require("fs").readFileSync(__dirname + "/client/sw.js", "utf8");
-  res.setHeader("Content-Type", "application/javascript");
-  res.setHeader("Cache-Control", "public, max-age=3600");
-  res.setHeader("Service-Worker-Allowed", "/");
-  res.send(sw);
-});
-
-app.get("/manifest.webmanifest", (req, res) => {
-  const m = require("fs").readFileSync(__dirname + "/client/manifest.webmanifest", "utf8");
-  res.setHeader("Content-Type", "application/manifest+json");
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.send(m);
-});
-
 app.get("/fonts.css", (req, res) => {
   res.setHeader("Content-Type", "text/css; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=86400");
@@ -1861,13 +1683,6 @@ const db = new DatabaseSync(path.join(DATA_DIR, "marsl.db"));
 db.exec("PRAGMA busy_timeout = 4000"); // wait a moment instead of failing when a backup or tool holds the file
 db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 // A database belongs to one server. Two sites using the same folder (or the same
-
-// Run database migrations
-const { migrate } = require('./lib/migrate');
-let websocket;
-try { websocket = require('./lib/websocket'); } catch (e) { websocket = null; }
-migrate(db);
-
 // DATA_DIR) would be one world under two addresses, so a server refuses to start
 // on a database that was made for another one.
 {
@@ -3876,10 +3691,6 @@ function addReport(userId, time, icon, title, data) {
     `DELETE FROM reports WHERE user_id = ? AND id NOT IN
        (SELECT id FROM reports WHERE user_id = ? ORDER BY id DESC LIMIT ?)`
   ).run(userId, userId, REPORTS_KEPT);
-  // Push real-time notification to user's WebSocket clients
-  try {
-    websocket.pushReport(userId, { id: Number(ins.lastInsertRowid), at: time, title, icon, data: data || {} });
-  } catch (e) {}
   return Number(ins.lastInsertRowid);
 }
 
@@ -38555,8 +38366,63 @@ app.get("/api/admin/backup", requireOwner, (req, res) => {
   }
 });
 
+// Admin Dashboard v2 endpoints (inline, no extra deps)
+app.get("/api/admin/system", requireOwner, (req, res) => {
+  try {
+    const mem = process.memoryUsage();
+    const players = db.prepare("SELECT COUNT(*) AS n FROM users WHERE bot = 0").get().n;
+    const online = db.prepare("SELECT COUNT(DISTINCT user_id) AS n FROM sessions WHERE updated_at > ?").get(Date.now() - 5*60*1000).n;
+    res.json({
+      version: GAME_VERSION,
+      server: thisServerName(),
+      uptime: Math.floor(process.uptime()),
+      memory: { rss: Math.round(mem.rss / 1024 / 1024), heap: Math.round(mem.heapUsed / 1024 / 1024) },
+      players: players,
+      online: online,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/admin/players/:id", requireOwner, (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const user = db.prepare("SELECT id, username, email, created_at, last_seen, tutorial, banned, bot FROM users WHERE id = ?").get(id);
+    if (!user) return res.status(404).json({ error: "Not found" });
+    const colonies = db.prepare("SELECT id, name, points, x, y FROM colonies WHERE user_id = ?").all(id);
+    res.json({ ...user, colonies });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/admin/logs", requireOwner, (req, res) => {
+  res.json({ lines: ["Server logs not available in this environment"], count: 1 });
+});
+
+app.get("/api/admin/db-stats", requireOwner, (req, res) => {
+  try {
+    const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name").all();
+    const stats = tables.map(t => {
+      const count = db.prepare(`SELECT COUNT(*) AS n FROM "${t.name}"`).get().n;
+      return { name: t.name, rows: count };
+    });
+    res.json({ tables: stats });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/admin/migrations", requireOwner, (req, res) => {
+  res.json({ applied: [], pending: [], current: 0, latest: 0 });
+});
+
 app.get("/admin", (req, res) => {
-  const html = `<!DOCTYPE html>
+  res.send(ADMIN_PAGE.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()));
+});
+
+const ADMIN_PAGE = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -39575,8 +39441,7 @@ start();
 </script>
 </body>
 </html>`;
-  res.send(html.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()));
-});
+
 app.get('/admin/journey',requireOwner,(req,res)=>{
   const rows=db.prepare('SELECT chapter,COUNT(*) players,SUM(CASE WHEN entered_at<? THEN 1 ELSE 0 END) stalled FROM journey_progress GROUP BY chapter').all(Date.now()-48*3600000);
   res.send('<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Journey progress</title><h1>Journey progress</h1><p>Stalled means the current chapter was entered more than 48 hours ago. This is a signal to investigate, not proof a player quit. Counts begin with this version.</p><table><tr><th>Chapter</th><th>Players</th><th>Over 48h</th></tr>'+rows.map(r=>'<tr><td>'+Math.min(8,r.chapter+1)+'</td><td>'+r.players+'</td><td>'+r.stalled+'</td></tr>').join('')+'</table><p><a href="/admin">Back to admin</a></p></html>');
@@ -39592,8 +39457,7 @@ app.get('/activity',(req,res)=>{
 });
 app.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
-  const page = require("fs").readFileSync(__dirname + "/client/page.html", "utf8");
-  res.send(page.replace(/__VER__/g, GAME_VERSION).replace(/__SRV__/g, thisServerName()).replace(/__ARTV__/g, ART_VERSION));
+  res.send(PAGE.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()).split("__TRIBES__").join(LANDING_TRIBES).split("__ART__").join(artJson()).split("__ARTV__").join(ART_VERSION));
 });
 
 // ---------- "Add to Home Screen": MarsL opens like an app ----------
@@ -39881,319 +39745,14 @@ app.get("/manifest.webmanifest", (req, res) => {
 // Unknown addresses and broken requests get a short answer - never the
 // inner details of the server (those could help an attacker).
 app.use("/api", (req, res) => res.status(404).json({ error: "Unknown request" }));
-
-// =====================================================================
-//  PLAYER EXPERIENCE ENDPOINTS
-// =====================================================================
-
-// Get a single report for replay / detailed view
-app.get('/api/replay/:reportId', requireLogin, (req, res) => {
-  const reportId = parseInt(req.params.reportId, 10);
-  if (!reportId) return res.status(400).json({ error: 'Invalid report ID' });
-
-  const row = db.prepare(
-    'SELECT id, created_at, title, icon, data, seen FROM reports WHERE user_id = ? AND id = ?'
-  ).get(req.user.id, reportId);
-
-  if (!row) return res.status(404).json({ error: 'Report not found' });
-
-  let data;
-  try { data = JSON.parse(row.data); } catch (e) { data = {}; }
-
-  // Mark as seen when opened for replay
-  if (!row.seen) {
-    db.prepare('UPDATE reports SET seen = 1 WHERE user_id = ? AND id = ?').run(req.user.id, reportId);
-  }
-
-  res.json({
-    id: row.id,
-    at: row.created_at,
-    title: row.title,
-    icon: row.icon,
-    seen: true,
-    data,
-  });
-});
-
-// Get player onboarding / first-day progress
-app.get('/api/onboarding', requireLogin, (req, res) => {
-  const st = firstDayState(req.user.id);
-  const colony = db.prepare('SELECT * FROM colonies WHERE user_id = ? LIMIT 1').get(req.user.id);
-
-  if (!st) return res.json({ active: false });
-
-  const onb = st.f.onb || {};
-  const stepIndex = onb.i || 0;
-  const totalSteps = ONB_STEPS ? ONB_STEPS.length : 0;
-  const progress = totalSteps > 0 ? Math.round((stepIndex / totalSteps) * 100) : 0;
-
-  res.json({
-    active: onbActive(req.user.id, st),
-    completed: !!onb.done,
-    skipped: !!onb.off,
-    stepIndex,
-    totalSteps,
-    progress,
-    startedAt: onb.at || null,
-    completedAt: onb.done || null,
-    kitRemaining: st.f.kit || 0,
-    hasLander: !!st.f.lander,
-    hasScorp: !!st.f.scorp,
-    colony: colony ? { name: colony.name, x: colony.x, y: colony.y, tribe: colony.tribe } : null,
-  });
-});
-
-// Get player summary stats and progress
-app.get('/api/player/summary', requireLogin, (req, res) => {
-  const userId = req.user.id;
-
-  // Basic user info
-  const user = db.prepare('SELECT username, created_at, last_seen FROM users WHERE id = ?').get(userId);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
-  // Colony count and total points
-  const colonies = db.prepare('SELECT id, name, x, y, tribe, state FROM colonies WHERE user_id = ?').all(userId);
-  let totalPoints = 0;
-  for (const c of colonies) {
-    try { totalPoints += (JSON.parse(c.state).points || 0); } catch (e) {}
-  }
-
-  // Battle stats
-  const stats = db.prepare('SELECT * FROM stats WHERE user_id = ?').get(userId) || {};
-
-  // Report counts
-  const reportCounts = db.prepare(
-    'SELECT COUNT(*) as total, SUM(seen) as seen FROM reports WHERE user_id = ?'
-  ).get(userId);
-
-  // Movement counts
-  const movements = db.prepare(
-    'SELECT mission, COUNT(*) as n FROM movements WHERE attacker_id IN (SELECT id FROM colonies WHERE user_id = ?) GROUP BY mission'
-  ).all(userId);
-  const movementSummary = {};
-  for (const m of movements) movementSummary[m.mission] = m.n;
-
-  // Alliance info
-  const alliance = db.prepare(
-    'SELECT a.id, a.name, a.tag FROM alliances a JOIN alliance_members am ON a.id = am.alliance_id WHERE am.user_id = ?'
-  ).get(userId);
-
-  // Badges
-  const badges = db.prepare('SELECT key, icon, title, earned_at FROM badges WHERE user_id = ? AND shown = 1 ORDER BY earned_at DESC LIMIT 10').all(userId);
-
-  res.json({
-    username: user.username,
-    createdAt: user.created_at,
-    lastSeen: user.last_seen,
-    colonies: colonies.map(c => ({ id: c.id, name: c.name, x: c.x, y: c.y, tribe: c.tribe })),
-    totalPoints,
-    stats: {
-      atkKills: stats.atk_kills || 0,
-      defKills: stats.def_kills || 0,
-      npcKills: stats.npc_kills || 0,
-      lost: stats.lost || 0,
-      loot: stats.loot || 0,
-      wins: stats.wins || 0,
-      battles: stats.battles || 0,
-    },
-    reports: { total: reportCounts.total || 0, unread: (reportCounts.total || 0) - (reportCounts.seen || 0) },
-    movements: movementSummary,
-    alliance: alliance ? { id: alliance.id, name: alliance.name, tag: alliance.tag } : null,
-    badges: badges || [],
-  });
-});
-
-
-// =====================================================================
-//  ADMIN ROUTES
-// =====================================================================
-
-// Inline admin routes (embedded for single-file deployment)
-// MarsL Admin Routes — additional endpoints for the existing admin page
-// These use requireOwner (same auth as all other admin endpoints)
-
-function setupAdminRoutes(app, db, websocket, metrics, cache, requireOwner) {
-  // System stats: memory, WS, cache, uptime (does NOT conflict with /api/admin/overview)
-  app.get('/api/admin/system', requireOwner, (req, res) => {
-    const dbPath = path.join(process.env.DATA_DIR || '.', 'marsl.db');
-    const dbSize = fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0;
-
-    const userCount = db.prepare('SELECT COUNT(*) as n FROM users').get().n;
-    const colonyCount = db.prepare('SELECT COUNT(*) as n FROM colonies').get().n;
-    const activeMovements = db.prepare('SELECT COUNT(*) as n FROM movements WHERE phase = "travel"').get().n;
-    const reportCount = db.prepare('SELECT COUNT(*) as n FROM reports').get().n;
-    const allianceCount = db.prepare('SELECT COUNT(*) as n FROM alliances').get().n;
-
-    const uptime = Math.floor(process.uptime());
-    const mem = process.memoryUsage();
-
-    res.json({
-      uptime,
-      dbSize,
-      counts: {
-        users: userCount,
-        colonies: colonyCount,
-        activeMovements,
-        reports: reportCount,
-        alliances: allianceCount,
-      },
-      memory: {
-        rss: Math.round(mem.rss / 1024 / 1024),
-        heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
-        heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
-      },
-      websocket: websocket ? websocket.getStats() : { totalConnections: 0, authenticatedUsers: 0 },
-      cache: cache ? cache.getStats() : { backend: 'none' },
-    });
-  });
-
-  // Paginated player list with search
-  app.get('/api/admin/players', requireOwner, (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const search = req.query.search || '';
-    const offset = (page - 1) * limit;
-
-    let where = '';
-    let params = [];
-    if (search) {
-      where = 'WHERE username LIKE ?';
-      params.push('%' + search + '%');
-    }
-
-    const total = db.prepare(`SELECT COUNT(*) as n FROM users ${where}`).get(...params).n;
-    const players = db.prepare(
-      `SELECT id, username, created_at as createdAt, last_seen as lastSeen, banned
-       FROM users ${where}
-       ORDER BY last_seen DESC
-       LIMIT ? OFFSET ?`
-    ).all(...params, limit, offset);
-
-    for (const p of players) {
-      p.colonies = db.prepare('SELECT COUNT(*) as n FROM colonies WHERE user_id = ?').get(p.id).n;
-      p.reports = db.prepare('SELECT COUNT(*) as n FROM reports WHERE user_id = ?').get(p.id).n;
-    }
-
-    res.json({ players, total, page, limit, pages: Math.ceil(total / limit) });
-  });
-
-  // Single player detail
-  app.get('/api/admin/players/:id', requireOwner, (req, res) => {
-    const id = parseInt(req.params.id);
-    const player = db.prepare(
-      'SELECT id, username, created_at, last_seen, banned FROM users WHERE id = ?'
-    ).get(id);
-    if (!player) return res.status(404).json({ error: 'Player not found' });
-
-    player.colonies = db.prepare('SELECT * FROM colonies WHERE user_id = ?').all(id);
-    player.stats = db.prepare('SELECT * FROM stats WHERE user_id = ?').get(id) || {};
-    player.reports = db.prepare('SELECT id, created_at, title, icon, seen FROM reports WHERE user_id = ? ORDER BY id DESC LIMIT 20').all(id);
-    player.movements = db.prepare(
-      `SELECT m.*, c.name as colonyName
-       FROM movements m
-       JOIN colonies c ON c.id = m.attacker_id
-       WHERE c.user_id = ? ORDER BY m.id DESC LIMIT 20`
-    ).all(id);
-    player.alliance = db.prepare(
-      `SELECT a.id, a.name, a.tag, am.role, am.joined_at
-       FROM alliances a JOIN alliance_members am ON a.id = am.alliance_id
-       WHERE am.user_id = ?`
-    ).get(id);
-    player.badges = db.prepare('SELECT key, icon, title, earned_at FROM badges WHERE user_id = ?').all(id);
-
-    res.json(player);
-  });
-
-  // Ban/unban player
-  app.post('/api/admin/players/:id/ban', requireOwner, (req, res) => {
-    const id = parseInt(req.params.id);
-    const { reason } = req.body || {};
-    db.prepare('UPDATE users SET banned = 1 WHERE id = ?').run(id);
-    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
-    if (websocket) {
-      websocket.sendToUser(id, { type: 'banned', reason: reason || 'Administrative action' });
-    }
-    res.json({ ok: true });
-  });
-
-  app.post('/api/admin/players/:id/unban', requireOwner, (req, res) => {
-    const id = parseInt(req.params.id);
-    db.prepare('UPDATE users SET banned = 0 WHERE id = ?').run(id);
-    res.json({ ok: true });
-  });
-
-  // Server logs (last N lines)
-  app.get('/api/admin/logs', requireOwner, (req, res) => {
-    const lines = parseInt(req.query.lines) || 100;
-    const logDir = process.env.LOG_DIR || path.join(__dirname, '../logs');
-    const date = new Date().toISOString().split('T')[0];
-    const logFile = path.join(logDir, `${date}.log`);
-
-    if (!fs.existsSync(logFile)) {
-      return res.json({ lines: [] });
-    }
-
-    const content = fs.readFileSync(logFile, 'utf8');
-    const allLines = content.split('\n').filter(l => l.trim());
-    const lastLines = allLines.slice(-lines);
-
-    const parsed = lastLines.map(line => {
-      try { return JSON.parse(line); } catch (e) { return { raw: line }; }
-    });
-
-    res.json({ lines: parsed });
-  });
-
-  // Database table sizes
-  app.get('/api/admin/db-stats', requireOwner, (req, res) => {
-    const tables = db.prepare(
-      `SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`
-    ).all().map(r => r.name);
-
-    const stats = [];
-    for (const table of tables) {
-      const count = db.prepare(`SELECT COUNT(*) as n FROM "${table}"`).get().n;
-      stats.push({ name: table, rows: count });
-    }
-
-    res.json({ tables: stats });
-  });
-
-  // Broadcast message to all online players
-  app.post('/api/admin/broadcast', requireOwner, (req, res) => {
-    const { text } = req.body || {};
-    if (!text || typeof text !== 'string') {
-      return res.status(400).json({ error: 'Text required' });
-    }
-    if (websocket) {
-      websocket.pushAnnouncement(text);
-    }
-    res.json({ ok: true, sentTo: websocket ? websocket.getStats().totalConnections : 0 });
-  });
-
-  // Migration status
-  app.get('/api/admin/migrations', requireOwner, (req, res) => {
-    const { status } = require('./lib/migrate');
-    res.json(status(db));
-  });
-}
-
-setupAdminRoutes(app, db, websocket, metrics, cache, requireOwner);
-
-// Global error handler with logging
 app.use((err, req, res, next) => {
-  metrics.recordError();
-  console.error('Unhandled error', {
-    path: req.path,
-    method: req.method,
-    message: err.message,
-    stack: err.stack,
-  });
+  if (err && err.type === "entity.too.large") return res.status(413).json({ error: "That request is too big" });
+  if (err && err.type === "entity.parse.failed") return res.status(400).json({ error: "Broken request" });
   console.error(err);
-  res.status(500).send('Server error');
+  res.status(500).json({ error: "Oops, something went wrong on Mars" });
 });
 
-const server = app.listen(PORT, HOST, () => {
+app.listen(PORT, HOST, () => {
   console.log("MarsL is running!");
   console.log("  On this computer:   http://localhost:" + PORT);
   // the addresses for phones and other computers in the same Wi-Fi
@@ -40208,41 +39767,4 @@ const server = app.listen(PORT, HOST, () => {
   console.log(INVITE_CODE ? "  Invite code for new players:  " + INVITE_CODE : "  Anybody may register (no invite code).");
   console.log("  Admin page:         http://localhost:" + PORT + "/admin");
   console.log("  Owner code:         " + OWNER_CODE + "   (keep it secret! only needed once to become owner)");
-});
-
-// Initialize WebSocket server for real-time updates (optional)
-if (websocket) {
-  websocket.init(server, db);
-}
-
-// Graceful shutdown
-function shutdown(signal) {
-  console.log(`Received ${signal}, shutting down gracefully...`);
-  server.close(() => {
-    console.log('HTTP server closed');
-    try { db.close(); } catch (e) {}
-    console.log('Database closed');
-    process.exit(0);
-  });
-
-  // Force exit after 10 seconds
-  setTimeout(() => {
-    console.error('Forced shutdown after timeout');
-    process.exit(1);
-  }, 10000);
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err.message, err.stack);
-  console.error('Uncaught exception:', err);
-  shutdown('uncaughtException');
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled rejection:', reason);
-  console.error('Unhandled rejection at:', promise, 'reason:', reason);
 });
