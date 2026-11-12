@@ -91,6 +91,11 @@ const metrics = {
   },
 };
 
+// Simple cache stub (admin dashboard uses getStats)
+const cache = {
+  getStats() { return { backend: 'none' }; },
+};
+
 const app = express();
 app.use(compression()); // gzip all responses
 
@@ -278,7 +283,7 @@ app.use((req, res, next) => {
     const end = process.hrtime.bigint();
     const duration = Number(end - start) / 1_000_000; // ms
     metrics.recordRequest(Math.round(duration), res.statusCode);
-    logger.requestLog(req, res, Math.round(duration));
+    // request logged via metrics
     metrics.connectionClosed();
   });
 
@@ -40242,7 +40247,7 @@ setupAdminRoutes(app, db, websocket, metrics, cache, requireOwner);
 // Global error handler with logging
 app.use((err, req, res, next) => {
   metrics.recordError();
-  logger.error('Unhandled error', {
+  console.error('Unhandled error', {
     path: req.path,
     method: req.method,
     message: err.message,
@@ -40294,12 +40299,12 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  logger.error('Uncaught exception', { message: err.message, stack: err.stack });
+  console.error('Uncaught exception:', err.message, err.stack);
   console.error('Uncaught exception:', err);
   shutdown('uncaughtException');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled rejection', { reason: String(reason) });
+  console.error('Unhandled rejection:', reason);
   console.error('Unhandled rejection at:', promise, 'reason:', reason);
 });
