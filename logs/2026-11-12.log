@@ -19,3 +19,15 @@
 {"timestamp":"2026-11-12T15:41:05.434Z","level":"info","message":"test message","foo":"bar"}
 {"timestamp":"2026-11-12T15:41:05.445Z","level":"warn","message":"test warning"}
 {"timestamp":"2026-11-12T15:41:05.445Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T16:19:27.248Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T16:19:27.272Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T16:19:27.272Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T16:21:48.112Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T16:21:48.122Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T16:21:48.122Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T16:22:13.306Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T16:22:13.316Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T16:22:13.316Z","level":"error","message":"test error"}
+{"timestamp":"2026-11-12T16:22:46.458Z","level":"info","message":"test message","foo":"bar"}
+{"timestamp":"2026-11-12T16:22:46.469Z","level":"warn","message":"test warning"}
+{"timestamp":"2026-11-12T16:22:46.469Z","level":"error","message":"test error"}
