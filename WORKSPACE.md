@@ -41,10 +41,15 @@ The workflow uploads server.js and requests AlwaysData restarts using existing s
 Syntax check and embedded-script parsing passed. Temporary local instances of all three presets passed homepage/config, authenticated colony, storage and Swap/Balance checks for all tribes. Client logic checks passed traffic counts and return-to-build behavior.
 The test runtime denied os.networkInterfaces(). A test-only preload returned an empty interface list. Live deployment succeeded with the original startup code.
 
+## Shared AI inbox
+https://github.com/gidang98/MarsL/issues/1
+
+Read the issue body and latest comments at start/resume and before integration or deployment. Post claims and handoffs there with a unique session ID. Keep detailed work in linked task issues and pull requests. The table below is a release/handoff summary. Task issues hold current ownership and status.
+
 ## Active task ledger
 | Task | Owner | Branch/base | Areas | Status | Next step |
 | --- | --- | --- | --- | --- | --- |
 | Shared AI workspace setup | Current assistant | main / release 1.0.339 | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads these files |
 | Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
 
-For a new task, add a row with the exact task, owner, branch/base commit and touched areas. Keep completed rows concise. Record a concrete blocker and continuation step whenever work is interrupted.
+For new tasks, post a claim in the shared inbox and link the task issue. Update this summary at release/handoff milestones. Record a concrete blocker and continuation step whenever work is interrupted.
