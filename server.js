@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.351";
+const GAME_VERSION = "1.0.352";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -2290,7 +2290,7 @@ function passwordProblem(pw, name) {
 //     a stolen or downloaded database alone is useless for guessing,
 //  3. scrypt with a high work factor, so every guess costs real time and memory.
 // Older fingerprints (v1) still work and are upgraded on the next login.
-// ⚠️ Keep pepper.key with marsl.db. Without it, nobody can log in with a password.
+// "⚠️" Keep pepper.key with marsl.db. Without it, nobody can log in with a password.
 const PEPPER_FILE = path.join(DATA_DIR, "pepper.key");
 const PEPPER = (() => {
   const fs = require("fs");
@@ -2465,7 +2465,7 @@ function fieldMaxOf(s) {
   return s.main ? MAIN_FIELD_MAX : MAX_LEVEL;
 }
 
-// 📦 Storage levels hold the same amount at every game speed. Production runs faster
+// "📦" Storage levels hold the same amount at every game speed. Production runs faster
 // on fast servers, so the resource bar surfaces fill times and storage actions.
 function speedScale() {
   return Math.max(1, Math.sqrt(PRODUCTION_SPEED));
@@ -2907,7 +2907,7 @@ function upkeep(s, tribe, includeTraining) {
   let total = 0;
   const hp = s._uid ? heroPerks(s._uid) : null;
   for (const group of [s.troops, s.away]) {
-    // 📦 Quartermaster 25: troops on the road eat 25% less
+    // "📦" Quartermaster 25: troops on the road eat 25% less
     const k = group === s.away && hp && hp.qm25 ? 0.75 : 1;
     for (const key in group) {
       if (tribe.units[key]) total += group[key] * tribe.units[key].upkeep * k;
@@ -2943,7 +2943,7 @@ function refund(s, cost) {
 }
 
 // Text like "Needs Command Center Lv 2", or null if everything is fine
-// 🏛️ no HQ, no building: after bombards flattened it, it comes first
+// "🏛️" no HQ, no building: after bombards flattened it, it comes first
 function hqDown(s) {
   return !s.buildings.some((b) => b.type === "hq" && b.level > 0);
 }
@@ -2995,7 +2995,7 @@ function travelMs(dist, slowestSpeed) {
 function slowestOf(troops, tribe) {
   let slowest = Infinity;
   for (const k in troops) if (troops[k] > 0 && tribe.units[k]) slowest = Math.min(slowest, tribe.units[k].speed);
-  return slowest * perkOf(tribe.key, "speed"); // 🧑‍🚀 humans march a little slower
+  return slowest * perkOf(tribe.key, "speed"); // 🧑‍"🚀" humans march a little slower
 }
 
 function campRegrowMs() {
@@ -3114,7 +3114,7 @@ function startNextTraining(s, building, time) {
 const TRIBE_GAG = {
   panic: 0.15, panicMs: 3600000, // 🐔 Headless panic
   probe: 0.1, probeMs: 6 * 3600000, // 👽 Probed
-  coffee: 0.1, coffeeMs: 3 * 3600000, // 🧑‍🚀 Coffee break
+  coffee: 0.1, coffeeMs: 3 * 3600000, // 🧑‍"🚀" Coffee break
 };
 function update(s, tribe, now) {
   if (now === undefined) now = Date.now();
@@ -4337,13 +4337,13 @@ function resolveArrival(m) {
     let carry = Math.round((carryOf(survivors, atkTribe) + (m.mission === "raid" ? raiderCarryBonus(survivors, atkTribe) : 0)) * (aHero ? 1 + heroBonus(aHero).carry / 100 : 1) * (m.power === "chicken" ? 1 + WAR_LOOT : 1) * bm.carry * morale); // 🐔 Stampede
     const hidden = Math.round(bunkerOf(def.state) * bm.hide * (lock === "hide" && att.userId !== def.userId ? 1 + POWER_LOCK.hide : 1));
     const resBefore = RESOURCES.reduce((n, r) => n + Math.floor(def.state.res[r] || 0), 0);
-    // 📦 Quartermaster 50: raiders take at most half of what isn't hidden in the home colony
+    // "📦" Quartermaster 50: raiders take at most half of what isn't hidden in the home colony
     const defPk = heroPerks(def.userId);
     if (defPk && defPk.qm50 && defPk.home === def.id) carry = Math.min(carry, Math.floor(RESOURCES.reduce((n, r) => n + Math.max(0, Math.floor(def.state.res[r]) - hidden), 0) / 2));
     if (f.attackerWins && carry > 0) loot = takeLoot(def.state.res, carry, hidden);
     if (loot && att.userId !== def.userId) insuranceClaim(def.userId, loot, resBefore, att.name, T);
 
-    // ⚔️ fighting your own colony is real (troops fall, loot moves, bombards
+    // "⚔️" fighting your own colony is real (troops fall, loot moves, bombards
     // hit), but it never counts for stats, rankings, badges or commander xp
     const selfFight = att.userId === def.userId;
     if (!selfFight) colonyStat(f.attackerWins ? att : def, "wins", 1);
@@ -5219,7 +5219,7 @@ function hospitalView(s, tribe, now) {
 function swapRate(level, tribeKey, userId) {
   const rate = SWAP_RATE_BASE + SWAP_RATE_PER_LEVEL * level;
   const hp = userId ? heroPerks(userId) : null;
-  // 🧑‍🚀 humans lose less when swapping (a whole percent, so page and server agree); 📦 Quartermaster 100 halves the loss
+  // 🧑‍"🚀" humans lose less when swapping (a whole percent, so page and server agree); "📦" Quartermaster 100 halves the loss
   const wx = forecastNow();
   return Math.round((1 - (1 - rate) * perkOf(tribeKey, "market") * (hp && hp.qm100 ? 0.5 : 1) * (wx.swap || 1)) * 100);
 }
@@ -6273,7 +6273,7 @@ function questView(colony) {
   };
 }
 
-// ---------- 📋 the mission board ----------
+// ---------- "📋" the mission board ----------
 // Every quest belongs to one of three cards on the board: build, army or world.
 const QUEST_ARMY = /^(barracks|army|sim$|spy$|camp1$|waves$|hunt|lab$|upgrade$|wins|hangar$|hospital$)/;
 const QUEST_WORLD = /^(hub|colony|crown$)/;
@@ -7370,7 +7370,7 @@ function runRoute(s, colony, route, now) {
   const free = merchantsFree(s, colony.id);
   if (!free) return "🐪 No free merchants";
   const cap = capacities(s);
-  const held = planReserve(s, tribeOf(colony.tribe)); // 📋 planned jobs keep their share
+  const held = planReserve(s, tribeOf(colony.tribe)); // "📋" planned jobs keep their share
   let room = free * merchantCarry(s);
   const goods = {};
   let total = 0;
@@ -7412,7 +7412,7 @@ function runRoute(s, colony, route, now) {
   }
   if (!total) return "📦 Nothing to send (keeping " + route.keep + "% in storage)";
   const used = sendMerchants(s, colony, target.id, goods, now, true);
-  return icon("check") + " Sent " + total + " with " + used + (used === 1 ? " merchant" : " merchants");
+  return "✅" + " Sent " + total + " with " + used + (used === 1 ? " merchant" : " merchants");
 }
 
 // The server checks all routes every few seconds
@@ -7689,7 +7689,7 @@ function checkSend(req, s, tribe, colony, body, avail) {
   if (orders === "precision" && !(mission === "attack" && kind === "colony" && Object.keys(send).some((k) => isBombard(tribe.units[k])))) return "🎯 Precision needs bombards in an attack on a colony";
   // 💥 bombards may aim at one building type
   const aim = mission === "attack" && kind === "colony" && body.aim && (BUILDING_TYPES[String(body.aim)] || FIELD_TYPES[String(body.aim)]) && Object.keys(send).some((k) => isBombard(tribe.units[k])) ? String(body.aim) : null;
-  // ⚔️ the tribe's war power, for this one attack or raid
+  // "⚔️" the tribe's war power, for this one attack or raid
   let power = null;
   if (body.power && !body.farm) {
     const w = warPowerView(req.user.id, colony.tribe, Date.now());
@@ -8094,7 +8094,7 @@ app.get("/api/map", requireLogin, (req, res) => {
   }
 
   // Where are my troops heading? A little sign on the map shows what kind of trip it is:
-  // ⚔️ attack, 💰 raid, 🔍 spies, 🐪 merchants, 🛡️ support, 🏳️ settlers (the most warlike one wins)
+  // "⚔️" attack, 💰 raid, "🔍" spies, 🐪 merchants, 🛡️ support, 🏳️ settlers (the most warlike one wins)
   const myIds = colonyIdsOf(req.user.id);
   const MOVE_RANK = { attack: 6, raid: 5, scout: 4, trade: 3, reinforce: 2, settle: 1 };
   const targetMap = new Map();
@@ -10488,7 +10488,7 @@ app.post("/api/admin/events", requireOwner, (req, res) => {
 //   🏦 Bank: members put resources in; the leader pays them out or
 //      spends them on projects
 //   ✨ Projects: a few days of a bonus for EVERY member
-//   🎯 Joint attacks: pick a target and a landing time, everybody sees
+//   "🎯" Joint attacks: pick a target and a landing time, everybody sees
 //      when each of their colonies has to send which troops
 // =====================================================================
 // ✨ Alliance projects: PERMANENT bonuses for every member, in 5 levels.
@@ -11413,7 +11413,7 @@ app.post("/api/admin/clock", requireOwner, (req, res) => {
 });
 
 // =====================================================================
-//  📖 GUIDE - everything the help pages show, straight from the rules
+//  "📖" GUIDE - everything the help pages show, straight from the rules
 //  above (so the guide never tells a different story than the game).
 //  Times and speeds are in REAL time for this server's speed settings.
 // =====================================================================
@@ -12000,7 +12000,7 @@ app.post("/api/admin/restart-player", requireOwner, (req, res) => {
 // mode "fresh" keeps the accounts, "wipe" deletes all but the owners.
 function resetServer(mode, keepBadges) {
   const now = Date.now();
-  // 🏛️ the round that ends goes into the Hall of Fame
+  // "🏛️" the round that ends goes into the Hall of Fame
   try { recordRound(now); } catch (err) { console.error("hall of fame:", err.message); }
   // nobody plays while we sweep
   const wasMaintenance = maintenanceOn();
@@ -12334,7 +12334,7 @@ const SERVER_PAGE = `<!DOCTYPE html>
 </head>
 <body>
 <div class="wrap">
-  <header><h1>🚀 __SRV__</h1><small id="sub">Open Beta · __VER__</small><a href="/">🎮 Play</a></header>
+  <header><h1>"🚀" __SRV__</h1><small id="sub">Open Beta · __VER__</small><a href="/">🎮 Play</a></header>
   <div id="app" class="grid"><div class="card wide">Loading...</div></div>
 </div>
 <script>
@@ -12517,7 +12517,7 @@ app.post("/api/admin/protection-rules", requireOwner, (req, res) => {
 });
 
 // =====================================================================
-//  📧 EMAIL ACCOUNTS + 🔗 MULTI-ACCOUNT PROTECTION
+//  "📧" EMAIL ACCOUNTS + 🔗 MULTI-ACCOUNT PROTECTION
 //
 //  Signing up needs a confirmed email address (one account per address;
 //  "name+tag@" and Gmail dots count as the same address, throw-away
@@ -12712,7 +12712,7 @@ const LINKED_MSG = "🔗 These two accounts used the same device, so they can't 
 // ---------- signing up ----------
 // Called by /api/register once name, password and tribe are checked
 let mailProblem = null; // the last confirmation mail that could not be sent (for the owner)
-// 📧 the confirmation mail, in the language the player chose on the start page
+// "📧" the confirmation mail, in the language the player chose on the start page
 const MAIL_LANGS = {
   en: { subject: "Confirm your MarsL account", hi: "Welcome to Mars, NAME!", line: "Confirm your email address to crash-land. The link works for HOURS hours.", button: "Confirm and play" },
   de: { subject: "Bestätige dein MarsL-Konto", hi: "Willkommen auf dem Mars, NAME!", line: "Bestätige deine E-Mail-Adresse für die Landung. Der Link ist HOURS Stunden gültig.", button: "Bestätigen und spielen" },
@@ -13434,7 +13434,7 @@ const HERO_QUIRKS = {
   showoff: { icon: "🎺", name: "Show-off", up: "Charge gives +5% more attack", down: "the target always sees the commander coming" },
   coward: { icon: "🐔", name: "Coward", up: "never falls in a lost fight", down: "−5% attack for the army it leads" },
 };
-// ⚔️ battle orders (attacker) and 🛡️ stances (defender)
+// "⚔️" battle orders (attacker) and 🛡️ stances (defender)
 const HERO_ORDERS = {
   charge: { icon: "⚔️", name: "Charge", up: "+15% attack", down: "+10% own losses", beats: "evacuate", loses: "fortify" },
   pillage: { icon: "💰", name: "Pillage", up: "+30% carry", down: "−10% attack", beats: "fortify", loses: "ambush" },
@@ -13791,7 +13791,7 @@ function heroGoes(userId, movementId) {
   h.away = movementId;
   heroSave(userId, h);
 }
-// ⚔️ orders against 🛡️ stances: every order beats one stance and loses to another.
+// "⚔️" orders against 🛡️ stances: every order beats one stance and loses to another.
 // The defending stance counts when its commander is at home (Warlord 75: Fortify
 // and Ambush also while it is away). Returns multipliers for the fight.
 function defStance(col, now) {
@@ -14403,7 +14403,7 @@ app.post("/api/alliance/diplo", requireLogin, (req, res) => {
 });
 
 // =====================================================================
-//  🏛️ HALL OF FAME - when a round ends (the server starts over) the
+//  "🏛️" HALL OF FAME - when a round ends (the server starts over) the
 //  winners are written down for good, and the best players get badges.
 //  Those champion badges stay with the player in every round that follows.
 //  Badges for weekly ranks and achievements only last for one round.
@@ -15115,7 +15115,7 @@ function startJob(s, userId, c, job, crew) {
   return null;
 }
 
-// ---------- 📋 the plan queue ----------
+// ---------- "📋" the plan queue ----------
 // One free slot behind the build queue: "after this, build that". A planned
 // job starts by itself as soon as the queue has room and the colony can pay.
 // Until then its cost is reserved: trade routes leave those resources alone.
@@ -15421,7 +15421,7 @@ function wikiExtra() {
 }
 
 // =====================================================================
-//  ⚖️ LEGAL PAGE + 🗑️ ACCOUNT DELETION
+//  ⚖️ LEGAL PAGE + "🗑️" ACCOUNT DELETION
 //  /legal shows the legal notice (Impressum) and the privacy policy. The
 //  owner fills in the details on the admin page (Server tab); the texts
 //  are built from them. It is a template, not legal advice.
@@ -15582,7 +15582,7 @@ const LEGAL_SHELL = `<!DOCTYPE html>
 <body><main>__BODY__</main></body>
 </html>`;
 
-// ---------- 🗑️ delete my account ----------
+// ---------- "🗑️" delete my account ----------
 // everything that belongs to a player and is not removed by deleteUserCompletely itself
 function eraseUserData(userId, username, colonyIds) {
   const del = (sql, ...args) => db.prepare(sql).run(...args);
@@ -18648,7 +18648,7 @@ app.post("/api/hop/enter", (req, res) => {
 
 
 // =====================================================================
-//  ♻️ RESPAWN  +  🗑️ DELETING THE MAIN ACCOUNT
+//  ♻️ RESPAWN  +  "🗑️" DELETING THE MAIN ACCOUNT
 //  Respawn: the player stays (name, account, sessions) but every colony,
 //  troop, hero, quest and alliance place on THIS server is removed and a new
 //  colony is made. Deleting the main account removes the account and the
@@ -19059,8 +19059,8 @@ app.post("/api/daily", requireLogin, (req, res) => {
 
 // ---------- ✨ tribe powers ----------
 // v170: every tribe has two powers.
-//  ⚙️ the home power: once per server day in every colony, with a choice
-//  ⚔️ the war power: once per server day for the player (twice with a
+//  "⚙️" the home power: once per server day in every colony, with a choice
+//  "⚔️" the war power: once per server day for the player (twice with a
 //     level-15 commander), ticked in the send window for one attack or raid
 const TRIBE_POWERS = {
   human: { icon: "🚨", name: "Lockdown", text: "For 6 hours this colony either fights back harder (+15% defense) or locks the stores (bunkers hide 50% more). Pick one.", pick: "lock" },
@@ -19293,7 +19293,7 @@ app.post("/api/alliance/recruit", requireLogin, (req, res) => {
 //  🐫 Wandering traders: neutral caravans that stop near colonies for a
 //     while and swap one resource for another 1:1 (no market cut, no
 //     market needed), once per player and caravan.
-//  🎯 Recommended targets: the camps and sleepy NPC colonies around a
+//  "🎯" Recommended targets: the camps and sleepy NPC colonies around a
 //     colony, with a quick "can your army win?" estimate.
 //  🎉 Milestones: the first new colony and the first landmark pay a gift
 //     and get a celebration.
@@ -19373,7 +19373,7 @@ app.post("/api/npc-trade", requireLogin, (req, res) => {
   });
 });
 
-// ---------- 🎯 recommended targets ----------
+// ---------- "🎯" recommended targets ----------
 const TARGET_RANGE = 12;
 app.get("/api/targets", requireLogin, (req, res) => {
   const now = Date.now();
@@ -22083,7 +22083,7 @@ const PAGE = `<!DOCTYPE html>
   .seasonbar.won .sb-next { justify-content: center; border-top-color: rgba(0,0,0,0.15); }
   .seasonbar.won .sb-next small { display: inline; }
   .seasonbar { margin-bottom: 12px; padding: 10px 14px; border-radius: var(--radius-md); background: linear-gradient(135deg, #2a1820, #4a2230); color: #fbefe3; box-shadow: var(--sh); }
-  /* ---------- 📖 the guide ---------- */
+  /* ---------- "📖" the guide ---------- */
   .wk-top { position: sticky; top: -1px; z-index: 2; margin: 0 -4px 10px; padding: 8px 4px; background: var(--surface, #fff8f0); }
   .wk-search { width: 100%; padding: 10px 12px; font: inherit; font-size: 15px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); }
   .wk-tabs { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
@@ -23340,7 +23340,7 @@ const PAGE = `<!DOCTYPE html>
   .mvmark.cv-art .mclay { width: 100%; height: 100%; }
   .world .t.t-r.g0::after, .world .t.t-r.g2::after { content: "" !important; position: absolute; inset: -4%; pointer-events: none; background: url("/art/map-boulders.webp?v=__ARTV__") center / contain no-repeat; filter: saturate(1.15) brightness(.95) drop-shadow(0 2px 1px rgba(80,30,20,.35)); }
   .world .t.t-r.g2::after { inset: 10% 2% -2% 14%; }
-  /* 📋 mission board */
+  /* "📋" mission board */
 .mboard .qhead .btn.small { margin-left: auto; }
 .mboard .qhead .qready + .btn.small { margin-left: 6px; }
 .mboard.collapsed > :not(.qhead) { display:none !important; }
@@ -23856,7 +23856,7 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
   <div class="moon phobos"></div>
   <div class="moon deimos"></div>
   <div class="ufo">🛸</div>
-  <div class="rocket-bg">🚀</div>
+  <div class="rocket-bg">"🚀"</div>
   <div class="hill h1"></div>
   <div class="hill h2"></div>
   <div class="hopper">🐔</div>
@@ -23998,73 +23998,11 @@ function ago(ms) {
   return Math.floor(s / 86400) + " days ago";
 }
 
-/* ---------- Inline SVG icon system ---------- */
-var SVG_ICONS = {
-  check: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>',
-  warn: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-  info: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="11" y="7" width="2" height="6" rx="1"/><rect x="11" y="16" width="2" height="2" rx="1"/></svg>',
-  wood: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19c0-2 1-4 3-5l5-2 5 2c2 1 3 3 3 5M8 14V7l4-3 4 3v7"/><path d="M8 19h8"/><path d="M8 11h8"/><path d="M8 8h8"/></svg>',
-  stone: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l4-8h8l4 8-6 6H10l-6-6z"/><path d="M8 14h8"/><path d="M10 10h4"/></svg>',
-  metal: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 3v18M17 3v18M3 7h18M3 17h18"/><circle cx="12" cy="12" r="2"/><path d="M12 3v4M12 17v4"/></svg>',
-  food: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7 2 4 7 4 11c0 3.5 3 6.5 5 8.5l3 2.5 3-2.5c2-2 5-5 5-8.5 0-4-3-9-8-9z"/><path d="M12 7v6"/><path d="M12 17v0"/></svg>',
-  close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
-  map: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6l6-3 8 4 6-3v14l-6 3-8-4-6 3V6z"/><path d="M8 3v14M16 7v14"/><circle cx="12" cy="12" r="2" fill="currentColor" fill-opacity=".15"/></svg>',
-  send: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/><circle cx="11" cy="13" r="1.5" fill="currentColor"/></svg>',
-  attack: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v3l10.5 9L18 21l2-2-5-4.5L5.5 4H3z"/><path d="M14 14l5 5M16 12l3 3M18 10l2 2"/><circle cx="3" cy="4" r="1" fill="currentColor"/></svg>',
-  home: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/><rect x="10" y="14" width="4" height="4" rx="1" fill="currentColor" fill-opacity=".15"/></svg>',
-  build: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M2 6l10-4 10 4"/><path d="M6 6v12M12 6v12M18 6v12"/><path d="M9 10h6M9 14h6"/></svg>',
-  flask: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6"/><path d="M10 2v7.5a4 4 0 01-3.5 3.5H6l3 9h6l3-9h-.5a4 4 0 01-3.5-3.5V2"/><path d="M12 18v3"/><path d="M9 13h6"/></svg>',
-  cart: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.5"/><circle cx="20" cy="21" r="1.5"/><path d="M1 3h4l2.5 12h11.5L23 7H6"/><path d="M6 7l2 8"/></svg>',
-  list: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="4" height="4" rx="1"/><rect x="4" y="10" width="4" height="4" rx="1"/><rect x="4" y="15" width="4" height="4" rx="1"/><line x1="12" y1="7" x2="20" y2="7"/><line x1="12" y1="12" x2="20" y2="12"/><line x1="12" y1="17" x2="20" y2="17"/></svg>',
-  target: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>',
-  trash: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6M5 6l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14"/></svg>',
-  plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.5"/><path d="M12 8v8M8 12h8"/></svg>',
-  search: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><circle cx="11" cy="11" r="3" fill="currentColor" fill-opacity=".12"/></svg>',
-  settings: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor" fill-opacity=".15"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.42 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
-  user: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.5 3-6 8-6s8 2.5 8 6"/></svg>',
-  mail: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 8l10 6 10-6"/><path d="M2 17l6-4M22 17l-6-4"/></svg>',
-  trophy: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 006 6 6 6 0 006-6V2z" fill="currentColor" fill-opacity=".1"/></svg>',
-  volume: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10H4z" fill="currentColor" fill-opacity=".1"/><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M17.5 7.5a7.5 7.5 0 010 9M20.5 4.5a12 12 0 010 15"/></svg>',
-  mute: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10H4z" fill="currentColor" fill-opacity=".1"/><path d="M4 10v4h3l5 4V6L7 10H4z"/><line x1="17" y1="7" x2="23" y2="17"/><line x1="23" y1="7" x2="17" y2="17"/></svg>',
-  help: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 9a3 3 0 013-3 3 3 0 013 3c0 1.5-1.5 2.5-3 3.5"/><circle cx="12" cy="17" r=".8" fill="currentColor"/></svg>',
-  book: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M10 6h6M10 10h6M10 14h4"/></svg>',
-  logout: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><circle cx="20" cy="12" r="1" fill="currentColor"/></svg>'
-};
-function icon(name) { return SVG_ICONS[name] || ""; }
-function svgIconFor(emoji) {
-  var map = {
-    "🏠": icon("home"), "🏡": icon("home"), "🏛️": icon("home"),
-    "🌾": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 00-8 8c0 3.866 4 8 8 12 4-4 8-8.134 8-12a8 8 0 00-8-8z"/><path d="M12 6v4"/></svg>',
-    "⚔️": icon("attack"), "🗡️": icon("attack"), "🏹": icon("attack"),
-    "📦": icon("cart"), "🏗️": icon("build"), "🔨": icon("build"),
-    "🔒": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
-    "✅": icon("check"), "☑️": icon("check"), "✔️": icon("check"),
-    "👍": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>',
-    "👎": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3zM17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg>',
-    "🎲": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M8 8h.01M16 8h.01M8 16h.01M16 16h.01M12 12h.01"/></svg>',
-    "💎": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3L8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>',
-    "🎒": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>',
-    "💀": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="M12 2a8 8 0 00-8 8v3a3 3 0 003 3h10a3 3 0 003-3v-3a8 8 0 00-8-8z"/></svg>',
-    "🌍": icon("map"), "🌎": icon("map"), "🌏": icon("map"),
-    "💡": icon("info"), "ℹ️": icon("info"), "📋": icon("list"),
-    "🔔": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>',
-    "🚀": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
-    "🏆": icon("trophy"), "⭐": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-    "🛡️": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-    "💰": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="7"/><path d="M19.5 10a2.5 2.5 0 000 5 2.5 2.5 0 002.5-2.5"/><path d="M9 7h1a2 2 0 002-2 2 2 0 00-2-2H8"/><path d="M8 11h2a2 2 0 012 2 2 2 0 01-2 2H8"/></svg>',
-    "📧": icon("mail"), "✉️": icon("mail"), "📨": icon("mail"),
-    "❌": icon("close"), "✖️": icon("close"), "🗑️": icon("trash"),
-    "➕": icon("plus"), "🔍": icon("search"), "⚙️": icon("settings"),
-    "👤": icon("user"), "🧪": icon("flask"), "📜": icon("list"),
-    "🎯": icon("target"), "📍": icon("target"),
-  };
-  return map[emoji] || emoji;
-}
 function toast(msg, good) {
   var t = document.getElementById("toast");
   var bar = t.querySelector(".toast-bar");
-  var type = good ? "good" : (/^(ℹ️|📋|💡|🌍|🔔)/.test(String(msg))) ? "info" : "";
-  var ico = type === "good" ? icon("check") : type === "info" ? icon("info") : icon("warn");
+  var type = good ? "good" : (/^("ℹ️"|"📋"|💡|🌍|🔔)/.test(String(msg))) ? "info" : "";
+  var ico = type === "good" ? "✅" : type === "info" ? "ℹ️" : "⚠️";
   t.innerHTML = ico + " " + esc(trStr(String(msg)));
   if (bar) t.appendChild(bar);
   t.className = "show" + (type ? " " + type : "");
@@ -24167,8 +24105,8 @@ function giName(e) { return GI_MAP[String(e || "").replace(/\uFE0F/g, "")] || ""
 // Swapped in on the parsed page, only in plain text (never inside attributes,
 // inputs, menus, tooltips or drawings), so every number and label stays the same.
 var GI_MAP = {"🧑‍🚀": "astro", "🐔": "hen", "👽": "alien", "🪖": "helmet", "🛰": "satellite", "🛵": "hoverbike", "🚙": "rover", "✈": "jet", "🚁": "heli", "🚜": "crusher", "💥": "burst", "🎩": "tophat", "👷": "hardhat", "🌲": "pine", "⛏": "pick", "⚙": "gear", "🏛": "temple", "🛢": "barrel", "🥫": "can", "🔒": "lock", "🔐": "lock", "🏟": "arena", "🧱": "bricks", "🪤": "trap", "🔬": "scope", "🔧": "wrench", "🛫": "takeoff", "🏢": "office", "🛖": "hut", "🏥": "hospital", "🏪": "shop", "🪚": "saw", "🏺": "vase", "🏭": "factory", "🥐": "croissant", "🌿": "leaf", "🏰": "castle", "🐣": "chick_egg", "🐓": "rooster", "🕊": "dove", "🐦": "bird", "🦃": "turkey", "🦅": "eagle", "🦉": "owl", "🦤": "dodo", "🥚": "egg", "🐥": "chick", "🐤": "chick", "🪺": "nest_eggs", "🧲": "magnet", "🪱": "worm", "👑": "crown", "🪹": "nest", "🌽": "corn", "🕳": "hole", "🥊": "glove", "🚧": "barrier", "🪢": "knot", "🧠": "brain", "🪓": "axe", "🪶": "feather", "🔭": "telescope", "🩹": "bandage", "🧺": "basket", "🧶": "yarn", "🪩": "disco", "🔥": "fire", "🍳": "pan", "🌱": "sprout", "🏯": "pagoda", "👾": "invader", "🦠": "microbe", "👁": "eye", "🦑": "squid", "🐙": "octo", "🛸": "saucer", "🪼": "jelly", "🐌": "snail", "🎆": "firework", "🍄": "mushroom", "💎": "gem", "☄": "comet", "🧪": "flask", "🛕": "templeA", "🔋": "battery", "🫙": "jar", "🌫": "fog", "🧬": "dna", "🔮": "orb", "🫧": "bubbles", "🧫": "petri", "🔫": "raygun", "🌌": "galaxy", "🪸": "coral", "📡": "dish", "💉": "syringe", "💱": "exchange", "🌀": "swirl", "💠": "diamond", "🌋": "volcano", "🍵": "cup", "🪴": "potplant", "⚒": "hammers", "🧿": "nazar", "🦂": "scorpion", "🦇": "bat", "🦎": "lizard", "🧌": "troll", "🎯": "target", "💰": "moneybag", "🤝": "handshake", "🧭": "compass", "🎖": "medal", "🏅": "medal", "📦": "box", "🐪": "camel", "🐫": "camel", "🚩": "flag", "🔍": "magnifier", "🔎": "magnifier", "🎒": "backpack", "🚀": "rocket", "⚠": "warning", "⏱": "stopwatch", "🏗": "crane", "🧮": "abacus", "🏳": "whiteflag", "🏠": "house", "🚶": "walker", "🗑": "bin", "📋": "clipboard", "🗿": "moai", "📌": "pin", "📍": "locpin", "🌾": "wheat", "🗺": "map", "💨": "dash", "📨": "envelope", "✉": "envelope", "📧": "envelope", "📬": "envelope", "📭": "envelope", "💀": "skull", "☠": "skull", "⚖": "scales", "⛰": "mountain", "🔨": "hammer", "💾": "floppy", "✨": "sparkles", "🏘": "houses", "🌊": "wave", "📖": "book", "🌍": "globe", "🕐": "clock", "⏰": "clock", "🤖": "robot", "🏖": "beach", "💤": "zzz", "🏡": "garden", "🎉": "party", "🎊": "party", "🚨": "siren", "📊": "chart", "📈": "chart", "📜": "scroll", "👤": "user", "✏": "pencil", "🔔": "bell", "💬": "speech", "❓": "question", "❔": "question", "🚪": "door", "🔓": "unlock", "🛬": "landing", "📅": "calendar", "🗓": "calendar", "💪": "muscle", "💸": "money_fly", "♻": "recycle", "🔗": "link", "🗼": "tower", "🗂": "ticket_folder", "📂": "ticket_folder", "🌙": "moon", "💔": "heartbreak", "🪵": "wood", "🪨": "stone", "🔩": "metal", "🥔": "food", "⚔": "attack", "🛡": "shield", "🎁": "gift", "⏳": "time", "⚡": "zap", "🏆": "trophy", "❤": "heart", "⭐": "star"};
-var GI_RE = /(🧑‍🚀|🐔|👽|🪖|🛰|🛵|🚙|✈|🚁|🚜|💥|🎩|👷|🌲|⛏|⚙|🏛|🛢|🥫|🔒|🔐|🏟|🧱|🪤|🔬|🔧|🛫|🏢|🛖|🏥|🏪|🪚|🏺|🏭|🥐|🌿|🏰|🐣|🐓|🕊|🐦|🦃|🦅|🦉|🦤|🥚|🐥|🐤|🪺|🧲|🪱|👑|🪹|🌽|🕳|🥊|🚧|🪢|🧠|🪓|🪶|🔭|🩹|🧺|🧶|🪩|🔥|🍳|🌱|🏯|👾|🦠|👁|🦑|🐙|🛸|🪼|🐌|🎆|🍄|💎|☄|🧪|🛕|🔋|🫙|🌫|🧬|🔮|🫧|🧫|🔫|🌌|🪸|📡|💉|💱|🌀|💠|🌋|🍵|🪴|⚒|🧿|🦂|🦇|🦎|🧌|🎯|💰|🤝|🧭|🎖|🏅|📦|🐪|🐫|🚩|🔍|🔎|🎒|🚀|⚠|⏱|🏗|🧮|🏳|🏠|🚶|🗑|📋|🗿|📌|📍|🌾|🗺|💨|📨|✉|📧|📬|📭|💀|☠|⚖|⛰|🔨|💾|✨|🏘|🌊|📖|🌍|🕐|⏰|🤖|🏖|💤|🏡|🎉|🎊|🚨|📊|📈|📜|👤|✏|🔔|💬|❓|❔|🚪|🔓|🛬|📅|🗓|💪|💸|♻|🔗|🗼|🗂|📂|🌙|💔|🪵|🪨|🔩|🥔|⚔|🛡|🎁|⏳|⚡|🏆|❤|⭐)\uFE0F?/;
-var GI_RE_G = /(🧑‍🚀|🐔|👽|🪖|🛰|🛵|🚙|✈|🚁|🚜|💥|🎩|👷|🌲|⛏|⚙|🏛|🛢|🥫|🔒|🔐|🏟|🧱|🪤|🔬|🔧|🛫|🏢|🛖|🏥|🏪|🪚|🏺|🏭|🥐|🌿|🏰|🐣|🐓|🕊|🐦|🦃|🦅|🦉|🦤|🥚|🐥|🐤|🪺|🧲|🪱|👑|🪹|🌽|🕳|🥊|🚧|🪢|🧠|🪓|🪶|🔭|🩹|🧺|🧶|🪩|🔥|🍳|🌱|🏯|👾|🦠|👁|🦑|🐙|🛸|🪼|🐌|🎆|🍄|💎|☄|🧪|🛕|🔋|🫙|🌫|🧬|🔮|🫧|🧫|🔫|🌌|🪸|📡|💉|💱|🌀|💠|🌋|🍵|🪴|⚒|🧿|🦂|🦇|🦎|🧌|🎯|💰|🤝|🧭|🎖|🏅|📦|🐪|🐫|🚩|🔍|🔎|🎒|🚀|⚠|⏱|🏗|🧮|🏳|🏠|🚶|🗑|📋|🗿|📌|📍|🌾|🗺|💨|📨|✉|📧|📬|📭|💀|☠|⚖|⛰|🔨|💾|✨|🏘|🌊|📖|🌍|🕐|⏰|🤖|🏖|💤|🏡|🎉|🎊|🚨|📊|📈|📜|👤|✏|🔔|💬|❓|❔|🚪|🔓|🛬|📅|🗓|💪|💸|♻|🔗|🗼|🗂|📂|🌙|💔|🪵|🪨|🔩|🥔|⚔|🛡|🎁|⏳|⚡|🏆|❤|⭐)\uFE0F?/g;
+var GI_RE = /(🧑‍"🚀"|🐔|👽|🪖|🛰|🛵|🚙|✈|🚁|🚜|💥|🎩|👷|🌲|⛏|⚙|🏛|🛢|🥫|🔒|🔐|🏟|🧱|🪤|🔬|🔧|🛫|🏢|🛖|🏥|🏪|🪚|🏺|🏭|🥐|🌿|🏰|🐣|🐓|🕊|🐦|🦃|🦅|🦉|🦤|🥚|🐥|🐤|🪺|🧲|🪱|👑|🪹|🌽|🕳|🥊|🚧|🪢|🧠|🪓|🪶|🔭|🩹|🧺|🧶|🪩|🔥|🍳|🌱|🏯|👾|🦠|👁|🦑|🐙|🛸|🪼|🐌|🎆|🍄|💎|☄|"🧪"|🛕|🔋|🫙|🌫|🧬|🔮|🫧|🧫|🔫|🌌|🪸|📡|💉|💱|🌀|💠|🌋|🍵|🪴|⚒|🧿|🦂|🦇|🦎|🧌|"🎯"|💰|🤝|🧭|🎖|🏅|"📦"|🐪|🐫|🚩|"🔍"|🔎|🎒|"🚀"|⚠|⏱|🏗|🧮|🏳|"🏠"|🚶|🗑|"📋"|🗿|📌|📍|🌾|🗺|💨|📨|✉|"📧"|📬|📭|💀|☠|⚖|⛰|🔨|💾|✨|🏘|🌊|"📖"|🌍|🕐|⏰|🤖|🏖|💤|🏡|🎉|🎊|🚨|📊|📈|📜|"👤"|✏|🔔|💬|"❓"|❔|"🚪"|🔓|🛬|📅|🗓|💪|💸|♻|🔗|🗼|🗂|📂|🌙|💔|🪵|🪨|🔩|🥔|⚔|🛡|🎁|⏳|⚡|"🏆"|❤|⭐)\uFE0F?/;
+var GI_RE_G = /(🧑‍"🚀"|🐔|👽|🪖|🛰|🛵|🚙|✈|🚁|🚜|💥|🎩|👷|🌲|⛏|⚙|🏛|🛢|🥫|🔒|🔐|🏟|🧱|🪤|🔬|🔧|🛫|🏢|🛖|🏥|🏪|🪚|🏺|🏭|🥐|🌿|🏰|🐣|🐓|🕊|🐦|🦃|🦅|🦉|🦤|🥚|🐥|🐤|🪺|🧲|🪱|👑|🪹|🌽|🕳|🥊|🚧|🪢|🧠|🪓|🪶|🔭|🩹|🧺|🧶|🪩|🔥|🍳|🌱|🏯|👾|🦠|👁|🦑|🐙|🛸|🪼|🐌|🎆|🍄|💎|☄|"🧪"|🛕|🔋|🫙|🌫|🧬|🔮|🫧|🧫|🔫|🌌|🪸|📡|💉|💱|🌀|💠|🌋|🍵|🪴|⚒|🧿|🦂|🦇|🦎|🧌|"🎯"|💰|🤝|🧭|🎖|🏅|"📦"|🐪|🐫|🚩|"🔍"|🔎|🎒|"🚀"|⚠|⏱|🏗|🧮|🏳|"🏠"|🚶|🗑|"📋"|🗿|📌|📍|🌾|🗺|💨|📨|✉|"📧"|📬|📭|💀|☠|⚖|⛰|🔨|💾|✨|🏘|🌊|"📖"|🌍|🕐|⏰|🤖|🏖|💤|🏡|🎉|🎊|🚨|📊|📈|📜|"👤"|✏|🔔|💬|"❓"|❔|"🚪"|🔓|🛬|📅|🗓|💪|💸|♻|🔗|🗼|🗂|📂|🌙|💔|🪵|🪨|🔩|🥔|⚔|🛡|🎁|⏳|⚡|"🏆"|❤|⭐)\uFE0F?/g;
 var GI_SKIP = { SVG: 1, OPTION: 1, SELECT: 1, TEXTAREA: 1, TITLE: 1, SCRIPT: 1, STYLE: 1, text: 1 };
 function giNode(name) {
   var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -24322,8 +24260,8 @@ function newsTicker(live) {
   var now = serverNow();
   if (pulseNow) {
     var P = pulseNow;
-    if (curLang() === "en") h += '<span class="live pulse">' + icon("user") + ' ' + P.online + (P.online === 1 ? " colonist" : " colonists") + " online · " + icon("attack") + " " + P.fights + (P.fights === 1 ? " fight" : " fights") + " in the last hour" + (P.settled ? " · " + P.settled + " new " + (P.settled === 1 ? "colony" : "colonies") + " today" : "") + "</span>";
-    else h += '<span class="live pulse">' + icon("user") + ' ' + trStr("Colonists online: " + P.online) + " · " + icon("attack") + " " + trStr("Fights in the last hour: " + P.fights) + (P.settled ? " · " + trStr("New colonies today: " + P.settled) : "") + "</span>";
+    if (curLang() === "en") h += '<span class="live pulse">' + "👤" + ' ' + P.online + (P.online === 1 ? " colonist" : " colonists") + " online · " + "⚔️" + " " + P.fights + (P.fights === 1 ? " fight" : " fights") + " in the last hour" + (P.settled ? " · " + P.settled + " new " + (P.settled === 1 ? "colony" : "colonies") + " today" : "") + "</span>";
+    else h += '<span class="live pulse">' + "👤" + ' ' + trStr("Colonists online: " + P.online) + " · " + "⚔️" + " " + trStr("Fights in the last hour: " + P.fights) + (P.settled ? " · " + trStr("New colonies today: " + P.settled) : "") + "</span>";
   }
   (live || []).forEach(function (n) {
     var info = trf("{0} ago", shortTime(now - n.at)) + (n.until ? " · " + trf("{0} left", shortTime(n.until - now)) : "");
@@ -27286,7 +27224,7 @@ function renderLanding() {
   h += '<section class="lp-hero"><div class="lp-copy">';
   h += "<h2>Build a colony.<br>Raise an army.<br>Win Mars together.</h2>";
   h += "<p>A free strategy game in your browser. Farm space potatoes, train Turkey Tanks, raid monster camps and team up with an alliance to light the Aurora over Mars.</p>";
-  h += '<div class="lp-cta"><button class="btn" data-landing="register">' + icon("send") + ' Play for free</button><button class="btn ghost" data-landing="login">Log in</button></div>';
+  h += '<div class="lp-cta"><button class="btn" data-landing="register">' + "🚀" + ' Play for free</button><button class="btn ghost" data-landing="login">Log in</button></div>';
   h += '<ul class="lp-facts"><li>Free to play</li><li>No download</li><li>Phone and desktop</li></ul>' + langPicker();
   h += '</div><div class="lp-art"><img class="lp-hero-img" src="/art/hero.webp?v=' + FX_ART.v + '" width="1600" height="1074" alt="A clay Mars colony with fields, quarry, mine and farms around a dome">' + lpPhone("fields", "The Fields tab in the game", "lp-front") + "</div></section>";
 
@@ -27332,7 +27270,7 @@ function renderLanding() {
     h += "</div></section>";
   }
 
-  h += '<section class="lp-final"><h3>Your landing pod is ready</h3><p>Pick a tribe, crash-land and build your first field in under a minute.</p><button class="btn" data-landing="register">' + icon("send") + ' Play for free</button></section>';
+  h += '<section class="lp-final"><h3>Your landing pod is ready</h3><p>Pick a tribe, crash-land and build your first field in under a minute.</p><button class="btn" data-landing="register">' + "🚀" + ' Play for free</button></section>';
   h += "</div>";
   setHTML(document.getElementById("app"), trHtml(h));
 }
@@ -27352,7 +27290,7 @@ function renderAuth() {
   if (authMode === "verify" || authMode === "forgot" || authMode === "appeal") { renderAuthNote(); return; }
   if (landing && !config.hub) { renderLanding(); return; }
   var h = '<div class="panel auth">';
-  h += '<span class="rocket">' + icon("send") + '</span>';
+  h += '<span class="rocket">' + "🚀" + '</span>';
   // other servers have no login of their own: off to the main server's
   // login and server selection
   if (config.hub) {
@@ -27366,7 +27304,7 @@ function renderAuth() {
   h += '<form id="authform">';
   h += '<label for="u">Colonist name' + (reg ? ' <small id="uok" class="uok"></small>' : "") + '</label><input id="u" autocomplete="username" maxlength="20" required' + (reg ? ' data-namecheck="1"' : "") + ">";
   h += '<label for="p">Password' + (reg ? " (at least 6 characters)" : "") + '</label><input id="p" type="password" autocomplete="' + (reg ? "new-password" : "current-password") + '" required' + (reg ? ' minlength="6" data-pwmeter="1"' : "") + ">";
-  if (reg) h += '<div class="pwmeter" id="pwmeter"><i></i></div><p class="pwwarn">' + icon("warn") + ' Never use an important password! Pick one you use nowhere else.</p>';
+  if (reg) h += '<div class="pwmeter" id="pwmeter"><i></i></div><p class="pwwarn">' + "⚠️" + ' Never use an important password! Pick one you use nowhere else.</p>';
   if (reg && config.emailRequired) h += '<label for="em">Email (we send you a confirmation link once)</label><input id="em" type="email" autocomplete="email" maxlength="120" required>';
   if (reg && config.invite) h += '<label for="inv">Invite code</label><input id="inv" autocomplete="off" maxlength="60" required>';
   h += '<p></p><button class="btn" type="submit">' + (reg ? "'" + svgIconFor('🛸') + "' Make my account" : "' + svgIconFor('🔑') + ' Log in") + "</button>";
@@ -27432,7 +27370,7 @@ function renderCalendar() {
   var byDay = {};
   all.forEach(function (x) { var k = dayKey(x.at); (byDay[k] = byDay[k] || []).push(x); });
   var m = cal.month;
-  var h = '<div class="overlay" data-close="1"><div class="sheet calsheet"><button class="sheet-close" data-close="1" title="Close">' + icon("close") + '</button>';
+  var h = '<div class="overlay" data-close="1"><div class="sheet calsheet"><button class="sheet-close" data-close="1" title="Close">' + "❌" + '</button>';
   h += '<div class="sheet-head"><span class="hi">' + svgIconFor('📅') + '</span><div><h3>New rounds</h3><b>in your local time</b></div></div>';
   h += '<div class="cal-nav"><button class="btn small ghost" data-cal-move="-1">‹</button><b>' + m.toLocaleString("en-GB", { month: "long", year: "numeric" }) + '</b><button class="btn small ghost" data-cal-move="1">›</button></div>';
   h += '<div class="cal-grid">';
@@ -27556,10 +27494,10 @@ function renderServers() {
     h += '<label for="pw2">New password again</label><input id="pw2" type="password" autocomplete="new-password" minlength="6" required>';
     h += '<p></p><button class="btn" type="submit">' + svgIconFor('🔐') + ' Change password</button></form>';
     if (acct.mailReady) {
-      h += '<form id="emailform"><label for="em0">' + (acct.email ? "Email: " + esc(acct.email) + " " + icon("check") + " · change it" : "Add your email to recover your password") + '</label><input id="em0" type="email" maxlength="120" required><p></p><button class="btn ghost" type="submit">' + icon("mail") + ' Send confirmation</button></form>';
+      h += '<form id="emailform"><label for="em0">' + (acct.email ? "Email: " + esc(acct.email) + " " + "✅" + " · change it" : "Add your email to recover your password") + '</label><input id="em0" type="email" maxlength="120" required><p></p><button class="btn ghost" type="submit">' + "📧" + ' Send confirmation</button></form>';
     }
-    h += '<details class="deldetails"><summary>' + icon("trash") + ' Delete account</summary><form id="delform"><p class="reason">Your account and your players on every server are deleted for good. This can’t be undone.</p>';
-    h += '<label for="del0">Your password</label><input id="del0" type="password" autocomplete="current-password" required><p></p><button class="btn danger" type="submit">' + icon("trash") + ' Delete my account</button></form></details>';
+    h += '<details class="deldetails"><summary>' + "🗑️" + ' Delete account</summary><form id="delform"><p class="reason">Your account and your players on every server are deleted for good. This can’t be undone.</p>';
+    h += '<label for="del0">Your password</label><input id="del0" type="password" autocomplete="current-password" required><p></p><button class="btn danger" type="submit">' + "🗑️" + ' Delete my account</button></form></details>';
   }
   h += discordBtn() + "</div>";
   setHTML(document.getElementById("app"), h);
@@ -27651,8 +27589,8 @@ function renderTop(d) {
   var qready = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
   h += '<div class="topbtns"><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
   // phones: quests and troop traffic open from here (no floating buttons)
-  h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? icon("volume") : icon("mute")) + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + icon("help") + '</button>';
-  h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + icon("book") + '</button><button class="btn small ghost" data-account="1" title="Settings">' + icon("settings") + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + icon("logout") + '</button></div></div>';
+  h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
+  h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + "📖" + '</button><button class="btn small ghost" data-account="1" title="Settings">' + "⚙️" + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + "🚪" + '</button></div></div>';
   var tabs = [["resources", "🌾", "Fields", "fields"], ["buildings", "🏗️", "Colony", "colony"], ["troops", "⚔️", "Army", "army"], ["map", "🗺️", "Map", "map"], ["ranking", "🏆", "Players", "players"], ["reports", "📬", "Inbox", "inbox"]];
   h += '<div class="nav">';
   tabs.forEach(function (t) {
@@ -27776,7 +27714,7 @@ function cancelBtn(q, attr) {
   return '<button class="x' + (full ? "" : " part") + '" ' + attr + ' title="' + (full ? "Cancel: full refund for " + Math.ceil(q.refundMs / 1000) + " s more" : "Cancel: " + q.refundPct + "% comes back") + '">' + (full ? "✖" : q.refundPct + "%") + "</button>";
 }
 
-// 📋 planned jobs: "after this, build that" (free, they start by themselves)
+// "📋" planned jobs: "after this, build that" (free, they start by themselves)
 function planWhen(d, cost) {
   var t = 0, never = false;
   RES.forEach(function (k) {
@@ -27822,7 +27760,7 @@ function planHtml(d) {
     else if (p.why === "Not enough resources") st = w < 0 ? "waits for resources (production too low)" : "affordable in about " + fmt(w) + " · then starts";
     else if (p.why === "Build queue is full") st = "starts when a slot frees up";
     else st = p.why ? p.why : "starts now";
-    h += '<div class="qitem plan-item"><span class="big">' + p.icon + '</span><div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">' + icon("close") + '</button></div>';
+    h += '<div class="qitem plan-item"><span class="big">' + p.icon + '</span><div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">' + "❌" + '</button></div>';
   });
   var R = P.reserve, held = RES.filter(function (k) { return R[k] > 0; });
   if (held.length) h += '<small class="plan-held">' + svgIconFor('🔒') + ' Held for the plan: ' + held.map(function (k) { return RES_ICON[k] + " " + shortNum(R[k]); }).join(" ") + " · trade routes leave these alone</small>";
@@ -28168,9 +28106,9 @@ function renderBuildings(d) {
 
   // ---- the same buildings as a compact list, grouped by what they do ----
   var groups = [
-    [svgIconFor("🏛️") + " Core", ["hq", "hub", "bunker"]],
-    [svgIconFor("📦") + " Economy", ["warehouse", "granary", "market", "sawmill", "kiln", "foundry", "bakery"]],
-    [svgIconFor("⚔️") + " Military", ["barracks", "workshop", "hangar", "lab", "weaponry", "wall", "hospital"]],
+    ["🏛️" + " Core", ["hq", "hub", "bunker"]],
+    ["📦" + " Economy", ["warehouse", "granary", "market", "sawmill", "kiln", "foundry", "bakery"]],
+    ["⚔️" + " Military", ["barracks", "workshop", "hangar", "lab", "weaponry", "wall", "hospital"]],
   ];
   var used = {};
   h += '<section class="panel blistpanel">';
@@ -28231,17 +28169,17 @@ function sortedBuildable(d) {
 function newCard(o, d, action) {
   var h = '<div class="newcard' + (o.locked ? " locked" : "") + '">';
   h += '<div class="option-head"><span class="oi">' + o.icon + "</span><div><b>" + o.name + (o.another ? " (one more)" : "") + "</b><small>" + o.info + "</small>" + perkChips(o.perks, true) + "</div></div>";
-  // what is needed first: ✅ done, 🔒 still missing
+  // what is needed first: "✅" done, 🔒 still missing
   if (o.needs && o.needs.length) {
     h += '<div class="needs">';
     o.needs.forEach(function (n) {
-      h += '<span class="need' + (n.ok ? " ok" : "") + '" title="' + n.name + " level " + n.level + '">' + (n.ok ? icon("check") : "'" + svgIconFor('🔒') + "'") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
+      h += '<span class="need' + (n.ok ? " ok" : "") + '" title="' + n.name + " level " + n.level + '">' + (n.ok ? "✅" : "'" + svgIconFor('🔒') + "'") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
     });
     h += "</div>";
   }
   if (!o.locked) {
     h += '<div class="buildrow">' + costChips(o.cost, d.res, o.buildMs);
-    h += '<button class="btn small" ' + action + (o.canBuild ? "" : " disabled") + ">" + icon("build") + " Build</button>";
+    h += '<button class="btn small" ' + action + (o.canBuild ? "" : " disabled") + ">" + "🏗️" + " Build</button>";
     if (o.crewOk) h += '<button class="btn small ghost" ' + action.replace('="', '-crew="') + ' title="The commander’s crew builds it next to the queue">🎖️</button>';
     h += "</div>";
     if (o.reason) h += '<p class="reason' + (o.reason === "Not enough resources" ? " wait" : "") + '">' + reasonText(o.reason, o.cost, d) + "</p>";
@@ -28307,7 +28245,7 @@ function trafficItem(m) {
   else h += "<b>" + esc(m.name) + "</b>";
   h += " <small>" + esc(m.owner) + place + "</small></div>";
   if (multiColony()) {
-    h += '<div class="tr-from">' + (m.dir === "out" ? icon("home") + " from " + esc(m.from) : icon("target") + " to " + esc(m.to)) + "</div>";
+    h += '<div class="tr-from">' + (m.dir === "out" ? "🏠" + " from " + esc(m.from) : "🎯" + " to " + esc(m.to)) + "</div>";
   }
   if (m.units) h += '<div class="tr-units">' + unitsText(m.units) + "</div>";
   if (m.merchants && !m.units) h += '<div class="tr-units">' + svgIconFor('🐪') + ' ' + m.merchants + (m.merchants === 1 ? " merchant" : " merchants") + "</div>";
@@ -28599,7 +28537,7 @@ function moveSheet(d, id) {
     h += "</div>";
   }
   h += '<div class="btnrow">';
-  if (m.x !== null && m.x !== undefined) h += '<button class="btn ghost" data-goto="' + m.x + "," + m.y + '">' + icon("map") + ' Show on map</button>';
+  if (m.x !== null && m.x !== undefined) h += '<button class="btn ghost" data-goto="' + m.x + "," + m.y + '">' + "🗺️" + ' Show on map</button>';
   if (m.advCall) h += '<button class="btn" data-adv-cancel="1">↩️ Call back (no reward)</button>';
   if (canRedirect) {
     if (rd.open === m.id) h += '<button class="btn" data-redirect-go="' + m.id + '"' + (rd.x === "" || rd.y === "" ? " disabled" : "") + '">' + svgIconFor('🧭') + ' Send them there</button><button class="btn ghost" data-redirect-cancel="1">Cancel</button>';
@@ -28646,7 +28584,7 @@ function toggleSide(open) {
 function renderAlarm(d) {
   return sittingBanner(d) + protectionBanner(d) + foodAlarm(d) + attackAlarm(d) + eventBanner(d) + leadLine(d) + sinkTip(d);
 }
-// 🎯 one number that matters most on this screen (everything else stays where it was)
+// "🎯" one number that matters most on this screen (everything else stays where it was)
 function leadLine(d) {
   if (d.sitting) return "";
   var t = "", sub = "";
@@ -28664,7 +28602,7 @@ function leadLine(d) {
   } else if (view === "buildings") {
     var q = d.queue && d.queue.filter(function (x) { return x.finishAt; })[0];
     if (q) { t = "🏗️ Next build done in " + shortTime(Math.max(0, q.finishAt - serverNow())); sub = esc(q.name || "") + " · " + clockText(q.finishAt) + (d.plan && d.plan.list.length ? " · " + d.plan.list.length + " planned" : ""); }
-    else { t = icon("build") + " Builders are idle"; sub = (d.lotsTotal - d.lotsUsed) + " free lots · pick something to build"; }
+    else { t = "🏗️" + " Builders are idle"; sub = (d.lotsTotal - d.lotsUsed) + " free lots · pick something to build"; }
   } else if (view === "troops" && d.army) {
     var A = d.army, R = d.typicalRaid || 0, ok = A.defG >= R;
     t = "🛡️ " + trStr(ok ? "Holds a typical raid" : "Too weak for a typical raid");
@@ -28747,7 +28685,7 @@ function attackAlarm(d) {
   return h + "</div></div></div>";
 }
 
-// 📦 something is about to overflow: the best way to spend it
+// "📦" something is about to overflow: the best way to spend it
 function sinkTip(d) {
   if (d.sitting || (view !== "resources" && view !== "buildings")) return "";
   var worst = null;
@@ -28784,11 +28722,11 @@ function typeIcon(u) {
   return u.type === "air" ? "✈️" : "🪖";
 }
 
-// ⚔️ attack · 🛡️ Infantry defense · 🎯 Air defense
+// "⚔️" attack · 🛡️ Infantry defense · "🎯" Air defense
 function statLine(u) {
   var h = '<div class="ustats">';
-  h += '<span title="Attack">' + icon("attack") + ' ' + u.atkNow + "</span>";
-  h += '<span title="Infantry defense">' + icon("home") + ' ' + u.defGNow + "</span>";
+  h += '<span title="Attack">' + "⚔️" + ' ' + u.atkNow + "</span>";
+  h += '<span title="Infantry defense">' + "🏠" + ' ' + u.defGNow + "</span>";
   h += '<span title="Air defense">' + svgIconFor('🎯') + ' ' + u.defANow + "</span>";
   h += '<span title="Speed (tiles per hour)">' + svgIconFor('💨') + ' ' + u.speed + "</span>";
   h += '<span title="Loot it can carry">' + svgIconFor('🎒') + ' ' + u.carry + "</span>";
@@ -28940,7 +28878,7 @@ function farmPickRow(x, y) {
   var h = '<div class="farmpick"><b>Add to</b>';
   myFarmLists().forEach(function (l) {
     var on = l.entries.some(function (e) { return e.x === x && e.y === y; });
-    h += '<button class="btn small' + (on ? " ghost" : "") + '" data-farm-pick="' + l.id + '"' + (on ? " disabled" : "") + ">" + (on ? icon("check") + " " : "") + esc(l.name) + "</button>";
+    h += '<button class="btn small' + (on ? " ghost" : "") + '" data-farm-pick="' + l.id + '"' + (on ? " disabled" : "") + ">" + (on ? "✅" + " " : "") + esc(l.name) + "</button>";
   });
   return h + '<button class="btn small ghost" data-farm-pick="new">＋ New list</button></div>';
 }
@@ -29152,7 +29090,7 @@ function farmSheet(d) {
   var lists = farmOwnedLists(d);
   var groupColony = null;
   var h = '<div class="sheet-head t-war"><span class="hi">📋</span><div><h3>Farm lists</h3><small>All colonies</small></div></div>';
-  h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with the list button on the map</small><button class="btn small" data-farm-new="1">' + icon("plus") + ' New list</button><button class="btn small" data-farm-start-all="1"' + (farmSending || !lists.some(function(l){return farmPlan(l,false).entries.length;}) ? ' disabled' : '') + '>' + icon("send") + ' Start all</button></div>';
+  h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with the list button on the map</small><button class="btn small" data-farm-new="1">' + "➕" + ' New list</button><button class="btn small" data-farm-start-all="1"' + (farmSending || !lists.some(function(l){return farmPlan(l,false).entries.length;}) ? ' disabled' : '') + '>' + "🚀" + ' Start all</button></div>';
   h += '<button class="fl-quiet' + (farmStats.quiet ? " on" : "") + '" data-farm-quiet="1"><span>' + (farmStats.quiet ? "'" + svgIconFor('🔕') + "'" : "' + svgIconFor('🔔') + '") + '</span><span><b>Only report raids with losses</b><small>' + (farmStats.quiet ? "On: farm raids where nobody died make no report" : "Off: every farm raid makes a report") + '</small></span><i class="fl-switch"></i></button>';
   h += farmReviewHtml(d);
   if (!lists.length) return h + '<p class="empty"><b>📋</b>No farm lists yet. Tap a camp or colony on the map and press 📋 to create your first list.</p>';
@@ -29176,10 +29114,10 @@ function farmSheet(d) {
     if (!farmExpanded[l.id]) { h += '</div>'; return; }
     h += '<input class="fl-name" aria-label="Farm list name" data-farm-name="' + l.id + '" maxlength="30" value="' + esc(l.name) + '">';
     if (l.entries.length) h += '<button class="btn small ghost" data-farm-select-all="' + l.id + '">' + (selected === l.entries.length ? 'Clear selection' : 'Select all') + '</button>';
-    if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button><button class="btn small danger" data-farm-delete-selected="' + l.id + '">' + icon("trash") + ' Delete</button></div>';
+    if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button><button class="btn small danger" data-farm-delete-selected="' + l.id + '">' + "🗑️" + ' Delete</button></div>';
     h += '<details class="farm-review"><summary>Troop preset &amp; bulk editor</summary><small>Saved for new targets. Applying replaces troop counts for targets checked in this list.</small>'+farmCountEditor(preset,'data-farm-default',l.id+':')+'<button class="btn small ghost" data-farm-apply="'+l.id+'">Apply preset to '+selected+' selected targets</button></details>';
     if (listTotal) h += '<div class="fl-total">' + svgIconFor('💰') + ' Stolen with this list so far: <b>' + listTotal.toLocaleString() + "</b></div>";
-    if (!l.entries.length) h += '<p class="empty"><b>' + icon("map") + '</b>No targets yet. Tap a camp or colony on the map and press the list button to add.</p>';
+    if (!l.entries.length) h += '<p class="empty"><b>' + "🗺️" + '</b>No targets yet. Tap a camp or colony on the map and press the list button to add.</p>';
     if (l.entries.length > 1) {
       h += '<div class="fl-sort"><span>Order</span>';
       FARM_SORTS.forEach(function (o) {
@@ -29193,7 +29131,7 @@ function farmSheet(d) {
       var busy = farmBusy(l, e);
       var isSel = farmSelection[l.id + ":" + e.id];
       h += '<div class="fl-row' + (e.on ? "" : " off") + (isSel ? " on-row" : "") + '"><button class="fl-on' + (isSel ? " ticked" : "") + '" data-farm-toggle="' + l.id + ":" + e.id + '" title="Select target">' + (isSel ? "☑️" : "⬜") + "</button>";
-      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · '" + svgIconFor('🐪') + "' " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /⚠️/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
+      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · '" + svgIconFor('🐪') + "' " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /"⚠️"/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
       if (manual && listed.length > 1) {
         h += '<span class="fl-move"><button data-farm-move="' + l.id + ":" + e.id + ':-1"' + (idx === 0 ? " disabled" : "") + ' title="Move up">▲</button><button data-farm-move="' + l.id + ":" + e.id + ':1"' + (idx === listed.length - 1 ? " disabled" : "") + ' title="Move down">▼</button></span>';
       }
@@ -29203,16 +29141,16 @@ function farmSheet(d) {
       fighters.forEach(function (u) {
         h += '<label title="' + u.name + " · " + u.home + ' at home">' + u.icon + '<input type="number" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
       });
-      h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">' + icon("trash") + ' Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">' + icon("close") + '</button></div>';
+      h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">' + "🗑️" + ' Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">' + "❌" + '</button></div>';
     });
     var confirming = farmArm.id === l.id;
     h += '<div class="fl-bottom">';
     if (confirming) {
-      h += '<span class="fl-del-confirm">' + icon("warn") + ' Delete "' + esc(l.name) + '" and all ' + l.entries.length + ' targets?</span>';
+      h += '<span class="fl-del-confirm">' + "⚠️" + ' Delete "' + esc(l.name) + '" and all ' + l.entries.length + ' targets?</span>';
       h += '<button class="btn small danger" data-farm-dellist-confirm="' + l.id + '">Yes, delete</button>';
       h += '<button class="btn small ghost" data-farm-dellist-cancel>Cancel</button>';
     } else {
-      h += '<button class="btn small ghost" data-farm-dellist="' + l.id + '">' + icon("trash") + ' Delete list</button>';
+      h += '<button class="btn small ghost" data-farm-dellist="' + l.id + '">' + "🗑️" + ' Delete list</button>';
     }
     h += '</div></div>';
   });
@@ -29223,7 +29161,7 @@ function renderTroops(d) {
   var h = armyTemplateBar(d);
 
   // Army overview
-  h += '<section class="panel"><h2>' + icon("home") + ' Troops at home</h2>';
+  h += '<section class="panel"><h2>' + "🏠" + ' Troops at home</h2>';
   (d.panic || []).forEach(function (p) { h += '<p class="hint left">' + svgIconFor('🐔') + ' ' + p.n + " panicked chickens are running back, home at " + clockText(p.at) + ".</p>"; });
   if (d.coffee) h += '<p class="hint left">' + svgIconFor('☕') + ' Coffee break: +10% defense here until ' + clockText(d.coffee) + ".</p>";
   h += '<div class="army">';
@@ -29238,7 +29176,7 @@ function renderTroops(d) {
   h += "</div>";
   var tHome = 0, tAway = 0, tTrain = 0;
   d.units.forEach(function (u) { if (!u.scout && !u.settler) { tHome += u.home; tAway += u.away; tTrain += u.inTraining; } });
-  if (tAway || tTrain) h += '<p class="armyline">' + icon("home") + ' <b>' + shortNum(tHome) + "</b> home" + (tAway ? " · '" + svgIconFor('🚶') + "' <b>" + shortNum(tAway) + "</b> away" : "") + (tTrain ? " · ⏳ <b>" + shortNum(tTrain) + "</b> training" : "") + "</p>";
+  if (tAway || tTrain) h += '<p class="armyline">' + "🏠" + ' <b>' + shortNum(tHome) + "</b> home" + (tAway ? " · '" + svgIconFor('🚶') + "' <b>" + shortNum(tAway) + "</b> away" : "") + (tTrain ? " · ⏳ <b>" + shortNum(tTrain) + "</b> training" : "") + "</p>";
   var wn = d.hospital.wounded.reduce(function (n, u) { return n + u.count; }, 0);
   if (wn) {
     var hosp = d.buildings.filter(function (b) { return b.type === "hospital"; })[0];
@@ -29252,8 +29190,8 @@ function renderTroops(d) {
   // one small table: rows = attack / defense, columns = ground / air
   h += '<div class="powertable">';
   h += '<span></span><small title="Infantry: troops on the ground">🪖 Infantry</small><small title="Air: flying troops">✈️ Air</small>';
-  h += '<b title="How hard your troops at home hit when you send them">' + icon("attack") + ' Attack</b><span>' + d.army.atkGround + "</span><span>" + d.army.atkAir + "</span>";
-  h += '<b title="How well this colony holds against infantry and air attackers">' + icon("home") + ' Defense</b><span>' + d.army.defG + "</span><span>" + d.army.defA + "</span></div>";
+  h += '<b title="How hard your troops at home hit when you send them">' + "⚔️" + ' Attack</b><span>' + d.army.atkGround + "</span><span>" + d.army.atkAir + "</span>";
+  h += '<b title="How well this colony holds against infantry and air attackers">' + "🏠" + ' Defense</b><span>' + d.army.defG + "</span><span>" + d.army.defA + "</span></div>";
   // where does the defense come from?
   var A = d.army;
   h += '<details class="defbox"><summary>How is my defense made up?</summary><div class="defsplit">';
@@ -29261,7 +29199,7 @@ function renderTroops(d) {
   h += '<div class="ds-row"><span>🪖 Your troops at home</span><b>' + A.troopsG + "</b><b>" + A.troopsA + "</b></div>";
   h += '<div class="ds-row"><span>' + svgIconFor('🍳') + ' Frying-pan militia <i class="ds-help" title="When your colony is attacked, the colonists grab frying pans and help defending. They are not real troops: they can\u2019t die, can\u2019t be sent away and don\u2019t eat. More with every HQ level.">?</i><small>colonists who help defend · grows with HQ Lv ' + A.hq + "</small></span><b>+" + A.militiaG + "</b><b>+" + A.militiaA + "</b></div>";
   h += '<div class="ds-row"><span>' + svgIconFor('🧱') + ' Wall bonus<small>' + (A.wall ? "Lv " + A.wall + " · +" + A.wallBonus + "% on top" : "no wall yet - build one for extra %") + "</small></span><b>+" + A.wallG + "</b><b>+" + A.wallA + "</b></div>";
-  if (A.specPct) h += '<div class="ds-row"><span>' + icon("home") + ' Garrison<small>+' + A.specPct + '% from the specialisation and its yard</small></span><b>+' + A.specG + "</b><b>+" + A.specA + "</b></div>";
+  if (A.specPct) h += '<div class="ds-row"><span>' + "🏠" + ' Garrison<small>+' + A.specPct + '% from the specialisation and its yard</small></span><b>+' + A.specG + "</b><b>+" + A.specA + "</b></div>";
   h += '<div class="ds-row ds-sum"><span>= Total</span><b>' + A.defG + "</b><b>" + A.defA + "</b></div>";
   h += '</div></details>';
   h += '<div class="armyfoot"><span>' + svgIconFor('🥔') + ' Troops eat <b>' + d.upkeep + "/h</b> · balance <b class='" + (d.food.net < 0 ? "neg" : "") + "'>" + (d.food.net >= 0 ? "+" : "") + d.food.net + "/h</b></span>";
@@ -29324,7 +29262,7 @@ function needChips(d, type) {
   if (!o || !o.needs || !o.needs.length) return "";
   var h = '<div class="needs center">';
   o.needs.forEach(function (n) {
-    h += '<span class="need' + (n.ok ? " ok" : "") + '">' + (n.ok ? icon("check") : "'" + svgIconFor('🔒') + "'") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
+    h += '<span class="need' + (n.ok ? " ok" : "") + '">' + (n.ok ? "✅" : "'" + svgIconFor('🔒') + "'") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
   });
   return h + "</div>";
 }
@@ -29407,7 +29345,7 @@ function trainPanel(d, which) {
     });
     h += "</details>";
   }
-  h += '<p class="legend-line">' + icon("attack") + ' attack · Infantry · Air · speed · loot · <span class="eat">−/h</span> food eaten · <button class="golink" data-wiki="troops">All troop stats</button></p>';
+  h += '<p class="legend-line">' + "⚔️" + ' attack · Infantry · Air · speed · loot · <span class="eat">−/h</span> food eaten · <button class="golink" data-wiki="troops">All troop stats</button></p>';
   return h;
 }
 
@@ -29588,7 +29526,7 @@ var allyForm = { name: "", tag: "", invite: "", post: "", about: null, bio: null
 RES.forEach(function (k) { allyForm["dep_" + k] = ""; allyForm["give_" + k] = ""; allyForm["proj_" + k] = ""; });
 allyForm.projSel = "";
 
-// 🏦 bank · ✨ projects · 🎯 joint attacks
+// 🏦 bank · ✨ projects · "🎯" joint attacks
 // 🔨 build jobs allies asked help for
 function buildHelpPanel(M) {
   var B = M.builds;
@@ -29849,7 +29787,7 @@ function powersSheet(d) {
   return h;
 }
 
-// ---------- 🎯 recommended targets ----------
+// ---------- "🎯" recommended targets ----------
 var targets = null;
 function openTargets() {
   targets = null;
@@ -30023,7 +29961,7 @@ function awaySheet() {
     : S.won ? ["🏆", me + "'s troops come home with " + (S.loot ? shortNum(S.loot) + " in loot" : "stories") + " after " + S.won + (S.won === 1 ? " victory" : " victories")]
     : S.founded ? ["🏳️", "New flag on Mars: " + me + " founds a colony"]
     : ["😴", "Quiet at " + col];
-  var h = '<div class="gz-mast"><div class="gz-top"><small>Mars News · ' + shortTime(A.now - A.since) + " away</small><button type='button' class='sheet-close' data-close='1' aria-label='Close Mars News'>" + icon("close") + "</button></div><h3>" + lead[0] + " " + esc(lead[1]) + "</h3></div>";
+  var h = '<div class="gz-mast"><div class="gz-top"><small>Mars News · ' + shortTime(A.now - A.since) + " away</small><button type='button' class='sheet-close' data-close='1' aria-label='Close Mars News'>" + "❌" + "</button></div><h3>" + lead[0] + " " + esc(lead[1]) + "</h3></div>";
   var rows = [];
   if (S.lost) rows.push(["💔", S.lost + (S.lost === 1 ? " attack on you succeeded" : " attacks on you succeeded"), "bad" + (S.stolen ? "" : "")]);
   if (S.razed) rows.push(["💥", S.razed + (S.razed === 1 ? " colony was destroyed" : " colonies were destroyed"), "bad"]);
@@ -30150,7 +30088,7 @@ function alliancePanel() {
       h += '<section class="panel"><h2>' + svgIconFor('📨') + ' Invitations</h2>';
       A.invites.forEach(function (i) {
         h += '<div class="stayrow"><div><b><i class="atag">' + esc(i.tag) + "</i>" + esc(i.name) + "</b><small>invited by " + esc(i.by_name) + "</small></div>";
-        h += '<button class="btn small" data-ally-answer="' + i.id + ':1">' + icon("check") + ' Join</button><button class="btn small ghost" data-ally-answer="' + i.id + ':0">' + icon("close") + '</button></div>';
+        h += '<button class="btn small" data-ally-answer="' + i.id + ':1">' + "✅" + ' Join</button><button class="btn small ghost" data-ally-answer="' + i.id + ':0">' + "❌" + '</button></div>';
       });
       h += "</section>";
     }
@@ -30206,7 +30144,7 @@ function alliancePanel() {
     });
     if (staff) {
       h += '<div class="inviterow"><input data-ally="invite" maxlength="20" placeholder="Player name" list="plsug" data-plsug="1" autocomplete="off" value="' + esc(allyForm.invite) + '"><button class="btn small" data-ally-invite="1">' + svgIconFor('📨') + ' Invite</button></div>';
-      if (M.pending.length) h += '<p class="pending">Invited: ' + M.pending.map(function (n) { return esc(n) + ' <button class="mini" data-ally-uninvite="' + esc(n) + '" title="Take back">' + icon("close") + '</button>'; }).join(" · ") + "</p>";
+      if (M.pending.length) h += '<p class="pending">Invited: ' + M.pending.map(function (n) { return esc(n) + ' <button class="mini" data-ally-uninvite="' + esc(n) + '" title="Take back">' + "❌" + '</button>'; }).join(" · ") + "</p>";
     }
     h += "</section>";
 
@@ -31255,7 +31193,7 @@ function sendable(u) {
 var sim = null;
 var simTimer = null;
 
-// 🔍 a spy report's troops straight into the simulator
+// "🔍" a spy report's troops straight into the simulator
 function simFromReport(d) {
   var I = d.intel || {};
   var add = function (into, list) { (list || []).forEach(function (u) { if (u.key) into[u.key] = (into[u.key] || 0) + u.count; }); };
@@ -31423,7 +31361,7 @@ function simCmpUse(i, send) {
   renderSheet();
   runSim();
 }
-// 🎯 the fewest troops (same mix) that still win with the worst luck
+// "🎯" the fewest troops (same mix) that still win with the worst luck
 function simJustEnough() {
   var base = {};
   var any = false;
@@ -32323,7 +32261,7 @@ function wavesSheet(d) {
     if (heroOk) h += '<button class="wv-hero' + (w.hero ? " on" : "") + '" data-wv-hero="' + i + '" title="' + esc(d.hero.name) + ' leads this wave">🎖️</button>';
     h += '<span class="wv-land" id="wvland' + i + '"></span>';
     h += '<button class="mini" data-wv-copy="' + i + '" title="Copy this wave">⧉</button>';
-    if (waves.list.length > 2) h += '<button class="mini" data-wv-del="' + i + '" title="Remove">' + icon("close") + '</button>';
+    if (waves.list.length > 2) h += '<button class="mini" data-wv-del="' + i + '" title="Remove">' + "❌" + '</button>';
     h += '</div><div class="wave-units">';
     units.forEach(function (u) {
       h += '<label class="wv-u" title="' + esc(u.name) + '"><span>' + u.icon + '</span><input type="number" min="0" placeholder="0" data-wv-n="' + i + ":" + u.key + '" value="' + (w.troops[u.key] || "") + '"></label>';
@@ -32462,7 +32400,7 @@ var heroRespecArm = 0;
 function heroPips(s) {
   return '<span class="hpips"><i style="width:' + Math.min(100, Math.round((s.lvl / (s.max || 1)) * 100)) + '%"></i></span>';
 }
-// 📦 how much of a resource to take: the typed amount, else as much as fits
+// "📦" how much of a resource to take: the typed amount, else as much as fits
 function stashPick(H, r) {
   var have = (H.stash && H.stash[r]) || 0;
   var room = H.stashRoom ? H.stashRoom[r] : have;
@@ -32692,7 +32630,7 @@ function loyaltyLine(d) {
   return '<div class="reserve"><b>🎩 Loyalty ' + L.now + " / " + L.max + '</b><div class="meter thin"><i style="width:' + L.now + '%"></i></div><small>Envoys lower it. At 0 the colony changes hands. It grows back by itself.</small></div>';
 }
 
-// ⚔️ the tribe's war power for this send
+// "⚔️" the tribe's war power for this send
 var sendPower = false;
 function warCanGo(d, t) {
   var W = d.tribePower && d.tribePower.war;
@@ -32723,7 +32661,7 @@ function goTarget(go) {
 function firstDayCard(F) {
   var done = F.steps.filter(function (s) { return s.done; }).length;
   var next = F.steps.filter(function (s) { return !s.done; })[0];
-  var h = '<div class="fday"><div class="fd-head"><b>🧭 Your first day</b><small>' + done + "/" + F.steps.length + '</small><button class="mini" data-fd-hide="1" title="Hide">' + icon("close") + '</button></div>';
+  var h = '<div class="fday"><div class="fd-head"><b>🧭 Your first day</b><small>' + done + "/" + F.steps.length + '</small><button class="mini" data-fd-hide="1" title="Hide">' + "❌" + '</button></div>';
   F.steps.forEach(function (s) {
     var isNext = next && s.key === next.key;
     h += '<button class="fd-step' + (s.done ? " done" : isNext ? " next" : "") + '"' + (s.done ? " disabled" : ' data-fd-go="' + s.go + '"') + "><span>" + (s.done ? "'" + svgIconFor('✅') + "'" : s.icon) + "</span><span><b>" + s.text + "</b>" + (isNext ? "<small>" + s.why + "</small>" : "") + "</span></button>";
@@ -32737,7 +32675,7 @@ function firstDayCard(F) {
   return h + "</div>";
 }
 
-// ---------- 🏛️ hall of fame ----------
+// ---------- "🏛️" hall of fame ----------
 var hall = null;
 function loadHall() {
   fetch("/api/hall").then(function (r) { return r.json(); }).then(function (d) {
@@ -32792,7 +32730,7 @@ function diploPanel(M, lead) {
     var txt = { got: "offers you a " + p.kindName.toLowerCase(), sent: p.kindName + " · waiting for an answer", on: p.kindName, ending: p.kindName + " · ends in " + shortTime(p.endsAt - now) }[p.state];
     h += '<div class="stayrow"><div><b>' + (p.kind === "confed" ? "'" + svgIconFor('🤝') + "' " : "🕊️ ") + '<i class="atag">' + esc(p.tag) + "</i>" + esc(p.name) + "</b><small>" + txt + "</small></div>";
     if (lead) {
-      if (p.state === "got") h += '<button class="btn small" data-diplo="accept:' + p.id + '">' + icon("check") + ' Accept</button><button class="btn small ghost" data-diplo="decline:' + p.id + '">' + icon("close") + '</button>';
+      if (p.state === "got") h += '<button class="btn small" data-diplo="accept:' + p.id + '">' + "✅" + ' Accept</button><button class="btn small ghost" data-diplo="decline:' + p.id + '">' + "❌" + '</button>';
       else if (p.state === "sent") h += '<button class="btn small ghost" data-diplo="decline:' + p.id + '">Withdraw</button>';
       else if (p.state === "on") h += '<button class="btn small ' + (armed("pact:" + p.id) ? "danger" : "ghost") + '" data-diplo="cancel:' + p.id + '">' + (armed("pact:" + p.id) ? "Sure? End" : "End") + "</button>";
     }
@@ -32832,7 +32770,7 @@ function linkedBox(L) {
 // ---------- quests (panel on the left) ----------
 var questsOpen = true;
 var questSkipArm = { id: "", at: 0 };
-// 📋 the mission board: one build, one army and one world card. Ready cards
+// "📋" the mission board: one build, one army and one world card. Ready cards
 // come first in their kind; a claimed card is replaced at once.
 var MB_KIND = { build: [ico("hammer", "sm"), "Build"], army: [ico("army", "sm"), "Army"], world: [ico("map", "sm"), "World"] };
 function mbPick(list, kind) {
@@ -32878,10 +32816,10 @@ function mbDone(kind, text) {
 }
 function mbCards(d) {
   var q = d.quests, R = d.retention || {}, list = q.list, out = [];
-  // 🏗️ build
+  // "🏗️" build
   var b = mbPick(list, "build");
   out.push(b ? { ready: b.ready, html: mbQuestCard(d, "build", b) } : { html: mbDone("build", "🌟 Every build mission is done here.") });
-  // ⚔️ army: quests first, then today's training task
+  // "⚔️" army: quests first, then today's training task
   var a = mbPick(list, "army"), T = R.trainingTask;
   if (a) out.push({ ready: a.ready, html: mbQuestCard(d, "army", a) });
   else if (T && !T.claimed) out.push({ ready: T.have >= T.need, html: mbTaskCard("army", "🪖", "Daily · Train reinforcements", "Finish training 50 troops across your colonies today.", T.have, T.need, "training", T.reward, '<button class="btn small ghost" data-view="troops">👉 Show me</button>') });
@@ -33108,7 +33046,7 @@ function routesPanel(d) {
 }
 
 var mkTab = "send";
-// ---------- 📋 open offers: goods for goods with other players ----------
+// ---------- "📋" open offers: goods for goods with other players ----------
 var mkOffers = null;
 var ofFilter = "";
 function loadOffers() {
@@ -33618,7 +33556,7 @@ function renderSheet() {
   var d = data;
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
   sheetAnim = false;
-  if (sheet.kind !== "away") h += '<button class="sheet-close" data-close="1" title="Close">' + icon("close") + '</button>';
+  if (sheet.kind !== "away") h += '<button class="sheet-close" data-close="1" title="Close">' + "❌" + '</button>';
   h += '<div class="sheet-drag" title="Swipe down to close"></div>';
 
   if (sheet.kind === "stash-transfer") {
@@ -33684,7 +33622,7 @@ function renderSheet() {
     var away = vacationBox(d) + sitBox(d);
     h += away ? '<section class="setcard">' + away + "</section>" : "";
     if (d.linked) h += '<section class="setcard">' + linkedBox(d.linked) + "</section>";
-    // 👤 account and devices
+    // "👤" account and devices
     var ac = config.hub ? '<div class="setgrid one"><a class="btn ghost" href="' + esc(config.hub) + '/?servers=1" target="_blank" rel="noopener">🌍 Open account &amp; server settings ↗</a></div><p class="hint left">Opens your main account page in a new tab, where you can choose servers and manage your password and email.</p>' : '<p class="hint left">Account and server management is hosted on the main server. This game server has no main server address configured, so those settings cannot be opened from here.</p>';
     if (!accountInfo) ac += '<p class="hint left">Loading devices…</p>';
     else {
@@ -33702,7 +33640,7 @@ function renderSheet() {
     h += card("'" + svgIconFor('👤') + "' Account &amp; devices", ac);
     if (accountInfo && accountInfo.owner) h += card("🛠️ Server owner", '<div class="setgrid"><a class="btn" href="/admin" target="_blank" rel="noopener">🛠️ Admin page</a><a class="btn ghost" href="/admin/journey" target="_blank" rel="noopener">' + svgIconFor('🧭') + ' Quest progression</a></div>');
     h += card("'" + svgIconFor('📜') + "' About", '<div class="setgrid"><a class="btn ghost" href="/patch-notes" target="_blank" rel="noopener">' + svgIconFor('📜') + ' Patch notes</a><a class="btn ghost" href="' + '/legal?lang=' + curLang() + '" target="_blank" rel="noopener">⚖️ Legal and privacy</a></div>');
-    // ⚠️ danger zone
+    // "⚠️" danger zone
     var dz = '<details class="deldetails"><summary>🗑️ Delete colonies on this server</summary><p>All your colonies, troops and server progress will be removed after 48 hours. Your login account and other servers remain. You may cancel before the countdown ends.</p>';
     if (accountInfo && accountInfo.deletion) dz += '<p>Deletion scheduled: ' + new Date(accountInfo.deletion.due_at).toLocaleString() + " · " + shortTime(Math.max(0, accountInfo.deletion.due_at - serverNow())) + ' remaining</p><button class="btn ghost" data-colony-delete="cancel">Cancel deletion</button>';
     else dz += '<button class="btn danger" data-colony-delete="start">Start 48-hour countdown</button>';
@@ -34625,7 +34563,7 @@ function loadTileReports(x, y) {
 //         what it is · 📍 (x|y) · 2.2 tiles
 //  [fact] [fact] [fact]
 //  [      main action       ]
-//  [🔍 Spy] [🧮 Sim] [📋 Farm] ...
+//  ["🔍" Spy] [🧮 Sim] ["📋" Farm] ...
 function tipHead(icon, title, sub) {
   return '<div class="tip-h"><span class="tip-i">' + icon + "</span><div><b>" + title + "</b><small>" + sub + "</small></div></div>";
 }
@@ -34767,7 +34705,7 @@ function renderTileInfo() {
   h += allyMarkInfo(x, y);
   h += markBox(x, y);
   h += tileReportsBox(x, y);
-  setHTML(box, '<button class="ti-close" data-tile-close="1" title="Close">' + icon("close") + '</button>' + h);
+  setHTML(box, '<button class="ti-close" data-tile-close="1" title="Close">' + "❌" + '</button>' + h);
 }
 
 
@@ -34835,7 +34773,7 @@ function seasonBar(d) {
 }
 
 // =====================================================================
-//  📖 THE GUIDE - how the game works, with the real numbers of this server.
+//  "📖" THE GUIDE - how the game works, with the real numbers of this server.
 //  Everything numeric is shown in compact tables.
 // =====================================================================
 var wiki = { fold: {}, data: null, tab: "basics", q: "", tribe: null, sort: "", desc: true, open: "", bopen: "", view: "stats", cum: false, ftype: "wood" };
@@ -35570,7 +35508,7 @@ function T_SET(W) {
   return W.colonies.settlers + " settlers";
 }
 
-// ---------- 🏗️ buildings: overview, a tap opens all levels ----------
+// ---------- "🏗️" buildings: overview, a tap opens all levels ----------
 function wikiBuildings(W) {
   var cards = [];
   if (!wiki.bopen || !wkBT(W)[wiki.bopen]) wiki.bopen = "hq";
@@ -35639,7 +35577,7 @@ function wkLevelTable(W, key) {
   return h;
 }
 
-// ---------- ⚔️ troops: one table per tribe, three views, sortable ----------
+// ---------- "⚔️" troops: one table per tribe, three views, sortable ----------
 var WK_VIEWS = [["stats", "📊 Stats"], ["costs", "💰 Costs"], ["value", "⚖️ Value"]];
 function wikiTroops(W) {
   var t = wkTribe(W, wiki.tribe);
@@ -35777,7 +35715,7 @@ function wikiSheet() {
   return h + "</div>";
 }
 
-// ---------- 🧪 Tools: travel times, army calculator, formulas ----------
+// ---------- "🧪" Tools: travel times, army calculator, formulas ----------
 var wkt = {
   tool: "travel",
   lv: { hq: 1, builders: 0 },
