@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.341",date:"2026-11-13",title:"Farm list delete fixes and server stability",groups:[["Farm lists",["Delete list now shows a clear confirmation dialog with Yes/Cancel buttons.","Delete selected targets removes all checked targets in one tap.","Remove target button inside target editor for easier access.","Fixed delete buttons not working due to missing event selectors.","Fixed farm selection memory leak when deleting lists or targets."]],["Server",["Fixed async account endpoints crashing on network errors.","Added error boundaries to prevent server crashes during account deletion."]]]},
   {v:"1.0.340",date:"2026-11-13",title:"Admin Dashboard v2",groups:[["Admin",["Server owners get a System tab with live memory, uptime and player counts.","Player detail view shows colonies, ban status and creation date.","Database stats and migration status available in the admin panel."]]]},
   {v:"1.0.339",date:"2026-11-12",title:"Storage, marketplace and troop traffic",groups:[["Storage",["Warehouse, Granary and base storage capacities are reduced by one third."]],["Troop traffic",["The sidebar shows totals by movement type. Tap it to see all movements."]],["Marketplace",["Swap and Balance use a base rate of 46–55% as the marketplace levels up. Humans lose 5% less. Cover with market returns you to the build or upgrade after the swap."]]]},
   {v:"1.0.338",date:"2026-11-11",title:"Farm list selection and fixed troop upkeep",groups:[["Farm lists",["Select or clear all targets in an expanded list."]],["Food",["Troops consume their base upkeep per real hour at every game speed."]]]},
@@ -18535,12 +18536,14 @@ app.post("/api/hop/info", (req, res) => {
   res.json(hopInfoHere(o.u));
 });
 app.get("/api/acct", async (req, res) => {
-  if (HUB_URL) return res.json({ ok: false, hub: HUB_URL });
-  const a = acctOf(req);
-  if (!a) return res.json({ ok: false });
-  const info = {};
-  await Promise.all(SERVER_LIST.map(async (s) => { const v = await hopInfoOf(s, a.username); if (v) info[s.id] = v; }));
-  res.json({ ok: true, name: a.username, email: a.email_verified ? a.email : null, mailReady: mailReady(), here: !!(info[THIS_SERVER] && info[THIS_SERVER].has), info });
+  try {
+    if (HUB_URL) return res.json({ ok: false, hub: HUB_URL });
+    const a = acctOf(req);
+    if (!a) return res.json({ ok: false });
+    const info = {};
+    await Promise.all(SERVER_LIST.map(async (s) => { try { const v = await hopInfoOf(s, a.username); if (v) info[s.id] = v; } catch (e) {} }));
+    res.json({ ok: true, name: a.username, email: a.email_verified ? a.email : null, mailReady: mailReady(), here: !!(info[THIS_SERVER] && info[THIS_SERVER].has), info });
+  } catch (e) { console.error("/api/acct:", e.message); res.status(500).json({ error: "Server error" }); }
 });
 app.post("/api/acct/logout", (req, res) => {
   const a = acctOf(req);
@@ -18756,6 +18759,7 @@ async function acctEraseEverywhere(name) {
   return failed;
 }
 app.post("/api/acct/delete", requireAcct, async (req, res) => {
+  try {
   const key = "pw:a" + req.acct.id;
   const wait = blocked(key, LOGIN_TRIES);
   if (wait) return res.status(429).json({ error: "Too many wrong passwords. Try again in " + wait + " min." });
@@ -18767,6 +18771,7 @@ app.post("/api/acct/delete", requireAcct, async (req, res) => {
   const failed = await acctEraseEverywhere(req.acct.username);
   res.setHeader("Set-Cookie", [acctCookie(req, "", 0), sessionCookie(req, "", 0)]);
   res.json({ ok: true, failed });
+  } catch (e) { console.error("/api/acct/delete:", e.message); res.status(500).json({ error: "Server error" }); }
 });
 // other servers: the main server asks to remove a player
 app.post("/api/hop/erase", (req, res) => {
@@ -28583,7 +28588,7 @@ function jobPanel(job, which) {
 //  with a copy in this browser so they show up instantly.
 // =====================================================================
 var farm = null;
-var farmArm = { id: "", at: 0 }; // "click again to delete"
+var farmArm = { id: "" }; // delete confirmation state
 var demolishArm = { slot: -1, at: 0 }; // "tap again to demolish"
 var farmPick = null; // { x, y, name } while choosing a list on the map
 var farmTimer = null;
@@ -37458,7 +37463,7 @@ document.addEventListener("click", function (e) {
     var fe = flist && farmEntry(flist, fid[1]);
     if (fe) {
       if (has("data-farm-toggle")) farmSelection[fid[0] + ":" + fid[1]] = !farmSelection[fid[0] + ":" + fid[1]];
-      else flist.entries = flist.entries.filter(function (x) { return x !== fe; });
+      else { flist.entries = flist.entries.filter(function (x) { return x !== fe; }); delete farmSelection[fid[0] + ":" + fid[1]]; }
       farmSave();
       renderSheet();
     }
@@ -37483,6 +37488,8 @@ document.addEventListener("click", function (e) {
     var fdc = farmList(attr("data-farm-dellist-confirm"));
     if (fdc) {
       farm.lists = farm.lists.filter(function (x) { return x !== fdc; });
+      // Clean up farmSelection entries for deleted list
+      Object.keys(farmSelection).forEach(function (k) { if (k.indexOf(fdc.id + ":") === 0) delete farmSelection[k]; });
       farmArm = {};
       farmSave();
       toast("🗑 List deleted");
