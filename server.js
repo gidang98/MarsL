@@ -20744,7 +20744,10 @@ const PAGE = `<!DOCTYPE html>
   .fl-row { display: grid; grid-template-columns: auto minmax(110px, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid rgba(0,0,0,0.12); }
   .fl-row.off { opacity: 0.5; }
   .fl-on, .fl-del { border: 0; background: none; font-size: 18px; cursor: pointer; padding: 2px; }
-  .fl-del { font-size: 14px; opacity: 0.6; }
+  .fl-del { font-size: 16px; opacity: 0.7; color: var(--red); min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; transition: opacity 0.15s, background 0.15s; }
+  .fl-del:hover, .fl-del:active { opacity: 1; background: rgba(255,90,95,0.12); }
+  .fl-editor-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 8px 0 4px; }
+  .fl-del-confirm { color: var(--red); font-weight: 600; margin-right: 8px; }
   .fl-target { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
   .fl-target small { opacity: 0.7; font-size: 12px; }
   .fl-troops { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -28923,7 +28926,7 @@ function farmSheet(d) {
     if (!farmExpanded[l.id]) { h += '</div>'; return; }
     h += '<input class="fl-name" aria-label="Farm list name" data-farm-name="' + l.id + '" maxlength="30" value="' + esc(l.name) + '">';
     if (l.entries.length) h += '<button class="btn small ghost" data-farm-select-all="' + l.id + '">' + (selected === l.entries.length ? 'Clear selection' : 'Select all') + '</button>';
-    if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button></div>';
+    if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button><button class="btn small danger" data-farm-delete-selected="' + l.id + '">🗑 Delete</button></div>';
     h += '<details class="farm-review"><summary>Troop preset &amp; bulk editor</summary><small>Saved for new targets. Applying replaces troop counts for targets checked in this list.</small>'+farmCountEditor(preset,'data-farm-default',l.id+':')+'<button class="btn small ghost" data-farm-apply="'+l.id+'">Apply preset to '+selected+' selected targets</button></details>';
     if (listTotal) h += '<div class="fl-total">💰 Stolen with this list so far: <b>' + listTotal.toLocaleString() + "</b></div>";
     if (!l.entries.length) h += '<p class="empty">Empty - add targets on the map.</p>';
@@ -28949,9 +28952,18 @@ function farmSheet(d) {
       fighters.forEach(function (u) {
         h += '<label title="' + u.name + " · " + u.home + ' at home">' + u.icon + '<input type="number" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
       });
-      h += '</div><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">✖</button></div>';
+      h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">🗑 Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">✖</button></div>';
     });
-    h += '<div class="fl-bottom"><button class="btn small ghost" data-farm-dellist="' + l.id + '">' + (farmArm.id === l.id && Date.now() - farmArm.at < 5000 ? "⚠️ Sure? Tap again" : "🗑️ Delete list") + "</button></div></div>";
+    var confirming = farmArm.id === l.id;
+    h += '<div class="fl-bottom">';
+    if (confirming) {
+      h += '<span class="fl-del-confirm">⚠️ Delete "' + esc(l.name) + '" and all ' + l.entries.length + ' targets?</span>';
+      h += '<button class="btn small danger" data-farm-dellist-confirm="' + l.id + '">Yes, delete</button>';
+      h += '<button class="btn small ghost" data-farm-dellist-cancel>Cancel</button>';
+    } else {
+      h += '<button class="btn small ghost" data-farm-dellist="' + l.id + '">🗑️ Delete list</button>';
+    }
+    h += '</div></div>';
   });
   return h + (groupColony !== null ? '</section>' : '');
 }
@@ -37450,16 +37462,35 @@ document.addEventListener("click", function (e) {
       farmSave();
       renderSheet();
     }
+  } else if (has("data-farm-delete-selected")) {
+    var fdsi = attr("data-farm-delete-selected");
+    var fls = farmList(fdsi);
+    if (fls) {
+      var before = fls.entries.length;
+      fls.entries = fls.entries.filter(function (e) { return !farmSelection[fls.id + ":" + e.id]; });
+      var removed = before - fls.entries.length;
+      if (removed) {
+        farmSelection = {};
+        farmSave();
+        toast("🗑 Removed " + removed + " target" + (removed > 1 ? "s" : ""));
+        renderSheet();
+      }
+    }
   } else if (has("data-farm-dellist")) {
     var fd = farmList(attr("data-farm-dellist"));
-    if (fd && fd.entries.length && !(farmArm.id === fd.id && Date.now() - farmArm.at < 5000)) {
-      farmArm = { id: fd.id, at: Date.now() };
-      renderSheet();
-    } else if (fd) {
-      farm.lists = farm.lists.filter(function (x) { return x !== fd; });
+    if (fd) { farmArm = { id: fd.id }; renderSheet(); }
+  } else if (has("data-farm-dellist-confirm")) {
+    var fdc = farmList(attr("data-farm-dellist-confirm"));
+    if (fdc) {
+      farm.lists = farm.lists.filter(function (x) { return x !== fdc; });
+      farmArm = {};
       farmSave();
+      toast("🗑 List deleted");
       renderSheet();
     }
+  } else if (has("data-farm-dellist-cancel")) {
+    farmArm = {};
+    renderSheet();
   } else if (has("data-sim-open")) {
     var so = attr("data-sim-open").split(",");
     openSim(parseInt(so[0], 10), parseInt(so[1], 10), true);
