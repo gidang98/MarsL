@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.346";
+const GAME_VERSION = "1.0.347";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -24262,7 +24262,7 @@ function costChips(cost, res, timeMs) {
       var HS = lack && data && data.hero && data.hero.stash ? data.hero.stash : null;
       var can = HS && HS[k] > 0 ? Math.min(Math.ceil(cost[k] - res[k]), HS[k], data.hero.stashRoom ? data.hero.stashRoom[k] : HS[k]) : 0;
       if (can > 0) canUseInventory = true;
-      if (can > 0) h += '<button type="button" class="chip lack stashfill" data-stash-add="' + missingData + '" title="Add missing resources from your commander’s inventory">' + ico(k, "sm") + " " + cost[k] + " <i>' + svgIconFor('📦') + '+" + shortNum(can) + "</i></button>";
+      if (can > 0) h += '<button type="button" class="chip lack stashfill" data-stash-add="' + missingData + '" title="Add missing resources from your commander’s inventory">' + ico(k, "sm") + " " + cost[k] + " <i>'" + svgIconFor('📦') + "'+" + shortNum(can) + "</i></button>";
       else h += '<span class="chip' + (lack ? " lack" : "") + '" title="' + RES_NAME[k] + '">' + ico(k, "sm") + " " + cost[k] + "</span>";
     }
   });
@@ -24318,7 +24318,7 @@ function newsTicker(live) {
   });
   // 📰 the Gazette: real headlines first, a few jokes in between
   gazetteNow.forEach(function (g) { h += '<span class="gz">' + g.icon + " " + esc(trStr(g.text)) + "</span>"; });
-  (gazetteNow.length >= 3 ? JOKES.slice(0, 3) : JOKES).forEach(function (n) { h += "<span>' + svgIconFor('✦') + ' " + esc(trStr(n)) + "</span>"; });
+  (gazetteNow.length >= 3 ? JOKES.slice(0, 3) : JOKES).forEach(function (n) { h += "<span>'" + svgIconFor('✦') + "' " + esc(trStr(n)) + "</span>"; });
   h += '</div><span class="nclock" title="Server time: the same for every player"><i>SERVER<br>TIME</i><b id="clock">--:--:--</b></span>';
   return h + "</div>";
 }
@@ -27297,16 +27297,16 @@ function renderLanding() {
   h += "<li><b>Mission Board</b> One build, one army and one world mission at a time, each with a reward.</li>";
   h += "<li><b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.</li>";
   h += "<li><b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.</li>";
-  h += "<li><b>' + svgIconFor('🥔') + ' Weekly leagues</b> Four leagues by size, so small colonies win too.</li>";
-  h += "<li><b>' + svgIconFor('📲') + ' Alerts</b> Your phone rings when an attack is coming, even with the game closed.</li>";
+  h += "<li><b>'" + svgIconFor('🥔') + "' Weekly leagues</b> Four leagues by size, so small colonies win too.</li>";
+  h += "<li><b>'" + svgIconFor('📲') + "' Alerts</b> Your phone rings when an attack is coming, even with the game closed.</li>";
   h += '</ul></div><div class="lp-shot">' + lpPhone("board", "The Mission Board") + "</div></section>";
 
   h += '<section class="lp-band lp-win"><h3>A round in five acts</h3><ol class="lp-road">';
-  h += "<li><span>' + svgIconFor('🛬') + '</span><b>Landing</b><p>Crash-land under protection and grab the first rich sites.</p></li>";
+  h += "<li><span>'" + svgIconFor('🛬') + "'</span><b>Landing</b><p>Crash-land under protection and grab the first rich sites.</p></li>";
   h += "<li><span>🏗️</span><b>Expansion</b><p>Colonies pick their job. New colonies spread out.</p></li>";
-  h += "<li><span>' + svgIconFor('🗿') + '</span><b>Discovery</b><p>Ancient landmarks open, and the monster camps grow up.</p></li>";
-  h += "<li><span>' + svgIconFor('🏆') + '</span><b>Relic Hunt</b><p>Hold several landmarks at once to win a relic for your team.</p></li>";
-  h += "<li><span>' + svgIconFor('🌌') + '</span><b>Aurora</b><p>Alliances charge four pylons and race to light the sky. The first one wins the round.</p></li>";
+  h += "<li><span>'" + svgIconFor('🗿') + "'</span><b>Discovery</b><p>Ancient landmarks open, and the monster camps grow up.</p></li>";
+  h += "<li><span>'" + svgIconFor('🏆') + "'</span><b>Relic Hunt</b><p>Hold several landmarks at once to win a relic for your team.</p></li>";
+  h += "<li><span>'" + svgIconFor('🌌') + "'</span><b>Aurora</b><p>Alliances charge four pylons and race to light the sky. The first one wins the round.</p></li>";
   h += "</ol></section>";
 
   var srv = (config.servers || []).filter(function (s) { return s.speed; });
@@ -27356,7 +27356,7 @@ function renderAuth() {
   if (reg) h += '<div class="pwmeter" id="pwmeter"><i></i></div><p class="pwwarn">' + icon("warn") + ' Never use an important password! Pick one you use nowhere else.</p>';
   if (reg && config.emailRequired) h += '<label for="em">Email (we send you a confirmation link once)</label><input id="em" type="email" autocomplete="email" maxlength="120" required>';
   if (reg && config.invite) h += '<label for="inv">Invite code</label><input id="inv" autocomplete="off" maxlength="60" required>';
-  h += '<p></p><button class="btn" type="submit">' + (reg ? "' + svgIconFor('🛸') + ' Make my account" : "' + svgIconFor('🔑') + ' Log in") + "</button>";
+  h += '<p></p><button class="btn" type="submit">' + (reg ? "'" + svgIconFor('🛸') + "' Make my account" : "' + svgIconFor('🔑') + ' Log in") + "</button>";
   if (!reg && config.emailRequired) h += '<button type="button" class="linkbtn" data-forgot="1">Forgot your password?</button>';
   h += "</form>" + discordBtn() + '<button type="button" class="linkbtn lp-back-home" data-landing="home">← What is MarsL?</button></div>';
   h += langPicker();
@@ -27472,11 +27472,11 @@ var pendingEmail = "";
 function renderAuthNote() {
   var h = '<div class="panel auth authnote"><span class="rocket">🚀</span>';
   if (authMode === "verify") {
-    h += "<h2>' + svgIconFor('📬') + ' Check your inbox</h2><p>We sent a link to <b>" + esc(pendingEmail) + "</b>. Tap it to confirm and crash-land on Mars. Nothing there? Look in your spam folder.</p>";
+    h += "<h2>'" + svgIconFor('📬') + "' Check your inbox</h2><p>We sent a link to <b>" + esc(pendingEmail) + "</b>. Tap it to confirm and crash-land on Mars. Nothing there? Look in your spam folder.</p>";
     h += '<button class="btn" data-resend="1">' + svgIconFor('📨') + ' Send it again</button><button type="button" class="linkbtn" data-authback="1">← Back</button>';
   } else if (authMode === "appeal") {
     var ap = appealCred.appeal;
-    h += "<h2>' + svgIconFor('⛔') + ' Account blocked</h2><p>The server owner blocked <b>" + esc(appealCred.username) + "</b>.</p>";
+    h += "<h2>'" + svgIconFor('⛔') + "' Account blocked</h2><p>The server owner blocked <b>" + esc(appealCred.username) + "</b>.</p>";
     if (ap && ap.status === "open") h += "<p>⏳ Your appeal is waiting for an answer.</p>";
     else {
       if (ap && ap.status === "denied") h += '<p class="reason">' + svgIconFor('❌') + ' Your last appeal was denied' + (ap.answer ? ": " + esc(ap.answer) : "") + "</p>";
@@ -27531,7 +27531,7 @@ function renderServers() {
     var pl = si.players !== undefined && si.players !== null ? si.players : s.players;
     var sub = esc(trStr(s.stage)) + (ver ? " · " + esc(ver) : "") + (pl !== null && pl !== undefined ? " · 👥 " + pl : "");
     if (/test/i.test(s.id + " " + s.name)) sub += ' · <i class="srv-tag">' + svgIconFor('🧪') + ' new updates first, rules may change</i>';
-    if (si.has) sub += " · ' + svgIconFor('🏠') + ' " + trStr("you play here");
+    if (si.has) sub += " · '" + svgIconFor('🏠') + "' " + trStr("you play here");
     if (!s.open) sub += " · " + trStr("not connected yet");
     h += '<button type="button" class="srv' + (s.open ? "" : " off") + '"' + (s.open ? ' data-hop="' + esc(s.id) + '"' : " disabled") + ">" + (spd ? '<span class="srv-x ' + (spd >= 200 ? "t4" : spd >= 20 ? "t3" : spd >= 3 ? "t2" : "") + '">×' + spd + "<small>" + trStr(spd >= 200 ? "blitz" : spd >= 20 ? "fast" : spd >= 3 ? "quick" : "normal") + "</small></span>" : '<span class="srv-i">' + svgIconFor('🌍') + '</span>') + '<span class="srv-t"><b>' + esc(s.name) + "</b><small>" + sub + '</small></span><span class="srv-go">▶</span></button>';
   });
@@ -27567,7 +27567,7 @@ function hopEnter(tribe) {
 }
 function renderHopTribe() {
   var h = '<div class="panel auth"><span class="rocket">🚀</span>';
-  h += hopState.wiped ? "<h3>' + svgIconFor('💥') + ' Wiped off the map</h3><p>All your colonies were destroyed. Pick a tribe and start over on " + esc(thisServerLabel()) + ".</p>"
+  h += hopState.wiped ? "<h3>'" + svgIconFor('💥') + "' Wiped off the map</h3><p>All your colonies were destroyed. Pick a tribe and start over on " + esc(thisServerLabel()) + ".</p>"
     : hopState.respawn ? "<h3>" + trStr("Respawn") + "</h3><p>" + trf("Choose your tribe for your new colony on {0}.", esc(thisServerLabel())) + "</p>" : "<h3>" + trf("Welcome, {0}!", esc(hopState.name || "")) + "</h3><p>" + trf("Choose your tribe for {0}.", esc(thisServerLabel())) + "</p>";
   h += '<label>Choose your tribe</label><div class="tribes">';
   (tribes || []).forEach(function (t) {
@@ -27630,7 +27630,7 @@ function renderTop(d) {
   var h = '<div class="topbar"><div><b>' + d.tribe.home + " " + esc(d.colony) + "</b>";
 
   h += ' <button class="edit" data-rename="1" title="Rename your colony">✏️</button>';
-  h += "<small>' + svgIconFor('👤') + ' " + (d.alliance ? '<i class="atag">' + esc(d.alliance.tag) + "</i>" : "") + esc(d.player) + ' <span class="tribe-badge">' + d.tribe.icon + " " + d.tribe.name + "</span> · (" + d.x + "|" + d.y + ")";
+  h += "<small>'" + svgIconFor('👤') + "' " + (d.alliance ? '<i class="atag">' + esc(d.alliance.tag) + "</i>" : "") + esc(d.player) + ' <span class="tribe-badge">' + d.tribe.icon + " " + d.tribe.name + "</span> · (" + d.x + "|" + d.y + ")";
   if (d.colonies && d.colonies.count > 1) h += ' <button class="crown-badge mainbadge" data-main-info="1">' + (d.main ? "⭐ Main" : "🏘️ Sub-colony") + "</button>";
   if (d.crown) h += ' <span class="crown-badge">' + svgIconFor('👑') + ' Ruler of Mars +' + d.zone.bonus + "%</span>";
   if (d.relic) h += ' <span class="crown-badge relic-badge" title="' + esc(d.relic.name) + '">' + d.relic.icon + " " + (d.relic.ready && d.relic.ready > serverNow() ? "⏳ " + shortTime(d.relic.ready - serverNow()) : d.relic.bonus) + "</span>";
@@ -27735,7 +27735,7 @@ function crewQueueHtml(d) {
     var h = '<div class="qitem crew"><span class="big">' + q.icon + "</span>";
     h += '<div class="qbody"><b>' + q.name + "</b> → Level " + q.targetLevel + ' <i class="crewtag">🎖️ Crew</i>';
     h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
-    h += "<small>' + svgIconFor('🤖') + ' " + fmt(q.remainingMs) + " left · ready at " + clockText(serverNow() + q.remainingMs) + "</small></div>";
+    h += "<small>'" + svgIconFor('🤖') + "' " + fmt(q.remainingMs) + " left · ready at " + clockText(serverNow() + q.remainingMs) + "</small></div>";
     h += boostOrFree(q);
     return h + cancelBtn(q, 'data-cancel-job="crew"') + "</div>";
   }
@@ -27838,7 +27838,7 @@ function renderQueue(d) {
     h += '<div class="qitem"><span class="big">' + q.icon + "</span>";
     h += '<div class="qbody"><b>' + q.name + "</b> → Level " + q.targetLevel;
     h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
-    h += "<small>" + (q.active ? "' + svgIconFor('🤖') + ' " + fmt(q.remainingMs) + " left" : "' + svgIconFor('💤') + ' Waiting · takes " + fmt(q.durationMs)) + " · ready at " + clockText(serverNow() + sum) + (q.asked ? " · ' + svgIconFor('🤝') + ' " + q.helpers : "") + "</small></div>";
+    h += "<small>" + (q.active ? "'" + svgIconFor('🤖') + "' " + fmt(q.remainingMs) + " left" : "' + svgIconFor('💤') + ' Waiting · takes " + fmt(q.durationMs)) + " · ready at " + clockText(serverNow() + sum) + (q.asked ? " ·" + svgIconFor('🤝') + "+ ' " + q.helpers : "") + "</small></div>";
     h += boostOrFree(q);
     if (q.canCancel) h += cancelBtn(q, 'data-cancel="1"');
     h += "</div>";
@@ -27876,7 +27876,7 @@ function boostSheet(d) {
   h += '<div class="meter thin"><i style="width:' + used + '%"></i></div></div>';
   var room = q.freeLeftMs > 0;
   // 🕐 overtime
-  h += boostRow("' + svgIconFor('🕐') + '", "Overtime", B.overtime ? (room ? "−" + fmt(q.overtimeMs) + " · once a day" : "No free help left for this job") : "Used today · again at " + clockText(B.nextDay), boostBtn("overtime", "Use", B.overtime && room && q.overtimeMs > 0));
+  h += boostRow("'" + svgIconFor('🕐') + "'", "Overtime", B.overtime ? (room ? "−" + fmt(q.overtimeMs) + " · once a day" : "No free help left for this job") : "Used today · again at " + clockText(B.nextDay), boostBtn("overtime", "Use", B.overtime && room && q.overtimeMs > 0));
   // 🏘️ helping hands
   var Hh = B.hands;
   var per = Math.max(1, Math.round(q.fullMs * B.pct.hands / 100));
@@ -27894,8 +27894,8 @@ function boostSheet(d) {
   if (!B.ally) at = "Join an alliance: every ally who helps cuts " + B.pct.ally + "%";
   else if (q.asked) at = "🤝 " + q.helpers + (q.helpers === 1 ? " ally" : " allies") + " helped · −" + fmt(q.allyMs) + " of max " + fmt(q.allyMaxMs);
   else at = "−" + B.pct.ally + "% per ally, up to " + B.pct.allyMax + "%" + (B.askJob ? " · moves your request here" : "");
-  h += boostRow("' + svgIconFor('🤝') + '", "Ask your alliance", at, q.asked ? boostBtn("unask", "Stop", true) : boostBtn("ask", "Ask", B.ally && room && q.allyMs < q.allyMaxMs));
-  if (q.freeNow) { h += boostRow("' + svgIconFor('⚡') + '", "Finish for free", "Its last " + fmt(B.freeFinishMs) + " are free", boostBtn("free", "Finish", true)); }
+  h += boostRow("'" + svgIconFor('🤝') + "'", "Ask your alliance", at, q.asked ? boostBtn("unask", "Stop", true) : boostBtn("ask", "Ask", B.ally && room && q.allyMs < q.allyMaxMs));
+  if (q.freeNow) { h += boostRow("'" + svgIconFor('⚡') + "'", "Finish for free", "Its last " + fmt(B.freeFinishMs) + " are free", boostBtn("free", "Finish", true)); }
   return h;
 }
 
@@ -28169,7 +28169,7 @@ function renderBuildings(d) {
     list.forEach(function (b) {
       if (used[b.slot]) return;
       used[b.slot] = true;
-      h += '<button class="bli" data-lot="' + b.slot + '" title="' + b.name + '"><span class="bli-i">' + svgIconFor(b.icon) + '</span><span class="bli-t"><b>' + b.name + "</b><small>" + (b.level === 0 ? svgIconFor("' + svgIconFor('🔨') + '") + " being built" : String(b.effectNow).split(" · ")[0]) + "</small></span>";
+      h += '<button class="bli" data-lot="' + b.slot + '" title="' + b.name + '"><span class="bli-i">' + svgIconFor(b.icon) + '</span><span class="bli-t"><b>' + b.name + "</b><small>" + (b.level === 0 ? svgIconFor("'" + svgIconFor('🔨') + "'") + " being built" : String(b.effectNow).split(" · ")[0]) + "</small></span>";
       h += '<span class="bli-lv' + (b.level >= b.maxLevel ? " max" : b.pending > 0 ? " bld" : b.canBuild ? " up" : "") + '">' + b.level + (b.pending > 0 ? "<i>+" + b.pending + "</i>" : "") + "</span></button>";
     });
     h += "</div>";
@@ -28222,7 +28222,7 @@ function newCard(o, d, action) {
   if (o.needs && o.needs.length) {
     h += '<div class="needs">';
     o.needs.forEach(function (n) {
-      h += '<span class="need' + (n.ok ? " ok" : "") + '" title="' + n.name + " level " + n.level + '">' + (n.ok ? icon("check") : "' + svgIconFor('🔒') + '") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
+      h += '<span class="need' + (n.ok ? " ok" : "") + '" title="' + n.name + " level " + n.level + '">' + (n.ok ? icon("check") : "'" + svgIconFor('🔒') + "'") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
     });
     h += "</div>";
   }
@@ -28305,7 +28305,7 @@ function trafficItem(m) {
       var bar = isThreat(m) ? "redbar" : m.type === "return" ? "bluebar" : m.dir === "in" ? "green" : "stripes";
       h += '<div class="meter ' + bar + '"><i style="width:' + pct + '%"></i></div>';
     }
-    h += '<div class="tr-time"><span>⏱ <b>' + fmt(left) + "</b> left</span><span>' + svgIconFor('🕐') + ' " + (m.type === "return" ? "home" : "arrives") + " <b>" + clockText(m.endAt) + "</b></span></div>";
+    h += '<div class="tr-time"><span>⏱ <b>' + fmt(left) + "</b> left</span><span>'" + svgIconFor('🕐') + "' " + (m.type === "return" ? "home" : "arrives") + " <b>" + clockText(m.endAt) + "</b></span></div>";
     if (m.advCall) h += '<button class="btn small ghost cancelmove" data-adv-cancel="1">↩️ Call back (no reward)</button>';
     // changed your mind? 30 seconds to call them back
     if (m.dir === "out" && m.cancelUntil && m.type !== "return" && now < m.cancelUntil) {
@@ -28313,7 +28313,7 @@ function trafficItem(m) {
     }
   } else {
     h += '<div class="tr-time"><span>' + svgIconFor('📍') + ' Stationed since ' + clockText(m.startAt) + "</span>";
-    h += '<button class="btn small ghost" data-recall-open="' + m.id + '">' + (m.dir === "out" ? "' + svgIconFor('🏡') + ' Call home" : "' + svgIconFor('👋') + ' Send home") + "</button></div>";
+    h += '<button class="btn small ghost" data-recall-open="' + m.id + '">' + (m.dir === "out" ? "'" + svgIconFor('🏡') + "' Call home" : "' + svgIconFor('👋') + ' Send home") + "</button></div>";
   }
   if (m.loot) h += '<div class="tr-units">' + svgIconFor('💰') + ' ' + RES.map(function (r) { return RES_ICON[r] + " " + m.loot[r]; }).join("  ") + "</div>";
   return h + "</div>";
@@ -28440,8 +28440,8 @@ function mvRow(m, count) {
   var left = m.endAt ? Math.max(0, m.endAt - now) : 0;
   var pct = m.endAt && m.startAt ? Math.max(0, Math.min(100, Math.round((1 - left / Math.max(1, m.endAt - m.startAt)) * 100))) : 100;
   var h = '<button class="mv' + (isThreat(m) ? " danger" : m.dir === "in" ? " in" : "") + '" data-move-open="' + m.id + '" title="' + esc(mvTitle(m)) + '">';
-  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, folded into the first to arrive">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.merchants ? "<small>" + m.merchants + " ' + svgIconFor('🐪') + '</small>" : "") + "</span>";
-  h += '<span class="mv-t">' + (m.endAt ? mvClock(left) : "' + svgIconFor('📍') + '") + "</span>";
+  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, folded into the first to arrive">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.merchants ? "<small>" + m.merchants + " '" + svgIconFor('🐪') + "'</small>" : "") + "</span>";
+  h += '<span class="mv-t">' + (m.endAt ? mvClock(left) : "'" + svgIconFor('📍') + "'") + "</span>";
   if (m.endAt && m.startAt) h += '<i class="mv-bar"><u style="width:' + pct + '%"></u></i>';
   return h + "</button>";
 }
@@ -28592,7 +28592,7 @@ function moveSheet(d, id) {
     if (rd.open === m.id) h += '<button class="btn" data-redirect-go="' + m.id + '"' + (rd.x === "" || rd.y === "" ? " disabled" : "") + '">' + svgIconFor('🧭') + ' Send them there</button><button class="btn ghost" data-redirect-cancel="1">Cancel</button>';
     else h += '<button class="btn ghost" data-redirect-open="' + m.id + '">' + svgIconFor('🧭') + ' Redirect</button>';
   }
-  if (!m.endAt) h += '<button class="btn' + (canRedirect ? " ghost" : "") + '" data-recall-open="' + m.id + '">' + (m.dir === "out" ? "' + svgIconFor('🏡') + ' Call home" : "' + svgIconFor('👋') + ' Send home") + "</button>";
+  if (!m.endAt) h += '<button class="btn' + (canRedirect ? " ghost" : "") + '" data-recall-open="' + m.id + '">' + (m.dir === "out" ? "'" + svgIconFor('🏡') + "' Call home" : "' + svgIconFor('👋') + ' Send home") + "</button>";
   else if (m.dir === "out" && m.cancelUntil && m.type !== "return" && now < m.cancelUntil) h += '<button class="btn ghost" data-cancel-move="' + m.id + '">↩️ Call back <b>' + Math.ceil((m.cancelUntil - now) / 1000) + "s</b></button>";
   h += "</div>";
   return h;
@@ -28728,9 +28728,9 @@ function attackAlarm(d) {
   h += '<div class="alarm-list">';
   threats.slice(0, 4).forEach(function (m) {
     var kind = m.cloaked ? "❓" : m.type === "raid" ? "💰" : "⚔️";
-    h += '<small class="alarm-row"><b>' + kind + " " + fmt(Math.max(0, m.endAt - serverNow())) + "</b> " + esc(m.name) + (m.showoff ? " · ' + svgIconFor('🎺') + ' with its commander" : "") + (multiColony() && m.to ? " → " + esc(m.to) : "") + " · " + clockText(m.endAt) + "</small>";
+    h += '<small class="alarm-row"><b>' + kind + " " + fmt(Math.max(0, m.endAt - serverNow())) + "</b> " + esc(m.name) + (m.showoff ? " · '" + svgIconFor('🎺') + "' with its commander" : "") + (multiColony() && m.to ? " → " + esc(m.to) : "") + " · " + clockText(m.endAt) + "</small>";
   });
-  if (threats.length > 4) h += '<small class="alarm-row">+' + (threats.length - 4) + " more, see ' + svgIconFor('🧭') + ' Troop traffic</small>";
+  if (threats.length > 4) h += '<small class="alarm-row">+' + (threats.length - 4) + " more, see '" + svgIconFor('🧭') + "' Troop traffic</small>";
   return h + "</div></div></div>";
 }
 
@@ -28759,7 +28759,7 @@ function sinkTip(d) {
   } else {
     var tr = d.units.filter(function (u) { return u.canTrain && u.max > 0 && u.cost[k] > 0; }).sort(function (a, b) { return b.cost[k] * b.max - a.cost[k] * a.max; })[0];
     var mk = d.market && d.market.level > 0;
-    h += "<small>" + (tr ? "Train " + tr.icon + " " + esc(tr.name) + " (you can afford " + shortNum(tr.max) + ")" : mk ? "Swap it in the ' + svgIconFor('🏪') + ' market" : "Nothing affordable to spend it on") + "</small></div>";
+    h += "<small>" + (tr ? "Train " + tr.icon + " " + esc(tr.name) + " (you can afford " + shortNum(tr.max) + ")" : mk ? "Swap it in the '" + svgIconFor('🏪') + "' market" : "Nothing affordable to spend it on") + "</small></div>";
     if (tr) h += '<button class="btn small ghost" data-sink-train="' + tr.key + '">Train</button>';
   }
   return h + "</div>";
@@ -28809,7 +28809,7 @@ function jobPanel(job, which) {
   var h = '<div class="qitem"><span class="big">' + job.icon + "</span>";
   h += '<div class="qbody"><b>' + job.label + " " + job.name + (job.level ? " → Level " + job.level : "") + "</b>";
   h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
-  h += "<small>' + svgIconFor('🔬') + ' " + fmt(job.leftMs) + " left</small></div>";
+  h += "<small>'" + svgIconFor('🔬') + "' " + fmt(job.leftMs) + " left</small></div>";
   h += cancelBtn(job, 'data-cancel-job="' + which + '"') + "</div>";
   return h;
 }
@@ -29140,7 +29140,7 @@ function farmSheet(d) {
   var groupColony = null;
   var h = '<div class="sheet-head t-war"><span class="hi">📋</span><div><h3>Farm lists</h3><small>All colonies</small></div></div>';
   h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with the list button on the map</small><button class="btn small" data-farm-new="1">' + icon("plus") + ' New list</button><button class="btn small" data-farm-start-all="1"' + (farmSending || !lists.some(function(l){return farmPlan(l,false).entries.length;}) ? ' disabled' : '') + '>' + icon("send") + ' Start all</button></div>';
-  h += '<button class="fl-quiet' + (farmStats.quiet ? " on" : "") + '" data-farm-quiet="1"><span>' + (farmStats.quiet ? "' + svgIconFor('🔕') + '" : "' + svgIconFor('🔔') + '") + '</span><span><b>Only report raids with losses</b><small>' + (farmStats.quiet ? "On: farm raids where nobody died make no report" : "Off: every farm raid makes a report") + '</small></span><i class="fl-switch"></i></button>';
+  h += '<button class="fl-quiet' + (farmStats.quiet ? " on" : "") + '" data-farm-quiet="1"><span>' + (farmStats.quiet ? "'" + svgIconFor('🔕') + "'" : "' + svgIconFor('🔔') + '") + '</span><span><b>Only report raids with losses</b><small>' + (farmStats.quiet ? "On: farm raids where nobody died make no report" : "Off: every farm raid makes a report") + '</small></span><i class="fl-switch"></i></button>';
   h += farmReviewHtml(d);
   if (!lists.length) return h + '<p class="empty"><b>📋</b>No farm lists yet. Tap a camp or colony on the map and press 📋 to create your first list.</p>';
   var fighters = d.units.filter(function (u) { return u.known && !u.scout && !u.settler; });
@@ -29180,7 +29180,7 @@ function farmSheet(d) {
       var busy = farmBusy(l, e);
       var isSel = farmSelection[l.id + ":" + e.id];
       h += '<div class="fl-row' + (e.on ? "" : " off") + (isSel ? " on-row" : "") + '"><button class="fl-on' + (isSel ? " ticked" : "") + '" data-farm-toggle="' + l.id + ":" + e.id + '" title="Select target">' + (isSel ? "☑️" : "⬜") + "</button>";
-      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · ' + svgIconFor('🐪') + ' " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /⚠️/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
+      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · '" + svgIconFor('🐪') + "' " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /⚠️/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
       if (manual && listed.length > 1) {
         h += '<span class="fl-move"><button data-farm-move="' + l.id + ":" + e.id + ':-1"' + (idx === 0 ? " disabled" : "") + ' title="Move up">▲</button><button data-farm-move="' + l.id + ":" + e.id + ':1"' + (idx === listed.length - 1 ? " disabled" : "") + ' title="Move down">▼</button></span>';
       }
@@ -29225,7 +29225,7 @@ function renderTroops(d) {
   h += "</div>";
   var tHome = 0, tAway = 0, tTrain = 0;
   d.units.forEach(function (u) { if (!u.scout && !u.settler) { tHome += u.home; tAway += u.away; tTrain += u.inTraining; } });
-  if (tAway || tTrain) h += '<p class="armyline">' + icon("home") + ' <b>' + shortNum(tHome) + "</b> home" + (tAway ? " · ' + svgIconFor('🚶') + ' <b>" + shortNum(tAway) + "</b> away" : "") + (tTrain ? " · ⏳ <b>" + shortNum(tTrain) + "</b> training" : "") + "</p>";
+  if (tAway || tTrain) h += '<p class="armyline">' + icon("home") + ' <b>' + shortNum(tHome) + "</b> home" + (tAway ? " · '" + svgIconFor('🚶') + "' <b>" + shortNum(tAway) + "</b> away" : "") + (tTrain ? " · ⏳ <b>" + shortNum(tTrain) + "</b> training" : "") + "</p>";
   var wn = d.hospital.wounded.reduce(function (n, u) { return n + u.count; }, 0);
   if (wn) {
     var hosp = d.buildings.filter(function (b) { return b.type === "hospital"; })[0];
@@ -29311,7 +29311,7 @@ function needChips(d, type) {
   if (!o || !o.needs || !o.needs.length) return "";
   var h = '<div class="needs center">';
   o.needs.forEach(function (n) {
-    h += '<span class="need' + (n.ok ? " ok" : "") + '">' + (n.ok ? icon("check") : "' + svgIconFor('🔒') + '") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
+    h += '<span class="need' + (n.ok ? " ok" : "") + '">' + (n.ok ? icon("check") : "'" + svgIconFor('🔒') + "'") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
   });
   return h + "</div>";
 }
@@ -29351,7 +29351,7 @@ function trainPanel(d, which) {
     h += '<div class="qitem"><span class="big">' + t.icon + "</span>";
     h += '<div class="qbody"><b>' + t.remaining + "× " + t.name + "</b>";
     h += '<div class="meter green"><i style="width:' + pct + '%"></i></div>';
-    h += "<small>" + (t.active ? "Next in " + fmt(t.nextMs) + " · this order done in " + fmt(t.totalMs) : "' + svgIconFor('💤') + ' Waiting · takes " + fmt(t.totalMs)) + " · ready at " + clockText(t.readyAt) + "</small></div>";
+    h += "<small>" + (t.active ? "Next in " + fmt(t.nextMs) + " · this order done in " + fmt(t.totalMs) : "'" + svgIconFor('💤') + "' Waiting · takes " + fmt(t.totalMs)) + " · ready at " + clockText(t.readyAt) + "</small></div>";
     if (t.canCancel) h += cancelBtn(t, 'data-cancel-train="' + which + '"');
     h += "</div>";
   });
@@ -29367,7 +29367,7 @@ function trainPanel(d, which) {
     if (u.settler) {
       var ss = d.settlerSlots;
       h += '<p class="slots">' + svgIconFor('👷') + ' Settler slots: <b>' + ss.used + " / " + ss.max + "</b>" + (ss.nextHub ? " · +" + ss.nextCount + " at " + d.hub.name + " Lv " + ss.nextHub : " (max)");
-      if (ss.used) h += "<br><small>" + (ss.founded ? "' + svgIconFor('🔒') + ' " + ss.founded + " founded a colony (locked for good)" : "") + (ss.founded && ss.alive ? " · " : "") + (ss.alive ? u.icon + " " + ss.alive + " alive (their slots only free up if they die)" : "") + "</small>";
+      if (ss.used) h += "<br><small>" + (ss.founded ? "'" + svgIconFor('🔒') + "' " + ss.founded + " founded a colony (locked for good)" : "") + (ss.founded && ss.alive ? " · " : "") + (ss.alive ? u.icon + " " + ss.alive + " alive (their slots only free up if they die)" : "") + "</small>";
       h += "</p>";
     }
     h += statLine(u);
@@ -29412,13 +29412,13 @@ function researchPanel(d) {
     if (u.needsLab === 0 || u.known) return; // basic and researched units need nothing
     var ws = d.workshops[u.building];
     h += '<div class="unit">';
-    h += unitHead(u, u.known ? "' + svgIconFor('✅') + ' Researched" : "Needs " + d.lab.name + " Lv " + u.needsLab + " · " + ws.name + " Lv " + u.needsLevel);
+    h += unitHead(u, u.known ? "'" + svgIconFor('✅') + "' Researched" : "Needs " + d.lab.name + " Lv " + u.needsLab + " · " + ws.name + " Lv " + u.needsLevel);
     h += statLine(u);
     if (u.known) {
       h += '<div class="donemsg">' + svgIconFor('✅') + ' Ready to train</div>';
     } else if (u.research) {
       h += costChips(u.research.cost, d.res, u.research.ms);
-      h += '<button class="btn" data-research="' + u.key + '"' + (u.research.can ? "" : " disabled") + ">' + svgIconFor('🔬') + ' Research</button>";
+      h += '<button class="btn" data-research="' + u.key + '"' + (u.research.can ? "" : " disabled") + ">'" + svgIconFor('🔬') + "' Research</button>";
       if (u.research.reason) h += '<p class="reason">' + reasonText(u.research.reason, u.research.cost, d) + "</p>";
     }
     h += "</div>";
@@ -29445,7 +29445,7 @@ function weaponryPanel(d) {
       h += '<div class="donemsg">⭐ Fully upgraded!</div>';
     } else {
       var f = 1 + (w.bonus / 100) * u.nextUpgrade.level;
-      h += '<p class="stat">Level ' + u.nextUpgrade.level + ": ⚔️ " + Math.round(u.atk * f) + " · 🛡️ " + Math.round(u.defG * f) + " · ' + svgIconFor('🎯') + ' " + Math.round(u.defA * f) + "</p>";
+      h += '<p class="stat">Level ' + u.nextUpgrade.level + ": ⚔️ " + Math.round(u.atk * f) + " · 🛡️ " + Math.round(u.defG * f) + " · '" + svgIconFor('🎯') + "' " + Math.round(u.defA * f) + "</p>";
       h += costChips(u.nextUpgrade.cost, d.res, u.nextUpgrade.ms);
       h += '<button class="btn" data-upgrade-unit="' + u.key + '"' + (u.nextUpgrade.can ? "" : " disabled") + ">⚒️ Upgrade to Level " + u.nextUpgrade.level + "</button>";
       if (u.nextUpgrade.reason) h += '<p class="reason">' + reasonText(u.nextUpgrade.reason, u.nextUpgrade.cost, d) + "</p>";
@@ -29537,10 +29537,10 @@ function renderRanking() {
     h += "<div><b>" + me.points + "</b><small>🏛️ points</small></div>";
     h += "<div><b>" + me.atk + "</b><small>⚔️ defeated</small></div>";
     h += "<div><b>" + me.def + "</b><small>🛡️ stopped</small></div>";
-    h += "<div><b>" + me.npc + "</b><small>' + svgIconFor('🦂') + ' monsters</small></div>";
-    h += "<div><b>" + me.loot + "</b><small>' + svgIconFor('💰') + ' looted</small></div>";
-    h += "<div><b>" + me.wins + " / " + me.battles + "</b><small>' + svgIconFor('🏆') + ' " + trStr("battles won") + "</small></div>";
-    h += "<div><b>" + me.crown + "</b><small>' + svgIconFor('👑') + ' " + trStr("min. as ruler") + "</small></div>";
+    h += "<div><b>" + me.npc + "</b><small>'" + svgIconFor('🦂') + "' monsters</small></div>";
+    h += "<div><b>" + me.loot + "</b><small>'" + svgIconFor('💰') + "' looted</small></div>";
+    h += "<div><b>" + me.wins + " / " + me.battles + "</b><small>'" + svgIconFor('🏆') + "' " + trStr("battles won") + "</small></div>";
+    h += "<div><b>" + me.crown + "</b><small>'" + svgIconFor('👑') + "' " + trStr("min. as ruler") + "</small></div>";
     h += "</div></section>";
   }
 
@@ -29556,7 +29556,7 @@ function renderRanking() {
   list.slice(0, 50).forEach(function (p, i) {
     var medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1;
     h += '<tr class="' + (p.me ? "me" : "") + '"><td class="pos">' + medal + "</td>";
-    h += "<td><b>" + p.tribeIcon + " " + playerLink(p.player, p.tag) + (p.king ? " ' + svgIconFor('👑') + '" : "") + "</b><small>" + esc(p.colony) + " (" + p.x + "|" + p.y + ")</small></td>";
+    h += "<td><b>" + p.tribeIcon + " " + playerLink(p.player, p.tag) + (p.king ? " '" + svgIconFor('👑') + "'" : "") + "</b><small>" + esc(p.colony) + " (" + p.x + "|" + p.y + ")</small></td>";
     h += '<td class="n">' + p[key] + (p.me ? "" : ' <button class="mini" data-write="' + esc(p.player) + '" title="Send a message">✉️</button>') + "</td></tr>";
   });
   h += "</table>";
@@ -29585,7 +29585,7 @@ function buildHelpPanel(M) {
     h += '<div class="stayrow"><div><b>' + r.icon + " " + esc(r.name) + " → Lv " + r.level + "</b><small>" + esc(r.owner) + " · " + esc(r.colonyName) + " · " + (r.running ? fmt(r.leftMs) + " left" : "waiting") + " · −" + r.allyPct + "/" + r.maxPct + "%</small></div>";
     if (r.mine) h += '<small class="muted">yours</small>';
     else if (r.helped) h += '<small class="muted">' + svgIconFor('✅') + ' helped</small>';
-    else h += '<button class="btn small" data-build-help="' + r.colony + '"' + (r.left > 0 ? "" : " disabled") + ">' + svgIconFor('🤝') + ' −" + B.per + "%" + (r.left > 0 ? "" : " ' + svgIconFor('✓') + '") + "</button>";
+    else h += '<button class="btn small" data-build-help="' + r.colony + '"' + (r.left > 0 ? "" : " disabled") + ">'" + svgIconFor('🤝') + "' −" + B.per + "%" + (r.left > 0 ? "" : "" + svgIconFor('✓') + "+ '") + "</button>";
     h += "</div>";
   });
   return h + "</section>";
@@ -29612,7 +29612,7 @@ function allyTeamwork(M, lead) {
     h += '<div class="aproj' + (p.level ? " on" : "") + (sel ? " sel" : "") + '"><div class="ap-top"><span class="ap-i">' + p.icon + '</span><div class="ap-b"><b>' + p.name + ' <span class="ap-stars" title="Level ' + p.level + " of " + p.max + '">' + stars + "</span></b>";
     h += maxed ? '<small class="ap-run">⭐ Max level · ' + p.now + "</small>" : "<small>" + (p.level ? "Now " + p.now + "<br>" : "") + 'Next level: <span class="ap-nx">' + p.next + "</span> · " + pct + "%</small>";
     h += "</div>";
-    if (!maxed) h += '<button class="btn small' + (sel ? "" : " ghost") + '" data-ally-psel="' + p.key + '">' + (sel ? "Close" : "' + svgIconFor('🎁') + ' Give") + "</button>";
+    if (!maxed) h += '<button class="btn small' + (sel ? "" : " ghost") + '" data-ally-psel="' + p.key + '">' + (sel ? "Close" : "'" + svgIconFor('🎁') + "' Give") + "</button>";
     h += "</div>";
     if (!maxed) {
       h += '<div class="ap-bar"><i style="width:' + pct + '%"></i></div><div class="ap-res">';
@@ -29657,7 +29657,7 @@ function allyTeamwork(M, lead) {
     h += '<div class="jp-land"><small>' + svgIconFor('🛬') + ' Everybody lands</small><b>' + clockText(p.landAt) + '</b><small>' + (landIn > 0 ? "in " + fmt(landIn) : "landed") + "</small></div></div>";
     // who is in
     h += '<div class="jp-who"><span>' + svgIconFor('✋') + ' ' + (p.joined.length ? p.joined.map(function (n) { var nt = (p.notes || []).filter(function (x) { return x.name === n; })[0]; return esc(n) + (nt ? ' <small class="jp-note">“' + esc(nt.note) + "”</small>" : ""); }).join(", ") : "nobody yet") + "</span>";
-    h += '<button class="btn small' + (p.iJoined ? " ghost" : "") + '" data-ally-join="' + p.id + '" data-on="' + (p.iJoined ? 0 : 1) + '">' + (p.iJoined ? "' + svgIconFor('✓') + ' I’m in · leave" : "' + svgIconFor('✋') + ' I’m in") + "</button>";
+    h += '<button class="btn small' + (p.iJoined ? " ghost" : "") + '" data-ally-join="' + p.id + '" data-on="' + (p.iJoined ? 0 : 1) + '">' + (p.iJoined ? "'" + svgIconFor('✓') + "' I’m in · leave" : "' + svgIconFor('✋') + ' I’m in") + "</button>";
     if (p.mine || lead) h += '<button class="btn small ghost" data-ally-unplan="' + p.id + '" title="Delete this plan">🗑️</button>';
     h += "</div>";
     if (p.iJoined) h += '<div class="jp-mynote"><input id="jpnote-' + p.id + '" maxlength="60" placeholder="What you bring, e.g. 2 bombards at :05" value="' + esc(jpNotes[p.id] !== undefined ? jpNotes[p.id] : p.myNote || "") + '"><button class="btn small ghost" data-ally-note="' + p.id + '">' + svgIconFor('💬') + ' Save</button></div>';
@@ -29689,7 +29689,7 @@ function allyTeamwork(M, lead) {
     allyForm.planAt = planLocal(dflt);
   }
   var planOpen = allyForm.planOpen === undefined ? !M.plans.length : allyForm.planOpen;
-  h += '<div class="jp-new"><button class="jp-sum" data-plan-toggle="1">' + (planOpen ? "▾" : "▸") + " ' + svgIconFor('➕') + ' Plan a new joint attack</button>";
+  h += '<div class="jp-new"><button class="jp-sum" data-plan-toggle="1">' + (planOpen ? "▾" : "▸") + " '" + svgIconFor('➕') + "' Plan a new joint attack</button>";
   if (planOpen) {
   h += '<div class="jp-form"><label>Target X<input type="number" data-ally="planX" value="' + esc(allyForm.planX) + '" placeholder="0"></label><label>Target Y<input type="number" data-ally="planY" value="' + esc(allyForm.planY) + '" placeholder="0"></label>';
   if (map.sel) h += '<button class="btn small ghost" data-plan-sel="1">' + svgIconFor('📍') + ' Use map tile (' + map.sel.x + "|" + map.sel.y + ")</button>";
@@ -29890,10 +29890,10 @@ function targetsSheet(d) {
     h += '<div class="disc-list">';
     T.camps.forEach(function (c) {
       var who = c.empty ? "💤 empty" : c.units.map(function (u) { return u.icon + " " + u.count; }).join(" ");
-      h += '<div class="disc-row tg-row"><span class="hi">' + c.icon + '</span><div class="disc-main"><b>' + esc(c.name) + " <small>T" + c.tier + "</small></b><small>" + who + " · ' + svgIconFor('💎') + ' " + shortNum(c.treasure) + " · " + c.dist + " tiles</small></div>";
+      h += '<div class="disc-row tg-row"><span class="hi">' + c.icon + '</span><div class="disc-main"><b>' + esc(c.name) + " <small>T" + c.tier + "</small></b><small>" + who + " · '" + svgIconFor('💎') + "' " + shortNum(c.treasure) + " · " + c.dist + " tiles</small></div>";
       h += (c.empty ? '<span class="tg-est ok">' + svgIconFor('💰') + ' free loot</span>' : estChip(c.est));
       h += '<div class="tg-acts">' + (c.empty ? "" : '<button class="btn small ghost" data-sim-at="' + c.x + "," + c.y + '" title="Simulate">' + svgIconFor('🧮') + '</button><button class="btn small ghost" data-tg="scout,' + c.x + "," + c.y + '" title="Spy">' + svgIconFor('🔍') + '</button>');
-      h += '<button class="btn small" data-tg="' + (c.empty ? "raid" : "attack") + "," + c.x + "," + c.y + '" title="' + (c.empty ? "Raid" : "Attack") + '">' + (c.empty ? "' + svgIconFor('💰') + '" : "⚔️") + "</button></div></div>";
+      h += '<button class="btn small" data-tg="' + (c.empty ? "raid" : "attack") + "," + c.x + "," + c.y + '" title="' + (c.empty ? "Raid" : "Attack") + '">' + (c.empty ? "'" + svgIconFor('💰') + "'" : "⚔️") + "</button></div></div>";
     });
     h += "</div>";
   }
@@ -30070,14 +30070,14 @@ function discoverPanel() {
   if (!D.inAlliance) {
     var lf = lfaForm !== null ? lfaForm : D.lfa.note;
     h += '<section class="panel"><h2>' + svgIconFor('🙋') + ' Looking for an alliance</h2><div class="lfa-box"><input id="lfaNote" maxlength="80" placeholder="A few words, e.g. active evenings, Chicken, near (12|-4)" value="' + esc(lf) + '">';
-    h += '<button class="btn small' + (D.lfa.on ? " ghost" : "") + '" data-lfa="' + (D.lfa.on ? "save" : "on") + '">' + (D.lfa.on ? "' + svgIconFor('💾') + ' Update" : "' + svgIconFor('🙋') + ' Show me as looking") + "</button>" + (D.lfa.on ? '<button class="btn small ghost" data-lfa="off">Stop</button>' : "") + "</div>";
+    h += '<button class="btn small' + (D.lfa.on ? " ghost" : "") + '" data-lfa="' + (D.lfa.on ? "save" : "on") + '">' + (D.lfa.on ? "'" + svgIconFor('💾') + "' Update" : "' + svgIconFor('🙋') + ' Show me as looking") + "</button>" + (D.lfa.on ? '<button class="btn small ghost" data-lfa="off">Stop</button>' : "") + "</div>";
     if (D.lfa.on) h += '<p class="hint left">Alliance leaders see you in their Discover list.</p>';
     h += "</section>";
   }
   if (D.seekers && D.seekers.length) {
     h += '<section class="panel"><h2>' + svgIconFor('🙋') + ' Colonists looking for an alliance</h2><div class="disc-list">';
     D.seekers.forEach(function (n) {
-      h += '<div class="disc-row"><div class="disc-main">' + playerLink(n.name, null) + "<small>" + (n.note ? "“" + esc(n.note) + "” · " : "") + ptsText(n.points) + (n.active ? " · ' + svgIconFor('🟢') + ' active today" : "") + "</small></div>";
+      h += '<div class="disc-row"><div class="disc-main">' + playerLink(n.name, null) + "<small>" + (n.note ? "“" + esc(n.note) + "” · " : "") + ptsText(n.points) + (n.active ? " · '" + svgIconFor('🟢') + "' active today" : "") + "</small></div>";
       h += (n.dist !== null ? '<span class="disc-dist">' + n.dist + " tiles</span>" : "") + (D.staff ? '<button class="btn small" data-ally-invite-name="' + esc(n.name) + '">' + svgIconFor('📨') + ' Invite</button>' : "") + "<button class='btn small ghost' data-write='" + esc(n.name) + "' title='Write a message'>✉️</button></div>";
     });
     h += "</div></section>";
@@ -30087,7 +30087,7 @@ function discoverPanel() {
   else {
     h += '<div class="disc-list">';
     D.neighbours.forEach(function (n) {
-      h += '<div class="disc-row"><div class="disc-main">' + playerLink(n.name, n.tag) + (n.ally ? ' <small class="disc-ally">ally</small>' : "") + "<small>" + esc(n.colony) + " · " + ptsText(n.points) + (n.active ? " · ' + svgIconFor('🟢') + ' active today" : "") + "</small></div>";
+      h += '<div class="disc-row"><div class="disc-main">' + playerLink(n.name, n.tag) + (n.ally ? ' <small class="disc-ally">ally</small>' : "") + "<small>" + esc(n.colony) + " · " + ptsText(n.points) + (n.active ? " · '" + svgIconFor('🟢') + "' active today" : "") + "</small></div>";
       h += '<span class="disc-dist">' + n.dist + " tiles</span><button class='mc-map' data-goto='" + n.x + "," + n.y + "' title='Show on the map'>🗺️</button><button class='btn small ghost' data-write='" + esc(n.name) + "' title='Write a message'>✉️</button></div>";
     });
     h += "</div>";
@@ -30098,13 +30098,13 @@ function discoverPanel() {
     h += D.recruit ? '<p class="hint">Your alliance is listed here. <button class="linkbtn" data-disc-recruit="0">Stop recruiting</button></p>' : '<p class="hint">Leaders and officers can list their alliance here. <button class="linkbtn" data-disc-recruit="1">' + svgIconFor('📣') + ' Start recruiting</button></p>';
   }
   var open = D.alliances.filter(function (a) { return !a.mine; });
-  if (!open.length) h += '<p class="empty">No alliance is recruiting right now.' + (D.inAlliance ? "" : " You can also found your own under ' + svgIconFor('🤝') + ' Alliance.") + "</p>";
+  if (!open.length) h += '<p class="empty">No alliance is recruiting right now.' + (D.inAlliance ? "" : " You can also found your own under '" + svgIconFor('🤝') + "' Alliance.") + "</p>";
   open.forEach(function (a) {
     var full = a.members >= a.max;
     h += '<div class="disc-row"><div class="disc-main"><b><i class="atag">' + esc(a.tag) + "</i>" + esc(a.name) + "</b><small>" + a.members + "/" + a.max + " members · " + ptsText(a.points) + (a.near !== null ? " · nearest member " + a.near + " tiles" : "") + "</small>" + (a.about ? '<small class="disc-about">' + esc(a.about) + "</small>" : "") + "</div>";
     if (D.inAlliance) { /* already in one */ }
     else if (a.asked) h += '<span class="disc-dist">' + svgIconFor('✓') + ' asked</span>';
-    else h += '<button class="btn small" data-disc-ask="' + a.id + '"' + (full ? " disabled" : "") + ">" + (full ? "Full" : "' + svgIconFor('✋') + ' Ask to join") + "</button>";
+    else h += '<button class="btn small" data-disc-ask="' + a.id + '"' + (full ? " disabled" : "") + ">" + (full ? "Full" : "'" + svgIconFor('✋') + "' Ask to join") + "</button>";
     h += "</div>";
   });
   return h + "</section>";
@@ -30169,7 +30169,7 @@ function alliancePanel() {
       h += '<section class="panel threatpanel"><h2>⚠️ Allies under attack</h2>';
       M.threats.forEach(function (t) {
         h += '<div class="stayrow"><div><b>' + esc(t.owner) + "</b> <small>" + esc(t.target) + " (" + t.x + "|" + t.y + ")</small>";
-        h += "<small>" + (t.mission === "raid" ? "' + svgIconFor('💰') + ' raid" : "⚔️ attack") + " from " + esc(t.fromOwner) + " · " + esc(t.from) + "</small></div>";
+        h += "<small>" + (t.mission === "raid" ? "'" + svgIconFor('💰') + "' raid" : "⚔️ attack") + " from " + esc(t.fromOwner) + " · " + esc(t.from) + "</small></div>";
         h += '<b class="tleft">' + fmt(Math.max(0, t.arriveAt - serverNow())) + "</b>";
         h += '<button class="btn small ghost" data-send-support="' + t.x + "," + t.y + '">🛡️ Help</button></div>';
       });
@@ -30181,13 +30181,13 @@ function alliancePanel() {
     // members
     h += '<section class="panel"><h2>' + svgIconFor('👥') + ' Members</h2>';
     M.members.forEach(function (m) {
-      h += '<div class="stayrow"><div><b>' + (m.role === "leader" ? "' + svgIconFor('👑') + ' " : m.role === "officer" ? "⭐ " : "") + playerLink(m.name) + (m.online ? ' <i class="online" title="online">●</i>' : "") + (m.vacation ? ' <span title="On vacation">🏖️</span>' : "") + "</b><small>" + ptsText(m.points) + " · " + m.colonies + (m.colonies === 1 ? " colony" : " colonies") + "</small></div>";
+      h += '<div class="stayrow"><div><b>' + (m.role === "leader" ? "'" + svgIconFor('👑') + "' " : m.role === "officer" ? "⭐ " : "") + playerLink(m.name) + (m.online ? ' <i class="online" title="online">●</i>' : "") + (m.vacation ? ' <span title="On vacation">🏖️</span>' : "") + "</b><small>" + ptsText(m.points) + " · " + m.colonies + (m.colonies === 1 ? " colony" : " colonies") + "</small></div>";
       if (lead && !m.me) {
-        h += '<button class="btn small ghost" data-ally-role="' + esc(m.name) + '" data-role="' + (m.role === "officer" ? "member" : "officer") + '" title="' + (m.role === "officer" ? "Make member" : "Make officer") + '">' + (m.role === "officer" ? "' + svgIconFor('☆') + '" : "⭐") + "</button>";
-        h += '<button class="btn small ghost" data-ally-lead="' + esc(m.name) + '" title="Make leader">' + (armed("lead:" + m.name) ? "Sure? ' + svgIconFor('👑') + '" : "' + svgIconFor('👑') + '") + "</button>";
+        h += '<button class="btn small ghost" data-ally-role="' + esc(m.name) + '" data-role="' + (m.role === "officer" ? "member" : "officer") + '" title="' + (m.role === "officer" ? "Make member" : "Make officer") + '">' + (m.role === "officer" ? "'" + svgIconFor('☆') + "'" : "⭐") + "</button>";
+        h += '<button class="btn small ghost" data-ally-lead="' + esc(m.name) + '" title="Make leader">' + (armed("lead:" + m.name) ? "Sure? '" + svgIconFor('👑') + "'" : "' + svgIconFor('👑') + '") + "</button>";
       }
       if (!m.me && (lead || (staff && m.role === "member"))) {
-        h += '<button class="btn small ' + (armed("kick:" + m.name) ? "danger" : "ghost") + '" data-ally-kick="' + esc(m.name) + '" title="Remove">' + (armed("kick:" + m.name) ? "Sure? ' + svgIconFor('✖') + '" : "' + svgIconFor('✖') + '") + "</button>";
+        h += '<button class="btn small ' + (armed("kick:" + m.name) ? "danger" : "ghost") + '" data-ally-kick="' + esc(m.name) + '" title="Remove">' + (armed("kick:" + m.name) ? "Sure? '" + svgIconFor('✖') + "'" : "' + svgIconFor('✖') + '") + "</button>";
       }
       h += "</div>";
     });
@@ -30205,7 +30205,7 @@ function alliancePanel() {
       h += '<div class="post"><b>' + esc(p.by) + "</b> <small>" + ago(M.now - p.at) + "</small><p>" + esc(p.body) + "</p></div>";
     });
     h += "</section>";
-    h += '<p style="text-align:center"><button class="btn small ' + (armed("leave") ? "danger" : "ghost") + '" data-ally-leave="1">' + (armed("leave") ? "⚠️ Tap again to leave" : "' + svgIconFor('🚪') + ' Leave alliance") + "</button></p>";
+    h += '<p style="text-align:center"><button class="btn small ' + (armed("leave") ? "danger" : "ghost") + '" data-ally-leave="1">' + (armed("leave") ? "⚠️ Tap again to leave" : "'" + svgIconFor('🚪') + "' Leave alliance") + "</button></p>";
   }
 
   // all alliances
@@ -30279,7 +30279,7 @@ function profileHtml(p) {
     if (Lg.title) h += '<p class="ptitle">🎖️ ' + esc(Lg.title) + "</p>";
     if (p.me && Lg.titles) {
       h += '<h4 class="sidesub">🎖️ Title <small>shown with your name and commander</small>' + helpBtn("seasons:legacy", "About medals and titles") + '</h4><div class="orders">';
-      Lg.titles.filter(function(t){return t.open;}).forEach(function (t) { h += '<button type="button" class="ord' + (Lg.chosen === t.key ? " on" : "") + '"' + (t.open ? ' data-legacy-title="' + t.key + '"' : " disabled") + '><b>' + (t.open ? "" : "' + svgIconFor('🔒') + ' ") + esc(t.name) + "</b><small>" + esc(t.how) + "</small></button>"; });
+      Lg.titles.filter(function(t){return t.open;}).forEach(function (t) { h += '<button type="button" class="ord' + (Lg.chosen === t.key ? " on" : "") + '"' + (t.open ? ' data-legacy-title="' + t.key + '"' : " disabled") + '><b>' + (t.open ? "" : "'" + svgIconFor('🔒') + "' ") + esc(t.name) + "</b><small>" + esc(t.how) + "</small></button>"; });
       h += "</div>";
     }
   }
@@ -30308,11 +30308,11 @@ function profileHtml(p) {
   // stats
   var s = p.stats;
   h += '<h4 class="sidesub">' + svgIconFor('📊') + ' Stats</h4><div class="statgrid">';
-  h += "<div><b>" + s.wins + " / " + s.battles + "</b><small>' + svgIconFor('🏆') + ' " + trStr("battles won") + "</small></div>";
+  h += "<div><b>" + s.wins + " / " + s.battles + "</b><small>'" + svgIconFor('🏆') + "' " + trStr("battles won") + "</small></div>";
   h += "<div><b>" + s.atk + "</b><small>⚔️ defeated</small></div>";
   h += "<div><b>" + s.def + "</b><small>🛡️ stopped</small></div>";
-  h += "<div><b>" + s.npc + "</b><small>' + svgIconFor('🦂') + ' monsters</small></div>";
-  h += "<div><b>" + s.loot + "</b><small>' + svgIconFor('💰') + ' looted</small></div>";
+  h += "<div><b>" + s.npc + "</b><small>'" + svgIconFor('🦂') + "' monsters</small></div>";
+  h += "<div><b>" + s.loot + "</b><small>'" + svgIconFor('💰') + "' looted</small></div>";
   h += "</div>";
 
   // colonies
@@ -30434,11 +30434,11 @@ function renderColoniesPanel(d) {
   var t = d.terra;
   h += '<div class="terrabox">';
   if (c.needed === null) {
-    h += "<b>' + svgIconFor('🌱') + ' Terra " + c.terra + "</b><small>You rule the most colonies one player can handle. Respect!</small>";
+    h += "<b>'" + svgIconFor('🌱') + "' Terra " + c.terra + "</b><small>You rule the most colonies one player can handle. Respect!</small>";
   } else {
     var pct = Math.min(100, Math.round((c.terra / c.needed) * 100));
     var ready = c.terra >= c.needed;
-    h += "<b>' + svgIconFor('🌱') + ' Terra " + c.terra + " / " + c.needed + "</b>";
+    h += "<b>'" + svgIconFor('🌱') + "' Terra " + c.terra + " / " + c.needed + "</b>";
     h += '<div class="meter ' + (ready ? "green" : "terrabar") + '"><i style="width:' + pct + '%"></i></div>';
     if (ready) {
       h += "<small>🏳️ Mars is ready for colony #" + (c.count + 1) + "! Train " + c.settlersNeeded + " " + esc(tribeUnitName(d,"settler")) + " units in " + esc(d.workshops.barracks.name) + " (requires " + esc(d.hub.name) + " Lv " + 5 + "). Send them to free land.</small>";
@@ -30485,7 +30485,7 @@ function unitTable(units, showLost) {
   units.forEach(function (u) {
     h += '<span class="un">' + u.icon + " " + u.name + '</span><span class="uc">' + u.count + "</span>";
     if (showLost) {
-      h += '<span class="ul' + (u.lost ? " dead" : "") + '">' + (u.lost ? "' + svgIconFor('💀') + ' " + u.lost : "–") + "</span>";
+      h += '<span class="ul' + (u.lost ? " dead" : "") + '">' + (u.lost ? "'" + svgIconFor('💀') + "' " + u.lost : "–") + "</span>";
       h += '<span class="uleft">' + (u.count - u.lost) + "</span>";
     }
   });
@@ -30594,7 +30594,7 @@ function battleTable(d) {
     h += '<td class="tot ' + (t ? r[3] : "nil") + '">' + (t ? (r[3] === "neg" ? "−" : r[3] === "pos" ? "+" : "") + t : "–") + "</td></tr>";
   });
   h += "</tbody></table></div>";
-  if (d.side === "defender" && d.loot && d.hidden) h += '<p class="rtab-note">' + trf("' + svgIconFor('🔒') + ' Your bunker hid {0} of each resource.", d.hidden) + "</p>";
+  if (d.side === "defender" && d.loot && d.hidden) h += '<p class="rtab-note">' + trf("'" + svgIconFor('🔒') + "' Your bunker hid {0} of each resource.", d.hidden) + "</p>";
   return h;
 }
 
@@ -30651,7 +30651,7 @@ function renderReportBody(r) {
   if (d.mission === "scout" && d.zone) {
     h += '<div class="side"><h4>' + svgIconFor('🚩') + ' Landing Zone</h4>';
     if (d.intel.holder) {
-      h += "<p>' + svgIconFor('👑') + ' Held by <b>" + esc(d.intel.holder.player) + "</b> (" + esc(d.intel.holder.colony) + ") since " + clockText(d.intel.holder.since) + "</p>";
+      h += "<p>'" + svgIconFor('👑') + "' Held by <b>" + esc(d.intel.holder.player) + "</b> (" + esc(d.intel.holder.colony) + ") since " + clockText(d.intel.holder.since) + "</p>";
       h += unitTable(d.intel.garrison, false);
     } else {
       h += "<p>Nobody holds it. Only these guards:</p>" + unitTable(d.intel.robots, false);
@@ -30660,16 +30660,16 @@ function renderReportBody(r) {
   } else if (d.mission === "scout" && d.camp) {
     h += '<div class="side"><h4>⛰️ Monsters at ' + placeLink(d.defender) + " (" + d.defender.x + "|" + d.defender.y + ")</h4>";
     h += d.intel.monsters.length ? unitTable(d.intel.monsters, false) : '<p class="empty">Nobody home. The camp is empty!</p>';
-    if (d.intel.defG !== undefined) h += "<p>🛡️ Infantry defense <b>" + d.intel.defG + "</b> · ' + svgIconFor('🎯') + ' Air defense <b>" + d.intel.defA + "</b></p>";
-    h += "<p>' + svgIconFor('💎') + ' Treasure: " + resLine(d.intel.treasure) + "</p>" + (d.intel.fullAt ? "<p>' + svgIconFor('🌱') + ' Monsters full again at " + clockText(d.intel.fullAt) + "</p>" : "") + "</div>";
+    if (d.intel.defG !== undefined) h += "<p>🛡️ Infantry defense <b>" + d.intel.defG + "</b> · '" + svgIconFor('🎯') + "' Air defense <b>" + d.intel.defA + "</b></p>";
+    h += "<p>'" + svgIconFor('💎') + "' Treasure: " + resLine(d.intel.treasure) + "</p>" + (d.intel.fullAt ? "<p" + svgIconFor('🌱') + "+ ' Monsters full again at " + clockText(d.intel.fullAt) + "</p>" : "") + "</div>";
   } else if (d.mission === "meteor") {
     var mg = d.loot ? sumRes(d.loot) : 0;
-    h += '<div class="rout">' + (mg ? '<span class="win">' + (d.drain ? "' + svgIconFor('🔌') + '" : "☄️") + " +" + mg + (d.carry ? " / " + d.carry : "") + "</span>" : "<span>' + svgIconFor('💨') + ' Nothing left</span>") + "</div>";
+    h += '<div class="rout">' + (mg ? '<span class="win">' + (d.drain ? "'" + svgIconFor('🔌') + "'" : "☄️") + " +" + mg + (d.carry ? " / " + d.carry : "") + "</span>" : "<span" + svgIconFor('💨') + "+ ' Nothing left</span>") + "</div>";
     if (d.loot) h += '<div class="rloot">' + resLine(d.loot) + "</div>";
   } else if (d.mission === "aurora") {
     if (d.goods) {
-      h += "<p>' + svgIconFor('🐪') + ' From " + placeLink(d.attacker) + " to " + placeLink(d.defender) + "</p>";
-      h += '<div class="side"><h4>' + svgIconFor('📦') + ' Goods</h4>' + resLine(d.goods) + "<br><small>' + svgIconFor('⚡') + ' Charged: <b>" + (d.used || 0) + "</b>" + (d.used < sumRes(d.goods) ? " · unused cargo returns with merchants" : "") + "</small></div>";
+      h += "<p>'" + svgIconFor('🐪') + "' From " + placeLink(d.attacker) + " to " + placeLink(d.defender) + "</p>";
+      h += '<div class="side"><h4>' + svgIconFor('📦') + ' Goods</h4>' + resLine(d.goods) + "<br><small>'" + svgIconFor('⚡') + "' Charged: <b>" + (d.used || 0) + "</b>" + (d.used < sumRes(d.goods) ? " · unused cargo returns with merchants" : "") + "</small></div>";
     }
   } else if (d.mission === "insurance") {
     h += '<div class="side ins-letter"><h4>' + svgIconFor('🧾') + ' Mars Mutual Insurance · claim ' + d.n + " of " + d.of + "</h4><p>" + esc(d.letter) + "</p><p><small>" + trf("Raid by {0} at {1}. We cover 30% of what was taken, twice per colonist.", esc(d.by || "?"), clockText(d.at)) + "</small></p></div>";
@@ -30679,34 +30679,34 @@ function renderReportBody(r) {
   } else if (d.mission === "trapped") {
     h += '<div class="side"><h4>🪤 Caught at ' + placeLink(d.defender) + "</h4>" + d.trapped.map(function (u) { return u.icon + " " + u.count + " " + esc(u.name); }).join("<br>") + "</div>";
   } else if (d.mission === "takeover") {
-    h += '<div class="side"><h4>' + (d.side === "attacker" ? "' + svgIconFor('🎩') + ' " : "' + svgIconFor('🏴') + ' ") + placeLink(d.defender) + "</h4>" + (d.side === "attacker" ? "It is your colony now. Its troops and jobs are gone; the buildings stayed." : trf("Taken over by {0}.", esc(d.by))) + "</div>";
+    h += '<div class="side"><h4>' + (d.side === "attacker" ? "'" + svgIconFor('🎩') + "' " : "' + svgIconFor('🏴') + ' ") + placeLink(d.defender) + "</h4>" + (d.side === "attacker" ? "It is your colony now. Its troops and jobs are gone; the buildings stayed." : trf("Taken over by {0}.", esc(d.by))) + "</div>";
   } else if (d.mission === "razed") {
-    h += '<div class="side"><h4>' + (d.side === "attacker" ? "' + svgIconFor('💥') + ' " : "🏚️ ") + esc(d.defender.name) + " (" + d.defender.x + "|" + d.defender.y + ")</h4>" + (d.side === "attacker" ? "Bombed down to 0 points and wiped off the map. The land is free again." : trf("Bombed down to 0 points by {0}. The colony and everything in it is gone.", esc(d.by))) + "</div>";
+    h += '<div class="side"><h4>' + (d.side === "attacker" ? "'" + svgIconFor('💥') + "' " : "🏚️ ") + esc(d.defender.name) + " (" + d.defender.x + "|" + d.defender.y + ")</h4>" + (d.side === "attacker" ? "Bombed down to 0 points and wiped off the map. The land is free again." : trf("Bombed down to 0 points by {0}. The colony and everything in it is gone.", esc(d.by))) + "</div>";
   } else if (d.mission === "adventure") {
     if(d.consumable)h+='<p>'+esc(d.consumable.icon)+' '+esc(d.consumable.name)+' ×'+d.consumable.count+' · Commander inventory</p>';
-    h += '<div class="side"><h4>🎖️ ' + esc(d.name) + "</h4>+" + d.xp + " xp" + (d.levelUp ? " · ⬆️ level " + d.levelUp : "") + (d.hp ? " · ❤️ −" + d.hp : "") + (d.res ? "<br>' + svgIconFor('📦') + ' " + resLine(d.res) : "") + (d.found ? '<br><span class="rar t' + (d.found.tier || 1) + '">' + d.found.icon + " " + (d.found.tier ? RARITY[d.found.tier - 1] + " " : "") + esc(d.found.name) + "</span>" : "") + (d.bagFull ? "<br><small>' + svgIconFor('🎒') + ' Inventory full: " + d.bagFull.icon + " " + esc(d.bagFull.name) + " was left behind</small>" : "") + "</div>";
+    h += '<div class="side"><h4>🎖️ ' + esc(d.name) + "</h4>+" + d.xp + " xp" + (d.levelUp ? " · ⬆️ level " + d.levelUp : "") + (d.hp ? " · ❤️ −" + d.hp : "") + (d.res ? "<br>'" + svgIconFor('📦') + "' " + resLine(d.res) : "") + (d.found ? '<br><span class="rar t' + (d.found.tier || 1) + '">' + d.found.icon + " " + (d.found.tier ? RARITY[d.found.tier - 1] + " " : "") + esc(d.found.name) + "</span>" : "") + (d.bagFull ? "<br><small" + svgIconFor('🎒') + "+ ' Inventory full: " + d.bagFull.icon + " " + esc(d.bagFull.name) + " was left behind</small>" : "") + "</div>";
   } else if (d.mission === "offer") {
-    h += '<div class="side"><h4>' + trf("' + svgIconFor('🤝') + ' {0} took your offer", esc(d.by)) + "</h4>" + RES_ICON[d.giveRes] + " " + d.giveAmt + " → " + RES_ICON[d.wantRes] + " " + d.wantAmt + "<br><small>Both loads are on the way.</small></div>";
+    h += '<div class="side"><h4>' + trf("'" + svgIconFor('🤝') + "' {0} took your offer", esc(d.by)) + "</h4>" + RES_ICON[d.giveRes] + " " + d.giveAmt + " → " + RES_ICON[d.wantRes] + " " + d.wantAmt + "<br><small>Both loads are on the way.</small></div>";
   } else if (d.mission === "trade") {
-    h += "<p>' + svgIconFor('🐪') + ' From " + placeLink(d.attacker) + " to " + placeLink(d.defender) + "</p>";
+    h += "<p>'" + svgIconFor('🐪') + "' From " + placeLink(d.attacker) + " to " + placeLink(d.defender) + "</p>";
     h += '<div class="side"><h4>' + svgIconFor('📦') + ' Goods</h4>' + resLine(d.goods);
     if (d.side === "receiver" || sumRes(d.got) < sumRes(d.goods)) h += "<br><small>Arrived in storage: " + resLine(d.got) + "</small>";
     h += "</div>";
   } else if (d.mission === "counterspy") {
-    h += '<div class="summary"><span class="' + (d.success ? "loss" : "win") + '">' + (d.success ? "' + svgIconFor('😬') + ' Some spies escaped with your secrets" : "🪤 All enemy spies caught!") + "</span></div>";
+    h += '<div class="summary"><span class="' + (d.success ? "loss" : "win") + '">' + (d.success ? "'" + svgIconFor('😬') + "' Some spies escaped with your secrets" : "🪤 All enemy spies caught!") + "</span></div>";
     h += sideBox(d.attacker.tribeIcon + " Enemy spies from " + placeLink(d.attacker) + " <small>(" + esc(d.attacker.owner) + ")</small>", d.attacker.units);
     h += sideBox("🕵️ Your spies at home", d.defender.units);
     h += '<p class="hint">' + svgIconFor('💡') + ' Spies at home catch enemy spies (you need at least half as many).</p>';
   } else if (d.mission === "scout") {
-    if (d.success) h += '<div class="summary"><span class="' + (d.detected ? "loss" : "win") + '">' + (d.detected ? "' + svgIconFor('👀') + ' Spotted! The target knows you were there" : "' + svgIconFor('🤫') + ' Nobody noticed you") + "</span></div>";
+    if (d.success) h += '<div class="summary"><span class="' + (d.detected ? "loss" : "win") + '">' + (d.detected ? "'" + svgIconFor('👀') + "' Spotted! The target knows you were there" : "' + svgIconFor('🤫') + ' Nobody noticed you") + "</span></div>";
     else h += '<div class="summary"><span class="loss">' + svgIconFor('🙈') + ' All spies caught. No information.</span></div>';
     h += '<div class="side"><h4>' + svgIconFor('🔍') + ' Your spies</h4>' + unitTable(d.attacker.units, true) + "</div>";
     if (d.intel) {
       h += '<div class="side"><h4>' + svgIconFor('📦') + ' Resources at ' + placeLink(d.defender) + "</h4>" + resLine(d.intel.res);
-      h += "<br>" + trf("' + svgIconFor('🧱') + ' Wall Lv {0} · ' + svgIconFor('🔒') + ' Bunker hides {1} each", d.intel.wall, d.intel.bunker);
-      if (d.intel.defG !== undefined) h += "<br>🛡️ Infantry defense <b>" + d.intel.defG + "</b> · ' + svgIconFor('🎯') + ' Air defense <b>" + d.intel.defA + "</b>";
+      h += "<br>" + trf("'" + svgIconFor('🧱') + "' Wall Lv {0} ·" + svgIconFor('🔒') + "+ ' Bunker hides {1} each", d.intel.wall, d.intel.bunker);
+      if (d.intel.defG !== undefined) h += "<br>🛡️ Infantry defense <b>" + d.intel.defG + "</b> · '" + svgIconFor('🎯') + "' Air defense <b>" + d.intel.defA + "</b>";
       var canTake = RES.reduce(function (n, k) { return n + Math.max(0, d.intel.res[k] - d.intel.bunker); }, 0);
-      h += "<br>' + svgIconFor('💰') + ' Up for grabs: <b>" + canTake + "</b> resources</div>";
+      h += "<br>'" + svgIconFor('💰') + "' Up for grabs: <b>" + canTake + "</b> resources</div>";
       if (d.intel.troops) {
         h += '<div class="side"><h4>' + svgIconFor('🏠') + ' Troops at home</h4>' + unitTable(d.intel.troops, false) + "</div>";
         (d.intel.support || []).forEach(function (sp) {
@@ -30715,7 +30715,7 @@ function renderReportBody(r) {
       }
       if (d.probed && d.side !== "defender") h += '<p class="hint left">' + svgIconFor('🛸') + ' Probed: your next attack on this colony within 6 hours gets +10% attack.</p>';
       if (d.intel.incoming) {
-        h += '<div class="side"><h4>' + svgIconFor('🧭') + ' Armies on their way there</h4>' + (d.intel.incoming.length ? d.intel.incoming.map(function (x) { return "<span>" + (x.mission === "reinforce" ? "🛡️ support" : x.mission === "raid" ? "' + svgIconFor('💰') + ' raid" : "⚔️ attack") + " · arrives " + clockText(x.at) + "</span>"; }).join("<br>") : "None seen.") + "</div>";
+        h += '<div class="side"><h4>' + svgIconFor('🧭') + ' Armies on their way there</h4>' + (d.intel.incoming.length ? d.intel.incoming.map(function (x) { return "<span>" + (x.mission === "reinforce" ? "🛡️ support" : x.mission === "raid" ? "'" + svgIconFor('💰') + "' raid" : "⚔️ attack") + " · arrives " + clockText(x.at) + "</span>"; }).join("<br>") : "None seen.") + "</div>";
       }
       if (d.intel.buildings) {
         h += '<div class="side"><h4>🏗️ Buildings</h4><div class="intelb">' + d.intel.buildings.map(function (b) { return "<span>" + b.icon + " " + b.name + " <b>" + b.level + "</b></span>"; }).join("") + "</div></div>";
@@ -30723,7 +30723,7 @@ function renderReportBody(r) {
       // what more spies would have seen
       if (d.intel.depth && d.intel.depth < 3) {
         var nd = d.intel.depth === 1 ? d.intel.need.troops : d.intel.need.buildings;
-        h += '<p class="spydepth">' + trf("' + svgIconFor('🔍') + ' Depth {0}/3 · {1} need {2}+ surviving spies and {3}× their spies", d.intel.depth, d.intel.depth === 1 ? trf("troops") : trf("buildings"), nd.power, nd.ratio) + "</p>";
+        h += '<p class="spydepth">' + trf("'" + svgIconFor('🔍') + "' Depth {0}/3 · {1} need {2}+ surviving spies and {3}× their spies", d.intel.depth, d.intel.depth === 1 ? trf("troops") : trf("buildings"), nd.power, nd.ratio) + "</p>";
       }
     }
   } else if (d.mission === "settle") {
@@ -30731,14 +30731,14 @@ function renderReportBody(r) {
     h += '<button class="btn small" data-goto="' + d.defender.x + "," + d.defender.y + '">🗺️ Show on the map</button></div>';
   } else if (d.mission === "reinforce") {
     if (d.defender && d.defender.name === "Landing Zone") {
-      h += "<p>Your troops now guard the ' + svgIconFor('🚩') + ' Landing Zone.</p>";
+      h += "<p>Your troops now guard the '" + svgIconFor('🚩') + "' Landing Zone.</p>";
     } else {
       h += "<p>" + (d.side === "sender" ? trf("Your troops are now helping defend {0} ({1}|{2}).", "<b>" + placeLink(d.defender) + "</b>", d.defender.x, d.defender.y) : trf("{0} ({1}) sent troops to protect you.", "<b>" + placeLink(d.attacker) + "</b>", esc(d.attacker.owner))) + "</p>";
     }
     h += '<div class="side"><h4>🛡️ Reinforcements</h4>' + unitTable(d.units, false) + "</div>";
   } else if (d.mission === "spotted") {
     if (d.attacker && d.attacker.x !== undefined && d.caught !== undefined && d.defender) {
-      h += "<p>" + trf("{0} ({1}|{2}) sent spies. {3}", placeLink(d.attacker), d.attacker.x, d.attacker.y, d.caught ? trf("Your guards caught them all! ' + svgIconFor('🎉') + '") : trf("They got away with some secrets. ' + svgIconFor('😬') + '")) + "</p>";
+      h += "<p>" + trf("{0} ({1}|{2}) sent spies. {3}", placeLink(d.attacker), d.attacker.x, d.attacker.y, d.caught ? trf("Your guards caught them all! '" + svgIconFor('🎉') + "'") : trf("They got away with some secrets." + svgIconFor('😬') + "+ '")) + "</p>";
     }
   } else {
     // ---- a real battle: result first, then both armies side by side ----
@@ -30747,7 +30747,7 @@ function renderReportBody(r) {
     var lootSum = d.loot ? sumRes(d.loot) : 0;
     var bountySum = d.bounty ? sumRes(d.bounty) : d.hero && d.hero.stash ? sumRes(d.hero.stash) : 0;
     var iWon = d.side === "attacker" ? d.attackerWins : !d.attackerWins;
-    h += '<div class="rbanner ' + (iWon ? "win" : "loss") + '"><b>' + (iWon ? "' + svgIconFor('🏆') + ' Victory" : "' + svgIconFor('💀') + ' Defeat") + "</b>";
+    h += '<div class="rbanner ' + (iWon ? "win" : "loss") + '"><b>' + (iWon ? "'" + svgIconFor('🏆') + "' Victory" : "' + svgIconFor('💀') + ' Defeat") + "</b>";
     h += "<small>" + (d.side === "attacker" ? trf("Your attack {0} · enemy defense {1}", d.attack.toLocaleString(), d.defense.toLocaleString()) : trf("Enemy attack {0} · your defense {1}", d.attack.toLocaleString(), d.defense.toLocaleString())) + "</small></div>";
     
 
@@ -30793,29 +30793,29 @@ function renderReportBody(r) {
     if (d.wall) h += '<p>Defense modifiers: +' + d.wall + '% (already included in the defense above).</p>';
     if (d.luck !== undefined) h += '<p>Attacker luck: ' + (d.luck > 0 ? '+' : '') + d.luck + '%.</p>';
     if (d.groundAtk !== undefined) {
-      h += "<p>🪖 Infantry attack <b>" + d.groundAtk + "</b> · ✈️ Air attack <b>" + d.airAtk + "</b> (" + d.airShare + "%)<br>🛡️ Infantry defense <b>" + d.defG + "</b> · ' + svgIconFor('🎯') + ' Air defense <b>" + d.defA + "</b></p>";
+      h += "<p>🪖 Infantry attack <b>" + d.groundAtk + "</b> · ✈️ Air attack <b>" + d.airAtk + "</b> (" + d.airShare + "%)<br>🛡️ Infantry defense <b>" + d.defG + "</b> · '" + svgIconFor('🎯') + "' Air defense <b>" + d.defA + "</b></p>";
     }
-    if (d.combo) h += "<p>' + svgIconFor('🤝') + ' Combined arms +" + d.combo + "%</p>";
+    if (d.combo) h += "<p>'" + svgIconFor('🤝') + "' Combined arms +" + d.combo + "%</p>";
     if (d.power) h += "<p>" + d.power.icon + " " + esc(d.power.name) + " was used in this fight.</p>";
     if (d.phases) h += "<p>" + phaseText(d.phases) + " " + helpBtn("combat:phases", "About the three phases") + "</p>";
     if (d.gag && (d.gag.panic || d.gag.probe || d.gag.coffee)) {
-      if (d.gag.coffee) h += "<p>" + trf("' + svgIconFor('☕') + ' Coffee break: the humans had just held off an attack: +{0}% defense.", d.gag.coffee) + " " + helpBtn("troops:gags", "About the tribe quirks") + "</p>";
-      if (d.gag.probe) h += "<p>" + trf("' + svgIconFor('🛸') + ' Probed: the aliens had studied this colony: +{0}% attack.", d.gag.probe) + " " + helpBtn("troops:gags", "About the tribe quirks") + "</p>";
-      if (d.gag.panic) h += "<p>" + trf("' + svgIconFor('🐔') + ' Headless panic: {0} fallen chickens only ran in circles and come back in an hour.", d.gag.panic) + " " + helpBtn("troops:gags", "About the tribe quirks") + "</p>";
+      if (d.gag.coffee) h += "<p>" + trf("'" + svgIconFor('☕') + "' Coffee break: the humans had just held off an attack: +{0}% defense.", d.gag.coffee) + " " + helpBtn("troops:gags", "About the tribe quirks") + "</p>";
+      if (d.gag.probe) h += "<p>" + trf("'" + svgIconFor('🛸') + "' Probed: the aliens had studied this colony: +{0}% attack.", d.gag.probe) + " " + helpBtn("troops:gags", "About the tribe quirks") + "</p>";
+      if (d.gag.panic) h += "<p>" + trf("'" + svgIconFor('🐔') + "' Headless panic: {0} fallen chickens only ran in circles and come back in an hour.", d.gag.panic) + " " + helpBtn("troops:gags", "About the tribe quirks") + "</p>";
     }
     if (d.orders && (d.orders.order || d.orders.stance)) {
       var O = d.orders, ores = { win: " · the order beat the stance", lose: " · the stance beat the order", even: " · no counter" }[O.result] || "";
-      h += '<p class="rp-orders">' + (O.order ? "' + svgIconFor('📯') + ' Order: " + O.order.icon + " " + esc(O.order.name) : "' + svgIconFor('📯') + ' No order") + (O.stance ? " · 🛡️ Stance: " + O.stance.icon + " " + esc(O.stance.name) : "") + ores + " " + helpBtn("troops:orders", "About orders and stances") + "</p>";
+      h += '<p class="rp-orders">' + (O.order ? "'" + svgIconFor('📯') + "' Order: " + O.order.icon + " " + esc(O.order.name) : "' + svgIconFor('📯') + ' No order") + (O.stance ? " · 🛡️ Stance: " + O.stance.icon + " " + esc(O.stance.name) : "") + ores + " " + helpBtn("troops:orders", "About orders and stances") + "</p>";
     }
-    if (d.wallHit && d.wallHit.to >= d.wallHit.from) h += "<p>' + svgIconFor('🧱') + ' The rams were too weak for the wall.</p>";
-    if (d.bombed && d.bombed.missed) h += "<p>' + svgIconFor('💥') + ' There was nothing of that kind left to aim at, so the bombards picked other targets.</p>";
-    if (d.bombed && d.bombed.to >= d.bombed.from) h += "<p>' + svgIconFor('💥') + ' The bombards were too weak for the " + esc(d.bombed.name) + ".</p>";
-    if (d.bombed && d.bombed.tough) h += "<p>' + svgIconFor('🏰') + ' A bastion made everything " + d.bombed.tough + "% tougher against the bombards.</p>";
-    if (d.envoy && d.envoy.main) h += "<p>' + svgIconFor('🎩') + ' A main colony can’t be taken over.</p>";
-    if (d.envoy && d.envoy.why) h += "<p>' + svgIconFor('🎩') + ' " + esc(d.envoy.why) + "</p>";
+    if (d.wallHit && d.wallHit.to >= d.wallHit.from) h += "<p>'" + svgIconFor('🧱') + "' The rams were too weak for the wall.</p>";
+    if (d.bombed && d.bombed.missed) h += "<p>'" + svgIconFor('💥') + "' There was nothing of that kind left to aim at, so the bombards picked other targets.</p>";
+    if (d.bombed && d.bombed.to >= d.bombed.from) h += "<p>'" + svgIconFor('💥') + "' The bombards were too weak for the " + esc(d.bombed.name) + ".</p>";
+    if (d.bombed && d.bombed.tough) h += "<p>'" + svgIconFor('🏰') + "' A bastion made everything " + d.bombed.tough + "% tougher against the bombards.</p>";
+    if (d.envoy && d.envoy.main) h += "<p>'" + svgIconFor('🎩') + "' A main colony can’t be taken over.</p>";
+    if (d.envoy && d.envoy.why) h += "<p>'" + svgIconFor('🎩') + "' " + esc(d.envoy.why) + "</p>";
     if (d.trapped && d.trapped.length) h += "<p>🪤 Caught in traps: " + d.trapped.map(function (u) { return u.icon + " " + u.count; }).join(" ") + "</p>";
-    if (d.side === "defender" && d.loot && !d.hidden) h += "<p>' + svgIconFor('🔒') + ' A bunker would have hidden some resources.</p>";
-    if (myLoss && sumRes(myLoss)) h += "<p>" + trf("' + svgIconFor('💸') + ' Your losses were worth {0} resources.", sumRes(myLoss)) + "</p>";
+    if (d.side === "defender" && d.loot && !d.hidden) h += "<p>'" + svgIconFor('🔒') + "' A bunker would have hidden some resources.</p>";
+    if (myLoss && sumRes(myLoss)) h += "<p>" + trf("'" + svgIconFor('💸') + "' Your losses were worth {0} resources.", sumRes(myLoss)) + "</p>";
     h += '<p class="flavor">"' + esc(d.flavor) + '"</p></details>';
   }
   return h + "</div>";
@@ -30839,7 +30839,7 @@ function zoneTileInfo(z, dist) {
   h += tipFacts(facts);
   if (z.holder && z.holder.mine && z.garrison && z.garrison.length) h += '<p class="tip-note">🛡️ Your guards: ' + z.garrison.map(function (u) { return u.icon + " " + u.count; }).join(" · ") + "</p>";
   var main = z.holder && z.holder.mine ? '<button class="btn" data-send-zone="reinforce">🛡️ Send more guards</button>' : '<button class="btn danger" data-send-zone="attack">👑 Conquer the flag</button>';
-  h += tipActions(main, [tipBtn('data-send-zone="scout"', "' + svgIconFor('🔍') + '", "Spy"), tipBtn('data-sim-at="0,0"', "' + svgIconFor('🧮') + '", "Simulate")]);
+  h += tipActions(main, [tipBtn('data-send-zone="scout"', "'" + svgIconFor('🔍') + "'", "Spy"), tipBtn('data-sim-at="0,0"', "' + svgIconFor('🧮') + '", "Simulate")]);
   return h;
 }
 
@@ -31138,12 +31138,12 @@ function sendSheet(d) {
     var smix = mixAt(t.x, t.y);
     if (smix) h += mixBox(smix);
     if (fc.needed === null) h += '<p class="reason">You already have the most colonies one player can handle.</p>';
-    else h += '<p class="stat">' + svgIconFor('🌱') + ' Terra <b>' + fc.terra + " / " + fc.needed + "</b>" + (fc.terra >= fc.needed ? " ' + svgIconFor('✅') + '" : " ' + svgIconFor('❌') + ' not enough yet") + "<br>' + svgIconFor('👷') + ' Send exactly <b>" + fc.settlersNeeded + "</b> settlers. They become the new colony.</p>";
+    else h += '<p class="stat">' + svgIconFor('🌱') + ' Terra <b>' + fc.terra + " / " + fc.needed + "</b>" + (fc.terra >= fc.needed ? " '" + svgIconFor('✅') + "'" : "" + svgIconFor('❌') + "+ ' not enough yet") + "<" + svgIconFor('👷') + ") + ' Send exactly <b>" + fc.settlersNeeded + "</b> settlers. They become the new colony.</p>";
   } else if (t.meteor) {
     h = '<div class="sheet-head t-food"><span class="hi">' + (t.info.lander ? "🛸" : "☄️") + "</span><div><h3>" + (t.info.lander ? "Wrecked lander" : "Meteor crate") + "</h3><b>💎 " + t.info.total + " inside · (" + t.x + "|" + t.y + ")</b></div></div>";
   } else if (t.camp) {
     h = '<div class="sheet-head t-war"><span class="hi">⛰️</span><div><h3>' + t.name + "</h3><b>Tier " + t.tier + " monster camp · (" + t.x + "|" + t.y + ")</b></div></div>";
-    h += '<p class="stat">' + (t.units.length ? t.units.map(function (u) { return u.icon + " " + u.count; }).join(" · ") + " · 🛡️ <b>" + t.defG + "</b> · ' + svgIconFor('🎯') + ' <b>" + t.defA + "</b>" : "' + svgIconFor('💤') + ' No monsters") + "<br>' + svgIconFor('💎') + ' Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + t.treasure[k]; }).join(" ") + "</p>";
+    h += '<p class="stat">' + (t.units.length ? t.units.map(function (u) { return u.icon + " " + u.count; }).join(" · ") + " · 🛡️ <b>" + t.defG + "</b> · '" + svgIconFor('🎯') + "' <b>" + t.defA + "</b>" : "' + svgIconFor('💤') + ' No monsters") + "<br" + svgIconFor('💎') + "+ ' Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + t.treasure[k]; }).join(" ") + "</p>";
   } else {
     h = '<div class="sheet-head ' + (sendMission === "reinforce" ? "t-wood" : "t-war") + '"><span class="hi">' + t.home + "</span><div><h3>" + esc(t.name) + "</h3><b>" + esc(t.owner) + " · " + t.tribeIcon + " " + t.tribe + " · (" + t.x + "|" + t.y + ")</b></div></div>";
   }
@@ -31170,16 +31170,16 @@ function sendSheet(d) {
     if (!sendable(u)) return;
     if (u.home === 0 && !sendCount[u.key]) return;
     any = true;
-    h += '<div class="sendrow"><span class="big">' + u.icon + '</span><div class="grow"><b>' + u.name + "</b><small>" + typeIcon(u) + " ⚔️" + u.atkNow + " 🛡️" + u.defGNow + " ' + svgIconFor('🎯') + '" + u.defANow + " ' + svgIconFor('💨') + '" + u.speed + " ' + svgIconFor('🎒') + '" + u.carry + " · home: " + u.home + "</small></div>";
+    h += '<div class="sendrow"><span class="big">' + u.icon + '</span><div class="grow"><b>' + u.name + "</b><small>" + typeIcon(u) + " ⚔️" + u.atkNow + " 🛡️" + u.defGNow + " '" + svgIconFor('🎯') + "'" + u.defANow + "" + svgIconFor('💨') + "+ '" + u.speed + " ' + svgIconFor('🎒') + '" + u.carry + " · home: " + u.home + "</small></div>";
     h += '<input type="number" min="0" max="' + u.home + '" placeholder="0" data-send-count="' + u.key + '" value="' + (sendCount[u.key] || "") + '">';
     h += '<button class="btn small ghost" data-send-all="' + u.key + '">All</button></div>';
   });
   if (!any) {
-    h += '<p class="empty">' + (sendMission === "scout" ? "No "+esc(tribeUnitName(d,"scout"))+" units at home. Train them in "+esc(d.workshops.barracks.name)+" first." : sendMission === "settle" ? "No "+esc(tribeUnitName(d,"settler"))+" units at home. Train them in " + esc(d.workshops.barracks.name) + " (needs " + d.hub.name + " Lv 5)! ' + svgIconFor('👷') + '" : "Nobody is home to send. Train some troops first! ⚔️") + "</p>";
+    h += '<p class="empty">' + (sendMission === "scout" ? "No "+esc(tribeUnitName(d,"scout"))+" units at home. Train them in "+esc(d.workshops.barracks.name)+" first." : sendMission === "settle" ? "No "+esc(tribeUnitName(d,"settler"))+" units at home. Train them in " + esc(d.workshops.barracks.name) + " (needs " + d.hub.name + " Lv 5)! '" + svgIconFor('👷') + "'" : "Nobody is home to send. Train some troops first! ⚔️") + "</p>";
   }
   if (heroCanGo(d, t)) {
     var hb = d.hero.bonus;
-    h += '<button class="herotoggle' + (sendHero ? " on" : "") + '" data-send-hero="1"><span>🎖️</span><span class="grow"><b>' + esc(d.hero.name) + " goes</b><small>⚔️ " + d.hero.points.atk + (hb.atk ? " +" + hb.atk + "%" : "") + " attack · +" + hb.carry + "% carry</small></span><span class='ht-box'>" + (sendHero ? "' + svgIconFor('✓') + '" : "") + "</span></button>";
+    h += '<button class="herotoggle' + (sendHero ? " on" : "") + '" data-send-hero="1"><span>🎖️</span><span class="grow"><b>' + esc(d.hero.name) + " goes</b><small>⚔️ " + d.hero.points.atk + (hb.atk ? " +" + hb.atk + "%" : "") + " attack · +" + hb.carry + "% carry</small></span><span class='ht-box'>" + (sendHero ? "'" + svgIconFor('✓') + "'" : "") + "</span></button>";
     if (sendHero && d.hero.orders) {
       var colonyTarget = !t.mine && !t.zone && !t.landmark && !t.camp && !t.settle && !t.meteor && t.id;
       h += '<div class="orders" role="group" aria-label="Battle order"><span class="ord-l">' + svgIconFor('📯') + ' Order</span>';
@@ -31191,7 +31191,7 @@ function sendSheet(d) {
     }
   }
   var WP = warCanGo(d, t);
-  if (WP) h += '<button class="herotoggle' + (sendPower ? " on" : "") + '" data-send-power="1"><span>' + WP.icon + '</span><span class="grow"><b>' + esc(WP.name) + "</b><small>" + esc(WP.text) + " · " + WP.left + " left today</small></span><span class='ht-box'>" + (sendPower ? "' + svgIconFor('✓') + '" : "") + "</span></button>";
+  if (WP) h += '<button class="herotoggle' + (sendPower ? " on" : "") + '" data-send-power="1"><span>' + WP.icon + '</span><span class="grow"><b>' + esc(WP.name) + "</b><small>" + esc(WP.text) + " · " + WP.left + " left today</small></span><span class='ht-box'>" + (sendPower ? "'" + svgIconFor('✓') + "'" : "") + "</span></button>";
   // Own colony, and the commander isn't already stationed there: offer to
   // restation it there too, right from this screen.
   if (d.hero && t.mine && t.id && t.id !== d.hero.homeId && !t.zone && !t.landmark && !t.settle && !t.meteor && !t.camp) {
@@ -31320,7 +31320,7 @@ function simPlansView() {
   if (!P.list.length) return h + '<p class="empty">No plans yet. Set up a fight and save it to come back to it later.</p>';
   h += '<div class="disc-list">';
   P.list.forEach(function (x) {
-    h += '<div class="disc-row tg-row"><span class="hi">' + (x.mission === "raid" ? "' + svgIconFor('💰') + '" : "⚔️") + '</span><div class="disc-main"><b>' + esc(x.name) + "</b><small>" + (x.target ? esc(x.target) + " " : "") + (x.x !== null ? "(" + x.x + "|" + x.y + ") · " : "") + simTroopText(x.atk.troops || {}) + " · " + shortTime(serverNow() - x.at) + " ago</small></div>";
+    h += '<div class="disc-row tg-row"><span class="hi">' + (x.mission === "raid" ? "'" + svgIconFor('💰') + "'" : "⚔️") + '</span><div class="disc-main"><b>' + esc(x.name) + "</b><small>" + (x.target ? esc(x.target) + " " : "") + (x.x !== null ? "(" + x.x + "|" + x.y + ") · " : "") + simTroopText(x.atk.troops || {}) + " · " + shortTime(serverNow() - x.at) + " ago</small></div>";
     h += '<div class="tg-acts"><button class="btn small ghost" data-sim-plan-del="' + x.id + '" title="Delete">🗑️</button><button class="btn small" data-sim-plan="' + x.id + '">' + svgIconFor('📂') + ' Open</button></div></div>';
   });
   return h + '</div><p class="simfoot">' + P.list.length + " of " + P.max + " plans</p>";
@@ -31361,8 +31361,8 @@ function simCompareView() {
   C.rows.forEach(function (r, i) {
     var R = r.res;
     var verdict = !R ? '<span class="tg-est">…</span>' : R.empty ? '<span class="tg-est">❔</span>' : R.attackerWins ? '<span class="tg-est ok">' + (R.worstWins ? "✅ win" : "⚠️ win, risky") + " · −" + Math.round(R.atkFrac * 100) + "%</span>" : '<span class="tg-est bad">❌ lose</span>';
-    h += '<div class="disc-row tg-row"><span class="hi">' + r.icon + '</span><div class="disc-main"><b>' + esc(r.name) + "</b><small>(" + r.x + "|" + r.y + ")" + (r.dist ? " · " + r.dist + " tiles" : "") + (R && R.attackerWins && R.carry ? " · ' + svgIconFor('🎒') + ' " + shortNum(R.carry) : "") + "</small></div>" + verdict;
-    h += '<div class="tg-acts"><button class="btn small ghost" data-sim-cmp-open="' + i + '" title="Open in the simulator">' + svgIconFor('🧮') + '</button>' + (simCanSendTo() ? '<button class="btn small" data-sim-cmp-send="' + i + '" title="Send this army">' + (sim.mission === "raid" ? "' + svgIconFor('💰') + '" : "⚔️") + "</button>" : "") + "</div></div>";
+    h += '<div class="disc-row tg-row"><span class="hi">' + r.icon + '</span><div class="disc-main"><b>' + esc(r.name) + "</b><small>(" + r.x + "|" + r.y + ")" + (r.dist ? " · " + r.dist + " tiles" : "") + (R && R.attackerWins && R.carry ? " · '" + svgIconFor('🎒') + "' " + shortNum(R.carry) : "") + "</small></div>" + verdict;
+    h += '<div class="tg-acts"><button class="btn small ghost" data-sim-cmp-open="' + i + '" title="Open in the simulator">' + svgIconFor('🧮') + '</button>' + (simCanSendTo() ? '<button class="btn small" data-sim-cmp-send="' + i + '" title="Send this army">' + (sim.mission === "raid" ? "'" + svgIconFor('💰') + "'" : "⚔️") + "</button>" : "") + "</div></div>";
   });
   return h + '</div><div class="simquick"><button class="btn small ghost" data-sim-cmp-again="1">↻ Check again</button></div>';
 }
@@ -31542,9 +31542,9 @@ function simHeroRow(side) {
   if (!H.on) return mine ? '<div class="simtools"><button data-sim-hero="' + side + ':mine">🎖️ ' + esc(mine.name) + '</button><button data-sim-hero="' + side + ':new">🎖️ Other commander</button></div>' : '<div class="simtools"><button data-sim-hero="' + side + ':new">🎖️ Add a commander</button></div>';
   var p = side + ".hero.";
   var h = '<div class="simrow simhero">' + simNum(p + "level", H.level, "🎖️ Lv", M.level, "Commander level");
-  h += simNum(p + "str", H.str || 0, "' + svgIconFor('💪') + ' Str", M.str, "Skill points in Strength (attack and defense)");
-  h += side === "atk" ? simNum(p + "gAtk", H.gAtk, "' + svgIconFor('💎') + ' ⚔️", 99999, "Attack points from gear") + simNum(p + "gAtkPct", H.gAtkPct, "' + svgIconFor('💎') + ' ⚔️%", 30, "Total army attack % from commander gear and tribe path") : simNum(p + "gDef", H.gDef, "' + svgIconFor('💎') + ' 🛡️", 99999, "Defense points from gear") + simNum(p + "gDefPct", H.gDefPct, "' + svgIconFor('💎') + ' 🛡️%", 30, "Total army defense % from commander gear and tribe path");
-  if (side === "atk") h += simNum(p + "mend", H.mend || 0, "' + svgIconFor('🧬') + ' %", 15, "Alien loss reduction; cannot prevent a wipeout");
+  h += simNum(p + "str", H.str || 0, "'" + svgIconFor('💪') + "' Str", M.str, "Skill points in Strength (attack and defense)");
+  h += side === "atk" ? simNum(p + "gAtk", H.gAtk, "'" + svgIconFor('💎') + "' ⚔️", 99999, "Attack points from gear") + simNum(p + "gAtkPct", H.gAtkPct, "' + svgIconFor('💎') + ' ⚔️%", 30, "Total army attack % from commander gear and tribe path") : simNum(p + "gDef", H.gDef, "' + svgIconFor('💎') + ' 🛡️", 99999, "Defense points from gear") + simNum(p + "gDefPct", H.gDefPct, "' + svgIconFor('💎') + ' 🛡️%", 30, "Total army defense % from commander gear and tribe path");
+  if (side === "atk") h += simNum(p + "mend", H.mend || 0, "'" + svgIconFor('🧬') + "' %", 15, "Alien loss reduction; cannot prevent a wipeout");
   h += '<button class="btn small ghost" data-sim-hero="' + side + ':off">' + svgIconFor('✕') + '</button></div>';
   return h;
 }
@@ -31642,7 +31642,7 @@ function simSheet() {
   var D = s.def;
   var h = '<div class="sheet-head t-war"><span class="hi">🧮</span><div><h3>Fight simulator</h3>' + (s.targetName ? "<b>" + esc(s.targetName) + "</b>" : "") + "</div></div>";
   // 🗂️ the planning tabs: this fight, saved plans, compare targets
-  h += '<div class="subtabs simtabs">' + [["fight", "' + svgIconFor('🧮') + '", "This fight"], ["plans", "' + svgIconFor('📂') + '", "Plans" + (simPlans ? " <small>" + simPlans.list.length + "</small>" : "")], ["compare", "' + svgIconFor('📊') + '", "Compare"]].map(function (t) {
+  h += '<div class="subtabs simtabs">' + [["fight", "'" + svgIconFor('🧮') + "'", "This fight"], ["plans", "' + svgIconFor('📂') + '", "Plans" + (simPlans ? " <small>" + simPlans.list.length + "</small>" : "")], ["compare", "' + svgIconFor('📊') + '", "Compare"]].map(function (t) {
     return '<button class="' + (simView === t[0] ? "on" : "") + '" data-sim-view="' + t[0] + '"><span>' + t[1] + "</span>" + t[2] + "</button>";
   }).join("") + "</div>";
   if (simView === "plans") return h + simPlansView();
@@ -31662,7 +31662,7 @@ function simSheet() {
   h += '<div class="simside"><div class="simhead"><b>⚔️ Attacker</b>' + tribeSelect("atk.tribe", s.atk.tribe) + "</div>" + simTools("atk");
   h += simUnits(s.setup.tribes[s.atk.tribe].units, "atk.troops", s.atk.troops, "atk.ups", s.atk.ups);
   h += simHeroRow("atk");
-  h += '<div class="simrow">' + simNum("atk.hospital", s.atk.hospital, "' + svgIconFor('🏥') + ' Hospital", L.hospital, "Hospital level: saves some fallen troops") + simNum("atk.drums", s.atk.drums || 0, "' + svgIconFor('🥁') + ' Drums", L.ally || 5, "Level of the War Drums alliance project: +1.5% attack per level") + "</div>";
+  h += '<div class="simrow">' + simNum("atk.hospital", s.atk.hospital, "'" + svgIconFor('🏥') + "' Hospital", L.hospital, "Hospital level: saves some fallen troops") + simNum("atk.drums", s.atk.drums || 0, "' + svgIconFor('🥁') + ' Drums", L.ally || 5, "Level of the War Drums alliance project: +1.5% attack per level") + "</div>";
   h += "</div>";
 
   // ---- defender ----
@@ -31682,16 +31682,16 @@ function simSheet() {
   if (D.kind === "camp") {
     h += simUnits(s.setup.monsters, "def.monsters", D.monsters);
   } else if (D.kind === "zone" && !D.held) {
-    h += '<div class="simrow">' + simNum("def.robots", D.robots, "' + svgIconFor('🤖') + ' Robots", 99999, "Robots guarding the flag") + '<button class="btn small ghost" data-sim-held="1">' + svgIconFor('👑') + ' Player holds it</button></div>';
+    h += '<div class="simrow">' + simNum("def.robots", D.robots, "'" + svgIconFor('🤖') + "' Robots", 99999, "Robots guarding the flag") + '<button class="btn small ghost" data-sim-held="1">' + svgIconFor('👑') + ' Player holds it</button></div>';
   } else if (D.kind === "landmark" && !D.held) {
-    h += '<div class="simrow">' + simNum("def.guards", D.guards, "' + svgIconFor('🗿') + ' Guardians", 999999, "Ancient guardians of the landmark") + '<button class="btn small ghost" data-sim-held="1">' + svgIconFor('👑') + ' Player holds it</button></div>';
+    h += '<div class="simrow">' + simNum("def.guards", D.guards, "'" + svgIconFor('🗿') + "' Guardians", 999999, "Ancient guardians of the landmark") + '<button class="btn small ghost" data-sim-held="1">' + svgIconFor('👑') + ' Player holds it</button></div>';
     if (D.weak) h += '<p class="simnote">' + svgIconFor('🛖') + ' Your Expedition Base 15 makes them weaker</p>';
   } else {
     h += simUnits(s.setup.tribes[D.tribe].units, "def.troops", D.troops, "def.ups", D.ups);
     h += simHeroRow("def");
     h += '<div class="simrow">';
-    if (D.kind === "colony") h += simNum("def.wall", D.wall, "' + svgIconFor('🧱') + ' Wall", L.wall, "Wall level: +3% defense per level") + simNum("def.hq", D.hq, "🏛️ HQ", L.hq, "HQ level: adds frying-pan militia");
-    h += simNum("def.hospital", D.hospital, "' + svgIconFor('🏥') + ' Hospital", L.hospital, "Hospital level");
+    if (D.kind === "colony") h += simNum("def.wall", D.wall, "'" + svgIconFor('🧱') + "' Wall", L.wall, "Wall level: +3% defense per level") + simNum("def.hq", D.hq, "🏛️ HQ", L.hq, "HQ level: adds frying-pan militia");
+    h += simNum("def.hospital", D.hospital, "'" + svgIconFor('🏥') + "' Hospital", L.hospital, "Hospital level");
     if (D.kind !== "camp") h += simNum("def.shield", D.shield || 0, "🛡️ Shield", L.ally || 5, "Level of the Shield Wall alliance project: +2% defense per level");
     if (D.kind === "zone") h += '<button class="btn small ghost" data-sim-held="0">' + svgIconFor('🤖') + ' Only robots</button>';
     if (D.kind === "landmark") h += '<button class="btn small ghost" data-sim-held="0">' + svgIconFor('🗿') + ' Only guardians</button>';
@@ -31750,7 +31750,7 @@ function simResult() {
   h += simContributions(r.contributions);
   // straight to the send window with exactly these troops (only for a real target and my own tribe)
   h += '<div class="simquick"><button class="btn small ghost" data-sim-enough="1" title="The fewest of these troops (same mix) that still win with the worst luck">' + svgIconFor('🎯') + ' Just enough</button><button class="btn small ghost" data-sim-save="1">' + svgIconFor('💾') + ' Save plan</button></div>';
-  if (simCanSend()) h += '<div class="repbar"><button class="btn" data-sim-send="1">' + (sim.mission === "raid" ? "' + svgIconFor('💰') + ' Send this raid" : "⚔️ Send this attack") + " to " + sim.x + "|" + sim.y + "</button></div>";
+  if (simCanSend()) h += '<div class="repbar"><button class="btn" data-sim-send="1">' + (sim.mission === "raid" ? "'" + svgIconFor('💰') + "' Send this raid" : "⚔️ Send this attack") + " to " + sim.x + "|" + sim.y + "</button></div>";
   h += '<p class="simfoot">Support troops and changes on the way are not included.</p>';
   return h;
 }
@@ -31909,7 +31909,7 @@ function renderMessages() {
     var open = msgOpen === m.id;
     var other = msgBox === "inbox" ? m.from : m.to;
     h += '<div class="report msg' + (msgBox === "inbox" && !m.seen ? " new" : "") + '">';
-    h += '<button class="report-head" data-msg-open="' + m.id + '"><span class="ri">' + (msgBox === "inbox" ? (m.seen ? "' + svgIconFor('📨') + '" : "' + svgIconFor('📩') + '") : "' + svgIconFor('📤') + '") + "</span><span><b>" + esc(m.subject) + "</b><small>" + (msgBox === "inbox" ? "from " : "to ") + esc(other) + " · " + ago(msgs.now - m.at) + "</small></span></button>";
+    h += '<button class="report-head" data-msg-open="' + m.id + '"><span class="ri">' + (msgBox === "inbox" ? (m.seen ? "'" + svgIconFor('📨') + "'" : "' + svgIconFor('📩') + '") : "' + svgIconFor('📤') + '") + "</span><span><b>" + esc(m.subject) + "</b><small>" + (msgBox === "inbox" ? "from " : "to ") + esc(other) + " · " + ago(msgs.now - m.at) + "</small></span></button>";
     if (open) {
       h += '<div class="report-body"><p class="msgbody">' + esc(m.body) + "</p>";
       h += '<div class="btnrow">';
@@ -32082,17 +32082,17 @@ function renderOnb(d) {
   if (O.final) {
     var S = O.summary;
     h += "<h3>" + trStr("🎖️ Landing complete, Commander!") + "</h3><ul class='onb-sum'>";
-    h += "<li>' + svgIconFor('✅') + ' <b>" + esc(S.name) + "</b> " + trStr("is yours") + "</li><li>' + svgIconFor('✅') + ' " + S.fields + " " + trStr(S.fields === 1 ? "field" : "fields") + " " + trStr("upgraded") + ", " + S.buildings + " " + trStr(S.buildings === 1 ? "building" : "buildings") + "</li>";
-    h += "<li>" + (S.troops ? "' + svgIconFor('✅') + ' " + S.troops + " " + trStr("troops") : trStr("⬜ no troops yet")) + "</li><li>" + trStr(S.raided ? "' + svgIconFor('✅') + ' first raid won" : "⬜ no raid yet") + "</li><li>" + trStr(S.alliance ? "' + svgIconFor('✅') + ' in an alliance" : "⬜ no alliance yet") + "</li></ul>";
+    h += "<li>'" + svgIconFor('✅') + "' <b>" + esc(S.name) + "</b> " + trStr("is yours") + "</li><li" + svgIconFor('✅') + "+ ' " + S.fields + " " + trStr(S.fields === 1 ? "field" : "fields") + " " + trStr("upgraded") + ", " + S.buildings + " " + trStr(S.buildings === 1 ? "building" : "buildings") + "</li>";
+    h += "<li>" + (S.troops ? "'" + svgIconFor('✅') + "' " + S.troops + " " + trStr("troops") : trStr("⬜ no troops yet")) + "</li><li>" + trStr(S.raided ? "' + svgIconFor('✅') + ' first raid won" : "⬜ no raid yet") + "</li><li>" + trStr(S.alliance ? "' + svgIconFor('✅') + ' in an alliance" : "⬜ no alliance yet") + "</li></ul>";
     h += "<p class='tut-p'><b>" + trStr("Next goals") + "</b></p><ol class='onb-goals'>" + onbNextGoals(d, S).map(function (g) { return "<li>" + g + "</li>"; }).join("") + "</ol>";
     h += '<div class="onb-kit"><button class="' + (onbKit === "builder" ? "on" : "") + '" data-onb-kit="builder">' + svgIconFor('🌾') + ' +' + S.builder.wood + " " + trStr("of each") + "</button>";
     if (S.raider) h += '<button class="' + (onbKit === "raider" ? "on" : "") + '" data-onb-kit="raider">⚔️ ' + S.raider.count + " " + S.raider.icon + " " + esc(trStr(S.raider.name)) + "</button>";
-    h += '</div><div class="tut-btns"><button class="btn" data-onb="finish">' + trStr("I’m ready, Commander ' + svgIconFor('🚀') + '") + '</button></div></div>';
+    h += '</div><div class="tut-btns"><button class="btn" data-onb="finish">' + trStr("I’m ready, Commander '" + svgIconFor('🚀') + "'") + '</button></div></div>';
   } else {
     h += "<h3>" + trStr(def.title) + "</h3><div class='tut-p'>" + trStr(def.text(d, O)) + "</div>";
     if (O.key === "res" && d.hero) h += '<button type="button" class="btn small ghost" data-stash-add="wood|0">Open commander inventory</button>';
     // 🎁 make the payoff visible: this step, and what is still waiting
-    if (O.reward || O.left) h += '<p class="onb-gift">' + (O.reward ? "' + svgIconFor('🎁') + ' <b>+" + O.reward + "</b> " + trStr("of each resource for this step") : "") + (O.left > O.reward ? "<small>" + (O.reward ? "<br>" : "") + "+" + (O.left - O.reward) + " " + trStr("more and a gift of your choice at the end") + "</small>" : "") + "</p>";
+    if (O.reward || O.left) h += '<p class="onb-gift">' + (O.reward ? "'" + svgIconFor('🎁') + "' <b>+" + O.reward + "</b> " + trStr("of each resource for this step") : "") + (O.left > O.reward ? "<small>" + (O.reward ? "<br>" : "") + "+" + (O.left - O.reward) + " " + trStr("more and a gift of your choice at the end") + "</small>" : "") + "</p>";
     if (O.wait && !O.done && !O.info) {
       h += '<p class="onb-wait">⏳ ' + (O.wait.kind === "train" ? trStr("Training") : trStr("Building")) + " · " + shortTime(O.wait.left) + "</p>";
     }
@@ -32193,7 +32193,7 @@ function showTutorial() {
   h += "<h3>" + s.title + "</h3><div class='tut-p'>" + txt + "</div><div class='tut-btns'>";
   h += '<button class="btn small ghost" data-tut="skip">Skip tour</button>';
   if (tut.step > 0) h += '<button class="btn small ghost" data-tut="back">⬅ Back</button>';
-  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! ' + svgIconFor('🚀') + '" : "Next ' + svgIconFor('➡') + '") + "</button></div></div>";
+  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! '" + svgIconFor('🚀') + "'" : "Next" + svgIconFor('➡') + "+ '") + "</button></div></div>";
   box.innerHTML = h;
   box.className = "on";
   setTimeout(function () { var el = tutSpot(); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
@@ -32372,8 +32372,8 @@ function updateWaveInfo() {
   });
   var h = "";
   if (T.empty >= 0) h += "<p>⚠️ Wave " + (T.empty + 1) + " has no troops yet.</p>";
-  else h += "<p>' + svgIconFor('🚀') + ' All waves leave now. Waves with the same pace land together: the first two in the same second, any more only with luck (' + svgIconFor('🍀') + ').</p>";
-  h += "<p" + (over ? ' class="loss"' : "") + ">' + svgIconFor('🏠') + ' Left at home: " + (left.join(" · ") || "nobody") + "</p>";
+  else h += "<p>'" + svgIconFor('🚀') + "' All waves leave now. Waves with the same pace land together: the first two in the same second, any more only with luck " + svgIconFor('🍀') + "+ ').</p>";
+  h += "<p" + (over ? ' class="loss"' : "") + ">'" + svgIconFor('🏠') + "' Left at home: " + (left.join(" · ") || "nobody") + "</p>";
   if (box._html !== h) { box._html = h; box.innerHTML = h; }
 }
 function sendWaves() {
@@ -32540,7 +32540,7 @@ function heroSheet(d) {
     var spent = H.skills.reduce(function (n, s) { return n + s.lvl; }, 0);
     if (spent) {
       var armedRs = heroRespecArm && Date.now() - heroRespecArm < 4000;
-      h += '<div class="hrespec"><small>' + svgIconFor('🔄') + ' Reset all ' + spent + ' skill points · requires 1 uncommon Insight token (adventure drop: ~1 in 10 consumable finds)</small>' + '<button class="btn small ' + (armedRs ? "danger" : "ghost") + '" data-hero-respec="1">' + (armedRs ? "Sure? ' + svgIconFor('🔄') + '" : "' + svgIconFor('🔄') + ' Reset skills") + "</button></div>";
+      h += '<div class="hrespec"><small>' + svgIconFor('🔄') + ' Reset all ' + spent + ' skill points · requires 1 uncommon Insight token (adventure drop: ~1 in 10 consumable finds)</small>' + '<button class="btn small ' + (armedRs ? "danger" : "ghost") + '" data-hero-respec="1">' + (armedRs ? "Sure? '" + svgIconFor('🔄') + "'" : "' + svgIconFor('🔄') + ' Reset skills") + "</button></div>";
     }
     h += '</div><h4 class="sidesub">Equipped</h4><div class="hgears">' + H.slots.map(function (s) { return heroGearHtml(H.gear[s.key], s.key, s.name); }).join("") + "</div>";
     var gs = [];
@@ -32713,7 +32713,7 @@ function firstDayCard(F) {
   var h = '<div class="fday"><div class="fd-head"><b>🧭 Your first day</b><small>' + done + "/" + F.steps.length + '</small><button class="mini" data-fd-hide="1" title="Hide">' + icon("close") + '</button></div>';
   F.steps.forEach(function (s) {
     var isNext = next && s.key === next.key;
-    h += '<button class="fd-step' + (s.done ? " done" : isNext ? " next" : "") + '"' + (s.done ? " disabled" : ' data-fd-go="' + s.go + '"') + "><span>" + (s.done ? "' + svgIconFor('✅') + '" : s.icon) + "</span><span><b>" + s.text + "</b>" + (isNext ? "<small>" + s.why + "</small>" : "") + "</span></button>";
+    h += '<button class="fd-step' + (s.done ? " done" : isNext ? " next" : "") + '"' + (s.done ? " disabled" : ' data-fd-go="' + s.go + '"') + "><span>" + (s.done ? "'" + svgIconFor('✅') + "'" : s.icon) + "</span><span><b>" + s.text + "</b>" + (isNext ? "<small>" + s.why + "</small>" : "") + "</span></button>";
   });
   if (F.ready) {
     h += '<div class="fd-choice"><p>' + (F.protection && F.protection.active && !F.protection.vacation ? "🛡️ You’re safe from attacks for " + shortTime(F.protection.until - serverNow()) + ". Attacking another player ends it. " : "") + "How do you want to start?</p>";
@@ -32777,7 +32777,7 @@ function diploPanel(M, lead) {
   });
   D.pacts.forEach(function (p) {
     var txt = { got: "offers you a " + p.kindName.toLowerCase(), sent: p.kindName + " · waiting for an answer", on: p.kindName, ending: p.kindName + " · ends in " + shortTime(p.endsAt - now) }[p.state];
-    h += '<div class="stayrow"><div><b>' + (p.kind === "confed" ? "' + svgIconFor('🤝') + ' " : "🕊️ ") + '<i class="atag">' + esc(p.tag) + "</i>" + esc(p.name) + "</b><small>" + txt + "</small></div>";
+    h += '<div class="stayrow"><div><b>' + (p.kind === "confed" ? "'" + svgIconFor('🤝') + "' " : "🕊️ ") + '<i class="atag">' + esc(p.tag) + "</i>" + esc(p.name) + "</b><small>" + txt + "</small></div>";
     if (lead) {
       if (p.state === "got") h += '<button class="btn small" data-diplo="accept:' + p.id + '">' + icon("check") + ' Accept</button><button class="btn small ghost" data-diplo="decline:' + p.id + '">' + icon("close") + '</button>';
       else if (p.state === "sent") h += '<button class="btn small ghost" data-diplo="decline:' + p.id + '">Withdraw</button>';
@@ -32888,7 +32888,7 @@ function mbHead(d) {
   if (C) {
     h += '<div class="mb-chap' + (C.ready ? " ready" : "") + '"><small>Chapter ' + (C.i + 1) + " of 7</small><b>" + esc(C.title.replace(/^[0-9]+ *[^ A-Za-z]* */, "")) + "</b>";
     h += '<i class="mb-dots">' + [0, 1, 2, 3, 4, 5, 6].map(function (k) { return '<i class="' + (k < C.i ? "done" : k === C.i ? "on" : "") + '"></i>'; }).join("") + "</i>";
-    h += C.ready ? '<button class="btn small" data-retention="chapter">' + svgIconFor('🎉') + ' Claim ' + shortNum(C.reward) + " each</button>" : '<small class="mb-sub">' + esc(trStr(C.text)) + " · ' + svgIconFor('🎁') + ' " + trf("{0} each", shortNum(C.reward)) + "</small>";
+    h += C.ready ? '<button class="btn small" data-retention="chapter">' + svgIconFor('🎉') + ' Claim ' + shortNum(C.reward) + " each</button>" : '<small class="mb-sub">' + esc(trStr(C.text)) + " · '" + svgIconFor('🎁') + "' " + trf("{0} each", shortNum(C.reward)) + "</small>";
     h += "</div>";
   }
   if (D) {
@@ -32900,7 +32900,7 @@ function mbHead(d) {
   }
   var I = d.insurance;
   if (I && I.pending && I.pending.length) I.pending.forEach(function (c) { h += '<div class="mb-bank"><span>' + svgIconFor('🧾') + ' Mars Mutual Insurance<small>+' + shortNum(c.total) + " come back at " + clockText(c.payAt) + "</small></span></div>"; });
-  if (R.bank || R.comeback) h += '<div class="mb-bank"><span>' + (R.comeback ? "' + svgIconFor('👋') + ' Welcome back" : "' + svgIconFor('📦') + ' Reward storage") + "<small>" + shortNum(R.bank) + ' resources waiting · what does not fit stays here</small></span><button class="btn small ghost" data-retention="' + (R.comeback ? "comeback" : "bank") + '">Collect</button></div>';
+  if (R.bank || R.comeback) h += '<div class="mb-bank"><span>' + (R.comeback ? "'" + svgIconFor('👋') + "' Welcome back" : "' + svgIconFor('📦') + ' Reward storage") + "<small>" + shortNum(R.bank) + ' resources waiting · what does not fit stays here</small></span><button class="btn small ghost" data-retention="' + (R.comeback ? "comeback" : "bank") + '">Collect</button></div>';
   return h;
 }
 // the shared server goal and the next badge: rewards of the board
@@ -33120,7 +33120,7 @@ function offersPanel(d) {
   }
   if (O.mine.length) {
     h += '<h4 class="sidesub">Your offers</h4>';
-    O.mine.forEach(function (o) { h += '<div class="ofrow"><span>' + offerLine(o) + (o.allyOnly ? " ' + svgIconFor('🤝') + '" : "") + "<small>ends in " + shortTime(o.endsAt - serverNow()) + '</small></span><button class="btn small ghost" data-of-cancel="' + o.id + '">Cancel</button></div>'; });
+    O.mine.forEach(function (o) { h += '<div class="ofrow"><span>' + offerLine(o) + (o.allyOnly ? " '" + svgIconFor('🤝') + "'" : "") + "<small>ends in " + shortTime(o.endsAt - serverNow()) + '</small></span><button class="btn small ghost" data-of-cancel="' + o.id + '">Cancel</button></div>'; });
   }
   h += '<h4 class="sidesub">On the board</h4><div class="mkquick"><button type="button" class="chipbtn' + (ofFilter ? "" : " on") + '" data-of-filter="">All</button>';
   RES.forEach(function (k) { h += '<button type="button" class="chipbtn' + (ofFilter === k ? " on" : "") + '" data-of-filter="' + k + '" title="Offers that give ' + RES_NAME[k] + '">' + RES_ICON[k] + "</button>"; });
@@ -33129,7 +33129,7 @@ function offersPanel(d) {
   if (!list.length) h += '<p class="empty">No offers right now.</p>';
   list.forEach(function (o) {
     var can = Math.floor(d.res[o.want]) >= o.wantAmt;
-    h += '<div class="ofrow"><span>' + offerLine(o) + (o.allyOnly ? " ' + svgIconFor('🤝') + '" : "") + "<small>" + esc(o.owner) + " · " + o.dist + " tiles · ' + svgIconFor('🐪') + ' " + shortTime(o.tripMs) + '</small></span><button class="btn small" data-of-take="' + o.id + '"' + (can && d.market.free ? "" : " disabled") + ">Take</button></div>";
+    h += '<div class="ofrow"><span>' + offerLine(o) + (o.allyOnly ? " '" + svgIconFor('🤝') + "'" : "") + "<small>" + esc(o.owner) + " · " + o.dist + " tiles ·" + svgIconFor('🐪') + "+ ' " + shortTime(o.tripMs) + '</small></span><button class="btn small" data-of-take="' + o.id + '"' + (can && d.market.free ? "" : " disabled") + ">Take</button></div>";
   });
   return h;
 }
@@ -33153,12 +33153,12 @@ function sendPanel(d) {
     h += '<button type="button" class="mkstep" id="mkm-' + k + '" data-mk-step="' + k + ':-1" title="One camel less"' + (v ? "" : " disabled") + ">−🐪</button>";
     h += '<button type="button" class="mkstep plus" data-mk-step="' + k + ':1" title="One more camel load (' + m.carry + ')">+' + svgIconFor('🐪') + '</button>';
     h += '<button type="button" class="mkhave" data-mk-all="' + k + '" title="Send as much as possible">' + shortNum(d.res[k]) + "</button>";
-    h += '<small class="mkc-l" id="mkl-' + k + '">' + (loads ? "= " + loads + " ' + svgIconFor('🐪') + '" : "") + "</small></div>";
+    h += '<small class="mkc-l" id="mkl-' + k + '">' + (loads ? "= " + loads + " '" + svgIconFor('🐪') + "'" : "") + "</small></div>";
   });
   h += "</div>";
   h += '<div class="mkquick"><button type="button" class="chipbtn" data-mk-fill="1" title="Top up the last camel">' + svgIconFor('🧺') + ' Fill</button><button type="button" class="chipbtn" data-mk-even="1" title="Same amount of everything">⚖️ Even</button><button type="button" class="chipbtn" data-mk-clear="1">' + svgIconFor('✖') + ' Clear</button></div>';
   h += '<div class="sendinfo" id="mkinfo"></div>';
-  h += '<button class="btn" type="submit"' + (m.free ? "" : " disabled") + ">' + svgIconFor('🐪') + ' Send merchants</button></form>";
+  h += '<button class="btn" type="submit"' + (m.free ? "" : " disabled") + ">'" + svgIconFor('🐪') + "' Send merchants</button></form>";
   return h;
 }
 
@@ -33345,7 +33345,7 @@ function npcPanel(d) {
   ndInit(d);
   var h = '<p class="hint">Hand out your stock again: what you give away comes back at ' + d.market.rate + '%.</p><div class="npc">';
   RES.forEach(function (k) {
-    h += '<div class="npc-row"><span class="npc-i">' + RES_ICON[k] + '</span><button type="button" class="npc-lock' + (nd.lock[k] ? " on" : "") + '" id="ndl-' + k + '" data-nd-lock="' + k + '" title="Lock: keep this amount">' + (nd.lock[k] ? "' + svgIconFor('🔒') + '" : "' + svgIconFor('🔓') + '") + "</button>";
+    h += '<div class="npc-row"><span class="npc-i">' + RES_ICON[k] + '</span><button type="button" class="npc-lock' + (nd.lock[k] ? " on" : "") + '" id="ndl-' + k + '" data-nd-lock="' + k + '" title="Lock: keep this amount">' + (nd.lock[k] ? "'" + svgIconFor('🔒') + "'" : "' + svgIconFor('🔓') + '") + "</button>";
     h += '<input type="number" min="0" id="ndn-' + k + '" data-nd="' + k + '" value="' + nd.t[k] + '"><b class="npc-chg" id="ndc-' + k + '"></b>';
     h += '<input type="range" class="npc-slider" min="0" max="' + ndCap(d, k) + '" id="ndr-' + k + '" data-ndr="' + k + '" value="' + nd.t[k] + '"' + (nd.lock[k] ? " disabled" : "") + "></div>";
   });
@@ -33381,7 +33381,7 @@ function terraPanel(d) {
   var c = d.colonies;
   var h = '<div class="terrainfo"><p>🌱 Every colony slowly turns the red dust into living land. That is <b>terra</b>. The more terra all your colonies have together, the more colonies you may found.</p>';
   h += '<div class="armystats"><span>This colony <b>+' + t.perHour + "/h</b></span><span>All colonies <b>+" + c.terraPerHour + "/h</b></span>";
-  h += "<span>" + d.hub.icon + " Hub bonus <b>+" + t.hubBonus + "%</b></span><span>' + svgIconFor('👑') + ' Zone bonus <b>+" + t.zoneBonus + "%</b></span></div>";
+  h += "<span>" + d.hub.icon + " Hub bonus <b>+" + t.hubBonus + "%</b></span><span>'" + svgIconFor('👑') + "' Zone bonus <b>+" + t.zoneBonus + "%</b></span></div>";
   h += '<p class="hint">Terra/h = colony points + hub and zone bonus. Each repeated project costs +5% (max +50%).</p></div>';
   h += '<h4 class="sidesub">' + svgIconFor('🚧') + ' Terraforming projects</h4>';
   if (t.job) h += jobPanel(t.job, "terra");
@@ -33390,7 +33390,7 @@ function terraPanel(d) {
     h += '<div class="option-head"><span class="oi">' + p.icon + "</span><div><b>" + p.name + "</b><small>+" + p.terra + " terra · needs " + d.hub.name + " Lv " + p.hub + (p.done ? " · done " + p.done + "× here" : "") + "</small></div></div>";
     h += '<p class="info">' + p.info + "</p>";
     h += costChips(p.cost, d.res, p.ms);
-    h += '<button class="btn" data-terraform="' + p.key + '"' + (p.can ? "" : " disabled") + ">' + svgIconFor('🌱') + ' Start project</button>";
+    h += '<button class="btn" data-terraform="' + p.key + '"' + (p.can ? "" : " disabled") + ">'" + svgIconFor('🌱') + "' Start project</button>";
     if (p.reason) h += '<p class="reason">' + p.reason + "</p>";
     h += "</div>";
   });
@@ -33409,7 +33409,7 @@ function recallSheet(m) {
     h += '<input type="number" min="0" max="' + u.count + '" placeholder="0" data-recall-count="' + u.key + '" value="' + (recallCount[u.key] || "") + '">';
     h += '<button class="btn small ghost" data-recall-all="' + u.key + ":" + u.count + '">All</button></div>';
   });
-  h += '<div class="btnrow"><button class="btn" data-recall-go="' + m.id + '">' + (out ? "' + svgIconFor('🏡') + ' Call these home" : "' + svgIconFor('👋') + ' Send these home") + "</button>";
+  h += '<div class="btnrow"><button class="btn" data-recall-go="' + m.id + '">' + (out ? "'" + svgIconFor('🏡') + "' Call these home" : "' + svgIconFor('👋') + ' Send these home") + "</button>";
   h += '<button class="btn ghost" data-recall="' + m.id + '">Everybody</button></div>';
   return h;
 }
@@ -33442,18 +33442,18 @@ function sendInfoText(d) {
   var wreck = sendTarget && sendTarget.info && sendTarget.info.lander;
   if (wreck) trip = 30000; // the wreck lies right next door
   var now = serverNow();
-  h += "<br>⏱ Travel time: <b>" + fmt(trip) + "</b>" + (wreck ? "" : " (slowest unit: ' + svgIconFor('💨') + '" + slowest + ")");
+  h += "<br>⏱ Travel time: <b>" + fmt(trip) + "</b>" + (wreck ? "" : " (slowest unit: '" + svgIconFor('💨') + "'" + slowest + ")");
   h += '<div class="arrive"><span>' + svgIconFor('🎯') + ' Arrives at<b>' + clockText(now + trip) + "</b></span>";
-  if (sendMission !== "reinforce" && sendMission !== "settle") h += "<span>' + svgIconFor('🏡') + ' Back home at<b>" + clockText(now + 2 * trip) + "</b></span>";
+  if (sendMission !== "reinforce" && sendMission !== "settle") h += "<span>'" + svgIconFor('🏡') + "' Back home at<b>" + clockText(now + 2 * trip) + "</b></span>";
   h += "</div>";
   if (jpSend && jpSend.x === t.x && jpSend.y === t.y && sendMission !== "reinforce") {
     var diff = now + trip - jpSend.landAt;
-    h += '<div class="jp-check ' + (Math.abs(diff) < 60000 ? "ok" : diff < 0 ? "early" : "late") + '">' + svgIconFor('🎯') + ' Joint attack lands at <b>' + clockText(jpSend.landAt) + "</b>: " + (Math.abs(diff) < 60000 ? "' + svgIconFor('✅') + ' right on time!" : diff < 0 ? "⏳ too early by " + fmt(-diff) + ". Wait, or send slower troops." : "⚠️ " + fmt(diff) + " too late.") + "</div>";
+    h += '<div class="jp-check ' + (Math.abs(diff) < 60000 ? "ok" : diff < 0 ? "early" : "late") + '">' + svgIconFor('🎯') + ' Joint attack lands at <b>' + clockText(jpSend.landAt) + "</b>: " + (Math.abs(diff) < 60000 ? "'" + svgIconFor('✅') + "' right on time!" : diff < 0 ? "⏳ too early by " + fmt(-diff) + ". Wait, or send slower troops." : "⚠️ " + fmt(diff) + " too late.") + "</div>";
   }
-  if (sendMission === "reinforce") h += "🛡️ Extra defense: <b>" + defG + "</b> Infantry · ' + svgIconFor('🎯') + ' <b>" + defA + "</b> Air · they stay until sent home";
-  else if (sendMission === "settle") h += "' + svgIconFor('👷') + ' Settlers: <b>" + n + " / " + d.colonies.settlersNeeded + "</b>";
+  if (sendMission === "reinforce") h += "🛡️ Extra defense: <b>" + defG + "</b> Infantry · '" + svgIconFor('🎯') + "' <b>" + defA + "</b> Air · they stay until sent home";
+  else if (sendMission === "settle") h += "'" + svgIconFor('👷') + "' Settlers: <b>" + n + " / " + d.colonies.settlersNeeded + "</b>";
   else if (sendMission !== "scout") {
-    h += "⚔️ Attack power: <b>" + atk + "</b>" + (air ? " (✈️ " + Math.round((air / Math.max(1, atk)) * 100) + "% in the air)" : "") + " · ' + svgIconFor('🎒') + ' can carry <b>" + carry + "</b>";
+    h += "⚔️ Attack power: <b>" + atk + "</b>" + (air ? " (✈️ " + Math.round((air / Math.max(1, atk)) * 100) + "% in the air)" : "") + " · '" + svgIconFor('🎒') + "' can carry <b>" + carry + "</b>";
     if (verdictKey() !== sendVerdict.key) sendVerdict.html = "";
     h += '<p class="sverdict" id="sverdict">' + sendVerdict.html + "</p>";
     setTimeout(askVerdict, 0);
@@ -33465,7 +33465,7 @@ function sendInfoText(d) {
 function phaseText(P) {
   var t = P.air === "attacker" ? "✈️ Attacker won the air (+15% on the ground)" : P.air === "defender" ? "✈️ Defender won the air (+15% defense on the ground)" : "✈️ No fight for the air";
   if (P.traits && P.traits.length) t += " · traits: " + P.traits.map(esc).join(", ");
-  if (P.morale) t += " · ' + svgIconFor('🙅') + ' morale −" + P.morale + "%";
+  if (P.morale) t += " · '" + svgIconFor('🙅') + "' morale −" + P.morale + "%";
   return t;
 }
 // 🧮 the simulator's verdict on the send screen (asked from the server, a moment after the troops change)
@@ -33656,11 +33656,11 @@ function renderSheet() {
     h += translateSheet();
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + svgIconFor('👤') + ' ' + esc(d.player) + "</b></div></div>";
-    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + svgIconFor('🌙') + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "' + svgIconFor('🔊') + ' Sound" : "' + svgIconFor('🔇') + ' Muted") + '</button><button class="btn ghost" data-tutorial="1">' + svgIconFor('❓') + ' Tour</button><button class="btn ghost" data-wiki="basics">' + svgIconFor('📖') + ' Guide</button><button class="btn ghost" data-logout="1">' + svgIconFor('🚪') + ' Log out</button></div>';
+    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + svgIconFor('🌙') + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "'" + svgIconFor('🔊') + "' Sound" : "' + svgIconFor('🔇') + ' Muted") + '</button><button class="btn ghost" data-tutorial="1">' + svgIconFor('❓') + ' Tour</button><button class="btn ghost" data-wiki="basics">' + svgIconFor('📖') + ' Guide</button><button class="btn ghost" data-logout="1">' + svgIconFor('🚪') + ' Log out</button></div>';
     h += '<div class="setcard"><h4>' + svgIconFor('🌍') + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play
-    h += card("' + svgIconFor('🎮') + ' Play", '<div class="setgrid"><button class="btn ghost" data-progress="1">' + svgIconFor('🏅') + ' Progress &amp; tasks</button>' + shareTextButton("Join me on MarsL · " + d.player + " · " + location.origin).replace("↗ Share", "↗ Invite friends").replace("btn small ghost", "btn ghost") + "</div>" + discordBtn());
+    h += card("'" + svgIconFor('🎮') + "' Play", '<div class="setgrid"><button class="btn ghost" data-progress="1">' + svgIconFor('🏅') + ' Progress &amp; tasks</button>' + shareTextButton("Join me on MarsL · " + d.player + " · " + location.origin).replace("↗ Share", "↗ Invite friends").replace("btn small ghost", "btn ghost") + "</div>" + discordBtn());
     // 🔔 alerts
     var nsup = typeof Notification !== "undefined", al;
     if (!nsup) al = '<p class="hint left">This browser can’t show alerts. Tip: add MarsL to your home screen.</p>';
@@ -33686,9 +33686,9 @@ function renderSheet() {
       if (dl.length > 1) ac += '<div class="setgrid one"><button class="btn ghost" data-logout-all="1">🚪 Log out on all devices</button></div>';
       ac += '<p class="hint left">Logins end by themselves after 14 days without use.</p>';
     }
-    h += card("' + svgIconFor('👤') + ' Account &amp; devices", ac);
+    h += card("'" + svgIconFor('👤') + "' Account &amp; devices", ac);
     if (accountInfo && accountInfo.owner) h += card("🛠️ Server owner", '<div class="setgrid"><a class="btn" href="/admin" target="_blank" rel="noopener">🛠️ Admin page</a><a class="btn ghost" href="/admin/journey" target="_blank" rel="noopener">' + svgIconFor('🧭') + ' Quest progression</a></div>');
-    h += card("' + svgIconFor('📜') + ' About", '<div class="setgrid"><a class="btn ghost" href="/patch-notes" target="_blank" rel="noopener">' + svgIconFor('📜') + ' Patch notes</a><a class="btn ghost" href="' + '/legal?lang=' + curLang() + '" target="_blank" rel="noopener">⚖️ Legal and privacy</a></div>');
+    h += card("'" + svgIconFor('📜') + "' About", '<div class="setgrid"><a class="btn ghost" href="/patch-notes" target="_blank" rel="noopener">' + svgIconFor('📜') + ' Patch notes</a><a class="btn ghost" href="' + '/legal?lang=' + curLang() + '" target="_blank" rel="noopener">⚖️ Legal and privacy</a></div>');
     // ⚠️ danger zone
     var dz = '<details class="deldetails"><summary>🗑️ Delete colonies on this server</summary><p>All your colonies, troops and server progress will be removed after 48 hours. Your login account and other servers remain. You may cancel before the countdown ends.</p>';
     if (accountInfo && accountInfo.deletion) dz += '<p>Deletion scheduled: ' + new Date(accountInfo.deletion.due_at).toLocaleString() + " · " + shortTime(Math.max(0, accountInfo.deletion.due_at - serverNow())) + ' remaining</p><button class="btn ghost" data-colony-delete="cancel">Cancel deletion</button>';
@@ -33728,7 +33728,7 @@ function renderSheet() {
       h += "";
     } else {
       h += '<p class="stat">Your main colony is <b>' + esc(mainCol ? mainCol.name : "?") + "</b>.</p>";
-      h += '<p class="reason">⚠️ Moving it: fields above level ' + mm.normalMax + " in " + esc(mainCol ? mainCol.name : "the old main colony") + " drop back to " + mm.normalMax + ", and their waiting upgrades above " + mm.normalMax + " are refunded. A ' + svgIconFor('🏰') + ' bastion there is torn down. You can move it once every " + mm.hours + " h.</p>";
+      h += '<p class="reason">⚠️ Moving it: fields above level ' + mm.normalMax + " in " + esc(mainCol ? mainCol.name : "the old main colony") + " drop back to " + mm.normalMax + ", and their waiting upgrades above " + mm.normalMax + " are refunded. A '" + svgIconFor('🏰') + "' bastion there is torn down. You can move it once every " + mm.hours + " h.</p>";
       if (mm.nextAt) h += '<button class="btn" disabled>⭐ Possible again in ' + fmt(mm.nextAt - serverNow()) + "</button>";
       else h += '<button class="btn" data-make-main="' + d.colonyId + '">' + (mainArm.id === d.colonyId && Date.now() - mainArm.at < 4000 ? "⚠️ Tap again to confirm" : "⭐ Make this my main colony") + "</button>";
     }
@@ -33740,7 +33740,7 @@ function renderSheet() {
   } else if (sheet.kind === "field") {
     var f = d.fields[sheet.slot];
     h += '<div class="sheet-head t-' + f.type + '"><span class="hi">' + f.icon + "</span><div><h3>" + f.name + "</h3><b>Level " + f.level + " / " + d.fieldMax + "</b>";
-    if (f.pending > 0) h += " · ' + svgIconFor('🔨') + ' +" + f.pending + " queued";
+    if (f.pending > 0) h += " · '" + svgIconFor('🔨') + "' +" + f.pending + " queued";
     h += "</div></div>";
     h += '<p class="info">' + f.info + ' <button class="wk-link" data-wiki-open="f:' + f.type + '">' + svgIconFor('📖') + ' All levels</button></p>';
     h += '<p class="stat">' + RES_ICON[f.type] + " Produces <b>" + f.prodNow + "/h</b>";
@@ -33758,7 +33758,7 @@ function renderSheet() {
       h += '<div class="lotlist">' + buildList(d, function (o) { return 'data-build-at="' + sheet.slot + ":" + o.type + '"'; }).replace('<h2 class="section">Build something new</h2>', "") + "</div>";
     } else {
       h += '<div class="sheet-head"><span class="hi">' + b.icon + "</span><div><h3>" + b.name + "</h3><b>Level " + b.level + "</b>";
-      if (b.pending > 0) h += " · ' + svgIconFor('🔨') + ' +" + b.pending + " queued";
+      if (b.pending > 0) h += " · '" + svgIconFor('🔨') + "' +" + b.pending + " queued";
       h += "</div></div>";
       h += '<p class="info">' + b.info + ' <button class="wk-link" data-wiki-open="b:' + b.type + '">' + svgIconFor('📖') + ' All levels</button></p>' + perkChips(b.perks);
       h += effectTable(b);
@@ -33779,7 +33779,7 @@ function renderSheet() {
       if (b.demolish) {
         var armed = demolishArm.slot === b.slot && Date.now() - demolishArm.at < 5000;
         h += '<div class="demolish"><button class="btn small ' + (armed ? "danger" : "ghost") + '" data-demolish="' + b.slot + '"' + (b.demolish.ok ? "" : " disabled") + ">";
-        h += (armed ? "⚠️ Tap again: demolish for good" : "' + svgIconFor('🧨') + ' Demolish") + "</button>";
+        h += (armed ? "⚠️ Tap again: demolish for good" : "'" + svgIconFor('🧨') + "' Demolish") + "</button>";
         h += "<small>" + (b.demolish.ok ? "Frees the lot. Nothing is refunded." : b.demolish.reason) + "</small></div>";
       }
     }
@@ -33955,10 +33955,10 @@ function hubSlotsPanel(d) {
   var ss = d.settlerSlots;
   var h = '<div class="hubslots"><h4 class="sidesub">👷 Settler slots · ' + ss.used + " / " + ss.max + "</h4><div class='hs-tiers'>";
   ss.tiers.forEach(function (t) {
-    h += '<div class="hs-tier' + (t.open ? " on" : "") + '"><b>' + (t.open ? "' + svgIconFor('✅') + '" : "' + svgIconFor('🔒') + '") + " " + d.hub.name + " Lv " + t.hub + "</b><small>+" + t.count + " slots</small></div>";
+    h += '<div class="hs-tier' + (t.open ? " on" : "") + '"><b>' + (t.open ? "'" + svgIconFor('✅') + "'" : "' + svgIconFor('🔒') + '") + " " + d.hub.name + " Lv " + t.hub + "</b><small>+" + t.count + " slots</small></div>";
   });
   h += "</div>";
-  h += '<div class="hs-used"><span>🏳️ Founded <b>' + ss.founded + "</b></span><span>' + svgIconFor('👷') + ' Alive <b>" + ss.alive + "</b></span><span>🆓 Free <b>" + Math.max(0, ss.max - ss.used) + "</b></span></div>";
+  h += '<div class="hs-used"><span>🏳️ Founded <b>' + ss.founded + "</b></span><span>'" + svgIconFor('👷') + "' Alive <b>" + ss.alive + "</b></span><span>🆓 Free <b>" + Math.max(0, ss.max - ss.used) + "</b></span></div>";
   if (ss.list.length || ss.founded) {
     h += '<div class="hs-list">';
     ss.list.forEach(function (f) {
@@ -34008,8 +34008,8 @@ function overviewSheet(d) {
       h += '<span class="' + (p >= 100 ? "full" : p >= 90 ? "high" : "") + '" title="' + RES_NAME[k] + ": " + col.res[k] + " / " + col.cap[k] + " · +" + col.prod[k] + '/h">' + RES_ICON[k] + " " + shortNum(col.res[k]) + "<i>" + p + "%</i></span>";
     });
     h += '</div><div class="ov-st">';
-    h += "<span>" + (col.building ? "' + svgIconFor('🔨') + ' " + col.building + " · " + shortTime(col.buildLeftMs) : '<em>' + svgIconFor('💤') + ' nothing building</em>') + "</span>";
-    h += "<span>" + (col.training ? "' + svgIconFor('💪') + ' " + col.training + " · " + shortTime(col.trainLeftMs) : '<em>' + svgIconFor('💤') + ' no training</em>') + "</span>";
+    h += "<span>" + (col.building ? "'" + svgIconFor('🔨') + "' " + col.building + " · " + shortTime(col.buildLeftMs) : '<em>' + svgIconFor('💤') + ' nothing building</em>') + "</span>";
+    h += "<span>" + (col.training ? "'" + svgIconFor('💪') + "' " + col.training + " · " + shortTime(col.trainLeftMs) : '<em>' + svgIconFor('💤') + ' no training</em>') + "</span>";
     if (col.loyalty !== null && col.loyalty !== undefined) h += '<span class="loy' + (col.loyalty < 40 ? " low" : col.loyalty < 100 ? " mid" : "") + '" title="Loyalty: at 0 an enemy envoy can take this colony">' + svgIconFor('🎩') + ' ' + col.loyalty + "</span>";
     if (threats) h += '<span class="ov-atk">' + svgIconFor('🚨') + ' ' + threats + (threats > 1 ? " attacks" : " attack") + "</span>";
     h += "</div>";
@@ -34663,8 +34663,8 @@ function renderTileInfo() {
   } else if (!c && traderAt(x, y)) {
     h += traderInfo(traderAt(x, y), x, y, dist);
   } else if (meteor && meteor.lander) {
-    h += tipHead("' + svgIconFor('🛸') + '", "Wrecked lander", "Crashed next to you · " + where(x, y, dist));
-    h += tipFacts([fact("' + svgIconFor('💎') + ' " + shortNum(meteor.total), "gold", "Cargo: " + RES.map(function (k) { return RES_ICON[k] + " " + meteor.res[k]; }).join("  ")), fact("' + svgIconFor('🤖') + ' no defenders", "ok")]);
+    h += tipHead("'" + svgIconFor('🛸') + "'", "Wrecked lander", "Crashed next to you · " + where(x, y, dist));
+    h += tipFacts([fact("'" + svgIconFor('💎') + "' " + shortNum(meteor.total), "gold", "Cargo: " + RES.map(function (k) { return RES_ICON[k] + " " + meteor.res[k]; }).join("  ")), fact("' + svgIconFor('🤖') + ' no defenders", "ok")]);
     h += tipActions('<button class="btn" data-send="' + x + "," + y + '">' + svgIconFor('💰') + ' Raid it</button>');
   } else if (meteor) {
     h += tipHead("☄️", "Meteor crate", "Fell from the sky · " + where(x, y, dist));
@@ -34693,14 +34693,14 @@ function renderTileInfo() {
     facts.push(fact("📈 +" + shortNum(isum) + "/h", "", "Treasure grows by " + RES.map(function (k) { return RES_ICON[k] + camp.income[k]; }).join(" ") + " per hour. Kills pay a bounty too."));
     if (camp.fullAt) facts.push(fact("🌱 full " + clockText(camp.fullAt).slice(0, 5), "", "Monsters grow back"));
     h += tipFacts(facts);
-    h += tipActions('<button class="btn danger" data-send="' + x + "," + y + '">' + (camp.empty ? "' + svgIconFor('💰') + ' Grab the treasure" : "⚔️ Hunt the monsters") + "</button>", [
+    h += tipActions('<button class="btn danger" data-send="' + x + "," + y + '">' + (camp.empty ? "'" + svgIconFor('💰') + "' Grab the treasure" : "⚔️ Hunt the monsters") + "</button>", [
       tipBtn('data-send-spy="' + x + "," + y + '"', "🔍", "Spy"),
       tipBtn('data-sim-at="' + x + "," + y + '"', "🧮", "Simulate"),
       tipBtn('data-farm-add="' + x + "," + y + '" data-name="' + esc(camp.name) + '"', "📋", "Farm list"),
     ]);
     h += farmPickRow(x, y);
   } else if (c) {
-    h += tipHead(c.home, esc(c.name), "' + svgIconFor('👤') + ' " + playerLink(c.owner, c.tag) + (c.ally ? " ' + svgIconFor('🤝') + '" : "") + " · " + c.tribeIcon + " " + c.tribe);
+    h += tipHead(c.home, esc(c.name), "'" + svgIconFor('👤') + "' " + playerLink(c.owner, c.tag) + (c.ally ? "" + svgIconFor('🤝') + "+ '" : "") + " · " + c.tribeIcon + " " + c.tribe);
     h += tipFacts([
       fact("⭐ " + c.points + " pts"),
       fact(where(x, y, dist, c.active)),
@@ -34738,7 +34738,7 @@ function renderTileInfo() {
     } else if (info) {
       var canSettle = info.buildable && !(Math.abs(x) <= 1 && Math.abs(y) <= 1);
       var mix = canSettle ? mixAt(x, y) : null;
-      h += tipHead(info.icon || "' + svgIconFor('🟫') + '", info.name, (canSettle ? "Free land" : "Can’t be settled") + " · " + where(x, y, dist));
+      h += tipHead(info.icon || "'" + svgIconFor('🟫') + "'", info.name, (canSettle ? "Free land" : "Can’t be settled") + " · " + where(x, y, dist));
       if (mix) {
         h += tipFacts([fact(mix.icon + " " + mix.name, "", "The resource fields a colony here would get")].concat(RES.map(function (k) { return fact(RES_ICON[k] + " " + mix.counts[k], "", mix.counts[k] + " " + RES_NAME[k].toLowerCase() + " fields"); })));
       } else {
@@ -35574,7 +35574,7 @@ function wikiBuildings(W) {
   // phones: one quick dropdown instead of the big grid
   h += '<select class="wk-in wk-bsel" data-wiki-bsel="1">' + W.buildings.map(function (x) { return '<option value="' + x.key + '"' + (x.key === key ? " selected" : "") + ">" + wkBName(W, x.key) + "</option>"; }).join("") + "</select>";
   h += '<div class="wk-bhead"><h5>' + wkBName(W, key) + "</h5>";
-  h += '<div class="wk-facts"><span>' + svgIconFor('🔓') + ' Needs: ' + wkNeeds(W, wkBD(W, b).requires) + "</span><span>⬆️ Max level " + b.max + "</span>" + (b.multi ? "<span>' + svgIconFor('➕') + ' You can build more than one</span>" : "") + "</div></div>";
+  h += '<div class="wk-facts"><span>' + svgIconFor('🔓') + ' Needs: ' + wkNeeds(W, wkBD(W, b).requires) + "</span><span>⬆️ Max level " + b.max + "</span>" + (b.multi ? "<span>'" + svgIconFor('➕') + "' You can build more than one</span>" : "") + "</div></div>";
   h += wkP(esc(wkBD(W, b).info)) + perkChips(tr.bperks ? tr.bperks[key] : null) + wkLevelTable(W, key);
   var c = wkCard("b-detail", "🏗️", "Buildings", h);
   cards.push(c);
@@ -35674,7 +35674,7 @@ function wikiTroops(W) {
   });
   var legend = wiki.view === "costs" ? "Price, training time (training building level 1), 🏗️ building level and 🔬 lab level needed." : wiki.view === "value" ? "What 1000 resources of this unit give you. ⚔️/🥔 = attack per food per hour." : "⚔️ attack · 🛡️ Infantry defense · 🎯 Air defense · 💨 tiles/h · 🎒 loot · 🥔 food eaten per hour.";
   h += wkNote(legend + " Tap a header to sort, a unit for research and upgrades.");
-  h += wkNote(esc(trStr(t.desc)) + " " + trStr("Tribe advantages: ' + svgIconFor('🚀') + ' Basics → The three tribes."));
+  h += wkNote(esc(trStr(t.desc)) + " " + trStr("Tribe advantages: '" + svgIconFor('🚀') + "' Basics → The three tribes."));
   return h;
 }
 function wikiUnit(W, t, u) {
@@ -35684,7 +35684,7 @@ function wikiUnit(W, t, u) {
   var wp = t.names.weaponry;
   var h = '<div class="wk-ud"><p class="wk-q">“' + esc(u.quote || "") + "”</p>";
   if (u.trait) h += '<p class="wk-trait"><span class="tchip">' + u.trait.icon + " " + esc(u.trait.name) + "</span> " + esc(u.trait.text) + "</p>";
-  h += '<div class="wk-facts"><span>' + wkKind(u) + "</span><span>🏗️ " + (b ? b.icon + " " + b.name : u.building) + " " + u.level + "</span>" + (u.lab ? "<span>' + svgIconFor('🔬') + ' " + lab.icon + " " + lab.name + " " + u.lab + "</span>" : "<span>' + svgIconFor('🔬') + ' No research needed</span>") + "</div>";
+  h += '<div class="wk-facts"><span>' + wkKind(u) + "</span><span>🏗️ " + (b ? b.icon + " " + b.name : u.building) + " " + u.level + "</span>" + (u.lab ? "<span>'" + svgIconFor('🔬') + "' " + lab.icon + " " + lab.name + " " + u.lab + "</span>" : "<span" + svgIconFor('🔬') + "+ ' No research needed</span>") + "</div>";
   if (!u.settler) {
     var rows = [];
     if (u.lab) {
@@ -35700,7 +35700,7 @@ function wikiUnit(W, t, u) {
       var ms = u.time * F.upTime * Math.pow(F.upTimeGrowth, l - 1) * 1000 * Math.pow(F.weaponry, l - 1);
       rows.push(["⚒️ " + l, Math.round(u.atk * bonus), Math.round(u.defG * bonus), Math.round(u.defA * bonus), "<b>" + wkN(wkSum(c)) + "</b>", fmt(ms)].concat(resCells(c)));
     }
-    h += kt({ head: ["", "⚔️", "🛡️", "' + svgIconFor('🎯') + '", "Σ", "⏱️"].concat(RES_HEAD), rows: rows, cls: "lv" });
+    h += kt({ head: ["", "⚔️", "🛡️", "'" + svgIconFor('🎯') + "'", "Σ", "⏱️"].concat(RES_HEAD), rows: rows, cls: "lv" });
     h += wkNote("⚒️ = upgrade in the " + (wp ? wp.icon + " " + wp.name : "armory") + " (needs that level). Times at the lowest possible building level.");
   }
   return h + "</div>";
@@ -35804,7 +35804,7 @@ function wkToolTravel(W) {
   var h = '<div class="wk-form"><label>From X' + wkIn("tr.fx", T.fx) + "</label><label>From Y" + wkIn("tr.fy", T.fy) + "</label>";
   h += "<label>To X" + wkIn("tr.tx", T.tx, 'placeholder="0"') + "</label><label>To Y" + wkIn("tr.ty", T.ty, 'placeholder="0"') + "</label>";
   h += "<label>Tribe" + wkSel("tr.tribe", W.tribes.map(function (t) { return [t.key, t.icon + " " + t.name]; }), T.tribe) + "</label>";
-  h += "<label>' + svgIconFor('🐪') + ' Caravans" + wkSel("tr.caravan", wkLevels(W.alliance.maxLevel), T.caravan) + "</label></div>";
+  h += "<label>'" + svgIconFor('🐪') + "' Caravans" + wkSel("tr.caravan", wkLevels(W.alliance.maxLevel), T.caravan) + "</label></div>";
   var dist = Math.hypot(wkNum(T.tx, -99, 99) - wkNum(T.fx, -99, 99), wkNum(T.ty, -99, 99) - wkNum(T.fy, -99, 99));
   var now = serverNow();
   var t = wkTribe(W, T.tribe);
@@ -35818,7 +35818,7 @@ function wkToolTravel(W) {
   var mms = trip(mSpeed);
   rows.unshift(["🐪 Merchants", Math.round(mSpeed), fmt(mms), clockText(now + mms).slice(0, 5), fmt(2 * mms)]);
   h += wkNote("Distance: <b>" + (Math.round(dist * 10) / 10) + " tiles</b> (straight line). A group moves at the speed of its slowest unit.");
-  h += kt({ head: ["", "' + svgIconFor('💨') + '/h", "One way", "Lands", "Back home"], rows: rows });
+  h += kt({ head: ["", "'" + svgIconFor('💨') + "'/h", "One way", "Lands", "Back home"], rows: rows });
   h += wkNote("🪶 Low Gravity: merchants and troops on their way home " + Math.round(W.formulas.gravity * 100) + "% faster. Times start now (server time).");
   return h;
 }
@@ -35831,11 +35831,11 @@ function wkToolArmy(W) {
   var F = W.formulas;
   var h = '<div class="wk-form"><label>Tribe' + wkSel("ar.tribe", W.tribes.map(function (x) { return [x.key, x.icon + " " + x.name]; }), A.tribe) + "</label>";
   h += "<label>⚒️ Upgrades" + wkSel("ar.up", wkLevels(W.combat.upgradeMax), A.up) + "</label>";
-  h += "<label>' + svgIconFor('🥁') + ' Drums" + wkSel("ar.drums", wkLevels(W.alliance.maxLevel), A.drums) + "</label>";
+  h += "<label>'" + svgIconFor('🥁') + "' Drums" + wkSel("ar.drums", wkLevels(W.alliance.maxLevel), A.drums) + "</label>";
   h += "<label>🛡️ Shield" + wkSel("ar.shield", wkLevels(W.alliance.maxLevel), A.shield) + "</label>";
-  h += "<label>' + svgIconFor('🧱') + ' Wall" + wkSel("ar.wall", wkLevels(10), A.wall) + "</label>";
+  h += "<label>'" + svgIconFor('🧱') + "' Wall" + wkSel("ar.wall", wkLevels(10), A.wall) + "</label>";
   h += "<label>🏗️ Barracks / hangar" + wkSel("ar.trainLv", wkLevels(20, 1), A.trainLv) + "</label>";
-  h += "<label>' + svgIconFor('📏') + ' Farm distance" + wkIn("ar.dist", A.dist, 'min="1"') + "</label></div>";
+  h += "<label>'" + svgIconFor('📏') + "' Farm distance" + wkIn("ar.dist", A.dist, 'min="1"') + "</label></div>";
   h += '<div class="wk-army">';
   t.units.forEach(function (u) {
     h += '<label class="wk-au"><span>' + u.icon + "</span><small>" + esc(u.name) + "</small>" + wkIn("ar.n." + u.key, A.n[u.key] || "", 'min="0" placeholder="0"') + "</label>";
@@ -35973,12 +35973,12 @@ function pylonTileInfo(p, dist) {
     var tot = RES.reduce(function (n, k) { return n + (pyForm.key === p.key ? Number(pyForm[k] || 0) : 0); }, 0);
     h += '<div class="pyform"><div class="abrow">';
     RES.forEach(function (k) { h += "<label>" + RES_ICON[k] + '<input type="number" min="0" inputmode="numeric" aria-label="' + RES_NAME[k] + '" data-pyl="' + p.key + ":" + k + '" value="' + (pyForm.key === p.key ? esc(pyForm[k]) : "") + '" placeholder="0"></label>'; });
-    h += "</div><small>" + (!m || !m.level ? "You need a marketplace to send merchants" : !m.free ? "' + svgIconFor('🐪') + ' All merchants of this colony are on the road · " + remaining.toLocaleString() + " still missing" : "' + svgIconFor('🐪') + ' " + Math.ceil(tot / m.carry) + " of " + m.free + " free merchants · " + remaining.toLocaleString() + " still missing") + "</small>";
+    h += "</div><small>" + (!m || !m.level ? "You need a marketplace to send merchants" : !m.free ? "'" + svgIconFor('🐪') + "' All merchants of this colony are on the road · " + remaining.toLocaleString() + " still missing" : "' + svgIconFor('🐪') + ' " + Math.ceil(tot / m.carry) + " of " + m.free + " free merchants · " + remaining.toLocaleString() + " still missing") + "</small>";
     h += "</div>";
-    h += tipActions('<button class="btn" data-pyl-go="' + p.key + '"' + (m && m.free && tot > 0 && tot <= remaining && tot <= m.free * m.carry && RES.every(function (k) { var n = Number(pyForm[k] || 0); return Number.isSafeInteger(n) && n >= 0 && n <= Math.floor(data.res[k]); }) ? "" : " disabled") + ">' + svgIconFor('⚡') + ' Charge with merchants</button>", [tipBtn('data-pyl-fill="' + p.key + '"', "' + svgIconFor('🧺') + '", "Fill · keep 20%")]);
+    h += tipActions('<button class="btn" data-pyl-go="' + p.key + '"' + (m && m.free && tot > 0 && tot <= remaining && tot <= m.free * m.carry && RES.every(function (k) { var n = Number(pyForm[k] || 0); return Number.isSafeInteger(n) && n >= 0 && n <= Math.floor(data.res[k]); }) ? "" : " disabled") + ">'" + svgIconFor('⚡') + "' Charge with merchants</button>", [tipBtn('data-pyl-fill="' + p.key + '"', "' + svgIconFor('🧺') + '", "Fill · keep 20%")]);
   }
   var drain = (p.others || []).some(function (o) { return o.drainable; });
-  if (drain) h += tipActions("", [tipBtn('data-send="' + p.x + "," + p.y + '"', "' + svgIconFor('🔌') + '", "Drain (raid)")]);
+  if (drain) h += tipActions("", [tipBtn('data-send="' + p.x + "," + p.y + '"', "'" + svgIconFor('🔌') + "'", "Drain (raid)")]);
   return h;
 }
 
@@ -35993,7 +35993,7 @@ function auroraBar(se) {
   var h = '<div class="seasonbar aurora"><div class="sb-top"><b>🌌 Project Aurora</b><small>Charge all 4 🗼 pylons, link them to the 🚩 with colonies max ' + se.link + " tiles apart, then hold the flag for " + se.hours + "h</small></div>";
   if (se.ignition) {
     var mine = se.ignition.key === se.myKey;
-    h += '<p class="au-ig' + (mine ? "" : " foe") + '">' + svgIconFor('⚡') + ' <b>' + esc(se.ignition.name) + "</b> " + (se.ignition.paused ? "paused · " + Math.floor(se.ignition.progressMs / (se.hours * 3600000) * 100) + "% retained" + (se.ignition.graceUntil > now ? " · recovery window " + fmt(se.ignition.graceUntil - now) : " · progress decaying") : "ignites in <b>" + fmt(Math.max(0, se.ignition.winsAt - now)) + "</b>") + (mine ? " · keep the flag and every ley line!" : " · take the ' + svgIconFor('🚩') + ' or cut a ley line!") + "</p>";
+    h += '<p class="au-ig' + (mine ? "" : " foe") + '">' + svgIconFor('⚡') + ' <b>' + esc(se.ignition.name) + "</b> " + (se.ignition.paused ? "paused · " + Math.floor(se.ignition.progressMs / (se.hours * 3600000) * 100) + "% retained" + (se.ignition.graceUntil > now ? " · recovery window " + fmt(se.ignition.graceUntil - now) : " · progress decaying") : "ignites in <b>" + fmt(Math.max(0, se.ignition.winsAt - now)) + "</b>") + (mine ? " · keep the flag and every ley line!" : " · take the '" + svgIconFor('🚩') + "' or cut a ley line!") + "</p>";
   }
   if (se.inAlliance) {
     var chargedN = se.pylons.filter(function (p) { return p.locked; }).length;
@@ -36003,7 +36003,7 @@ function auroraBar(se) {
     h += '<div class="au-pyl">';
     se.pylons.forEach(function (p) {
       var pct = p.locked ? 100 : p.need ? Math.floor((p.amount / p.need) * 100) : 0;
-      h += '<button class="' + (p.locked ? "full " : "") + (p.linked ? "ok" : "") + '" data-goto="' + p.x + "," + p.y + '" title="' + esc(p.name) + (p.linked ? " · linked" : " · " + p.gap + " tiles missing in the ley line") + '">' + svgIconFor('🗼') + '' + p.name.split(" ")[0] + " ' + svgIconFor('⚡') + '" + pct + "% " + (p.linked ? "' + svgIconFor('🔗') + '" : "⛓️" + p.gap) + "</button>";
+      h += '<button class="' + (p.locked ? "full " : "") + (p.linked ? "ok" : "") + '" data-goto="' + p.x + "," + p.y + '" title="' + esc(p.name) + (p.linked ? " · linked" : " · " + p.gap + " tiles missing in the ley line") + '">' + svgIconFor('🗼') + '' + p.name.split(" ")[0] + " '" + svgIconFor('⚡') + "'" + pct + "% " + (p.linked ? "' + svgIconFor('🔗') + '" : "⛓️" + p.gap) + "</button>";
     });
     h += '<span class="zone' + (se.zoneMine ? " ok" : "") + '">' + svgIconFor('🚩') + ' ' + (se.zoneMine ? "ours" : "not ours") + "</span></div>";
   } else {
@@ -36012,7 +36012,7 @@ function auroraBar(se) {
   if (se.standings.length) {
     h += '<div class="sb-teams">';
     se.standings.forEach(function (t) {
-      h += '<span class="' + (t.key === se.myKey ? "me" : "") + '">' + esc(t.name) + " ' + svgIconFor('⚡') + '" + t.charged + "/4 ' + svgIconFor('🔗') + '" + t.linked + "/4" + (t.zone ? " ' + svgIconFor('🚩') + '" : "") + "</span>";
+      h += '<span class="' + (t.key === se.myKey ? "me" : "") + '">' + esc(t.name) + " '" + svgIconFor('⚡') + "'" + t.charged + "/4" + svgIconFor('🔗') + "+ '" + t.linked + "/4" + (t.zone ? " ' + svgIconFor('🚩') + '" : "") + "</span>";
     });
     h += "</div>";
   }
@@ -39098,7 +39098,7 @@ function worldPanel() {
   var L = lmState;
   if (!W) return "";
   var h = '<div class="panel"><h2>🗺️ The map</h2>';
-  h += '<div class="stats"><div class="stat"><small>' + svgIconFor('👹') + ' camps</small><b>' + W.census.total + '</b></div><div class="stat"><small>' + svgIconFor('🌱') + ' layout seed</small><b>' + W.seed + '</b></div><div class="stat"><small>🩹 wounded camps</small><b>' + W.wounded + '</b></div><div class="stat"><small>☄️ crates</small><b>' + W.meteors + '</b></div><div class="stat"><small>' + svgIconFor('🚩') + ' Landing Zone</small><b style="font-size:16px">' + (W.zone.holder ? esc(W.zone.holder) : "' + svgIconFor('🤖') + ' " + W.zone.robots) + "</b></div></div>";
+  h += '<div class="stats"><div class="stat"><small>' + svgIconFor('👹') + ' camps</small><b>' + W.census.total + '</b></div><div class="stat"><small>' + svgIconFor('🌱') + ' layout seed</small><b>' + W.seed + '</b></div><div class="stat"><small>🩹 wounded camps</small><b>' + W.wounded + '</b></div><div class="stat"><small>☄️ crates</small><b>' + W.meteors + '</b></div><div class="stat"><small>' + svgIconFor('🚩') + ' Landing Zone</small><b style="font-size:16px">' + (W.zone.holder ? esc(W.zone.holder) : "'" + svgIconFor('🤖') + "' " + W.zone.robots) + "</b></div></div>";
   h += '<h3>Camps per quarter and danger level</h3><div class="tablewrap"><table class="quarters"><tr><th></th><th>Near</th><th>Mid</th><th>Far</th><th>Edge</th><th>All</th></tr>';
   W.census.per.forEach(function (q, i) {
     h += "<tr><td><b>" + QUARTER_NAME[i] + "</b></td>" + q.map(function (n) { return "<td>" + n + "</td>"; }).join("") + "<td><b>" + q.reduce(function (a, b) { return a + b; }, 0) + "</b></td></tr>";
@@ -39107,10 +39107,10 @@ function worldPanel() {
   h += '<div class="row"><button class="btn ghost" data-act="world" data-w="camps-regrow">🩹 Heal all camps</button><input id="seedIn" type="number" min="1" placeholder="seed (optional)" style="width:130px"><button class="btn ghost" data-act="world" data-w="camps-reroll">' + svgIconFor('🎲') + ' Re-roll camps</button></div>';
   h += '<div class="row"><button class="btn ghost" data-act="world" data-w="meteors-clear">☄️ Remove crates</button><button class="btn ghost" data-act="world" data-w="zone-reset">' + svgIconFor('🚩') + ' Reset Landing Zone</button></div>';
   if (L) {
-    h += '<h3>' + svgIconFor('🗿') + ' Landmarks · ' + (L.open ? "' + svgIconFor('🟢') + ' open" : "' + svgIconFor('🔒') + ' sealed") + '</h3><div class="row" style="margin-top:0"><button class="btn small' + (L.open ? " ghost" : "") + '" data-act="lm-open" data-on="' + (L.open ? 0 : 1) + '">' + (L.open ? "' + svgIconFor('🔒') + ' Seal" : "' + svgIconFor('🗿') + ' Open") + '</button><button class="btn small ghost" data-act="lm-reset">♻️ Free all landmarks</button></div>';
+    h += '<h3>' + svgIconFor('🗿') + ' Landmarks · ' + (L.open ? "'" + svgIconFor('🟢') + "' open" : "' + svgIconFor('🔒') + ' sealed") + '</h3><div class="row" style="margin-top:0"><button class="btn small' + (L.open ? " ghost" : "") + '" data-act="lm-open" data-on="' + (L.open ? 0 : 1) + '">' + (L.open ? "' + svgIconFor('🔒') + ' Seal" : "' + svgIconFor('🗿') + ' Open") + '</button><button class="btn small ghost" data-act="lm-reset">♻️ Free all landmarks</button></div>';
     h += '<div class="tablewrap"><table><tr><th>Landmark</th><th>Bonus</th><th>Holder</th></tr>';
     L.landmarks.forEach(function (l) {
-      h += "<tr><td>" + l.icon + " " + esc(l.name) + "</td><td>" + esc(l.bonus) + "</td><td>" + (l.holder ? esc(l.holder) : "' + svgIconFor('🗿') + ' " + l.guards + " guardians") + "</td></tr>";
+      h += "<tr><td>" + l.icon + " " + esc(l.name) + "</td><td>" + esc(l.bonus) + "</td><td>" + (l.holder ? esc(l.holder) : "'" + svgIconFor('🗿') + "' " + l.guards + " guardians") + "</td></tr>";
     });
     h += "</table></div>";
   }
@@ -39154,7 +39154,7 @@ function accountsPanel() {
   var A = accState;
   if (!A) return "";
   var h = '<div class="panel"><h2>📧 Sign-up</h2>';
-  h += "<p>" + (A.mail.ready ? (A.mail.dev ? "' + svgIconFor('🧪') + ' Test mode: mails are only printed in the server log" : "' + svgIconFor('✅') + ' Mail ready · from " + esc(A.mail.from)) : "⚠️ No mail service yet. Set BREVO_API_KEY and MAIL_FROM on the server.") + "</p>";
+  h += "<p>" + (A.mail.ready ? (A.mail.dev ? "'" + svgIconFor('🧪') + "' Test mode: mails are only printed in the server log" : "' + svgIconFor('✅') + ' Mail ready · from " + esc(A.mail.from)) : "⚠️ No mail service yet. Set BREVO_API_KEY and MAIL_FROM on the server.") + "</p>";
   if (A.mail.problem) h += '<p class="reason">' + svgIconFor('❌') + ' Last mail failed (' + new Date(A.mail.problem.at).toLocaleString() + "): " + esc(A.mail.problem.error) + "</p>";
   h += '<div class="switch"><input type="checkbox" id="acEm"' + (A.emailRequired ? " checked" : "") + (A.mail.ready ? "" : " disabled") + ' data-act="acc" data-k="emailRequired"> <label for="acEm" style="margin:0">New players must confirm their email</label></div>';
   h += '<div class="row" style="margin-top:0"><label style="margin:0">Accounts per device <input id="devCap" type="number" min="0" max="20" value="' + A.deviceCap + '" style="width:70px"></label><button class="btn small" data-act="acc-cap">' + svgIconFor('💾') + ' Save</button><span class="muted">0 = no limit</span></div>';
@@ -39175,7 +39175,7 @@ function legalPanel() {
   if (!A) return "";
   var h = '<div class="panel"><h2>⚖️ Legal page</h2>';
   h += '<p class="hint" style="margin-top:0">Shown to everybody at <a href="/legal" target="_blank">/legal</a> (linked on the login page and in the settings). The texts are built from what you enter here. It is a template, not legal advice.</p>';
-  h += A.missing.length ? '<p>⚠️ Still missing: <b>' + esc(A.missing.join(", ")) + "</b></p>" : "<p>' + svgIconFor('✅') + ' Complete</p>";
+  h += A.missing.length ? '<p>⚠️ Still missing: <b>' + esc(A.missing.join(", ")) + "</b></p>" : "<p>'" + svgIconFor('✅') + "' Complete</p>";
   [["imprint", "Legal notice (Impressum)"], ["privacy", "Privacy policy"]].forEach(function (g) {
     h += "<h3>" + g[1] + "</h3>";
     A.fields.filter(function (f) { return f.group === g[0]; }).forEach(function (f) {
@@ -39246,7 +39246,7 @@ function moderationPanel() {
     h += '<div class="modrow' + (open ? "" : " done") + '"><div><b>' + svgIconFor('📨') + ' ' + esc(a.name) + "</b> " + (a.kind === "ban" ? '<span class="tag ban">blocked</span>' : '<span class="tag">' + svgIconFor('🔗') + ' linked to ' + esc(a.linked.join(", ") || "nobody now") + "</span>") + ' <small>' + ago(a.at) + "</small>";
     h += "<p>" + esc(a.text) + "</p>";
     if (open) h += '<input id="ans-' + a.id + '" maxlength="500" placeholder="Answer (optional)"><div class="row"><button class="btn small" data-act="appeal" data-id="' + a.id + '" data-on="1">' + svgIconFor('✅') + ' Accept</button><button class="btn small ghost" data-act="appeal" data-id="' + a.id + '" data-on="0">' + svgIconFor('✖') + ' Deny</button></div>';
-    else h += "<small>" + (a.status === "accepted" ? "' + svgIconFor('✅') + ' accepted" : "' + svgIconFor('✖') + ' denied") + (a.answer ? ": " + esc(a.answer) : "") + "</small>";
+    else h += "<small>" + (a.status === "accepted" ? "'" + svgIconFor('✅') + "' accepted" : "' + svgIconFor('✖') + ' denied") + (a.answer ? ": " + esc(a.answer) : "") + "</small>";
     h += "</div></div>";
   });
   M.reports.forEach(function (r) {
@@ -39503,8 +39503,8 @@ function render() {
     h += '<button class="btn small ghost" data-act="pview" data-id="' + p.id + '">👁️ View</button>';
     h += '<button class="btn small ghost" data-act="pw" data-id="' + p.id + '">' + svgIconFor('🔑') + ' New password</button>';
     if (!p.me) {
-      h += '<button class="btn small ghost" data-act="ban" data-id="' + p.id + '" data-on="' + (p.banned ? 0 : 1) + '">' + (p.banned ? "' + svgIconFor('✅') + ' Unblock" : "' + svgIconFor('⛔') + ' Block") + "</button>";
-      h += '<button class="btn small ghost" data-act="owner" data-id="' + p.id + '" data-on="' + (p.owner ? 0 : 1) + '">' + (p.owner ? "' + svgIconFor('👑') + ' Remove owner" : "' + svgIconFor('👑') + ' Make owner") + "</button>";
+      h += '<button class="btn small ghost" data-act="ban" data-id="' + p.id + '" data-on="' + (p.banned ? 0 : 1) + '">' + (p.banned ? "'" + svgIconFor('✅') + "' Unblock" : "' + svgIconFor('⛔') + ' Block") + "</button>";
+      h += '<button class="btn small ghost" data-act="owner" data-id="' + p.id + '" data-on="' + (p.owner ? 0 : 1) + '">' + (p.owner ? "'" + svgIconFor('👑') + "' Remove owner" : "' + svgIconFor('👑') + ' Make owner") + "</button>";
     }
     h += '<button class="btn small ghost" data-act="prot" data-id="' + p.id + '" data-on="' + (p.protectedUntil ? 0 : 1) + '">' + (p.protectedUntil ? "🛡️ End protection" : "🛡️ Protect " + "") + "</button>";
     if (!p.bot) h += '<button class="btn small ghost" data-act="plogout" data-id="' + p.id + '">' + svgIconFor('🚪') + ' Log out</button><button class="btn small ghost" data-act="prestart" data-id="' + p.id + '" data-name="' + esc(p.name) + '">' + svgIconFor('🔁') + ' Start over</button>';
