@@ -20172,7 +20172,7 @@ const PAGE = `<!DOCTYPE html>
   .res-line .warn { color: var(--red); }
   .res-more { font-size: 11px; font-weight: 600; color: var(--stone); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .res-more .boostnote { color: var(--ink); }
-  .res-storage-go { align-self:flex-start; border:0; border-radius:999px; padding:2px 7px; background:var(--soft); color:var(--ink); font:inherit; font-size:11px; font-weight:700; cursor:pointer; }
+  /* .res-storage-go removed */
   .r-wood { border-left-color: var(--wood); }
   .r-wood .res-icon { background: #faf0e0; }
   .r-stone { border-left-color: var(--stone); }
@@ -23645,18 +23645,16 @@ const PAGE = `<!DOCTYPE html>
   .resource-strip .res-top b { font-size:clamp(12px,2.7vw,21px); font-variant-numeric:tabular-nums; letter-spacing:0; }
   .resource-strip .res-cap,.resource-strip .res-hero,.resource-strip .res-more { display:none; }
   .resource-strip .meter.thin { order:1; margin:3px 0 0; height:5px; border:0; border-radius:0; }
-  .resource-strip .res-line,.resource-strip .resource-max,.resource-strip .res-storage-go { display:none; }
+  .resource-strip .res-line,.resource-strip .resource-max { display:none; }
   .resource-strip.expanded .res-line { display:flex; flex-direction:column-reverse; order:2; gap:4px; font-size:clamp(10px,2.5vw,14px); white-space:normal; }
   .resource-strip.expanded .res-line span { opacity:1; overflow:visible; }
   .resource-strip.expanded .resource-max { display:block; order:3; font-size:clamp(10px,2.5vw,14px); }
-  .resource-strip.expanded .res-storage-go { display:inline-flex; order:4; margin-top:2px; }
   .resource-strip.expanded .meter.thin { height:8px; }
   @media(min-width:560px) {
     .resbar.resource-strip { margin-bottom:8px; }
-    .resbar.resource-strip > .res { padding:5px 8px; gap:1px; }
+    .resbar.resource-strip > .res { padding:5px 8px; }
     .resource-strip.expanded .res-line { flex-direction:row; align-items:center; justify-content:space-between; gap:6px; font-size:12px; white-space:nowrap; }
     .resource-strip.expanded .resource-max { font-size:11px; line-height:1.1; }
-    .resource-strip.expanded .res-storage-go { min-height:24px; padding:2px 7px; font-size:11px; }
     .resource-strip.expanded .meter.thin { height:5px; margin:2px 0; }
   }
   @media(max-width:559px) { .resbar.resource-strip > .res { padding:7px 4px; } .resource-strip .res-icon,.resource-strip .res-icon .ci { width:18px;height:18px;font-size:16px; } }
@@ -27649,7 +27647,6 @@ function renderResbar(d) {
     h += (lvb ? '<div class="res-mrow">' : "") + '<div class="meter thin"><i class="' + (pct >= 100 ? "full" : pct >= 90 ? "high" : "") + '" style="width:' + pct + '%"></i></div>' + (lvb ? lvb + "</div>" : "");
     h += '<div class="resource-max">Max: ' + shortNum(cap) + "</div>";
     h += '<div class="res-line"><b class="' + (net < 0 ? "neg" : "") + '">' + (net >= 0 ? "+" : "") + shortNum(net) + "/h</b><span>" + note + "</span></div>";
-    if (storageAction === k) h += '<button type="button" class="res-storage-go" data-view="buildings" title="' + esc(trStr("Manage storage")) + '">📦 ' + esc(trStr("Manage storage")) + '</button>';
     // 🛟 the greenhouse reserve gets its own line, so the time above always fits
     if (k === "food" && d.reserve) {
       var rfull = d.reserve.have >= d.reserve.cap;
