@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.348";
+const GAME_VERSION = "1.0.349";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -19689,32 +19689,44 @@ const PAGE = `<!DOCTYPE html>
   .sky {
     position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
     background:
-      /* Stars */
-      radial-gradient(1.5px 1.5px at 8% 12%, rgba(255,255,255,0.9) 50%, transparent 50%),
-      radial-gradient(1px 1px at 15% 35%, rgba(255,255,255,0.5) 50%, transparent 50%),
-      radial-gradient(2px 2px at 25% 8%, rgba(255,230,200,0.8) 50%, transparent 50%),
-      radial-gradient(1px 1px at 35% 28%, rgba(255,255,255,0.4) 50%, transparent 50%),
-      radial-gradient(1.5px 1.5px at 42% 15%, rgba(255,255,255,0.7) 50%, transparent 50%),
-      radial-gradient(1px 1px at 55% 42%, rgba(255,255,255,0.5) 50%, transparent 50%),
-      radial-gradient(2px 2px at 62% 6%, rgba(255,230,200,0.6) 50%, transparent 50%),
-      radial-gradient(1px 1px at 72% 32%, rgba(255,255,255,0.4) 50%, transparent 50%),
-      radial-gradient(1.5px 1.5px at 80% 10%, rgba(255,255,255,0.8) 50%, transparent 50%),
-      radial-gradient(1px 1px at 88% 38%, rgba(255,255,255,0.5) 50%, transparent 50%),
-      radial-gradient(2px 2px at 95% 18%, rgba(255,230,200,0.7) 50%, transparent 50%),
-      radial-gradient(1px 1px at 5% 55%, rgba(255,255,255,0.4) 50%, transparent 50%),
-      radial-gradient(1.5px 1.5px at 18% 68%, rgba(255,255,255,0.6) 50%, transparent 50%),
-      radial-gradient(1px 1px at 30% 52%, rgba(255,255,255,0.5) 50%, transparent 50%),
-      radial-gradient(2px 2px at 48% 62%, rgba(255,230,200,0.5) 50%, transparent 50%),
-      radial-gradient(1px 1px at 65% 58%, rgba(255,255,255,0.4) 50%, transparent 50%),
-      radial-gradient(1.5px 1.5px at 78% 72%, rgba(255,255,255,0.6) 50%, transparent 50%),
-      radial-gradient(1px 1px at 90% 65%, rgba(255,255,255,0.4) 50%, transparent 50%),
-      /* Mars planet */
-      radial-gradient(circle at 78% 22%, rgba(201,120,62,0.35) 0%, rgba(160,80,40,0.15) 25%, transparent 45%),
-      /* Warm horizon glow */
-      radial-gradient(ellipse 90% 40% at 50% 100%, rgba(201,120,62,0.18) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 30% at 30% 95%, rgba(180,90,50,0.12) 0%, transparent 50%),
-      /* Base night sky */
-      linear-gradient(180deg, #0f080a 0%, #1a0e10 35%, #2a1618 70%, #3d2018 100%);
+      /* Dense star field - upper sky */
+      radial-gradient(1.5px 1.5px at 5% 8%, rgba(255,255,255,0.95) 50%, transparent 50%),
+      radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,0.6) 50%, transparent 50%),
+      radial-gradient(2px 2px at 20% 5%, rgba(255,230,200,0.85) 50%, transparent 50%),
+      radial-gradient(1px 1px at 28% 25%, rgba(255,255,255,0.45) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 38% 10%, rgba(255,255,255,0.75) 50%, transparent 50%),
+      radial-gradient(1px 1px at 45% 30%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(2px 2px at 55% 8%, rgba(255,230,200,0.7) 50%, transparent 50%),
+      radial-gradient(1px 1px at 65% 22%, rgba(255,255,255,0.4) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 75% 6%, rgba(255,255,255,0.8) 50%, transparent 50%),
+      radial-gradient(1px 1px at 82% 28%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(2px 2px at 92% 12%, rgba(255,230,200,0.75) 50%, transparent 50%),
+      /* Mid sky stars */
+      radial-gradient(1px 1px at 8% 40%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 18% 50%, rgba(255,255,255,0.65) 50%, transparent 50%),
+      radial-gradient(1px 1px at 32% 42%, rgba(255,255,255,0.4) 50%, transparent 50%),
+      radial-gradient(2px 2px at 48% 48%, rgba(255,230,200,0.55) 50%, transparent 50%),
+      radial-gradient(1px 1px at 58% 38%, rgba(255,255,255,0.45) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 68% 52%, rgba(255,255,255,0.6) 50%, transparent 50%),
+      radial-gradient(1px 1px at 78% 44%, rgba(255,255,255,0.4) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 88% 56%, rgba(255,255,255,0.55) 50%, transparent 50%),
+      radial-gradient(1px 1px at 95% 42%, rgba(255,255,255,0.45) 50%, transparent 50%),
+      /* Lower sky stars */
+      radial-gradient(1px 1px at 3% 62%, rgba(255,255,255,0.35) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 15% 75%, rgba(255,255,255,0.5) 50%, transparent 50%),
+      radial-gradient(1px 1px at 35% 68%, rgba(255,255,255,0.3) 50%, transparent 50%),
+      radial-gradient(2px 2px at 50% 78%, rgba(255,230,200,0.4) 50%, transparent 50%),
+      radial-gradient(1px 1px at 70% 70%, rgba(255,255,255,0.35) 50%, transparent 50%),
+      radial-gradient(1.5px 1.5px at 85% 82%, rgba(255,255,255,0.45) 50%, transparent 50%),
+      radial-gradient(1px 1px at 96% 68%, rgba(255,255,255,0.3) 50%, transparent 50%),
+      /* Mars planet glow */
+      radial-gradient(circle at 78% 22%, rgba(210,130,70,0.4) 0%, rgba(180,95,50,0.2) 20%, rgba(140,70,35,0.08) 35%, transparent 50%),
+      /* Warm atmospheric horizon glow */
+      radial-gradient(ellipse 100% 45% at 50% 100%, rgba(210,130,70,0.22) 0%, rgba(180,95,50,0.1) 30%, transparent 55%),
+      radial-gradient(ellipse 70% 35% at 25% 95%, rgba(190,110,55,0.15) 0%, transparent 45%),
+      radial-gradient(ellipse 60% 30% at 75% 92%, rgba(200,120,60,0.12) 0%, transparent 40%),
+      /* Deep space base */
+      linear-gradient(180deg, #0a0508 0%, #140a0e 25%, #1f1014 50%, #2a1518 75%, #3d2018 100%);
   }
   .sun {
     position: absolute; top: 40px; right: 12%;
