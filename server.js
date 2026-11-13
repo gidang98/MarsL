@@ -19732,6 +19732,13 @@ const PAGE = `<!DOCTYPE html>
 
   .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 14px 14px 60px; }
 
+  /* Accessibility: visible focus rings for keyboard navigation */
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+  }
+  .btn:focus-visible { outline-offset: 3px; }
+  .nav button:focus-visible { outline-offset: 2px; border-radius: 14px; }
+
   /* ---------- Page layout: main column + Troop Traffic sidebar ---------- */
   .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; }
   #app { min-width: 0; }
@@ -20152,7 +20159,9 @@ const PAGE = `<!DOCTYPE html>
     font-size: 15px; background: var(--tribe); border: 1px solid var(--line);
     border-radius: 12px; padding: 1px 8px; vertical-align: middle;
   }
-  .empty { margin: 4px 0; font-weight: 500; }
+  .empty { margin: 4px 0; font-weight: 500; padding: 16px 12px; text-align: center; background: rgba(42,22,48,0.04); border-radius: 14px; border: 1.5px dashed var(--line); }
+  .empty b { display: block; font-size: 28px; margin-bottom: 6px; }
+  .sheet .empty { margin: 10px 0; }
 
   .qitem {
     display: flex; align-items: center; gap: 10px; padding: 8px 0;
@@ -20380,7 +20389,9 @@ const PAGE = `<!DOCTYPE html>
   .btn:disabled { background: #d8c9bf; color: #7d6c78; cursor: not-allowed; }
   .btn.small { width: auto; padding: 6px 12px; font-size: 14px; }
   .btn.ghost { background: #fff; }
-  .btn.danger { background: var(--red); color: #fff; }
+  .btn.danger { background: var(--red); color: #fff; border-color: #b71c1c; }
+  .btn.danger:hover:not(:disabled) { background: #b71c1c; transform: rotate(-1deg) scale(1.02); }
+  .btn.danger:active:not(:disabled) { background: #a01717; transform: translateY(3px) scale(0.98); }
 
   /* ---------- Popup sheet ---------- */
   .overlay {
@@ -20662,6 +20673,27 @@ const PAGE = `<!DOCTYPE html>
   }
   #toast.show { transform: translate(-50%, 0) rotate(-1deg); }
   #toast.good { background: var(--green); color: var(--ink); }
+  #toast.info { background: var(--accent); color: var(--ink); }
+  #toast::before { margin-right: 8px; font-size: 18px; vertical-align: -2px; }
+  #toast.show::before { content: "⚠️"; }
+  #toast.good.show::before { content: "✅"; }
+  #toast.info.show::before { content: "ℹ️"; }
+  #toast .toast-bar {
+    position: absolute; left: 0; bottom: 0; height: 3px; background: rgba(255,255,255,0.5); border-radius: 0 0 0 14px;
+    width: 100%; transform-origin: left; animation: toast-shrink 2.6s linear forwards;
+  }
+  @keyframes toast-shrink { to { transform: scaleX(0); } }
+
+  /* Loading shimmer for skeleton states */
+  .shimmer {
+    position: relative; overflow: hidden; background: var(--surface-2, #f2e8dd); border-radius: 10px;
+  }
+  .shimmer::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+    animation: shimmer-slide 1.4s ease-in-out infinite;
+  }
+  @keyframes shimmer-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
   .confetti {
     position: fixed; z-index: 30; pointer-events: none; font-size: 26px;
@@ -20760,6 +20792,15 @@ const PAGE = `<!DOCTYPE html>
   .fl-troops input { width: 46px; font: inherit; font-size: 14px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 8px; }
   .fl-bottom { text-align: right; margin-top: 6px; }
   @media (max-width: 560px) { .fl-row { grid-template-columns: auto 1fr auto; } .fl-del { grid-row: 1; grid-column: 3; } .fl-troops { grid-column: 2 / 4; } }
+  .fl-row { transition: background 0.15s; border-radius: 10px; padding: 6px 8px; margin: 0 -8px; }
+  .fl-row:hover { background: rgba(42,22,48,0.04); }
+  .fl-row.on-row { background: rgba(47,158,87,0.08); }
+  .fl-row.on-row:hover { background: rgba(47,158,87,0.14); }
+  .fl-on { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; transition: background 0.15s, transform 0.1s; }
+  .fl-on:hover, .fl-on:active { background: rgba(42,22,48,0.08); transform: scale(1.1); }
+  .fl-on.ticked { background: rgba(47,158,87,0.18); }
+  .farmlist { transition: box-shadow 0.2s; }
+  .farmlist:hover { box-shadow: 0 4px 16px -8px rgba(36,14,22,0.25); }
   .subtabs button {
     padding: 8px 4px; font-family: inherit; font-weight: 700; font-size: 13px; line-height: 1.15;
     color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 14px;
@@ -23702,7 +23743,7 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 <button class="herobtn" id="herobtn" data-hero-open="1" title="Commander">🎖️<i></i></button>
 <button class="sidebtn" id="sidebtn" data-side-toggle="1" title="Troop Traffic">🧭<i id="sidecount"></i></button>
 <div id="sheet"></div>
-<div id="toast"></div>
+<div id="toast"><span class="toast-bar"></span></div>
 <div id="tut"></div>
 <script>
 var RES = ["wood", "stone", "metal", "food"];
@@ -23820,8 +23861,12 @@ function ago(ms) {
 
 function toast(msg, good) {
   var t = document.getElementById("toast");
+  var bar = t.querySelector(".toast-bar");
+  // Determine type: good=true -> success, msg starts with specific emoji -> info
+  var type = good ? "good" : (/^(ℹ️|📋|💡|🌍|🔔)/.test(String(msg))) ? "info" : "";
   t.textContent = trStr(String(msg));
-  t.className = "show" + (good ? " good" : "");
+  if (bar) t.appendChild(bar);
+  t.className = "show" + (type ? " " + type : "");
   clearTimeout(toast.timer);
   toast.timer = setTimeout(function () { t.className = ""; }, 2600);
 }
@@ -28910,7 +28955,7 @@ function farmSheet(d) {
   h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with 📋 on the map</small><button class="btn small" data-farm-new="1">＋ New list</button><button class="btn small" data-farm-start-all="1"' + (farmSending || !lists.some(function(l){return farmPlan(l,false).entries.length;}) ? ' disabled' : '') + '>Start all</button></div>';
   h += '<button class="fl-quiet' + (farmStats.quiet ? " on" : "") + '" data-farm-quiet="1"><span>' + (farmStats.quiet ? "🔕" : "🔔") + '</span><span><b>Only report raids with losses</b><small>' + (farmStats.quiet ? "On: farm raids where nobody died make no report" : "Off: every farm raid makes a report") + '</small></span><i class="fl-switch"></i></button>';
   h += farmReviewHtml(d);
-  if (!lists.length) return h + '<p class="empty">No farm list yet. Tap a camp or colony on the map and press 📋.</p>';
+  if (!lists.length) return h + '<p class="empty"><b>📋</b>No farm lists yet. Tap a camp or colony on the map and press 📋 to create your first list.</p>';
   var fighters = d.units.filter(function (u) { return u.known && !u.scout && !u.settler; });
   lists.forEach(function (l) {
     if (groupColony !== l.colonyId) {
@@ -28934,7 +28979,7 @@ function farmSheet(d) {
     if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button><button class="btn small danger" data-farm-delete-selected="' + l.id + '">🗑 Delete</button></div>';
     h += '<details class="farm-review"><summary>Troop preset &amp; bulk editor</summary><small>Saved for new targets. Applying replaces troop counts for targets checked in this list.</small>'+farmCountEditor(preset,'data-farm-default',l.id+':')+'<button class="btn small ghost" data-farm-apply="'+l.id+'">Apply preset to '+selected+' selected targets</button></details>';
     if (listTotal) h += '<div class="fl-total">💰 Stolen with this list so far: <b>' + listTotal.toLocaleString() + "</b></div>";
-    if (!l.entries.length) h += '<p class="empty">Empty - add targets on the map.</p>';
+    if (!l.entries.length) h += '<p class="empty"><b>🗺️</b>No targets yet. Tap a camp or colony on the map and press 📋 to add.</p>';
     if (l.entries.length > 1) {
       h += '<div class="fl-sort"><span>Order</span>';
       FARM_SORTS.forEach(function (o) {
@@ -28946,7 +28991,8 @@ function farmSheet(d) {
     var listed = farmSorted(l);
     listed.forEach(function (e, idx) {
       var busy = farmBusy(l, e);
-      h += '<div class="fl-row' + (e.on ? "" : " off") + '"><button class="fl-on" data-farm-toggle="' + l.id + ":" + e.id + '" title="Select target">' + (farmSelection[l.id + ":" + e.id] ? "☑️" : "⬜") + "</button>";
+      var isSel = farmSelection[l.id + ":" + e.id];
+      h += '<div class="fl-row' + (e.on ? "" : " off") + (isSel ? " on-row" : "") + '"><button class="fl-on' + (isSel ? " ticked" : "") + '" data-farm-toggle="' + l.id + ":" + e.id + '" title="Select target">' + (isSel ? "☑️" : "⬜") + "</button>";
       h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · 🐪 " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /⚠️/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
       if (manual && listed.length > 1) {
         h += '<span class="fl-move"><button data-farm-move="' + l.id + ":" + e.id + ':-1"' + (idx === 0 ? " disabled" : "") + ' title="Move up">▲</button><button data-farm-move="' + l.id + ":" + e.id + ':1"' + (idx === listed.length - 1 ? " disabled" : "") + ' title="Move down">▼</button></span>';
@@ -38533,6 +38579,9 @@ const ADMIN_PAGE = `<!DOCTYPE html>
     position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 16px; font-weight: 700;
     background: var(--ink); color: #fff; border-radius: 14px; display: none; max-width: 90%; z-index: 9;
   }
+  #toast.show { display: block; animation: toast-in 0.3s ease-out; }
+  @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .center { text-align: center; }
   a { color: inherit; }
   a.btn { text-decoration: none; display: inline-block; }
@@ -38586,7 +38635,7 @@ const ADMIN_PAGE = `<!DOCTYPE html>
   <h1>🛠️ MarsL Admin <small id="who"></small> <small style="opacity:.5;font-size:11px">__SRV__ · Open Beta · __VER__</small></h1>
   <div id="app"><div class="panel">Loading...</div></div>
 </div>
-<div id="toast"></div>
+<div id="toast"><span class="toast-bar"></span></div>
 <div class="modal-overlay" id="pmod"><div class="modal"><div class="modal-header"><h2 id="ptitle">Player</h2><button class="modal-close" onclick="closePlayer()">&times;</button></div><div class="modal-body" id="pbody"></div><div class="modal-footer" id="pfoot"><button class="btn ghost" onclick="closePlayer()">Close</button></div></div></div>
 <script>
 var state = null;
