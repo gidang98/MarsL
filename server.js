@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.349";
+const GAME_VERSION = "1.0.350";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -12285,7 +12285,7 @@ const SERVER_PAGE = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__SRV__ · MarsL</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #2a1630; --paper: #fff6ea; --accent: #ffd23f; --red: #ff5a5f; --green: #2f9e57; --line: rgba(62,34,38,0.18); --soft: #f3e7d6; }
   * { box-sizing: border-box; }
@@ -12981,7 +12981,7 @@ function mt(lang) { return MAILT[MAILT[lang] ? lang : "en"]; }
 function mlang(x) { return MAILT[x] ? x : "en"; }
 function mailPage(title, body, ok, lang) {
   return '<!DOCTYPE html><html lang="' + (lang || "en") + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + mailEsc(title) + ' · MarsL</title>' +
-    '<link href="/fonts.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>' +
+    '<link href="/fonts.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">' +
     '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;font-family:Figtree,system-ui,sans-serif;color:#3a2a4d;background:linear-gradient(180deg,#fff3e6,#ffd6b5)}' +
     '.logo{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:40px;color:#fff;text-align:center;margin:0 0 14px;text-shadow:0 1px 0 #ffd9c9,0 2px 0 #ffbfa6,0 3px 0 #ffa585,0 4px 0 #f58a68,0 5px 0 #e8724f,0 6px 0 #da6243,0 12px 18px rgba(122,46,34,.3)}' +
     '.card{background:var(--card);border-radius:26px;box-shadow:0 14px 30px -14px rgba(122,46,34,.38);padding:24px;max-width:420px;width:100%;box-sizing:border-box}h1{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:23px;margin:0 0 10px}' +
@@ -15558,7 +15558,7 @@ const LEGAL_SHELL = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__ · MarsL</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #2a1630; --paper: #fff6ea; --line: rgba(62,34,38,0.18); }
   * { box-sizing: border-box; }
@@ -19621,7 +19621,7 @@ const PAGE = `<!DOCTYPE html>
 <link rel="apple-touch-icon" href="/icon-192.png">
 <title>MarsL</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --ink: #3e2226;
@@ -21694,7 +21694,7 @@ const PAGE = `<!DOCTYPE html>
   body { background: var(--bg-bot); font-size: 15px; line-height: 1.4; }
   :focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
   button { color: inherit; }
-  .ph { display:inline-block; vertical-align:-0.15em; font-size:1.15em; line-height:1; }
+
   .seg button, .simtools button, .fl-on, .fl-del { color: var(--ink); }
 
   /* ---------- the fun Mars scenery stays (outlined cartoon style) ---------- */
@@ -23010,7 +23010,7 @@ const PAGE = `<!DOCTYPE html>
     --r: 24px;
   }
   body { font-family: var(--f-ui); color: var(--ink); background: var(--sky2); }
-  .ph { display:inline-block; vertical-align:-0.15em; font-size:1.15em; line-height:1; }
+
   h1, h2, h3, h4, h5, .logo, .topbar b, .panel h2, h2.section, .tr-head b, .qhead b, .btn, .nav button, .subtabs button,
   .count, .nclock b, .sheet-head h3, .sheet h3, .pg-card h3, .journey-track b, .mile h3 {
     font-family: var(--f-toy);
@@ -23998,72 +23998,67 @@ function ago(ms) {
   return Math.floor(s / 86400) + " days ago";
 }
 
-/* ---------- Phosphor icon system ---------- */
-function icon(name) {
-  var map = {
-    check: "ph-check", warn: "ph-warning", info: "ph-info",
-    wood: "ph-tree", stone: "ph-mountains", metal: "ph-cube", food: "ph-plant",
-    close: "ph-x", map: "ph-map-trifold", send: "ph-paper-plane-right",
-    attack: "ph-sword", home: "ph-house", build: "ph-buildings",
-    flask: "ph-flask", cart: "ph-shopping-cart", list: "ph-list",
-    target: "ph-crosshair", trash: "ph-trash", plus: "ph-plus",
-    search: "ph-magnifying-glass", settings: "ph-gear", user: "ph-user",
-    mail: "ph-envelope", trophy: "ph-trophy",
-    volume: "ph-speaker-high", mute: "ph-speaker-slash",
-    help: "ph-question", book: "ph-book-open", logout: "ph-sign-out",
-  };
-  return '<i class=\"ph ' + (map[name] || '') + '\"></i>';
-}
+/* ---------- Inline SVG icon system ---------- */
+var SVG_ICONS = {
+  check: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>',
+  warn: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  info: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect x="11" y="7" width="2" height="6" rx="1"/><rect x="11" y="16" width="2" height="2" rx="1"/></svg>',
+  wood: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19c0-2 1-4 3-5l5-2 5 2c2 1 3 3 3 5M8 14V7l4-3 4 3v7"/><path d="M8 19h8"/><path d="M8 11h8"/><path d="M8 8h8"/></svg>',
+  stone: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14l4-8h8l4 8-6 6H10l-6-6z"/><path d="M8 14h8"/><path d="M10 10h4"/></svg>',
+  metal: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 3v18M17 3v18M3 7h18M3 17h18"/><circle cx="12" cy="12" r="2"/><path d="M12 3v4M12 17v4"/></svg>',
+  food: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C7 2 4 7 4 11c0 3.5 3 6.5 5 8.5l3 2.5 3-2.5c2-2 5-5 5-8.5 0-4-3-9-8-9z"/><path d="M12 7v6"/><path d="M12 17v0"/></svg>',
+  close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+  map: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6l6-3 8 4 6-3v14l-6 3-8-4-6 3V6z"/><path d="M8 3v14M16 7v14"/><circle cx="12" cy="12" r="2" fill="currentColor" fill-opacity=".15"/></svg>',
+  send: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/><circle cx="11" cy="13" r="1.5" fill="currentColor"/></svg>',
+  attack: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v3l10.5 9L18 21l2-2-5-4.5L5.5 4H3z"/><path d="M14 14l5 5M16 12l3 3M18 10l2 2"/><circle cx="3" cy="4" r="1" fill="currentColor"/></svg>',
+  home: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/><rect x="10" y="14" width="4" height="4" rx="1" fill="currentColor" fill-opacity=".15"/></svg>',
+  build: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 22h20M2 6l10-4 10 4"/><path d="M6 6v12M12 6v12M18 6v12"/><path d="M9 10h6M9 14h6"/></svg>',
+  flask: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6"/><path d="M10 2v7.5a4 4 0 01-3.5 3.5H6l3 9h6l3-9h-.5a4 4 0 01-3.5-3.5V2"/><path d="M12 18v3"/><path d="M9 13h6"/></svg>',
+  cart: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.5"/><circle cx="20" cy="21" r="1.5"/><path d="M1 3h4l2.5 12h11.5L23 7H6"/><path d="M6 7l2 8"/></svg>',
+  list: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="4" height="4" rx="1"/><rect x="4" y="10" width="4" height="4" rx="1"/><rect x="4" y="15" width="4" height="4" rx="1"/><line x1="12" y1="7" x2="20" y2="7"/><line x1="12" y1="12" x2="20" y2="12"/><line x1="12" y1="17" x2="20" y2="17"/></svg>',
+  target: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="currentColor"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>',
+  trash: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6M5 6l1 14a2 2 0 002 2h8a2 2 0 002-2l1-14"/></svg>',
+  plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.5"/><path d="M12 8v8M8 12h8"/></svg>',
+  search: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><circle cx="11" cy="11" r="3" fill="currentColor" fill-opacity=".12"/></svg>',
+  settings: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" fill="currentColor" fill-opacity=".15"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.42 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
+  user: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-3.5 3-6 8-6s8 2.5 8 6"/></svg>',
+  mail: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 8l10 6 10-6"/><path d="M2 17l6-4M22 17l-6-4"/></svg>',
+  trophy: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 006 6 6 6 0 006-6V2z" fill="currentColor" fill-opacity=".1"/></svg>',
+  volume: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10H4z" fill="currentColor" fill-opacity=".1"/><path d="M4 10v4h3l5 4V6L7 10H4z"/><path d="M17.5 7.5a7.5 7.5 0 010 9M20.5 4.5a12 12 0 010 15"/></svg>',
+  mute: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6L7 10H4z" fill="currentColor" fill-opacity=".1"/><path d="M4 10v4h3l5 4V6L7 10H4z"/><line x1="17" y1="7" x2="23" y2="17"/><line x1="23" y1="7" x2="17" y2="17"/></svg>',
+  help: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 9a3 3 0 013-3 3 3 0 013 3c0 1.5-1.5 2.5-3 3.5"/><circle cx="12" cy="17" r=".8" fill="currentColor"/></svg>',
+  book: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M10 6h6M10 10h6M10 14h4"/></svg>',
+  logout: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/><circle cx="20" cy="12" r="1" fill="currentColor"/></svg>'
+};
+function icon(name) { return SVG_ICONS[name] || ""; }
 function svgIconFor(emoji) {
   var map = {
-    "🏠": "ph-house", "🏡": "ph-house-line", "🏛️": "ph-bank",
-    "🌾": "ph-plant", "⚔️": "ph-sword", "🗡️": "ph-sword", "🏹": "ph-bow-arrow",
-    "📦": "ph-package", "🏗️": "ph-buildings", "🔨": "ph-hammer",
-    "🔒": "ph-lock", "✅": "ph-check", "☑️": "ph-check", "✔️": "ph-check",
-    "👍": "ph-thumbs-up", "👎": "ph-thumbs-down",
-    "🎲": "ph-dice-five", "💎": "ph-currency-eth", "🎒": "ph-backpack",
-    "💀": "ph-skull", "🌍": "ph-globe-hemisphere-west",
-    "🌎": "ph-globe-hemisphere-west", "🌏": "ph-globe-hemisphere-east",
-    "💡": "ph-lightbulb", "ℹ️": "ph-info", "📋": "ph-list",
-    "🔔": "ph-bell", "🚀": "ph-rocket", "🏆": "ph-trophy", "⭐": "ph-star",
-    "🛡️": "ph-shield", "💰": "ph-coins",
-    "📧": "ph-envelope", "✉️": "ph-envelope", "📨": "ph-paper-plane-tilt",
-    "❌": "ph-x", "✖️": "ph-x", "🗑️": "ph-trash",
-    "➕": "ph-plus", "🔍": "ph-magnifying-glass", "⚙️": "ph-gear",
-    "👤": "ph-user", "🧪": "ph-flask", "📜": "ph-scroll",
-    "🎯": "ph-crosshair", "📍": "ph-map-pin", "🗺️": "ph-map-trifold",
-    "📬": "ph-envelope-open", "🌐": "ph-globe", "🎖️": "ph-medal",
-    "☁️": "ph-cloud", "📲": "ph-device-mobile",
-    "🛬": "ph-airplane-landing", "🗿": "ph-monument",
-    "🌌": "ph-planet", "🛸": "ph-flying-saucer", "🔑": "ph-key",
-    "📅": "ph-calendar", "⛔": "ph-prohibit",
-    "📨": "ph-paper-plane-tilt", "🔐": "ph-lock-key",
-    "💥": "ph-bomb", "🌠": "ph-sparkle", "🧬": "ph-dna",
-    "🔴": "ph-circle", "✦": "ph-star-four", "📖": "ph-book-open",
-    "🔊": "ph-speaker-high", "🔇": "ph-speaker-slash",
-    "❓": "ph-question", "🚪": "ph-door", "🏷️": "ph-tag",
-    "🪖": "ph-shield-plus", "✈️": "ph-airplane", "🛠️": "ph-wrench",
-    "🔬": "ph-microscope", "💨": "ph-wind", "🥔": "ph-circle",
-    "🤖": "ph-robot", "💤": "ph-moon", "🤝": "ph-handshake",
-    "🕐": "ph-clock", "⚡": "ph-lightning", "🏡": "ph-house-line",
-    "🐪": "ph-horse", "🎺": "ph-megaphone", "🧭": "ph-compass",
-    "🏪": "ph-storefront", "🔕": "ph-bell-slash", "🚶": "ph-person",
-    "💪": "ph-barbell", "🧮": "ph-calculator", "🏥": "ph-hospital",
-    "🧱": "ph-wall", "🎩": "ph-hard-hat", "💸": "ph-money",
-    "✓": "ph-check", "➡": "ph-arrow-right", "🍀": "ph-clover",
-    "🔄": "ph-arrows-clockwise", "🎁": "ph-gift",
-    "👋": "ph-hand-waving", "🟫": "ph-square",
-    "🥁": "ph-speaker-hifi", "📏": "ph-ruler", "🚩": "ph-flag",
-    "🔌": "ph-plug", "🎉": "ph-confetti", "😬": "ph-smiley-nervous",
-    "👀": "ph-eyes", "🎮": "ph-game-controller", "🟢": "ph-circle",
-    "👑": "ph-crown", "☆": "ph-star", "✖": "ph-x", "🌱": "ph-plant",
-    "🙅": "ph-hand-palm", "👷": "ph-hard-hat", "💾": "ph-floppy-disk",
-    "✋": "ph-hand", "📯": "ph-megaphone", "🦂": "ph-bug",
-    "🐔": "ph-bird", "🏰": "ph-castle",
+    "🏠": icon("home"), "🏡": icon("home"), "🏛️": icon("home"),
+    "🌾": '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 00-8 8c0 3.866 4 8 8 12 4-4 8-8.134 8-12a8 8 0 00-8-8z"/><path d="M12 6v4"/></svg>',
+    "⚔️": icon("attack"), "🗡️": icon("attack"), "🏹": icon("attack"),
+    "📦": icon("cart"), "🏗️": icon("build"), "🔨": icon("build"),
+    "🔒": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>',
+    "✅": icon("check"), "☑️": icon("check"), "✔️": icon("check"),
+    "👍": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>',
+    "👎": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3zM17 2h3a2 2 0 012 2v7a2 2 0 01-2 2h-3"/></svg>',
+    "🎲": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M8 8h.01M16 8h.01M8 16h.01M16 16h.01M12 12h.01"/></svg>',
+    "💎": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9z"/><path d="M11 3L8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>',
+    "🎒": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>',
+    "💀": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="M12 2a8 8 0 00-8 8v3a3 3 0 003 3h10a3 3 0 003-3v-3a8 8 0 00-8-8z"/></svg>',
+    "🌍": icon("map"), "🌎": icon("map"), "🌏": icon("map"),
+    "💡": icon("info"), "ℹ️": icon("info"), "📋": icon("list"),
+    "🔔": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>',
+    "🚀": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>',
+    "🏆": icon("trophy"), "⭐": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    "🛡️": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    "💰": '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="7"/><path d="M19.5 10a2.5 2.5 0 000 5 2.5 2.5 0 002.5-2.5"/><path d="M9 7h1a2 2 0 002-2 2 2 0 00-2-2H8"/><path d="M8 11h2a2 2 0 012 2 2 2 0 01-2 2H8"/></svg>',
+    "📧": icon("mail"), "✉️": icon("mail"), "📨": icon("mail"),
+    "❌": icon("close"), "✖️": icon("close"), "🗑️": icon("trash"),
+    "➕": icon("plus"), "🔍": icon("search"), "⚙️": icon("settings"),
+    "👤": icon("user"), "🧪": icon("flask"), "📜": icon("list"),
+    "🎯": icon("target"), "📍": icon("target"),
   };
-  var cls = map[emoji];
-  if (cls) return '<i class=\"ph ' + cls + '\"></i>';
-  return emoji;
+  return map[emoji] || emoji;
 }
 function toast(msg, good) {
   var t = document.getElementById("toast");
@@ -38761,7 +38756,7 @@ const ADMIN_PAGE = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MarsL Admin</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"><script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #2a1630; --paper: #fff6ea; --accent: #ffd23f; --red: #ff5a5f; --green: #3ccf6e; }
   * { box-sizing: border-box; }
