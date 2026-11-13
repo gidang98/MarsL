@@ -19647,6 +19647,11 @@ const PAGE = `<!DOCTYPE html>
     overflow-x: hidden;
   }
   body.noscroll { overflow: hidden; }
+  /* Prevent pull-to-refresh on the game body, allow on overlays */
+  body { overscroll-behavior-y: none; }
+  .sheet { overscroll-behavior-y: contain; }
+  /* Scroll padding for fixed nav bars */
+  html { scroll-padding-top: 60px; scroll-padding-bottom: 60px; }
 
   /* Smooth scrolling and custom scrollbar */
   html { scroll-behavior: smooth; }
@@ -20367,12 +20372,12 @@ const PAGE = `<!DOCTYPE html>
     transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
   .report:hover { box-shadow: 0 10px 28px -8px rgba(36,14,22,0.35); }
-  .report-head { transition: background 0.15s ease; }
+  .report-head { transition: background 0.15s ease; position: sticky; top: 0; background: var(--paper); z-index: 1; }
   .report-head:hover { background: rgba(42,22,48,0.03); }
   .report-head {
     display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px;
     font-family: inherit; color: var(--ink); text-align: left; cursor: pointer;
-    background: transparent; border: 0;
+    border: 0;
   }
   .report-head .ri { font-size: 30px; }
   .report-head b { display: block; }
@@ -20449,7 +20454,13 @@ const PAGE = `<!DOCTYPE html>
     display: flex; align-items: center; gap: 12px;
     margin: 0 -16px 12px; padding: 14px 52px 14px 16px;
     border-bottom: 1px solid var(--line); background: var(--bld);
+    position: sticky; top: 0; z-index: 2;
   }
+  .sheet-drag {
+    display: none; width: 36px; height: 5px; border-radius: 3px; background: var(--line);
+    margin: 6px auto 0; cursor: grab;
+  }
+  @media (hover: none) { .sheet-drag { display: block; } }
   .sheet-head.t-wood { background: var(--wood); }
   .sheet-head.t-stone { background: var(--stone); }
   .sheet-head.t-metal { background: var(--metal); }
@@ -22552,13 +22563,20 @@ const PAGE = `<!DOCTYPE html>
 
   /* ---------- all phone browsers (Android Chrome, Samsung Internet, Firefox, Safari) ---------- */
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  button, .btn, .tile, .pad, .patch { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  button, .btn, .tile, .pad, .patch, .panel, .unit, .report, .fl-row, .army .pill, .fx-chip, .golink, .subtabs button, .orders .ord { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   @media (hover: none) {
     /* no "stuck" hover effects after tapping */
     .btn:hover:not(:disabled) { transform: none; filter: none; }
     .nav button:hover, .topbtns .btn:hover, .mc-main:hover, .bli:hover, .simtools button:hover { background: transparent; }
     .bli:hover { background: var(--card); }
     .sheet-close:hover { animation: none; }
+    .panel:hover, .unit:hover, .report:hover { transform: none; box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45); }
+    .res:hover { background: transparent; }
+  }
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    .shimmer::after { animation: none; }
   }
   .sheet { max-height: 88dvh; }
   @media (max-width: 979px) { .sidebar { height: 100dvh; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); } }
@@ -23618,7 +23636,7 @@ const PAGE = `<!DOCTYPE html>
 .gz-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
 
 .farmlist { padding: 10px; margin: 8px 0; }
-.farmlist .fl-top { display:flex; flex-wrap:nowrap; align-items:center; gap:8px; }
+.farmlist .fl-top { display:flex; flex-wrap:nowrap; align-items:center; gap:8px; position:sticky; top:0; background:var(--paper); z-index:1; padding:4px 0; }
 .fl-fold { flex:1; min-width:0; text-align:left; background:none; border:0; font:inherit; font-weight:700; overflow-wrap:anywhere; }
 .fl-fold small { display:block; font-size:12px; font-weight:400; opacity:.7; }
 .farmlist .fl-top .btn { flex:none; width:auto; padding:6px 10px; font-size:12px; min-height:36px; }
@@ -33464,6 +33482,7 @@ function renderSheet() {
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
   sheetAnim = false;
   if (sheet.kind !== "away") h += '<button class="sheet-close" data-close="1" title="Close">✖</button>';
+  h += '<div class="sheet-drag" title="Swipe down to close"></div>';
 
   if (sheet.kind === "stash-transfer") {
     h += stashTransferSheet(d);
@@ -36536,6 +36555,28 @@ document.addEventListener("input", function (e) {
     updateSendInfo();
   }
 });
+
+/* Swipe-to-close sheets on mobile */
+(function () {
+  var startY = 0, startX = 0, tracking = false;
+  document.addEventListener("touchstart", function (e) {
+    var sheet = e.target.closest(".sheet");
+    if (!sheet || e.target.closest(".sheet-head") || e.target.closest("input") || e.target.closest("textarea") || e.target.closest("select")) return;
+    var t = e.touches[0];
+    startY = t.clientY; startX = t.clientX; tracking = true;
+  }, { passive: true });
+  document.addEventListener("touchmove", function (e) {
+    if (!tracking) return;
+    var t = e.touches[0];
+    var dy = t.clientY - startY, dx = t.clientX - startX;
+    // Only close on downward swipe (>40px down, not horizontal)
+    if (dy > 40 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      tracking = false;
+      closeSheet();
+    }
+  }, { passive: true });
+  document.addEventListener("touchend", function () { tracking = false; });
+})();
 
 document.addEventListener("submit", function (e) {
   e.preventDefault();
