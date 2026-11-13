@@ -20152,7 +20152,6 @@ const PAGE = `<!DOCTYPE html>
     padding: 10px 12px; min-width: 0;
     box-shadow: var(--shadow-sm); border-left: 4px solid;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
-    display: flex; align-items: center; gap: 10px;
   }
   .res:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
   .res-top { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
