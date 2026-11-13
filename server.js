@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.341";
+const GAME_VERSION = "1.0.342";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.342",date:"2026-11-13",title:"Visual polish and UX improvements",groups:[["UI",["Toast notifications now show icons and an animated progress bar.","Empty states have friendly emoji icons and dashed card styling.","Farm list rows show green tint when targets are selected.","Panels lift on hover with subtle shadow animation.","Custom scrollbar matches game aesthetic.","Reports with unread status glow with a subtle pulse.","All buttons, pills, chips, and cards have hover feedback.","Keyboard focus rings visible on all interactive elements."]],["Mobile",["Touch-action manipulation prevents double-tap zoom.","Active press states on buttons, tabs, and chips.","Scrollbars styled for mobile WebKit browsers."]]]},
   {v:"1.0.341",date:"2026-11-13",title:"Farm list delete fixes and server stability",groups:[["Farm lists",["Delete list now shows a clear confirmation dialog with Yes/Cancel buttons.","Delete selected targets removes all checked targets in one tap.","Remove target button inside target editor for easier access.","Fixed delete buttons not working due to missing event selectors.","Fixed farm selection memory leak when deleting lists or targets."]],["Server",["Fixed async account endpoints crashing on network errors.","Added error boundaries to prevent server crashes during account deletion."]]]},
   {v:"1.0.340",date:"2026-11-13",title:"Admin Dashboard v2",groups:[["Admin",["Server owners get a System tab with live memory, uptime and player counts.","Player detail view shows colonies, ban status and creation date.","Database stats and migration status available in the admin panel."]]]},
   {v:"1.0.339",date:"2026-11-12",title:"Storage, marketplace and troop traffic",groups:[["Storage",["Warehouse, Granary and base storage capacities are reduced by one third."]],["Troop traffic",["The sidebar shows totals by movement type. Tap it to see all movements."]],["Marketplace",["Swap and Balance use a base rate of 46–55% as the marketplace levels up. Humans lose 5% less. Cover with market returns you to the build or upgrade after the swap."]]]},
@@ -19647,6 +19648,20 @@ const PAGE = `<!DOCTYPE html>
   }
   body.noscroll { overflow: hidden; }
 
+  /* Smooth scrolling and custom scrollbar */
+  html { scroll-behavior: smooth; }
+  * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink); }
+
+  /* Prevent double-tap zoom on mobile, enable smooth touch */
+  button, a, [data-farm-toggle], [data-goto], .fl-fold, .fl-on {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   /* ---------- Mars scenery (the crazy background) ---------- */
   .sky {
     position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
@@ -20108,7 +20123,8 @@ const PAGE = `<!DOCTYPE html>
     background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45);
   }
   @media (min-width: 560px) { .resbar { grid-template-columns: repeat(4, 1fr); } }
-  .res { padding: 7px 10px 6px; border-left: 5px solid; min-width: 0; }
+  .res { padding: 7px 10px 6px; border-left: 5px solid; min-width: 0; transition: background 0.15s ease; }
+  .res:hover { background: rgba(42,22,48,0.03); }
   .res + .res { box-shadow: inset 1px 0 0 rgba(42,22,48,0.15); }
   @media (max-width: 559px) { .res:nth-child(n+3) { border-top: 2px dashed rgba(42,22,48,0.2); } }
   .res-top { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; }
@@ -20145,7 +20161,10 @@ const PAGE = `<!DOCTYPE html>
   .panel {
     background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
     box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45); padding: 12px 14px; margin-bottom: 18px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
+  .panel:hover { box-shadow: 0 12px 28px -8px rgba(36,14,22,0.35); }
+  @media (min-width: 900px) { .panel:hover { transform: translateY(-1px); } }
   .panel h2, h2.section {
     font-family: "Chakra Petch", "Barlow", sans-serif; font-weight: 700;
     font-size: 24px; margin: 0 0 8px; letter-spacing: 1px;
@@ -20295,14 +20314,17 @@ const PAGE = `<!DOCTYPE html>
   .army { display: flex; flex-wrap: wrap; gap: 8px; }
   .army .pill {
     background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 4px 10px;
-    font-weight: 700; font-size: 15px;
+    font-weight: 700; font-size: 15px; transition: transform 0.1s, box-shadow 0.1s;
   }
+  .army .pill:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(36,14,22,0.1); }
   .units { display: grid; grid-template-columns: 1fr; gap: 14px; }
   @media (min-width: 560px) { .units { grid-template-columns: 1fr 1fr; } }
   .unit {
     background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
     box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45); padding: 12px; overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
+  .unit:not(.locked):hover { transform: translateY(-2px); box-shadow: 0 12px 28px -8px rgba(36,14,22,0.35); }
   .unit.locked .unit-head, .unit.locked .stats, .unit.locked .costs { filter: grayscale(0.8); opacity: 0.75; }
   .unit-head {
     display: flex; align-items: center; gap: 10px;
@@ -20330,6 +20352,9 @@ const PAGE = `<!DOCTYPE html>
     background: #eee2d8; border: 1.5px dashed var(--line-strong); border-radius: 14px;
   }
   .hint { margin: 6px 0 0; font-size: 13px; font-weight: 600; text-align: center; }
+  .hint.left { text-align: left; background: rgba(42,22,48,0.03); padding: 8px 10px; border-radius: 10px; }
+  .hint.warn { background: rgba(255,176,46,0.12); color: #c26a00; padding: 8px 10px; border-radius: 10px; }
+  .hint.good { background: rgba(61,220,132,0.12); color: #1a7a3e; padding: 8px 10px; border-radius: 10px; }
   .mv-tag {
     display: inline-block; font-size: 12px; font-weight: 700; padding: 0 6px; margin-left: 4px;
     border: 1px solid var(--line); border-radius: 8px; background: #fff;
@@ -20339,7 +20364,11 @@ const PAGE = `<!DOCTYPE html>
   .report {
     background: var(--paper); border: 1px solid var(--line); border-radius: 18px;
     box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45); margin-bottom: 12px; overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
+  .report:hover { box-shadow: 0 10px 28px -8px rgba(36,14,22,0.35); }
+  .report-head { transition: background 0.15s ease; }
+  .report-head:hover { background: rgba(42,22,48,0.03); }
   .report-head {
     display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px;
     font-family: inherit; color: var(--ink); text-align: left; cursor: pointer;
@@ -20348,11 +20377,13 @@ const PAGE = `<!DOCTYPE html>
   .report-head .ri { font-size: 30px; }
   .report-head b { display: block; }
   .report-head small { font-weight: 500; opacity: 0.8; }
-  .report.new { border-color: var(--red); }
+  .report.new { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,90,95,0.25), 0 8px 24px -10px rgba(36,14,22,0.45); }
   .report.new .report-head b::after {
     content: "NEW"; font-size: 11px; margin-left: 6px; padding: 0 6px; color: #fff;
     background: var(--red); border-radius: 8px; vertical-align: middle;
+    animation: badge-pulse 2s ease-in-out infinite;
   }
+  @keyframes badge-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,90,95,0.4)} 50%{box-shadow:0 0 0 4px rgba(255,90,95,0)} }
   .report-body { padding: 0 12px 12px; border-top: 2px dashed rgba(42,22,48,0.3); }
   .flavor { font-style: italic; font-weight: 600; margin: 10px 0; }
   .side { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px; margin-bottom: 8px; }
@@ -20386,7 +20417,8 @@ const PAGE = `<!DOCTYPE html>
   }
   .btn:hover:not(:disabled) { transform: rotate(-1deg) scale(1.02); }
   .btn:active:not(:disabled) { transform: translateY(3px) scale(0.98); box-shadow: 0 1px 2px rgba(36,14,22,0.12); }
-  .btn:disabled { background: #d8c9bf; color: #7d6c78; cursor: not-allowed; }
+  .btn:disabled { background: #d8c9bf; color: #7d6c78; cursor: not-allowed; opacity: 0.75; transform: none !important; }
+  .btn:disabled:hover { transform: none !important; }
   .btn.small { width: auto; padding: 6px 12px; font-size: 14px; }
   .btn.ghost { background: #fff; }
   .btn.danger { background: var(--red); color: #fff; border-color: #b71c1c; }
@@ -20398,7 +20430,9 @@ const PAGE = `<!DOCTYPE html>
     position: fixed; inset: 0; z-index: 10;
     background: rgba(42, 22, 48, 0.55);
     display: flex; align-items: flex-end; justify-content: center;
+    animation: overlay-in 0.2s ease;
   }
+  @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
   @media (min-width: 600px) { .overlay { align-items: center; } }
   .sheet {
     position: relative; width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
@@ -20760,7 +20794,8 @@ const PAGE = `<!DOCTYPE html>
   .need { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 9px; background: #f1e7ea; border: 1.5px dashed rgba(42,22,48,0.4); }
   .needs.center { justify-content: center; margin: 8px 0 12px; }
   .need.ok { background: #e3f7d8; border-style: solid; border-color: rgba(42,22,48,0.25); opacity: 0.8; }
-  .buildrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .buildrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 6px; padding: 6px 8px; border-radius: 10px; transition: background 0.15s; }
+  .buildrow:hover { background: rgba(42,22,48,0.03); }
   .buildrow .costs { margin: 0; }
 
   /* ---------- Army tab ---------- */
@@ -20769,6 +20804,8 @@ const PAGE = `<!DOCTYPE html>
   .subtabs.five { grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .subtabs.five button { padding-left: 2px; padding-right: 2px; font-size: 12px; }
   @media (max-width: 560px) { .subtabs.four { grid-template-columns: repeat(2, 1fr); } .subtabs.five { grid-template-columns: repeat(3, 1fr); } }
+  .subtabs button { transition: transform 0.1s, box-shadow 0.1s; }
+  .subtabs button:active { transform: scale(0.97); }
   .farmhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0 6px; }
   .farmlist { border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-top: 12px; background: rgba(255,255,255,0.45); }
   .fl-top { display: flex; gap: 8px; align-items: center; }
@@ -21436,8 +21473,9 @@ const PAGE = `<!DOCTYPE html>
   .golink {
     padding: 0; font: inherit; font-weight: 800; color: var(--ink); background: none; border: 0; cursor: pointer;
     text-decoration: underline dotted rgba(42,22,48,0.5); text-underline-offset: 2px;
+    transition: color 0.15s;
   }
-  .golink:hover { color: #d6401b; }
+  .golink:hover { color: #d6401b; text-decoration-style: solid; }
   .tr-from { font-size: 12px; font-weight: 600; opacity: 0.75; }
   .cancelmove { margin-top: 6px; width: 100%; }
   .armystats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 10px 0 4px; }
@@ -21842,7 +21880,7 @@ const PAGE = `<!DOCTYPE html>
   .unit.settler { background: var(--card); }
   .unit.settler .unit-head { background: var(--green-soft); box-shadow: inset 4px 0 0 var(--green); }
   .stats span { background: var(--surface-2); border: 0; border-radius: 10px; }
-  .lockmsg { background: var(--surface-2); border: 0; border-radius: 12px; color: var(--muted); }
+  .lockmsg { background: var(--surface-2); border: 0; border-radius: 12px; color: var(--muted); padding: 10px 12px; text-align: center; }
 
   /* attack / defense table on the Army page */
   .powertable {
@@ -22741,7 +22779,9 @@ const PAGE = `<!DOCTYPE html>
 .rt-practice{border-top:1px solid #e4d9cf;padding-top:7px;margin-top:7px}.practice-mark{position:absolute;right:2px;top:2px;font-size:16px;z-index:4;font-style:normal;background:#fff7dc;border-radius:50%;pointer-events:none}
 
 
-  .farm-review{padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);margin:8px 0}.farm-review small{display:block;margin:5px 0}.fl-editor{min-width:0;max-width:360px}.fl-editor summary{cursor:pointer;font-size:13px;padding:8px}.fl-editor .fl-troops{padding:6px}.fl-row .fl-target{min-width:0;overflow-wrap:anywhere}.ov-timeline{margin:10px 0;padding:10px;background:var(--surface-2);border-radius:10px}.ov-timeline summary{cursor:pointer;font-weight:700}.ov-trip{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:12px}.ov-trip span{min-width:0;overflow-wrap:anywhere}.ov-trip time{flex-shrink:0;font-variant-numeric:tabular-nums}
+  .farm-review{padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);margin:8px 0}.farm-review small{display:block;margin:5px 0}
+  .farm-review[role="status"]{background:var(--bld-soft,#f0e6ff);border-color:var(--bld);animation:pulse-soft 1.4s ease-in-out infinite}
+  @keyframes pulse-soft{0%,100%{opacity:1}50%{opacity:.85}}.fl-editor{min-width:0;max-width:360px}.fl-editor summary{cursor:pointer;font-size:13px;padding:8px}.fl-editor .fl-troops{padding:6px}.fl-row .fl-target{min-width:0;overflow-wrap:anywhere}.ov-timeline{margin:10px 0;padding:10px;background:var(--surface-2);border-radius:10px}.ov-timeline summary{cursor:pointer;font-weight:700}.ov-trip{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--line);font-size:12px}.ov-trip span{min-width:0;overflow-wrap:anywhere}.ov-trip time{flex-shrink:0;font-variant-numeric:tabular-nums}
   @media(max-width:600px){.farmlist .btn,.fl-sort button,.fl-on,.fl-del,.fl-move button{min-height:44px;min-width:44px}.fl-name{min-width:0;width:100%;font-size:16px}.fl-top{flex-wrap:wrap}.fl-sends{width:100%;display:flex}.fl-sends button{flex:1}.fl-editor{grid-column:2/4;max-width:none}.fl-troops input{font-size:16px;min-height:40px;width:58px}.fl-sort{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.fl-sort button{flex-shrink:0}.ov-top{flex-wrap:wrap}.ov-top b{flex:1 1 55%;white-space:normal}.ov-res{grid-template-columns:repeat(2,1fr)}.ov-trip{flex-direction:column;gap:2px}.farm-review .btn{min-height:44px}.ov-timeline summary{min-height:36px}}
   .template-tools,.build-advice{padding:8px;margin:8px 0;border:1px solid var(--line);border-radius:10px}.template-tools summary,.build-advice summary{cursor:pointer;font-weight:700}.template-tools p{font-size:12px}.build-advice button{display:block;margin:6px 0}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #2563eb;outline-offset:3px}
   @media(max-width:600px){.template-tools button,.build-advice button,.sendrow input{min-height:44px}.template-tools{max-width:100%;overflow-wrap:anywhere}.sheet input[type=number]{font-size:16px}.topbar{flex-wrap:wrap;gap:4px}.army{gap:5px}.army .pill{font-size:13px}.sheet{overscroll-behavior:contain}.tbtn{min-height:44px}.build-advice summary{padding:8px 0}}
@@ -23069,7 +23109,9 @@ const PAGE = `<!DOCTYPE html>
   .fx-rh small { color: var(--muted); font-weight: 600; }
   .fx-rh b { font-family: var(--f-toy); font-weight: 600; font-size: 14px; color: var(--teal); }
   .fx-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-  .fx-chip { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0 4px; min-height: 36px; padding: 4px 8px 4px 4px; border: 0; border-radius: 12px; background: var(--tray); box-shadow: var(--well); color: var(--ink); font: inherit; cursor: pointer; text-align: left; }
+  .fx-chip { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0 4px; min-height: 36px; padding: 4px 8px 4px 4px; border: 0; border-radius: 12px; background: var(--tray); box-shadow: var(--well); color: var(--ink); font: inherit; cursor: pointer; text-align: left; transition: transform 0.1s, box-shadow 0.1s; }
+  .fx-chip:hover { filter: brightness(0.98); transform: translateY(-1px); box-shadow: 0 2px 6px rgba(36,14,22,0.12); }
+  .fx-chip:active { transform: translateY(0) scale(0.98); }
   .fx-chip i { font-style: normal; font-family: var(--f-toy); font-weight: 600; font-size: 12px; min-width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: #fff; }
   .fx-chip b { font-family: var(--f-toy); font-weight: 600; font-size: 13px; }
   .fx-chip small { flex-basis: 100%; font-family: var(--f-toy); font-weight: 600; font-size: 10.5px; text-align: center; color: var(--accent-ink); background: var(--accent-soft); border-radius: 6px; margin-top: 3px; }
@@ -23289,15 +23331,18 @@ const PAGE = `<!DOCTYPE html>
 .qhelp { flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgba(90, 70, 50, .12); color: #6c5d52; font: 700 12px/20px inherit; text-align: center; cursor: pointer; }
 .qhelp:hover { background: rgba(90, 70, 50, .22); }
 @media (max-width: 600px) { .grad-rows { grid-template-columns: 1fr 1fr; } }
-.plan { margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(120, 90, 60, .25); }
-.plan h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 14px; }
-.plan .plan-item { opacity: .92; }
+.plan { margin-top: 10px; padding: 10px 12px; border: 1.5px dashed rgba(120, 90, 60, .25); border-radius: 14px; background: rgba(120, 90, 60, .03); }
+.plan h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 14px; }
+.plan .plan-item { opacity: .92; transition: opacity 0.15s; }
+.plan .plan-item:hover { opacity: 1; }
 .plan .plan-item .qbody small { display: block; }
 .plan-held { display: block; margin-top: 4px; color: #8a7d72; font-size: 12px; }
 /* 📯 battle orders, 🎭 archetypes, stances, quirks */
 .orders { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 10px; }
 .orders .ord-l { font-size: 12px; font-weight: 700; color: #6c5d52; }
-.orders .ord { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 10px; border: 0; border-radius: 10px; background: rgba(120, 90, 60, .08); font: inherit; font-size: 13px; font-weight: 600; color: inherit; cursor: pointer; text-align: left; }
+.orders .ord { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 10px; border: 0; border-radius: 10px; background: rgba(120, 90, 60, .08); font: inherit; font-size: 13px; font-weight: 600; color: inherit; cursor: pointer; text-align: left; transition: transform 0.1s, background 0.15s; }
+.orders .ord:hover { background: rgba(120, 90, 60, .14); transform: translateY(-1px); }
+.orders .ord:active { transform: translateY(0) scale(0.98); }
 .orders .ord b { font-weight: 600; white-space: nowrap; }
 .orders .ord small { font-weight: 400; font-size: 11px; color: #7d6f64; }
 .orders .ord.on { background: #ffe7c2; box-shadow: inset 0 0 0 2px #e9a640; }
