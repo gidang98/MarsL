@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.343";
+const GAME_VERSION = "1.0.344";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -7412,7 +7412,7 @@ function runRoute(s, colony, route, now) {
   }
   if (!total) return "📦 Nothing to send (keeping " + route.keep + "% in storage)";
   const used = sendMerchants(s, colony, target.id, goods, now, true);
-  return "✅ Sent " + total + " with " + used + (used === 1 ? " merchant" : " merchants");
+  return icon("check") + " Sent " + total + " with " + used + (used === 1 ? " merchant" : " merchants");
 }
 
 // The server checks all routes every few seconds
@@ -12296,7 +12296,7 @@ const SERVER_PAGE = `<!DOCTYPE html>
   header a { margin-left: auto; color: var(--accent); font-weight: 700; text-decoration: none; }
   .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
   @media (min-width: 820px) { .grid { grid-template-columns: 1fr 1fr; } .wide { grid-column: 1 / -1; } }
-  .card { background: var(--paper); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 4px 0 var(--ink); padding: 14px 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 14px 16px; }
   h2 { font-family: "Chakra Petch", sans-serif; font-weight: 600; font-size: 18px; margin: 0 0 10px; }
   .muted { opacity: 0.7; font-size: 13px; }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.344",date:"2026-11-14",title:"Complete cozy UI polish",groups:[["SVG Icons",["Replaced all key UI emojis with consistent inline SVG icons.","Close buttons, delete buttons, checkmarks, warnings all use clean SVG line icons.","Farm list actions, attack/defense labels, map buttons, account page all updated.","No more emoji in primary UI — clean, scalable, consistent iconography."]],["UI Components",["Report cards restyled with warm card backgrounds and softer shadows.","Army pills and unit training cards use new warm styling.","Navigation buttons use card backgrounds with improved active states.","Quest cards use warm backgrounds and softer glow animations.","Profile badges, settings cards, and account page all restyled.","Tile info popup and map overlay close button styled consistently.","Army stats grid uses warm card backgrounds."]]]},
   {v:"1.0.343",date:"2026-11-14",title:"Cozy Mars visual overhaul",groups:[["Visual Design",["Warm Mars palette: dusty oranges, terracottas, and cream backgrounds throughout.","Buttons are now 3D pressable with warm terracotta colors and physical shadow feedback.","Resource bars redesigned as individual cards with colored left borders and soft backgrounds.","Panels and cards use generous rounded corners and layered shadow system.","Village background uses warmer sunset gradient.","Typography stack now includes Nunito for a friendlier feel.","Inline SVG icon system added for consistent iconography."]],["UI Components",["Toast notifications restyled with warm dark background and clean icons.","Empty states use dashed warm borders and friendly messaging.","Farm list rows have improved spacing and hover feedback.","Sheet overlays use enhanced shadow system.","Building lots use warmer card styling with softer interactions."]]]},
   {v:"1.0.342",date:"2026-11-13",title:"Visual polish and UX improvements",groups:[["UI",["Toast notifications now show icons and an animated progress bar.","Empty states have friendly emoji icons and dashed card styling.","Farm list rows show green tint when targets are selected.","Panels lift on hover with subtle shadow animation.","Custom scrollbar matches game aesthetic.","Reports with unread status glow with a subtle pulse.","All buttons, pills, chips, and cards have hover feedback.","Keyboard focus rings visible on all interactive elements."]],["Mobile",["Touch-action manipulation prevents double-tap zoom.","Active press states on buttons, tabs, and chips.","Scrollbars styled for mobile WebKit browsers."]]]},
   {v:"1.0.341",date:"2026-11-13",title:"Farm list delete fixes and server stability",groups:[["Farm lists",["Delete list now shows a clear confirmation dialog with Yes/Cancel buttons.","Delete selected targets removes all checked targets in one tap.","Remove target button inside target editor for easier access.","Fixed delete buttons not working due to missing event selectors.","Fixed farm selection memory leak when deleting lists or targets."]],["Server",["Fixed async account endpoints crashing on network errors.","Added error boundaries to prevent server crashes during account deletion."]]]},
@@ -19814,9 +19815,9 @@ const PAGE = `<!DOCTYPE html>
   .qtoggle { padding: 2px 10px; font-family: inherit; font-weight: 700; cursor: pointer; background: #fff; border: 1px solid var(--line); border-radius: 10px; }
   .qbar { margin: 8px 0 4px; }
   .quest {
-    position: relative; margin-top: 10px; padding: 8px 10px; background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    position: relative; margin-top: 10px; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm);
   }
-  .quest.ready { background: #eaffdf; box-shadow: 0 0 0 3px var(--green); animation: glow 1.6s ease-in-out infinite; }
+  .quest.ready { background: #e8f5e8; box-shadow: 0 0 0 2px var(--green); animation: glow 1.6s ease-in-out infinite; }
   #quests:not(.open) .quest.more { display: none; }
   /* folded: one slim row per quest (title, progress, claim) */
   #quests:not(.open) .quest { padding: 6px 10px; margin-top: 6px; }
@@ -20082,17 +20083,19 @@ const PAGE = `<!DOCTYPE html>
   .nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
   @media (min-width: 560px) { .nav { grid-template-columns: repeat(7, 1fr); } }
   .nav button {
-    position: relative; padding: 7px 2px; font-family: inherit; font-size: 12px; font-weight: 700;
-    color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 14px;
-    box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45); cursor: pointer; line-height: 1.1;
+    position: relative; padding: 8px 2px; font-family: inherit; font-size: 12px; font-weight: 700;
+    color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm); cursor: pointer; line-height: 1.1;
+    transition: transform 0.1s, box-shadow 0.1s, background 0.15s;
   }
-  .nav button span { display: block; font-size: 22px; }
+  .nav button:hover { background: var(--paper); }
+  .nav button span { display: block; font-size: 20px; margin-bottom: 2px; }
   .nav button:hover span { animation: wiggle 0.4s ease-in-out; }
-  .nav button.on { background: var(--tribe); transform: translateY(2px); box-shadow: 0 2px 6px rgba(36,14,22,0.14); }
+  .nav button.on { background: var(--tribe); color: #fff; transform: translateY(2px); box-shadow: 0 2px 6px rgba(62,34,38,0.12); }
   .nav .dot {
     position: absolute; top: -8px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px;
     display: flex; align-items: center; justify-content: center;
-    background: var(--red); color: #fff; font-size: 12px; border: 1px solid var(--line); border-radius: 11px;
+    background: var(--red); color: #fff; font-size: 12px; border: 2px solid var(--paper); border-radius: 11px;
     animation: pulse 1.2s ease-in-out infinite;
   }
   @keyframes wiggle { 25% { transform: rotate(-15deg); } 75% { transform: rotate(15deg); } }
@@ -20221,7 +20224,7 @@ const PAGE = `<!DOCTYPE html>
     border-top: 2px dashed rgba(42, 22, 48, 0.3);
   }
   .qitem:first-of-type { border-top: 0; }
-  .deldetails { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+  .deldetails { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card); }
   .deldetails summary { cursor: pointer; font-weight: 700; color: var(--red); }
   .x.part { font-size: 12px; font-weight: 800; }
   .x.boost { background: var(--surface, #fff); color: var(--ink); font-size: 16px; }
@@ -20347,22 +20350,23 @@ const PAGE = `<!DOCTYPE html>
   /* ---------- Troops ---------- */
   .army { display: flex; flex-wrap: wrap; gap: 8px; }
   .army .pill {
-    background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 4px 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 5px 12px;
     font-weight: 700; font-size: 15px; transition: transform 0.1s, box-shadow 0.1s;
+    box-shadow: var(--shadow-sm);
   }
-  .army .pill:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(36,14,22,0.1); }
+  .army .pill:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
   .units { display: grid; grid-template-columns: 1fr; gap: 14px; }
   @media (min-width: 560px) { .units { grid-template-columns: 1fr 1fr; } }
   .unit {
-    background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
-    box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45); padding: 12px; overflow: hidden;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md); padding: 14px; overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .unit:not(.locked):hover { transform: translateY(-2px); box-shadow: 0 12px 28px -8px rgba(36,14,22,0.35); }
+  .unit:not(.locked):hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
   .unit.locked .unit-head, .unit.locked .stats, .unit.locked .costs { filter: grayscale(0.8); opacity: 0.75; }
   .unit-head {
     display: flex; align-items: center; gap: 10px;
-    margin: -12px -12px 10px; padding: 10px 12px;
+    margin: -14px -14px 12px; padding: 12px 14px;
     background: var(--tribe); border-bottom: 1px solid var(--line);
   }
   .unit-head .ui {
@@ -20396,31 +20400,31 @@ const PAGE = `<!DOCTYPE html>
 
   /* ---------- Reports ---------- */
   .report {
-    background: var(--paper); border: 1px solid var(--line); border-radius: 18px;
-    box-shadow: 0 8px 24px -10px rgba(36,14,22,0.45); margin-bottom: 12px; overflow: hidden;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md); margin-bottom: 14px; overflow: hidden;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .report:hover { box-shadow: 0 10px 28px -8px rgba(36,14,22,0.35); }
-  .report-head { transition: background 0.15s ease; position: sticky; top: 0; background: var(--paper); z-index: 1; }
-  .report-head:hover { background: rgba(42,22,48,0.03); }
+  .report:hover { box-shadow: var(--shadow-lg); }
+  .report-head { transition: background 0.15s ease; position: sticky; top: 0; background: var(--card); z-index: 1; }
+  .report-head:hover { background: rgba(62,34,38,0.03); }
   .report-head {
-    display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px;
     font-family: inherit; color: var(--ink); text-align: left; cursor: pointer;
     border: 0;
   }
   .report-head .ri { font-size: 30px; }
   .report-head b { display: block; }
-  .report-head small { font-weight: 500; opacity: 0.8; }
-  .report.new { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,90,95,0.25), 0 8px 24px -10px rgba(36,14,22,0.45); }
+  .report-head small { font-weight: 500; color: var(--stone); }
+  .report.new { border-color: var(--red); box-shadow: 0 0 0 2px rgba(196,90,90,0.2), var(--shadow-md); }
   .report.new .report-head b::after {
-    content: "NEW"; font-size: 11px; margin-left: 6px; padding: 0 6px; color: #fff;
-    background: var(--red); border-radius: 8px; vertical-align: middle;
+    content: "NEW"; font-size: 11px; margin-left: 6px; padding: 2px 8px; color: #fff;
+    background: var(--red); border-radius: 10px; vertical-align: middle;
     animation: badge-pulse 2s ease-in-out infinite;
   }
-  @keyframes badge-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,90,95,0.4)} 50%{box-shadow:0 0 0 4px rgba(255,90,95,0)} }
-  .report-body { padding: 0 12px 12px; border-top: 2px dashed rgba(42,22,48,0.3); }
+  @keyframes badge-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(196,90,90,0.4)} 50%{box-shadow:0 0 0 4px rgba(196,90,90,0)} }
+  .report-body { padding: 0 14px 14px; border-top: 2px dashed var(--line); }
   .flavor { font-style: italic; font-weight: 600; margin: 10px 0; }
-  .side { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px; margin-bottom: 8px; }
+  .side { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 8px; }
   .side h4 { margin: 0 0 6px; }
   .utable { width: 100%; border-collapse: collapse; font-weight: 600; font-size: 14px; }
   .utable td { padding: 2px 4px; border-top: 1px dashed rgba(42,22,48,0.2); }
@@ -20665,7 +20669,7 @@ const PAGE = `<!DOCTYPE html>
   .mvmark.mv-attack, .mvmark.mv-raid { animation: wiggle 0.6s ease-in-out infinite; }
   .mvmark.mv-scout { animation: wiggle 1.4s ease-in-out infinite; }
   .camp { position: relative; }
-  @keyframes glow { 50% { box-shadow: 0 2px 6px rgba(36,14,22,0.14), 0 0 0 calc(var(--T) * 0.12) rgba(255,255,255,0.8); } }
+  @keyframes glow { 50% { box-shadow: 0 2px 6px rgba(62,34,38,0.1), 0 0 0 calc(var(--T) * 0.12) rgba(255,255,255,0.8); } }
   .col-name {
     position: absolute; left: 50%; bottom: calc(var(--T) * -0.02); transform: translateX(-50%);
     font-size: 10px; font-weight: 700; white-space: nowrap; color: #fff;
@@ -21522,9 +21526,9 @@ const PAGE = `<!DOCTYPE html>
   .golink:hover { color: #d6401b; text-decoration-style: solid; }
   .tr-from { font-size: 12px; font-weight: 600; opacity: 0.75; }
   .cancelmove { margin-top: 6px; width: 100%; }
-  .armystats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 10px 0 4px; }
-  .armystats span { padding: 6px 10px; font-weight: 600; font-size: 14px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
-  .armystats b { float: right; font-family: "Courier New", monospace; font-size: 16px; }
+  .armystats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0 4px; }
+  .armystats span { padding: 8px 12px; font-weight: 600; font-size: 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+  .armystats b { float: right; font-family: "JetBrains Mono", monospace; font-size: 16px; }
   .role.air { background: #cfe8ff; }
   .unit.settler { background: linear-gradient(160deg, #fffbe6, #e9ffe0); }
   .recallrow input { width: 70px; text-align: center; padding: 6px 4px; }
@@ -22003,15 +22007,16 @@ const PAGE = `<!DOCTYPE html>
   .tleft { font-variant-numeric: tabular-nums; color: #a3291c; white-space: nowrap; }
   .prof-head { display: flex; gap: 12px; align-items: center; }
   .profile.pop .prof-head { margin-top: 16px; padding-right: 40px; }
-  .prof-icon { font-size: 40px; width: 64px; height: 64px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--surface-2); border-radius: 50%; }
+  .prof-icon { font-size: 40px; width: 64px; height: 64px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--tray); border-radius: 50%; }
   .prof-head h2 { margin: 0; font-family: "Chakra Petch", "Barlow", sans-serif; font-weight: 700; font-size: 22px; }
-  .prof-head small { color: var(--muted); }
+  .prof-head small { color: var(--stone); }
   .prof-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-  .prof-tags span { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); }
-  .pbadges { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
-  .pbadge { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font: inherit; text-align: left; color: var(--ink); background: var(--accent-soft); border: 0; border-radius: 12px; }
+  .prof-tags span { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--tray); }
+  .pbadges { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+  .pbadge { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font: inherit; text-align: left; color: var(--ink); background: var(--soft); border: 1px solid var(--line); border-radius: var(--radius-sm); transition: transform 0.1s, box-shadow 0.1s; }
   button.pbadge { cursor: pointer; }
-  .pbadge.hidden { background: var(--surface-2); opacity: 0.55; }
+  .pbadge:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+  .pbadge.hidden { background: var(--tray); opacity: 0.55; }
   .b-i { font-size: 22px; }
   .b-t { font-size: 13px; font-weight: 700; line-height: 1.2; }
   .b-t small { display: block; font-weight: 500; color: var(--muted); }
@@ -22585,8 +22590,9 @@ const PAGE = `<!DOCTYPE html>
     }
     .mapgrid .tileinfo:not(.has) { display: none; }
     .ti-close {
-      display: block; position: sticky; top: 0; float: right; z-index: 2; width: 30px; height: 30px; margin: -2px -4px 0 6px;
-      border: 0; border-radius: 50%; background: var(--surface-2); font-size: 13px; cursor: pointer;
+      display: block; position: sticky; top: 0; float: right; z-index: 2; width: 32px; height: 32px; margin: -2px -4px 0 6px;
+      border: 1px solid var(--line); border-radius: 50%; background: var(--card); font-size: 13px; cursor: pointer;
+      box-shadow: var(--shadow-sm); display: grid; place-items: center; padding: 0;
     }
     .tileinfo .btnrow .btn { flex: 1 1 45%; padding: 9px 8px; font-size: 14px; }
     .maptools .legend { display: none; }
@@ -23315,7 +23321,7 @@ const PAGE = `<!DOCTYPE html>
 .lang-pick { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 14px auto 4px; }
 .lang-pick button { border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); color: inherit; border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 13px; cursor: pointer; }
 .setcard .lang-pick { margin: 2px 0 0; justify-content: flex-start; }
-.setcard .lang-pick button { border-color: rgba(120,90,60,.25); background: #fff; color: #4a3a2a; }
+.setcard .lang-pick button { border-color: var(--line); background: var(--paper); color: var(--ink); }
 .lang-pick button.more { opacity: .85; border-style: dashed; }
 .trhelp { margin: 8px 0 0; }
 .trhelp .btn { width: 100%; margin: 0; }
@@ -23328,7 +23334,7 @@ const PAGE = `<!DOCTYPE html>
 .trrow textarea { width: 100%; box-sizing: border-box; min-height: 52px; border: 1px solid rgba(120,90,60,.25); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 14.5px; resize: vertical; }
 .trrow .tr-act { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12.5px; color: #7a6a5a; }
 .trrow .btn { margin: 0; }
-.lang-pick button.on, .setcard .lang-pick button.on { background: #ffd23f; color: #3a2400; border-color: #ffd23f; font-weight: 800; }
+.lang-pick button.on, .setcard .lang-pick button.on { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 800; }
 .res-top { position: relative; }
 .srv-tag { font-style: normal; color: #8a5a00; }
 .ci.sm { width: 1.2em; height: 1.2em; vertical-align: -.25em; filter: drop-shadow(0 1px 0 rgba(110, 45, 30, .28)); }
@@ -23432,13 +23438,13 @@ const PAGE = `<!DOCTYPE html>
 .setquick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 12px; }
 .setquick .btn { margin: 0; padding-left: 4px; padding-right: 4px; min-width: 0; font-size: 13.5px; white-space: nowrap; }
 @media (max-width: 380px) { .setquick { grid-template-columns: 1fr 1fr; } }
-.setcard { margin: 0 0 12px; padding: 12px 12px 10px; border-radius: 18px; background: #faf6f1; box-shadow: inset 0 0 0 1px rgba(120, 90, 60, .08); }
+.setcard { margin: 0 0 14px; padding: 14px; border-radius: var(--radius-md); background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
 .setcard > h4, .setcard .sidesub { margin: 0 0 8px; font-size: 14.5px; font-weight: 800; }
 .setcard .sidesub ~ .sidesub { margin-top: 14px; }
 .setcard .hint.left, .setcard .hint { margin: 4px 0 2px; font-size: 12.5px; text-align: left; }
 .setcard .discord { margin: 0 0 6px; }
-.setcard.danger { background: #fff4f2; box-shadow: inset 0 0 0 1px rgba(200, 60, 40, .14); }
-.setcard.danger .deldetails { margin: 6px 0 0; background: #fff; }
+.setcard.danger { background: #fff4f2; border-color: rgba(196, 90, 90, 0.2); }
+.setcard.danger .deldetails { margin: 6px 0 0; background: var(--card); }
 .setcard.danger .deldetails:first-of-type { margin-top: 0; }
 .setsub { margin: 4px 0 6px; font-size: 13px; color: #6f6258; }
 .setlink { margin: 4px 0 0; font-size: 13px; text-align: center; }
@@ -24246,8 +24252,8 @@ function newsTicker(live) {
   var now = serverNow();
   if (pulseNow) {
     var P = pulseNow;
-    if (curLang() === "en") h += '<span class="live pulse">🌍 ' + P.online + (P.online === 1 ? " colonist" : " colonists") + " online · ⚔️ " + P.fights + (P.fights === 1 ? " fight" : " fights") + " in the last hour" + (P.settled ? " · 🏳️ " + P.settled + " new " + (P.settled === 1 ? "colony" : "colonies") + " today" : "") + "</span>";
-    else h += '<span class="live pulse">🌍 ' + trStr("Colonists online: " + P.online) + " · ⚔️ " + trStr("Fights in the last hour: " + P.fights) + (P.settled ? " · 🏳️ " + trStr("New colonies today: " + P.settled) : "") + "</span>";
+    if (curLang() === "en") h += '<span class="live pulse">' + icon("user") + ' ' + P.online + (P.online === 1 ? " colonist" : " colonists") + " online · " + icon("attack") + " " + P.fights + (P.fights === 1 ? " fight" : " fights") + " in the last hour" + (P.settled ? " · " + P.settled + " new " + (P.settled === 1 ? "colony" : "colonies") + " today" : "") + "</span>";
+    else h += '<span class="live pulse">' + icon("user") + ' ' + trStr("Colonists online: " + P.online) + " · " + icon("attack") + " " + trStr("Fights in the last hour: " + P.fights) + (P.settled ? " · " + trStr("New colonies today: " + P.settled) : "") + "</span>";
   }
   (live || []).forEach(function (n) {
     var info = trf("{0} ago", shortTime(now - n.at)) + (n.until ? " · " + trf("{0} left", shortTime(n.until - now)) : "");
@@ -27210,7 +27216,7 @@ function renderLanding() {
   h += '<section class="lp-hero"><div class="lp-copy">';
   h += "<h2>Build a colony.<br>Raise an army.<br>Win Mars together.</h2>";
   h += "<p>A free strategy game in your browser. Farm space potatoes, train Turkey Tanks, raid monster camps and team up with an alliance to light the Aurora over Mars.</p>";
-  h += '<div class="lp-cta"><button class="btn" data-landing="register">🚀 Play for free</button><button class="btn ghost" data-landing="login">Log in</button></div>';
+  h += '<div class="lp-cta"><button class="btn" data-landing="register">' + icon("send") + ' Play for free</button><button class="btn ghost" data-landing="login">Log in</button></div>';
   h += '<ul class="lp-facts"><li>Free to play</li><li>No download</li><li>Phone and desktop</li></ul>' + langPicker();
   h += '</div><div class="lp-art"><img class="lp-hero-img" src="/art/hero.webp?v=' + FX_ART.v + '" width="1600" height="1074" alt="A clay Mars colony with fields, quarry, mine and farms around a dome">' + lpPhone("fields", "The Fields tab in the game", "lp-front") + "</div></section>";
 
@@ -27231,7 +27237,7 @@ function renderLanding() {
   h += "</div></section>";
 
   h += '<section class="lp-band lp-two"><div class="lp-two-t"><h3>Two minutes are enough</h3><ul class="lp-list">';
-  h += "<li><b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.</li>";
+  h += "<li><b>Mission Board</b> One build, one army and one world mission at a time, each with a reward.</li>";
   h += "<li><b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.</li>";
   h += "<li><b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.</li>";
   h += "<li><b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.</li>";
@@ -27256,7 +27262,7 @@ function renderLanding() {
     h += "</div></section>";
   }
 
-  h += '<section class="lp-final"><h3>Your landing pod is ready</h3><p>Pick a tribe, crash-land and build your first field in under a minute.</p><button class="btn" data-landing="register">🚀 Play for free</button></section>';
+  h += '<section class="lp-final"><h3>Your landing pod is ready</h3><p>Pick a tribe, crash-land and build your first field in under a minute.</p><button class="btn" data-landing="register">' + icon("send") + ' Play for free</button></section>';
   h += "</div>";
   setHTML(document.getElementById("app"), trHtml(h));
 }
@@ -27276,7 +27282,7 @@ function renderAuth() {
   if (authMode === "verify" || authMode === "forgot" || authMode === "appeal") { renderAuthNote(); return; }
   if (landing && !config.hub) { renderLanding(); return; }
   var h = '<div class="panel auth">';
-  h += '<span class="rocket">🚀</span>';
+  h += '<span class="rocket">' + icon("send") + '</span>';
   // other servers have no login of their own: off to the main server's
   // login and server selection
   if (config.hub) {
@@ -27290,7 +27296,7 @@ function renderAuth() {
   h += '<form id="authform">';
   h += '<label for="u">Colonist name' + (reg ? ' <small id="uok" class="uok"></small>' : "") + '</label><input id="u" autocomplete="username" maxlength="20" required' + (reg ? ' data-namecheck="1"' : "") + ">";
   h += '<label for="p">Password' + (reg ? " (at least 6 characters)" : "") + '</label><input id="p" type="password" autocomplete="' + (reg ? "new-password" : "current-password") + '" required' + (reg ? ' minlength="6" data-pwmeter="1"' : "") + ">";
-  if (reg) h += '<div class="pwmeter" id="pwmeter"><i></i></div><p class="pwwarn">⚠️ Never use an important password! Pick one you use nowhere else.</p>';
+  if (reg) h += '<div class="pwmeter" id="pwmeter"><i></i></div><p class="pwwarn">' + icon("warn") + ' Never use an important password! Pick one you use nowhere else.</p>';
   if (reg && config.emailRequired) h += '<label for="em">Email (we send you a confirmation link once)</label><input id="em" type="email" autocomplete="email" maxlength="120" required>';
   if (reg && config.invite) h += '<label for="inv">Invite code</label><input id="inv" autocomplete="off" maxlength="60" required>';
   h += '<p></p><button class="btn" type="submit">' + (reg ? "🛸 Make my account" : "🔑 Log in") + "</button>";
@@ -27356,7 +27362,7 @@ function renderCalendar() {
   var byDay = {};
   all.forEach(function (x) { var k = dayKey(x.at); (byDay[k] = byDay[k] || []).push(x); });
   var m = cal.month;
-  var h = '<div class="overlay" data-close="1"><div class="sheet calsheet"><button class="sheet-close" data-close="1" title="Close">✖</button>';
+  var h = '<div class="overlay" data-close="1"><div class="sheet calsheet"><button class="sheet-close" data-close="1" title="Close">' + icon("close") + '</button>';
   h += '<div class="sheet-head"><span class="hi">📅</span><div><h3>New rounds</h3><b>in your local time</b></div></div>';
   h += '<div class="cal-nav"><button class="btn small ghost" data-cal-move="-1">‹</button><b>' + m.toLocaleString("en-GB", { month: "long", year: "numeric" }) + '</b><button class="btn small ghost" data-cal-move="1">›</button></div>';
   h += '<div class="cal-grid">';
@@ -27480,10 +27486,10 @@ function renderServers() {
     h += '<label for="pw2">New password again</label><input id="pw2" type="password" autocomplete="new-password" minlength="6" required>';
     h += '<p></p><button class="btn" type="submit">🔐 Change password</button></form>';
     if (acct.mailReady) {
-      h += '<form id="emailform"><label for="em0">' + (acct.email ? "Email: " + esc(acct.email) + " ✅ · change it" : "Add your email to recover your password") + '</label><input id="em0" type="email" maxlength="120" required><p></p><button class="btn ghost" type="submit">📧 Send confirmation</button></form>';
+      h += '<form id="emailform"><label for="em0">' + (acct.email ? "Email: " + esc(acct.email) + " " + icon("check") + " · change it" : "Add your email to recover your password") + '</label><input id="em0" type="email" maxlength="120" required><p></p><button class="btn ghost" type="submit">' + icon("mail") + ' Send confirmation</button></form>';
     }
-    h += '<details class="deldetails"><summary>🗑️ Delete account</summary><form id="delform"><p class="reason">Your account and your players on every server are deleted for good. This can’t be undone.</p>';
-    h += '<label for="del0">Your password</label><input id="del0" type="password" autocomplete="current-password" required><p></p><button class="btn danger" type="submit">🗑️ Delete my account</button></form></details>';
+    h += '<details class="deldetails"><summary>' + icon("trash") + ' Delete account</summary><form id="delform"><p class="reason">Your account and your players on every server are deleted for good. This can’t be undone.</p>';
+    h += '<label for="del0">Your password</label><input id="del0" type="password" autocomplete="current-password" required><p></p><button class="btn danger" type="submit">' + icon("trash") + ' Delete my account</button></form></details>';
   }
   h += discordBtn() + "</div>";
   setHTML(document.getElementById("app"), h);
@@ -27747,7 +27753,7 @@ function planHtml(d) {
     else if (p.why === "Not enough resources") st = w < 0 ? "waits for resources (production too low)" : "affordable in about " + fmt(w) + " · then starts";
     else if (p.why === "Build queue is full") st = "starts when a slot frees up";
     else st = p.why ? p.why : "starts now";
-    h += '<div class="qitem plan-item"><span class="big">' + p.icon + '</span><div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">✖</button></div>';
+    h += '<div class="qitem plan-item"><span class="big">' + p.icon + '</span><div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">' + icon("close") + '</button></div>';
   });
   var R = P.reserve, held = RES.filter(function (k) { return R[k] > 0; });
   if (held.length) h += '<small class="plan-held">🔒 Held for the plan: ' + held.map(function (k) { return RES_ICON[k] + " " + shortNum(R[k]); }).join(" ") + " · trade routes leave these alone</small>";
@@ -28160,7 +28166,7 @@ function newCard(o, d, action) {
   if (o.needs && o.needs.length) {
     h += '<div class="needs">';
     o.needs.forEach(function (n) {
-      h += '<span class="need' + (n.ok ? " ok" : "") + '" title="' + n.name + " level " + n.level + '">' + (n.ok ? "✅" : "🔒") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
+      h += '<span class="need' + (n.ok ? " ok" : "") + '" title="' + n.name + " level " + n.level + '">' + (n.ok ? icon("check") : "🔒") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
     });
     h += "</div>";
   }
@@ -28232,7 +28238,7 @@ function trafficItem(m) {
   else h += "<b>" + esc(m.name) + "</b>";
   h += " <small>" + esc(m.owner) + place + "</small></div>";
   if (multiColony()) {
-    h += '<div class="tr-from">' + (m.dir === "out" ? "🏠 from " + esc(m.from) : "🎯 to " + esc(m.to)) + "</div>";
+    h += '<div class="tr-from">' + (m.dir === "out" ? icon("home") + " from " + esc(m.from) : icon("target") + " to " + esc(m.to)) + "</div>";
   }
   if (m.units) h += '<div class="tr-units">' + unitsText(m.units) + "</div>";
   if (m.merchants && !m.units) h += '<div class="tr-units">🐪 ' + m.merchants + (m.merchants === 1 ? " merchant" : " merchants") + "</div>";
@@ -28524,7 +28530,7 @@ function moveSheet(d, id) {
     h += "</div>";
   }
   h += '<div class="btnrow">';
-  if (m.x !== null && m.x !== undefined) h += '<button class="btn ghost" data-goto="' + m.x + "," + m.y + '">🗺️ Show on map</button>';
+  if (m.x !== null && m.x !== undefined) h += '<button class="btn ghost" data-goto="' + m.x + "," + m.y + '">' + icon("map") + ' Show on map</button>';
   if (m.advCall) h += '<button class="btn" data-adv-cancel="1">↩️ Call back (no reward)</button>';
   if (canRedirect) {
     if (rd.open === m.id) h += '<button class="btn" data-redirect-go="' + m.id + '"' + (rd.x === "" || rd.y === "" ? " disabled" : "") + '">🧭 Send them there</button><button class="btn ghost" data-redirect-cancel="1">Cancel</button>';
@@ -28712,8 +28718,8 @@ function typeIcon(u) {
 // ⚔️ attack · 🛡️ Infantry defense · 🎯 Air defense
 function statLine(u) {
   var h = '<div class="ustats">';
-  h += '<span title="Attack">⚔️ ' + u.atkNow + "</span>";
-  h += '<span title="Infantry defense">🛡️ ' + u.defGNow + "</span>";
+  h += '<span title="Attack">' + icon("attack") + ' ' + u.atkNow + "</span>";
+  h += '<span title="Infantry defense">' + icon("home") + ' ' + u.defGNow + "</span>";
   h += '<span title="Air defense">🎯 ' + u.defANow + "</span>";
   h += '<span title="Speed (tiles per hour)">💨 ' + u.speed + "</span>";
   h += '<span title="Loot it can carry">🎒 ' + u.carry + "</span>";
@@ -28865,7 +28871,7 @@ function farmPickRow(x, y) {
   var h = '<div class="farmpick"><b>Add to</b>';
   myFarmLists().forEach(function (l) {
     var on = l.entries.some(function (e) { return e.x === x && e.y === y; });
-    h += '<button class="btn small' + (on ? " ghost" : "") + '" data-farm-pick="' + l.id + '"' + (on ? " disabled" : "") + ">" + (on ? "✅ " : "") + esc(l.name) + "</button>";
+    h += '<button class="btn small' + (on ? " ghost" : "") + '" data-farm-pick="' + l.id + '"' + (on ? " disabled" : "") + ">" + (on ? icon("check") + " " : "") + esc(l.name) + "</button>";
   });
   return h + '<button class="btn small ghost" data-farm-pick="new">＋ New list</button></div>';
 }
@@ -29077,7 +29083,7 @@ function farmSheet(d) {
   var lists = farmOwnedLists(d);
   var groupColony = null;
   var h = '<div class="sheet-head t-war"><span class="hi">📋</span><div><h3>Farm lists</h3><small>All colonies</small></div></div>';
-  h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with 📋 on the map</small><button class="btn small" data-farm-new="1">＋ New list</button><button class="btn small" data-farm-start-all="1"' + (farmSending || !lists.some(function(l){return farmPlan(l,false).entries.length;}) ? ' disabled' : '') + '>Start all</button></div>';
+  h += '<div class="farmhead"><small class="dim">Saved to your account · add targets with the list button on the map</small><button class="btn small" data-farm-new="1">' + icon("plus") + ' New list</button><button class="btn small" data-farm-start-all="1"' + (farmSending || !lists.some(function(l){return farmPlan(l,false).entries.length;}) ? ' disabled' : '') + '>' + icon("send") + ' Start all</button></div>';
   h += '<button class="fl-quiet' + (farmStats.quiet ? " on" : "") + '" data-farm-quiet="1"><span>' + (farmStats.quiet ? "🔕" : "🔔") + '</span><span><b>Only report raids with losses</b><small>' + (farmStats.quiet ? "On: farm raids where nobody died make no report" : "Off: every farm raid makes a report") + '</small></span><i class="fl-switch"></i></button>';
   h += farmReviewHtml(d);
   if (!lists.length) return h + '<p class="empty"><b>📋</b>No farm lists yet. Tap a camp or colony on the map and press 📋 to create your first list.</p>';
@@ -29101,10 +29107,10 @@ function farmSheet(d) {
     if (!farmExpanded[l.id]) { h += '</div>'; return; }
     h += '<input class="fl-name" aria-label="Farm list name" data-farm-name="' + l.id + '" maxlength="30" value="' + esc(l.name) + '">';
     if (l.entries.length) h += '<button class="btn small ghost" data-farm-select-all="' + l.id + '">' + (selected === l.entries.length ? 'Clear selection' : 'Select all') + '</button>';
-    if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button><button class="btn small danger" data-farm-delete-selected="' + l.id + '">🗑 Delete</button></div>';
+    if (selected) h += '<div class="fl-actions"><small>' + selected + ' selected</small><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="false">Deactivate</button><button class="btn small ghost" data-farm-active="' + l.id + '" data-value="true">Activate</button><button class="btn small ghost" data-farm-edit-selected="' + l.id + '">Edit</button><button class="btn small danger" data-farm-delete-selected="' + l.id + '">' + icon("trash") + ' Delete</button></div>';
     h += '<details class="farm-review"><summary>Troop preset &amp; bulk editor</summary><small>Saved for new targets. Applying replaces troop counts for targets checked in this list.</small>'+farmCountEditor(preset,'data-farm-default',l.id+':')+'<button class="btn small ghost" data-farm-apply="'+l.id+'">Apply preset to '+selected+' selected targets</button></details>';
     if (listTotal) h += '<div class="fl-total">💰 Stolen with this list so far: <b>' + listTotal.toLocaleString() + "</b></div>";
-    if (!l.entries.length) h += '<p class="empty"><b>🗺️</b>No targets yet. Tap a camp or colony on the map and press 📋 to add.</p>';
+    if (!l.entries.length) h += '<p class="empty"><b>' + icon("map") + '</b>No targets yet. Tap a camp or colony on the map and press the list button to add.</p>';
     if (l.entries.length > 1) {
       h += '<div class="fl-sort"><span>Order</span>';
       FARM_SORTS.forEach(function (o) {
@@ -29128,16 +29134,16 @@ function farmSheet(d) {
       fighters.forEach(function (u) {
         h += '<label title="' + u.name + " · " + u.home + ' at home">' + u.icon + '<input type="number" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
       });
-      h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">🗑 Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">✖</button></div>';
+      h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">' + icon("trash") + ' Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">' + icon("close") + '</button></div>';
     });
     var confirming = farmArm.id === l.id;
     h += '<div class="fl-bottom">';
     if (confirming) {
-      h += '<span class="fl-del-confirm">⚠️ Delete "' + esc(l.name) + '" and all ' + l.entries.length + ' targets?</span>';
+      h += '<span class="fl-del-confirm">' + icon("warn") + ' Delete "' + esc(l.name) + '" and all ' + l.entries.length + ' targets?</span>';
       h += '<button class="btn small danger" data-farm-dellist-confirm="' + l.id + '">Yes, delete</button>';
       h += '<button class="btn small ghost" data-farm-dellist-cancel>Cancel</button>';
     } else {
-      h += '<button class="btn small ghost" data-farm-dellist="' + l.id + '">🗑️ Delete list</button>';
+      h += '<button class="btn small ghost" data-farm-dellist="' + l.id + '">' + icon("trash") + ' Delete list</button>';
     }
     h += '</div></div>';
   });
@@ -29148,7 +29154,7 @@ function renderTroops(d) {
   var h = armyTemplateBar(d);
 
   // Army overview
-  h += '<section class="panel"><h2>🏠 Troops at home</h2>';
+  h += '<section class="panel"><h2>' + icon("home") + ' Troops at home</h2>';
   (d.panic || []).forEach(function (p) { h += '<p class="hint left">🐔 ' + p.n + " panicked chickens are running back, home at " + clockText(p.at) + ".</p>"; });
   if (d.coffee) h += '<p class="hint left">☕ Coffee break: +10% defense here until ' + clockText(d.coffee) + ".</p>";
   h += '<div class="army">';
@@ -29163,22 +29169,22 @@ function renderTroops(d) {
   h += "</div>";
   var tHome = 0, tAway = 0, tTrain = 0;
   d.units.forEach(function (u) { if (!u.scout && !u.settler) { tHome += u.home; tAway += u.away; tTrain += u.inTraining; } });
-  if (tAway || tTrain) h += '<p class="armyline">🏠 <b>' + shortNum(tHome) + "</b> home" + (tAway ? " · 🚶 <b>" + shortNum(tAway) + "</b> away" : "") + (tTrain ? " · ⏳ <b>" + shortNum(tTrain) + "</b> training" : "") + "</p>";
+  if (tAway || tTrain) h += '<p class="armyline">' + icon("home") + ' <b>' + shortNum(tHome) + "</b> home" + (tAway ? " · 🚶 <b>" + shortNum(tAway) + "</b> away" : "") + (tTrain ? " · ⏳ <b>" + shortNum(tTrain) + "</b> training" : "") + "</p>";
   var wn = d.hospital.wounded.reduce(function (n, u) { return n + u.count; }, 0);
   if (wn) {
     var hosp = d.buildings.filter(function (b) { return b.type === "hospital"; })[0];
     h += '<button class="woundbtn" data-lot="' + hosp.slot + '">' + d.hospital.icon + " " + wn + " wounded in the " + d.hospital.name + " · heal them ›</button>";
   }
   if (!any) {
-    h += '<p class="pagehint left">Train troops below, then send them from the 🗺️ Map.</p>';
+    h += '<p class="pagehint left">Train troops below, then send them from the Map.</p>';
     h += "</section>";
     return h + heroChip(d) + armyRest(d);
   }
   // one small table: rows = attack / defense, columns = ground / air
   h += '<div class="powertable">';
   h += '<span></span><small title="Infantry: troops on the ground">🪖 Infantry</small><small title="Air: flying troops">✈️ Air</small>';
-  h += '<b title="How hard your troops at home hit when you send them">⚔️ Attack</b><span>' + d.army.atkGround + "</span><span>" + d.army.atkAir + "</span>";
-  h += '<b title="How well this colony holds against infantry (🛡️) and air (🎯) attackers">🛡️ Defense</b><span>' + d.army.defG + "</span><span>" + d.army.defA + "</span></div>";
+  h += '<b title="How hard your troops at home hit when you send them">' + icon("attack") + ' Attack</b><span>' + d.army.atkGround + "</span><span>" + d.army.atkAir + "</span>";
+  h += '<b title="How well this colony holds against infantry and air attackers">' + icon("home") + ' Defense</b><span>' + d.army.defG + "</span><span>" + d.army.defA + "</span></div>";
   // where does the defense come from?
   var A = d.army;
   h += '<details class="defbox"><summary>How is my defense made up?</summary><div class="defsplit">';
@@ -29186,7 +29192,7 @@ function renderTroops(d) {
   h += '<div class="ds-row"><span>🪖 Your troops at home</span><b>' + A.troopsG + "</b><b>" + A.troopsA + "</b></div>";
   h += '<div class="ds-row"><span>🍳 Frying-pan militia <i class="ds-help" title="When your colony is attacked, the colonists grab frying pans and help defending. They are not real troops: they can\u2019t die, can\u2019t be sent away and don\u2019t eat. More with every HQ level.">?</i><small>colonists who help defend · grows with HQ Lv ' + A.hq + "</small></span><b>+" + A.militiaG + "</b><b>+" + A.militiaA + "</b></div>";
   h += '<div class="ds-row"><span>🧱 Wall bonus<small>' + (A.wall ? "Lv " + A.wall + " · +" + A.wallBonus + "% on top" : "no wall yet - build one for extra %") + "</small></span><b>+" + A.wallG + "</b><b>+" + A.wallA + "</b></div>";
-  if (A.specPct) h += '<div class="ds-row"><span>🛡️ Garrison<small>+' + A.specPct + '% from the specialisation and its yard</small></span><b>+' + A.specG + "</b><b>+" + A.specA + "</b></div>";
+  if (A.specPct) h += '<div class="ds-row"><span>' + icon("home") + ' Garrison<small>+' + A.specPct + '% from the specialisation and its yard</small></span><b>+' + A.specG + "</b><b>+" + A.specA + "</b></div>";
   h += '<div class="ds-row ds-sum"><span>= Total</span><b>' + A.defG + "</b><b>" + A.defA + "</b></div>";
   h += '</div></details>';
   h += '<div class="armyfoot"><span>🥔 Troops eat <b>' + d.upkeep + "/h</b> · balance <b class='" + (d.food.net < 0 ? "neg" : "") + "'>" + (d.food.net >= 0 ? "+" : "") + d.food.net + "/h</b></span>";
@@ -29249,7 +29255,7 @@ function needChips(d, type) {
   if (!o || !o.needs || !o.needs.length) return "";
   var h = '<div class="needs center">';
   o.needs.forEach(function (n) {
-    h += '<span class="need' + (n.ok ? " ok" : "") + '">' + (n.ok ? "✅" : "🔒") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
+    h += '<span class="need' + (n.ok ? " ok" : "") + '">' + (n.ok ? icon("check") : "🔒") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
   });
   return h + "</div>";
 }
@@ -29332,7 +29338,7 @@ function trainPanel(d, which) {
     });
     h += "</details>";
   }
-  h += '<p class="legend-line">⚔️ attack · 🛡️ Infantry · 🎯 Air · 💨 speed · 🎒 loot · <span class="eat">🥔 −/h</span> food eaten · <button class="golink" data-wiki="troops">📖 All troop stats</button></p>';
+  h += '<p class="legend-line">' + icon("attack") + ' attack · Infantry · Air · speed · loot · <span class="eat">−/h</span> food eaten · <button class="golink" data-wiki="troops">All troop stats</button></p>';
   return h;
 }
 
@@ -29948,7 +29954,7 @@ function awaySheet() {
     : S.won ? ["🏆", me + "'s troops come home with " + (S.loot ? shortNum(S.loot) + " in loot" : "stories") + " after " + S.won + (S.won === 1 ? " victory" : " victories")]
     : S.founded ? ["🏳️", "New flag on Mars: " + me + " founds a colony"]
     : ["😴", "Quiet at " + col];
-  var h = '<div class="gz-mast"><div class="gz-top"><small>Mars News · ' + shortTime(A.now - A.since) + " away</small><button type='button' class='sheet-close' data-close='1' aria-label='Close Mars News'>✖</button></div><h3>" + lead[0] + " " + esc(lead[1]) + "</h3></div>";
+  var h = '<div class="gz-mast"><div class="gz-top"><small>Mars News · ' + shortTime(A.now - A.since) + " away</small><button type='button' class='sheet-close' data-close='1' aria-label='Close Mars News'>" + icon("close") + "</button></div><h3>" + lead[0] + " " + esc(lead[1]) + "</h3></div>";
   var rows = [];
   if (S.lost) rows.push(["💔", S.lost + (S.lost === 1 ? " attack on you succeeded" : " attacks on you succeeded"), "bad" + (S.stolen ? "" : "")]);
   if (S.razed) rows.push(["💥", S.razed + (S.razed === 1 ? " colony was destroyed" : " colonies were destroyed"), "bad"]);
@@ -30075,7 +30081,7 @@ function alliancePanel() {
       h += '<section class="panel"><h2>📨 Invitations</h2>';
       A.invites.forEach(function (i) {
         h += '<div class="stayrow"><div><b><i class="atag">' + esc(i.tag) + "</i>" + esc(i.name) + "</b><small>invited by " + esc(i.by_name) + "</small></div>";
-        h += '<button class="btn small" data-ally-answer="' + i.id + ':1">✅ Join</button><button class="btn small ghost" data-ally-answer="' + i.id + ':0">✖</button></div>';
+        h += '<button class="btn small" data-ally-answer="' + i.id + ':1">' + icon("check") + ' Join</button><button class="btn small ghost" data-ally-answer="' + i.id + ':0">' + icon("close") + '</button></div>';
       });
       h += "</section>";
     }
@@ -30131,7 +30137,7 @@ function alliancePanel() {
     });
     if (staff) {
       h += '<div class="inviterow"><input data-ally="invite" maxlength="20" placeholder="Player name" list="plsug" data-plsug="1" autocomplete="off" value="' + esc(allyForm.invite) + '"><button class="btn small" data-ally-invite="1">📨 Invite</button></div>';
-      if (M.pending.length) h += '<p class="pending">Invited: ' + M.pending.map(function (n) { return esc(n) + ' <button class="mini" data-ally-uninvite="' + esc(n) + '" title="Take back">✖</button>'; }).join(" · ") + "</p>";
+      if (M.pending.length) h += '<p class="pending">Invited: ' + M.pending.map(function (n) { return esc(n) + ' <button class="mini" data-ally-uninvite="' + esc(n) + '" title="Take back">' + icon("close") + '</button>'; }).join(" · ") + "</p>";
     }
     h += "</section>";
 
@@ -32248,7 +32254,7 @@ function wavesSheet(d) {
     if (heroOk) h += '<button class="wv-hero' + (w.hero ? " on" : "") + '" data-wv-hero="' + i + '" title="' + esc(d.hero.name) + ' leads this wave">🎖️</button>';
     h += '<span class="wv-land" id="wvland' + i + '"></span>';
     h += '<button class="mini" data-wv-copy="' + i + '" title="Copy this wave">⧉</button>';
-    if (waves.list.length > 2) h += '<button class="mini" data-wv-del="' + i + '" title="Remove">✖</button>';
+    if (waves.list.length > 2) h += '<button class="mini" data-wv-del="' + i + '" title="Remove">' + icon("close") + '</button>';
     h += '</div><div class="wave-units">';
     units.forEach(function (u) {
       h += '<label class="wv-u" title="' + esc(u.name) + '"><span>' + u.icon + '</span><input type="number" min="0" placeholder="0" data-wv-n="' + i + ":" + u.key + '" value="' + (w.troops[u.key] || "") + '"></label>';
@@ -32648,7 +32654,7 @@ function goTarget(go) {
 function firstDayCard(F) {
   var done = F.steps.filter(function (s) { return s.done; }).length;
   var next = F.steps.filter(function (s) { return !s.done; })[0];
-  var h = '<div class="fday"><div class="fd-head"><b>🧭 Your first day</b><small>' + done + "/" + F.steps.length + '</small><button class="mini" data-fd-hide="1" title="Hide">✖</button></div>';
+  var h = '<div class="fday"><div class="fd-head"><b>🧭 Your first day</b><small>' + done + "/" + F.steps.length + '</small><button class="mini" data-fd-hide="1" title="Hide">' + icon("close") + '</button></div>';
   F.steps.forEach(function (s) {
     var isNext = next && s.key === next.key;
     h += '<button class="fd-step' + (s.done ? " done" : isNext ? " next" : "") + '"' + (s.done ? " disabled" : ' data-fd-go="' + s.go + '"') + "><span>" + (s.done ? "✅" : s.icon) + "</span><span><b>" + s.text + "</b>" + (isNext ? "<small>" + s.why + "</small>" : "") + "</span></button>";
@@ -32717,7 +32723,7 @@ function diploPanel(M, lead) {
     var txt = { got: "offers you a " + p.kindName.toLowerCase(), sent: p.kindName + " · waiting for an answer", on: p.kindName, ending: p.kindName + " · ends in " + shortTime(p.endsAt - now) }[p.state];
     h += '<div class="stayrow"><div><b>' + (p.kind === "confed" ? "🤝 " : "🕊️ ") + '<i class="atag">' + esc(p.tag) + "</i>" + esc(p.name) + "</b><small>" + txt + "</small></div>";
     if (lead) {
-      if (p.state === "got") h += '<button class="btn small" data-diplo="accept:' + p.id + '">✅ Accept</button><button class="btn small ghost" data-diplo="decline:' + p.id + '">✖</button>';
+      if (p.state === "got") h += '<button class="btn small" data-diplo="accept:' + p.id + '">' + icon("check") + ' Accept</button><button class="btn small ghost" data-diplo="decline:' + p.id + '">' + icon("close") + '</button>';
       else if (p.state === "sent") h += '<button class="btn small ghost" data-diplo="decline:' + p.id + '">Withdraw</button>';
       else if (p.state === "on") h += '<button class="btn small ' + (armed("pact:" + p.id) ? "danger" : "ghost") + '" data-diplo="cancel:' + p.id + '">' + (armed("pact:" + p.id) ? "Sure? End" : "End") + "</button>";
     }
@@ -33543,7 +33549,7 @@ function renderSheet() {
   var d = data;
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
   sheetAnim = false;
-  if (sheet.kind !== "away") h += '<button class="sheet-close" data-close="1" title="Close">✖</button>';
+  if (sheet.kind !== "away") h += '<button class="sheet-close" data-close="1" title="Close">' + icon("close") + '</button>';
   h += '<div class="sheet-drag" title="Swipe down to close"></div>';
 
   if (sheet.kind === "stash-transfer") {
@@ -34692,7 +34698,7 @@ function renderTileInfo() {
   h += allyMarkInfo(x, y);
   h += markBox(x, y);
   h += tileReportsBox(x, y);
-  setHTML(box, '<button class="ti-close" data-tile-close="1" title="Close">✖</button>' + h);
+  setHTML(box, '<button class="ti-close" data-tile-close="1" title="Close">' + icon("close") + '</button>' + h);
 }
 
 
