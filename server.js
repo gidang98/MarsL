@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.352";
+const GAME_VERSION = "1.0.353";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -12285,7 +12285,6 @@ const SERVER_PAGE = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__SRV__ · MarsL</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #2a1630; --paper: #fff6ea; --accent: #ffd23f; --red: #ff5a5f; --green: #2f9e57; --line: rgba(62,34,38,0.18); --soft: #f3e7d6; }
   * { box-sizing: border-box; }
@@ -12338,6 +12337,7 @@ const SERVER_PAGE = `<!DOCTYPE html>
   <div id="app" class="grid"><div class="card wide">Loading...</div></div>
 </div>
 <script>
+function svgIconFor(s){return s==null?"":String(s);}
 var info = null;
 var fetchedAt = 0;
 var SRVTR = __TR__; // the texts of this page in the player's language (empty for English)
@@ -12981,7 +12981,7 @@ function mt(lang) { return MAILT[MAILT[lang] ? lang : "en"]; }
 function mlang(x) { return MAILT[x] ? x : "en"; }
 function mailPage(title, body, ok, lang) {
   return '<!DOCTYPE html><html lang="' + (lang || "en") + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + mailEsc(title) + ' · MarsL</title>' +
-    '<link href="/fonts.css" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">' +
+    '<link href="/fonts.css" rel="stylesheet">' +
     '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;font-family:Figtree,system-ui,sans-serif;color:#3a2a4d;background:linear-gradient(180deg,#fff3e6,#ffd6b5)}' +
     '.logo{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:40px;color:#fff;text-align:center;margin:0 0 14px;text-shadow:0 1px 0 #ffd9c9,0 2px 0 #ffbfa6,0 3px 0 #ffa585,0 4px 0 #f58a68,0 5px 0 #e8724f,0 6px 0 #da6243,0 12px 18px rgba(122,46,34,.3)}' +
     '.card{background:var(--card);border-radius:26px;box-shadow:0 14px 30px -14px rgba(122,46,34,.38);padding:24px;max-width:420px;width:100%;box-sizing:border-box}h1{font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:600;font-size:23px;margin:0 0 10px}' +
@@ -15558,7 +15558,6 @@ const LEGAL_SHELL = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__ · MarsL</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #2a1630; --paper: #fff6ea; --line: rgba(62,34,38,0.18); }
   * { box-sizing: border-box; }
@@ -15615,6 +15614,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.353",date:"2026-11-14",title:"The colony loads again",groups:[["Startup",["Fixed a crash on open: leftover icon calls stopped the game on the warming-up screen.","Icons stay the original emojis, so the first screen can finish loading."]],["Load",["Removed a Google Fonts request the game is not allowed to load.","Repeat visits revalidate the homepage instead of downloading it from scratch every time."]]]},
   {v:"1.0.344",date:"2026-11-14",title:"Complete cozy UI polish",groups:[["SVG Icons",["Replaced all key UI emojis with consistent inline SVG icons.","Close buttons, delete buttons, checkmarks, warnings all use clean SVG line icons.","Farm list actions, attack/defense labels, map buttons, account page all updated.","No more emoji in primary UI — clean, scalable, consistent iconography."]],["UI Components",["Report cards restyled with warm card backgrounds and softer shadows.","Army pills and unit training cards use new warm styling.","Navigation buttons use card backgrounds with improved active states.","Quest cards use warm backgrounds and softer glow animations.","Profile badges, settings cards, and account page all restyled.","Tile info popup and map overlay close button styled consistently.","Army stats grid uses warm card backgrounds."]]]},
   {v:"1.0.343",date:"2026-11-14",title:"Cozy Mars visual overhaul",groups:[["Visual Design",["Warm Mars palette: dusty oranges, terracottas, and cream backgrounds throughout.","Buttons are now 3D pressable with warm terracotta colors and physical shadow feedback.","Resource bars redesigned as individual cards with colored left borders and soft backgrounds.","Panels and cards use generous rounded corners and layered shadow system.","Village background uses warmer sunset gradient.","Typography stack now includes Nunito for a friendlier feel.","Inline SVG icon system added for consistent iconography."]],["UI Components",["Toast notifications restyled with warm dark background and clean icons.","Empty states use dashed warm borders and friendly messaging.","Farm list rows have improved spacing and hover feedback.","Sheet overlays use enhanced shadow system.","Building lots use warmer card styling with softer interactions."]]]},
   {v:"1.0.342",date:"2026-11-13",title:"Visual polish and UX improvements",groups:[["UI",["Toast notifications now show icons and an animated progress bar.","Empty states have friendly emoji icons and dashed card styling.","Farm list rows show green tint when targets are selected.","Panels lift on hover with subtle shadow animation.","Custom scrollbar matches game aesthetic.","Reports with unread status glow with a subtle pulse.","All buttons, pills, chips, and cards have hover feedback.","Keyboard focus rings visible on all interactive elements."]],["Mobile",["Touch-action manipulation prevents double-tap zoom.","Active press states on buttons, tabs, and chips.","Scrollbars styled for mobile WebKit browsers."]]]},
@@ -19621,7 +19621,6 @@ const PAGE = `<!DOCTYPE html>
 <link rel="apple-touch-icon" href="/icon-192.png">
 <title>MarsL</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --ink: #3e2226;
@@ -23885,6 +23884,7 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 <div id="toast"><span class="toast-bar"></span></div>
 <div id="tut"></div>
 <script>
+function svgIconFor(s){return s==null?"":String(s);}
 var RES = ["wood", "stone", "metal", "food"];
 var RES_ICON = { wood: "🪵", stone: "🪨", metal: "🔩", food: "🥔" };
 // 🏺 clay icons (sprite in the page); text keeps its emoji
@@ -38694,7 +38694,6 @@ const ADMIN_PAGE = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MarsL Admin</title>
 <link href="/fonts.css" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root { --ink: #2a1630; --paper: #fff6ea; --accent: #ffd23f; --red: #ff5a5f; --green: #3ccf6e; }
   * { box-sizing: border-box; }
@@ -38800,6 +38799,7 @@ const ADMIN_PAGE = `<!DOCTYPE html>
 <div id="toast"><span class="toast-bar"></span></div>
 <div class="modal-overlay" id="pmod"><div class="modal"><div class="modal-header"><h2 id="ptitle">Player</h2><button class="modal-close" onclick="closePlayer()">&times;</button></div><div class="modal-body" id="pbody"></div><div class="modal-footer" id="pfoot"><button class="btn ghost" onclick="closePlayer()">Close</button></div></div></div>
 <script>
+function svgIconFor(s){return s==null?"":String(s);}
 var state = null;
 var search = "";
 
@@ -39725,7 +39725,7 @@ app.get('/activity',(req,res)=>{
   }res.setHeader('Cache-Control','public,max-age=30');res.send(publicActivityCache.html);
 });
 app.get("/", (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-cache");
   res.send(PAGE.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()).split("__TRIBES__").join(LANDING_TRIBES).split("__ART__").join(artJson()).split("__ARTV__").join(ART_VERSION));
 });
 
