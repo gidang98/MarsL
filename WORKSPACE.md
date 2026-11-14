@@ -3,8 +3,8 @@
 ## Source and current release
 - Repository: https://github.com/gidang98/MarsL
 - Default branch: main
-- Last verified live release: 1.0.340 on OpenTest, Classic and SpeedTest, 2026-11-13.
-- Release server.js Git blob: 35f3fd914d55 (v1.0.340 + CI improvements + REBASE.md)
+- Last verified live release before this fix: 1.0.352 on OpenTest, Classic and SpeedTest (commit 76cc2cf). The page opened to "Warming up the rockets..." and then crashed because svgIconFor was removed but still called.
+- Release in progress: 1.0.353. Restores an emoji svgIconFor shim, drops the blocked Google Fonts stylesheet, and lets the homepage revalidate instead of no-store.
 - Successful all-server deployment: https://github.com/gidang98/MarsL/actions/runs/43326391708 (run #28)
   - Deploy step: ✅ success. Verify step: ❌ false negative (servers took >120s to restart, now fixed in workflow).
   - All servers manually confirmed online with 1.0.340 after run completion.
@@ -57,6 +57,7 @@ Read the issue body and latest comments at start/resume and before integration o
 ## Active task ledger
 | Task | Owner | Branch/base | Areas | Status | Next step |
 | --- | --- | --- | --- | --- | --- |
+| Game load fix 1.0.353 | Grok-loadfix-20261114 | main / 76cc2cf | server.js startup icon shim, font link, homepage cache | Fix verified locally, deploy next | Deploy target all and confirm /api/config |
 | Shared AI workspace setup | Current assistant | main / release 1.0.340 | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads these files |
 | Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
 | Admin Dashboard v2.1 | Kimi | main / f8818456 | server.js (inline), client/admin_page.html | Deployed and verified v1.0.340 | None |
