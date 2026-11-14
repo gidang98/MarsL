@@ -1,17 +1,28 @@
 # MarsL working handoff
 
-## Source and current release
+## Read this first
+- Repo: https://github.com/gidang98/MarsL — `main` @ `784fedf` (1.0.354). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
+- Live now: **1.0.354** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
+- Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
+- Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
+- `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
+- Next game version is **1.0.355**. 1.0.340 through 1.0.354 are taken.
+
+## Current release
+- **1.0.354** fixes login and register labels that still showed raw `svgIconFor(...)` text after the emoji restore. Commit https://github.com/gidang98/MarsL/commit/784fedf853352442fff18dcacd2054f20fdc432d (PR #20).
+- **1.0.353** stops the startup crash (`svgIconFor is not defined` inside `newsTicker`). Homepage cache is revalidate, not `no-store`. The blocked Google Fonts stylesheet is gone. PR #19.
+- Deploy run https://github.com/gidang98/MarsL/actions/runs/43532892971 was **cancelled during verify**. The upload had already landed. All three `/api/config` responses are 1.0.354. A cancelled verify is not a failed release when the live version already matches.
+- Verify polls 20 times, 10s apart, after a 15s wait (about 3.5 min worst case). The job timeout is 10 minutes. Wait for that step. Do not paste the watch log into chat.
+
+## Do not redo
+- The blank "Warming up the rockets…" screen and the broken auth labels are fixed on `main`.
+- Codex claims for farm delete (called 1.0.340), dark mode (1.0.341), UI (1.0.342) and mobile were local work on pre-1.0.340 history. Those numbers now belong to other releases. Rebase onto `784fedf` and take 1.0.355 or later. `REBASE.md` still says main is 1.0.340; use this section as the base instead.
+
+## Source and older releases
 - Repository: https://github.com/gidang98/MarsL
-- Default branch: main
-- Last verified live release before this fix: 1.0.352 on OpenTest, Classic and SpeedTest (commit 76cc2cf). The page opened to "Warming up the rockets..." and then crashed because svgIconFor was removed but still called.
-- Release in progress: 1.0.353. Restores an emoji svgIconFor shim, drops the blocked Google Fonts stylesheet, and lets the homepage revalidate instead of no-store.
-- Successful all-server deployment: https://github.com/gidang98/MarsL/actions/runs/43326391708 (run #28)
-  - Deploy step: ✅ success. Verify step: ❌ false negative (servers took >120s to restart, now fixed in workflow).
-  - All servers manually confirmed online with 1.0.340 after run completion.
-- **Rebase guide**: See `REBASE.md` for step-by-step instructions if you have pending work based on `f8818456`.
-- Refresh GitHub main before treating this recorded release as current.
 - Older scratch copies include unfinished and obsolete releases. Compare Git blob hashes before reusing one.
-- A connector fetch of this large server.js may return empty content with a valid SHA. This is a retrieval limitation. Obtain full bytes through an authenticated checkout, GitHub download, or the matching saved release.
+- A connector fetch of this large `server.js` may return empty content with a valid SHA. Obtain full bytes through an authenticated checkout or GitHub download.
+- **Rebase guide**: `REBASE.md`. Its recorded main SHA is stale; rebase onto `784fedf`.
 
 ## Completed game batch
 1.0.339 reduces base, Warehouse and Granary capacities by one third. Existing excess stock remains spendable. Swap and Balance share a 46–55% base rate at market levels 1–10. Human market loss reduction is 5%. Cover with Market returns to the original build/upgrade. Troop traffic has one compact summary with counts by movement type opening full details.
@@ -31,19 +42,19 @@ Prefer symbol searches because line numbers shift.
 
 ## Deployment
 Workflow: .github/workflows/deploy-alwaysdata.yml
-Dispatch from reviewed main, target all. Wait for success and inspect errors if it fails.
+Dispatch from reviewed main, target all, only when the owner asked for a deploy. Wait for success and inspect errors if it fails.
 Verify each response reports the intended version and server ID:
 - https://marsl-game.com/api/config — open-test
 - https://classic.marsl-game.com/api/config — classic
 - https://speed.marsl-game.com/api/config — speed-test
 
-**Workflow improvements (2026-11-13):**
-- **Validate dependencies** — runs `.github/scripts/validate-deps.js` which checks every `require()` in `server.js` against `package.json` and Node.js built-ins. Catches missing dependencies before deployment.
-- **Extract version** — reads `GAME_VERSION` from `server.js` for post-deploy verification.
-- **Verify deployment** — after restart, polls each server's `/api/config` for up to 15 attempts (8s interval) and confirms the live version matches the deployed commit. Fails the workflow if any server doesn't recover.
+**Workflow behavior:**
+- **Validate dependencies** — `.github/scripts/validate-deps.js` checks every `require()` in `server.js` against `package.json` and Node.js built-ins.
+- **Extract version** — reads `GAME_VERSION` from `server.js`.
+- **Verify deployment** — polls each `/api/config` up to 20 times, every 10s, after a 15s pause. Fails if a server does not recover. If the run is cancelled but live `/api/config` already matches, record that and stop. Do not deploy again.
 - **Verify access** — `target=verify` checks SFTP and API read access without deploying.
 
-The workflow uploads only `server.js` (single-file deployment) and requests AlwaysData restarts using existing secrets. Never add `mkdir` or extra `put` commands — AlwaysData's SFTP server does not support directory creation in batch mode.
+The workflow uploads only `server.js` and requests AlwaysData restarts. Never add `mkdir` or extra `put` commands.
 
 ## Verification already performed for 1.0.339
 Syntax check and embedded-script parsing passed. Temporary local instances of all three presets passed homepage/config, authenticated colony, storage and Swap/Balance checks for all tribes. Client logic checks passed traffic counts and return-to-build behavior.
@@ -52,30 +63,33 @@ The test runtime denied os.networkInterfaces(). A test-only preload returned an 
 ## Shared AI inbox
 https://github.com/gidang98/MarsL/issues/1
 
-Read the issue body and latest comments at start/resume and before integration or deployment. Post claims and handoffs there with a unique session ID. Keep detailed work in linked task issues and pull requests. The table below is a release/handoff summary. Task issues hold current ownership and status.
+Read only comments newer than **6873618887**. Post claims and handoffs there with a unique session ID. Keep detailed work in linked task issues and pull requests.
 
 ## Active task ledger
 | Task | Owner | Branch/base | Areas | Status | Next step |
 | --- | --- | --- | --- | --- | --- |
-| Game load fix 1.0.353 | Grok-loadfix-20261114 | main / 76cc2cf | server.js startup icon shim, font link, homepage cache | Fix verified locally, deploy next | Deploy target all and confirm /api/config |
-| Shared AI workspace setup | Current assistant | main / release 1.0.340 | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads these files |
+| Handoff sync | Grok-coord-20261114 | this commit on main | WORKSPACE.md, REBASE.md header | Done | None. Next AI reads "Read this first" |
+| Game load + labels 1.0.353–354 | Grok-loadfix-20261114 | main / 784fedf | server.js startup and auth labels | Live 1.0.354 | None |
+| Codex farm, dark mode, UI, mobile | Codex, unpushed | old base, version numbers collide | server.js | Not on main | Rebase onto 784fedf, renumber from 1.0.355 |
+| Shared AI workspace setup | Completed | main | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads "Read this first" |
 | Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
-| Admin Dashboard v2.1 | Kimi | main / f8818456 | server.js (inline), client/admin_page.html | Deployed and verified v1.0.340 | None |
+| Admin Dashboard v2.1 | Kimi | main | server.js admin block | Deployed in an earlier release | None |
 
 ## Multi-AI coordination notes
-- **Shared inbox**: https://github.com/gidang98/MarsL/issues/1 — read latest comments before starting. Post claims before editing shared files.
-- **Token permissions**: The current PAT can read issues but cannot post comments (403 Forbidden). Handoffs must be done via commit messages and WORKSPACE.md updates until a token with `issues:write` is available.
-- **Pending work from other sessions**: Codex has local branches up to 1.0.342 (dark mode, UI, mobile) based on the pre-v1.0.340 main. Rebase on current main (`878a7fd4b7e3`) before merging to avoid conflicts.
-- **Single-file rule**: `server.js` is the only runtime file. All changes must be inline. No `require()` for packages not in the original `package.json` (currently: `express`, `ws` for dev only).
+- Post a claim before editing shared files. Re-read comments with `id` greater than the one in "Read this first" after claiming.
+- One integrator per release. Integrate against fresh `main`. `server.js` conflicts are reviewed, not overwritten.
+- Docs-only handoff updates do not need a deploy. Deploy only `server.js` changes the owner asked to publish.
+- `routes/`, `lib/`, `game/`, `config/` and `migrations/` are not loaded by the live server. Do not require them from `server.js`.
+- Remote servers have the packages in `package.json` (`express`, and `ws` for dev). Do not add a new `require()` without adding the dependency the deploy validator accepts.
 
-For new tasks, post a claim in the shared inbox and link the task issue. Update this summary at release/handoff milestones. Record a concrete blocker and continuation step whenever work is interrupted.
+For new tasks, post a claim in the shared inbox and link the task issue. Update the "Read this first" section at release or handoff. Record a concrete blocker and continuation step whenever work is interrupted.
 
 ## Verification: Admin Dashboard v2.1 (2026-11-13)
 - Syntax: `node --check server.js` passed
 - Tests: `npm test` — 200 pass, 0 fail, 0 skip
 - GAME_VERSION bumped to 1.0.340, PATCH_NOTES aligned
 - Deployed via GitHub Actions run #19 (workflow dispatch, target all)
-- Live verification: all three servers respond with version 1.0.340
+- Live verification at that time: all three servers responded with version 1.0.340
 - Admin page (/admin) loads with System tab, player detail modal, and all new endpoints
 - New endpoints verified: /api/admin/system, /api/admin/players/:id, /api/admin/logs, /api/admin/db-stats, /api/admin/migrations (return 401/403 without auth as expected)
 - **Root cause of earlier failure**: server.js from commit 0f34f7e added require() calls for packages not installed on AlwaysData (compression, express-rate-limit, express-slow-down, helmet, ws) and referenced undefined variables (metrics, logger, cache). Fix: restored working server.js from f8818456 and added new endpoints inline with zero extra dependencies.

@@ -1,14 +1,16 @@
 # Rebase Guide for Pending AI Work
 
-> Last updated: 2026-11-13 by Kimi (session: admin-v2-20261113)
+> Last updated: 2026-11-14 by Grok-coord-20261114
+> The steps below still describe the admin block added on top of `f8818456`. The **base to rebase onto is current main**, not the SHA in the old "Current State" note.
 
 ## Current State
 
-- **Main branch**: `8bab15af` (1.0.340 + CI improvements)
-- **Live version**: 1.0.340 on all three servers
-- **Your base**: `f8818456` (1.0.339) — the last working single-file release
+- **Main branch**: `784fedf` — live **1.0.354** on OpenTest, Classic and Speed
+- **Next free version**: 1.0.355
+- **Do not reuse** version numbers 1.0.340–1.0.354. Codex local claims used 1.0.340–1.0.342 for other features; those numbers shipped as different releases.
+- **Old base below**: `f8818456` (1.0.339). Useful only to understand where the admin block was inserted. Rebase onto `784fedf`.
 
-## What Changed Between f8818456 and Main
+## What Changed Between f8818456 and the 1.0.340-era Main
 
 The diff is large on disk but tiny in terms of `server.js` runtime changes:
 
