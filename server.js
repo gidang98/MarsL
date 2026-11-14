@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.354";
+const GAME_VERSION = "1.0.355";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.355",date:"2026-11-14",title:"The commander window stays open",groups:[["Commander",["Scrolling the commander sheet no longer closes it when you drag back up.","Swipe down to close still works from the top of any sheet."]]]},
   {v:"1.0.354",date:"2026-11-14",title:"Labels read as labels again",groups:[["Login",["The Log in and Make my account buttons show their real names again.","Stray quotes around icons from the emoji restore are gone."]]]},
   {v:"1.0.353",date:"2026-11-14",title:"The colony loads again",groups:[["Startup",["Fixed a crash on open: leftover icon calls stopped the game on the warming-up screen.","Icons stay the original emojis, so the first screen can finish loading."]],["Load",["Removed a Google Fonts request the game is not allowed to load.","Repeat visits revalidate the homepage instead of downloading it from scratch every time."]]]},
   {v:"1.0.344",date:"2026-11-14",title:"Complete cozy UI polish",groups:[["SVG Icons",["Replaced all key UI emojis with consistent inline SVG icons.","Close buttons, delete buttons, checkmarks, warnings all use clean SVG line icons.","Farm list actions, attack/defense labels, map buttons, account page all updated.","No more emoji in primary UI — clean, scalable, consistent iconography."]],["UI Components",["Report cards restyled with warm card backgrounds and softer shadows.","Army pills and unit training cards use new warm styling.","Navigation buttons use card backgrounds with improved active states.","Quest cards use warm backgrounds and softer glow animations.","Profile badges, settings cards, and account page all restyled.","Tile info popup and map overlay close button styled consistently.","Army stats grid uses warm card backgrounds."]]]},
@@ -36632,15 +36633,19 @@ document.addEventListener("input", function (e) {
 
 /* Swipe-to-close sheets on mobile */
 (function () {
-  var startY = 0, startX = 0, tracking = false;
+  var startY = 0, startX = 0, tracking = false, scroller = null;
   document.addEventListener("touchstart", function (e) {
     var sheet = e.target.closest(".sheet");
     if (!sheet || e.target.closest(".sheet-head") || e.target.closest("input") || e.target.closest("textarea") || e.target.closest("select")) return;
+    // a sheet that is scrolled down (the commander, long reports) must scroll, not close
+    if (sheet.scrollTop > 0) return;
     var t = e.touches[0];
-    startY = t.clientY; startX = t.clientX; tracking = true;
+    startY = t.clientY; startX = t.clientX; tracking = true; scroller = sheet;
   }, { passive: true });
   document.addEventListener("touchmove", function (e) {
     if (!tracking) return;
+    // the content started scrolling during this gesture: leave it alone
+    if (scroller && scroller.scrollTop > 0) { tracking = false; return; }
     var t = e.touches[0];
     var dy = t.clientY - startY, dx = t.clientX - startX;
     // Only close on downward swipe (>40px down, not horizontal)
