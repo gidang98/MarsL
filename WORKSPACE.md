@@ -16,6 +16,9 @@
 - Deploy run https://github.com/gidang98/MarsL/actions/runs/43532892971 was **cancelled during verify**. The upload had already landed. All three `/api/config` responses are 1.0.354. A cancelled verify is not a failed release when the live version already matches.
 - Verify polls 20 times, 10s apart, after a 15s wait (about 3.5 min worst case). The job timeout is 10 minutes. Wait for that step. Do not paste the watch log into chat.
 
+## Discord bot
+`discord-bot/` is a separate discord.js bot (server layout via `/setup`, `/status`, `/patchnotes`, `/bug`, patch-note announcer). Not loaded by `server.js`, not deployed by the workflow. Setup steps are in `discord-bot/README.md`. Untested against real Discord until the owner adds the token.
+
 ## Do not redo
 - The blank "Warming up the rockets…" screen and the broken auth labels are fixed on `main`.
 - Codex claims for farm delete (called 1.0.340), dark mode (1.0.341), UI (1.0.342) and mobile were local work on pre-1.0.340 history. Those numbers now belong to other releases. Rebase onto `784fedf` and take 1.0.355 or later. `REBASE.md` still says main is 1.0.340; use this section as the base instead.
