@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.357";
+const GAME_VERSION = "1.0.358";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.358",date:"2026-11-15",title:"A wider map",groups:[["Map",["On phones the map now runs the full width of the screen, so tiles are bigger and easier to tap.","The title, buttons, mini map and Go to box keep their margins."]]]},
   {v:"1.0.357",date:"2026-11-15",title:"A bigger map",groups:[["Map",["On phones the map is taller and fills more of the screen, so you see more tiles at once.","The mini map, Go to box and controls hint now sit together in one compact strip under the map.","The white frame on the mini map follows the taller view."]]]},
   {v:"1.0.356",date:"2026-11-15",title:"Dark mode you can read",groups:[["Dark mode",["Cards, banners, tabs, panels and windows now switch to dark colours, so text and numbers stay readable everywhere.","The welcome card, the commander window and the settings window follow the dark palette too."]],["Layout",["The welcome card stays clear of the phone tab bar and sits below open windows.","The Mission Board title is no longer cut off in the side panel.","Phone tab labels are a little larger."]]]},
   {v:"1.0.355",date:"2026-11-14",title:"The commander window stays open",groups:[["Commander",["Scrolling the commander sheet no longer closes it when you drag back up.","Swipe down to close still works from the top of any sheet."]]]},
@@ -22626,7 +22627,10 @@ const PAGE = `<!DOCTYPE html>
     .sheet { max-height: 92vh; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
     /* map: the info about a tapped tile shows as a card above the tabs */
     .mapview { overscroll-behavior: contain; aspect-ratio: 1 / 1.25; max-height: max(380px, calc(100dvh - 260px)); }
-    .mapgrid .mappanel { padding: 12px; }
+    /* the map runs edge to edge; the title, buttons and the strip below keep a margin */
+    .mapgrid .mappanel { margin: 0 -10px; padding: 12px 0; border-radius: 0; border-left: 0; border-right: 0; }
+    .mappanel .map-bar, .mappanel .maptools { padding: 0 12px; }
+    .mappanel .mapview { border-radius: 0; border-left: 0; border-right: 0; }
     #minimap { width: 84px; height: 84px; }
     .mapgrid .tileinfo {
       position: fixed; left: 8px; right: 8px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 12;
