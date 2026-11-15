@@ -2,7 +2,7 @@
 
 ## Read this first
 - Repo: https://github.com/gidang98/MarsL — `main` @ `fc078d9` (1.0.356). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- `main` has **1.0.361** (and branch `claude/defender-roles` adds **1.0.362**: wall/flak/interceptor defenders, Skyguard, Spore Spitter, Coop Hawk; PR pending) (Reports split into Attack/Defense/Spying/Other with result sub-filters; Aurora lives under Other). Live now: **1.0.360** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`), deployed by the owner request; 1.0.361 is merged but NOT deployed until the owner asks.
+- `main` has **1.0.361** (and branch `claude/defender-roles` adds **1.0.362** and **1.0.363** (about 110 more drawn icons, X close buttons fixed, mission board open on desktop): wall/flak/interceptor defenders, Skyguard, Spore Spitter, Coop Hawk; PR pending) (Reports split into Attack/Defense/Spying/Other with result sub-filters; Aurora lives under Other). Live now: **1.0.360** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`), deployed by the owner request; 1.0.361 is merged but NOT deployed until the owner asks.
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
