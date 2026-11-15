@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.358";
+const GAME_VERSION = "1.0.359";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.359",date:"2026-11-15",title:"Cream and terracotta",groups:[["Look",["Cards, panels and the top bar are warm cream with a soft brown border.","Buttons are glossy terracotta, and the selected tab uses the same colour.","Chips are rounded pills.","The resource bar is one cream strip with round icons and thin dividers.","Dark mode keeps its dark cards and picks up the new buttons."]],["Unchanged",["Layout, tabs and all information stay exactly as they were."]]]},
   {v:"1.0.358",date:"2026-11-15",title:"A wider map",groups:[["Map",["On phones the map now runs the full width of the screen, so tiles are bigger and easier to tap.","The title, buttons, mini map and Go to box keep their margins."]]]},
   {v:"1.0.357",date:"2026-11-15",title:"A bigger map",groups:[["Map",["On phones the map is taller and fills more of the screen, so you see more tiles at once.","The mini map, Go to box and controls hint now sit together in one compact strip under the map.","The white frame on the mini map follows the taller view."]]]},
   {v:"1.0.356",date:"2026-11-15",title:"Dark mode you can read",groups:[["Dark mode",["Cards, banners, tabs, panels and windows now switch to dark colours, so text and numbers stay readable everywhere.","The welcome card, the commander window and the settings window follow the dark palette too."]],["Layout",["The welcome card stays clear of the phone tab bar and sits below open windows.","The Mission Board title is no longer cut off in the side panel.","Phone tab labels are a little larger."]]]},
@@ -23872,6 +23873,49 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 .advev-o button {min-width:0;line-height:1.35;padding:10px;gap:5px;}
 .advev-o small {display:block;line-height:1.45;}
 @media(max-width:380px){.advev-o{grid-template-columns:1fr;}}
+
+/* 1.0.359 cream style: cream cards, warm borders, glossy terracotta buttons, pill chips, a warmer resource bar */
+:root {
+  --ink: #4a2e1d; --muted: #8a6a52;
+  --paper: #fff3df; --surface: #fff3df; --card: #fff3df; --surface-2: #f6e2c4; --tray: #f6e2c4; --tray-2: #eed2ac;
+  --line: rgba(160, 96, 50, 0.30); --line-strong: rgba(160, 96, 50, 0.52);
+  --chip: #fffaf0; --gloss: #e98f56; --gloss-mid: #d36d37; --gloss-low: #b9552a; --gloss-edge: #8f4020;
+  --sh: inset 0 1px 0 rgba(255, 255, 255, .8), 0 1px 0 rgba(122, 60, 20, .10), 0 12px 26px -14px rgba(122, 60, 20, .45);
+  --sh-sm: inset 0 1px 0 rgba(255, 255, 255, .75), 0 1px 0 rgba(122, 60, 20, .08), 0 6px 12px -8px rgba(122, 60, 20, .42);
+  --well: inset 0 2px 4px rgba(122, 60, 20, .14), inset 0 -1px 0 rgba(255, 255, 255, .8);
+}
+.dark-mode { --chip: #3b3342; --gloss: #d9783f; --gloss-mid: #bd5f2c; --gloss-low: #9e4a20; --gloss-edge: #6e3214; }
+/* cards: cream with a warm border */
+.panel, .qpanel, .sidepanel, .topbar { border: 1.5px solid var(--line-strong); }
+body.in .panel { background-image: linear-gradient(180deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 46px); }
+.dark-mode .panel, .dark-mode .qpanel, .dark-mode .sidepanel, .dark-mode .topbar { border-color: var(--line); }
+/* buttons: glossy terracotta */
+.btn:not(:disabled):not(.ghost):not(.danger) {
+  background-image: linear-gradient(180deg, var(--gloss) 0%, var(--gloss-mid) 50%, var(--gloss-low) 100%);
+  background-color: var(--gloss-mid); color: #fff; border: 1px solid var(--gloss-edge);
+  text-shadow: 0 1px 0 rgba(90, 30, 10, .45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), inset 0 -2px 4px rgba(90, 30, 10, .18), 0 4px 0 var(--gloss-edge), 0 8px 14px -6px rgba(110, 50, 20, .5);
+}
+.btn:active:not(:disabled):not(.ghost):not(.danger) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 1px 0 var(--gloss-edge); }
+.btn.ghost { background: var(--chip); border: 1px solid var(--line-strong); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8), 0 3px 0 var(--line-strong); }
+/* the active tab: the same terracotta */
+.nav button.on { background-image: linear-gradient(180deg, var(--gloss) 0%, var(--gloss-mid) 50%, var(--gloss-low) 100%); background-color: var(--gloss-mid); color: #fff; border: 1px solid var(--gloss-edge); text-shadow: 0 1px 0 rgba(90, 30, 10, .4); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 4px 0 var(--gloss-edge); }
+/* chips: pills */
+.chip, .pill, .q-rew span, .need { background: var(--chip); border: 1px solid var(--line-strong); border-radius: 999px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7); }
+.chip.lack { background: #ffe0d8; border-color: #e3a090; }
+/* resource bar: a cream strip, round icon discs, warm dividers */
+.resbar { background: linear-gradient(180deg, #fff8ea, #fbe6c4); border: 1.5px solid var(--line-strong); border-radius: 22px; box-shadow: var(--sh-sm); }
+.dark-mode .resbar { background: var(--card); border-color: var(--line); }
+.resbar.detail > div, .resbar > .res { background: transparent; box-shadow: none; }
+.resbar.resource-strip { border-radius: 22px; overflow: hidden; }
+.resbar.resource-strip > .res + .res { border-left: 1.5px solid var(--line); }
+.res-icon { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fffaf0, #f1d8b2); box-shadow: inset 0 0 0 1.5px var(--line); }
+.dark-mode .res-icon { background: var(--tray-2); }
+.res-icon .ci { filter: drop-shadow(0 1px 1px rgba(110, 60, 20, .3)); }
+.res .meter.thin, .resbar .meter { background: #ecd3ac; border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--well); }
+.dark-mode .res .meter.thin, .dark-mode .resbar .meter { background: var(--tray); }
+.res .meter.thin i, .resbar .meter i { border-radius: 999px; }
+
 </style>
 </head>
 <body>
