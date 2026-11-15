@@ -2,11 +2,11 @@
 
 ## Read this first
 - Repo: https://github.com/gidang98/MarsL — `main` @ `fc078d9` (1.0.356). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- `main` also has **1.0.357** to **1.0.360** (bigger, full-width phone map, compact minimap strip, cream/rust look, outlined drawn icons), merged but NOT deployed until the owner asks. Live now: **1.0.356** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
+- `main` has **1.0.361** (Reports split into Attack/Defense/Spying/Other with result sub-filters; Aurora lives under Other). Live now: **1.0.360** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`), deployed by the owner request; 1.0.361 is merged but NOT deployed until the owner asks.
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.361**. 1.0.340 through 1.0.360 are taken.
+- Next game version is **1.0.362**. 1.0.340 through 1.0.361 are taken.
 
 ## Current release
 - **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.

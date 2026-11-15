@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.360";
+const GAME_VERSION = "1.0.361";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.361",date:"2026-11-15",title:"Report categories",groups:[["Reports",["Fights are now split into Attack and Defense, each with Won with no losses, Won with losses and Lost filters.","Aurora reports moved into Other, and Spies is now called Spying."]]]},
   {v:"1.0.360",date:"2026-11-15",title:"Warmer cards, sharper icons",groups:[["Look",["Cards are a deeper peach cream with a tan band border and a fine dark outline.","Buttons are a richer rust orange with a darker lip.","Chips, the resource bar and the tab bar use the same tan band."]],["Icons",["Every drawn icon has a warm outline, so icons stay clear on any background.","New drawn icons replace more emoji: done and cancel marks, plus and minus, refresh, megaphone, bomb, key, fast forward, light bulb, snow, tag, sun and clouds."]]]},
   {v:"1.0.359",date:"2026-11-15",title:"Cream and terracotta",groups:[["Look",["Cards, panels and the top bar are warm cream with a soft brown border.","Buttons are glossy terracotta, and the selected tab uses the same colour.","Chips are rounded pills.","The resource bar is one cream strip with round icons and thin dividers.","Dark mode keeps its dark cards and picks up the new buttons."]],["Unchanged",["Layout, tabs and all information stay exactly as they were."]]]},
   {v:"1.0.358",date:"2026-11-15",title:"A wider map",groups:[["Map",["On phones the map now runs the full width of the screen, so tiles are bigger and easier to tap.","The title, buttons, mini map and Go to box keep their margins."]]]},
@@ -23929,6 +23930,11 @@ body.in .nav { border: 3px solid var(--band); box-shadow: 0 0 0 1px var(--ring),
 /* drawn icons: a warm outline around each one */
 #gi-sprite symbol { overflow: visible; }
 .gio { stroke: var(--gi-ol, #5b2f16); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+/* 1.0.361 report filters always wrap instead of scrolling sideways */
+body .fl-sort.repfilter { flex-wrap: wrap; overflow: visible; gap: 6px; }
+body .fl-sort.repfilter button { flex: 0 0 auto; min-height: 36px; padding: 4px 12px; }
+body .fl-sort.repsub { margin-top: -4px; }
+body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 </style>
 </head>
 <body>
@@ -30887,6 +30893,7 @@ function inboxTabs() {
 }
 
 var repFilter = "all";
+var repSub = "";
 var repLimit = 15;
 // List view of a battle report: how did MY troops do? ok = nobody died, hurt = some died, dead = all died
 function repStatus(r) {
@@ -30983,13 +30990,37 @@ function renderReports() {
     return h + '<section class="panel" style="text-align:center"><div class="big" style="font-size:56px">🕊️</div><h2>All quiet on Mars</h2><p>No battles yet. Suspiciously peaceful...</p><button class="btn" data-view="map">🗺️ Change that</button></section>';
   }
   // filter chips: find the report you want quickly
-  var kinds = { unread: ["Unread", function (r) { return !r.seen; }], aurora: ["Aurora", function (r) { return r.data.mission === "aurora" || r.data.drain; }], all: ["All", null], fight: ["⚔️ Fights", function (r) { var m = r.data.mission; return m === "attack" || m === "raid"; }], spy: ["🔍 Spies", function (r) { var m = r.data.mission; return m === "scout" || m === "counterspy"; }], other: ["📦 Other", function (r) { var m = r.data.mission; return ["attack", "raid", "scout", "counterspy"].indexOf(m) < 0; }] };
+  function repIsFight(r) { var m = r.data.mission; return m === "attack" || m === "raid"; }
+  function repIsAttack(r) { return repIsFight(r) && r.data.side === "attacker"; }
+  function repOutcome(r) {
+    var d = r.data, own = reportOwnUnits(d), sent = 0, lost = 0;
+    (own || []).forEach(function (u) { sent += u.count || 0; lost += u.lost || 0; });
+    var iWon = d.side === "attacker" ? !!d.attackerWins : !d.attackerWins;
+    if (!iWon) return "lost";
+    return own !== null && !lost ? "won0" : "won";
+  }
+  var kinds = {
+    unread: ["Unread", function (r) { return !r.seen; }],
+    all: ["All", null],
+    attack: ["⚔️ Attack", repIsAttack],
+    defense: ["🛡️ Defense", function (r) { return repIsFight(r) && !repIsAttack(r); }],
+    spy: ["🔍 Spying", function (r) { var m = r.data.mission; return m === "scout" || m === "counterspy"; }],
+    other: ["📦 Other", function (r) { return !repIsFight(r) && ["scout", "counterspy"].indexOf(r.data.mission) < 0; }]
+  };
+  var subs = { won0: ["✅ Won, no losses", "won0"], won: ["⚔️ Won, with losses", "won"], lost: ["❌ Lost", "lost"] };
   h += '<div class="fl-sort repfilter">';
   for (var kf in kinds) h += '<button class="' + (repFilter === kf ? "on" : "") + '" data-rep-filter="' + kf + '">' + kinds[kf][0] + " (" + reports.reports.filter(function (r) { return !kinds[kf][1] || kinds[kf][1](r); }).length + ")</button>";
   h += "</div>";
   if (!kinds[repFilter]) repFilter = "all";
   var test = kinds[repFilter][1];
   var shown = reports.reports.filter(function (r) { return !test || test(r); });
+  if (repFilter === "attack" || repFilter === "defense") {
+    if (repSub && !subs[repSub]) repSub = "";
+    h += '<div class="fl-sort repfilter repsub">';
+    for (var ks in subs) h += '<button class="' + (repSub === ks ? "on" : "") + '" data-rep-sub="' + ks + '">' + subs[ks][0] + " (" + shown.filter(function (r) { return repOutcome(r) === ks; }).length + ")</button>";
+    h += "</div>";
+    if (repSub) shown = shown.filter(function (r) { return repOutcome(r) === repSub; });
+  } else repSub = "";
   var nOpen = Object.keys(openReports).filter(function (k) { return openReports[k]; }).length;
   var nNew = reports.reports.filter(function (r) { return !r.seen; }).length;
   if (nOpen || nNew) {
@@ -36858,7 +36889,7 @@ document.addEventListener("click", function (e) {
     "[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
-    "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
+    "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
     "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
@@ -37437,6 +37468,12 @@ document.addEventListener("click", function (e) {
     post("/api/terraform", { project: attr("data-terraform") }, function () { toast("🌱 Terraforming started!", true); });
   } else if (has("data-rep-filter")) {
     repFilter = attr("data-rep-filter");
+    repSub = "";
+    repLimit = 15;
+    if (data) renderColony(data);
+  } else if (has("data-rep-sub")) {
+    var rs = attr("data-rep-sub");
+    repSub = repSub === rs ? "" : rs;
     repLimit = 15;
     if (data) renderColony(data);
   } else if (has("data-rep-more")) {
