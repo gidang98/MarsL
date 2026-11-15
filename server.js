@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.361";
+const GAME_VERSION = "1.0.362";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -815,7 +815,7 @@ const TRIBES = {
     icon: "🧑‍🚀",
     home: "🧑‍🚀",
     color: "#ffd23f",
-    desc: "Balanced builders and traders: solid at everything, with strong walls and busy markets.",
+    desc: "Balanced builders and traders: solid at everything, with strong walls, busy markets and guns for the sky.",
     names: {
       wood: ["Bio-Dome Forest", "🌲"],
       stone: ["Regolith Quarry", "⛏️"],
@@ -855,9 +855,15 @@ const TRIBES = {
       },
       guard: {
         name: "Shield Trooper", icon: "🛡️", role: "Defender", type: "ground",
-        atk: 12, defG: 72, defA: 52, speed: 5, carry: 20, upkeep: 2,
+        atk: 12, defG: 84, defA: 22, speed: 5, carry: 20, upkeep: 2,
         cost: { wood: 90, stone: 110, metal: 90, food: 40 }, time: 70, building: "barracks", level: 1, lab: 1,
         quote: "Nobody gets past me. Except through the back door.",
+      },
+      skyguard: {
+        name: "Skyguard", icon: "📡", role: "Flak", type: "ground",
+        atk: 8, defG: 24, defA: 88, speed: 6, carry: 10, upkeep: 2,
+        cost: { wood: 80, stone: 70, metal: 120, food: 40 }, time: 75, building: "barracks", level: 3, lab: 2,
+        quote: "Anything with wings is my business.",
       },
       drone: {
         name: "Recon Drone", icon: "🛰️", role: "Scout", type: "air",
@@ -921,7 +927,7 @@ const TRIBES = {
     icon: "🐔",
     home: "🐔",
     color: "#ff9f43",
-    desc: "Cheap, fast and many: a raiding swarm that trains quickly and hides its loot well.",
+    desc: "Cheap, fast and many: a raiding swarm that trains quickly, hides its loot well and hunts raiders with hawks.",
     names: {
       wood: ["Twig Grove", "🪺"],
       stone: ["Pebble Pit", "🪨"],
@@ -961,9 +967,15 @@ const TRIBES = {
       },
       rooster: {
         name: "Rooster Guard", icon: "🐓", role: "Defender", type: "ground",
-        atk: 9, defG: 48, defA: 38, speed: 7, carry: 15, upkeep: 2,
+        atk: 9, defG: 54, defA: 26, speed: 7, carry: 15, upkeep: 2,
         cost: { wood: 60, stone: 70, metal: 50, food: 30 }, time: 40, building: "barracks", level: 1, lab: 1,
         quote: "COCK-A-DOODLE-DON'T!",
+      },
+      hawk: {
+        name: "Coop Hawk", icon: "🪶", role: "Interceptor", type: "ground",
+        atk: 16, defG: 38, defA: 24, speed: 20, carry: 0, upkeep: 1,
+        cost: { wood: 80, stone: 45, metal: 60, food: 35 }, time: 45, building: "barracks", level: 3, lab: 2,
+        quote: "Raiders? I eat raiders for breakfast.",
       },
       pigeon: {
         name: "Pigeon Spy", icon: "🕊️", role: "Scout", type: "air",
@@ -1027,7 +1039,7 @@ const TRIBES = {
     icon: "👽",
     home: "👽",
     color: "#7dff6b",
-    desc: "Expensive and slow, but every single unit is a monster, backed by top research.",
+    desc: "Expensive and slow, but every single unit is a monster: huge ground walls and spore flak, backed by top research.",
     names: {
       wood: ["Fungus Forest", "🍄"],
       stone: ["Crystal Quarry", "💎"],
@@ -1067,9 +1079,15 @@ const TRIBES = {
       },
       blob: {
         name: "Goo Blob", icon: "🦠", role: "Defender", type: "ground",
-        atk: 12, defG: 92, defA: 68, speed: 4, carry: 10, upkeep: 3,
+        atk: 12, defG: 110, defA: 24, speed: 3, carry: 10, upkeep: 3,
         cost: { wood: 115, stone: 140, metal: 130, food: 55 }, time: 90, building: "barracks", level: 1, lab: 1,
         quote: "Blorp.",
+      },
+      spitter: {
+        name: "Spore Spitter", icon: "🍄", role: "Flak", type: "ground",
+        atk: 10, defG: 28, defA: 118, speed: 4, carry: 5, upkeep: 3,
+        cost: { wood: 120, stone: 100, metal: 170, food: 60 }, time: 100, building: "barracks", level: 3, lab: 2,
+        quote: "Pfft. Pfft. Splat. Down it goes.",
       },
       probe: {
         name: "Mind Probe", icon: "👁️", role: "Scout", type: "air",
@@ -3327,6 +3345,8 @@ const UNIT_TRAITS = {
   Infantry: { icon: "🤝", name: "Drilled", text: "+10% attack when half the army is infantry." },
   Defender: { icon: "🧱", name: "Bulwark", text: "+10% defense behind a wall of level 5+." },
   Scout: { icon: "🤫", name: "Unseen", text: "Spies only. Never fights, never seen coming." },
+  Flak: { icon: "📡", name: "Skyward", text: "Fights flyers at full strength in the air phase. Weak against ground attacks." },
+  Interceptor: { icon: "🪶", name: "Intercept", text: "Up to +150% defense, the more of the attack is raiders." },
   Raider: { icon: "🎒", name: "Quick hands", text: "+10% carry on raids." },
   Heavy: { icon: "🐾", name: "Trample", text: "+20% attack against units below 20 defense." },
   Fighter: { icon: "🛡️", name: "Escort", text: "Lets your bombers count fully in the air phase." },
@@ -3337,6 +3357,7 @@ const UNIT_TRAITS = {
   Settler: { icon: "🏳️", name: "Pioneer", text: "Founds new colonies. Never fights." },
 };
 const AIR_WIN_BONUS = 0.15;
+const INTERCEPT_BONUS = 1.5; // interceptors: up to +150% of their defense against an all-raider attack
 const AIR_MIN_SHARE = 0.1; // air must be at least 10% of the attack to fight for the sky
 const SIEGE_CLOSE = 0.8; // a loss with at least 80% of the defense counts as close
 function traitOf(u) {
@@ -3373,14 +3394,28 @@ function combatPhases(atkTroops, atkTribe, atkUp, attack, defTroops, defTribe, d
     const bg = powerWhere(defTroops, defTribe, defUp, (u) => u.role === "Defender", "defG");
     if (bg > 0) { defense.g += 0.1 * bg; defense.a += 0.1 * powerWhere(defTroops, defTribe, defUp, (u) => u.role === "Defender", "defA"); out.traits.push("Bulwark"); }
   }
+  // 🪶 Intercept: interceptors hit raiders hardest, the more of the attack is raiders
+  if (defTribe) {
+    const icG = powerWhere(defTroops, defTribe, defUp, (u) => u.role === "Interceptor", "defG");
+    if (icG > 0) {
+      const raid = powerWhere(atkTroops, atkTribe, atkUp, (u) => u.role === "Raider", "atk"), allAtk = powerWhere(atkTroops, atkTribe, atkUp, fightsU, "atk");
+      const share = allAtk > 0 ? raid / allAtk : 0;
+      if (share > 0) {
+        defense.g += INTERCEPT_BONUS * share * icG;
+        defense.a += INTERCEPT_BONUS * share * powerWhere(defTroops, defTribe, defUp, (u) => u.role === "Interceptor", "defA");
+        out.traits.push("Intercept");
+      }
+    }
+  }
   // ✈️ the air phase
   const fighters = countWhere(atkTroops, atkTribe, (u) => u.role === "Fighter"), bombers = countWhere(atkTroops, atkTribe, (u) => u.role === "Bomber");
   const bomberAtk = powerWhere(atkTroops, atkTribe, atkUp, (u) => u.role === "Bomber", "atk");
   const escort = bombers > 0 ? Math.min(1, fighters / bombers) : 1;
   if (bombers > 0 && fighters > 0) out.traits.push("Escort");
   const AA = attack.a - bomberAtk * 0.3 * (1 - escort);
-  const DA = defTribe ? powerWhere(defTroops, defTribe, defUp, (u) => u.type === "air", "defA") + 0.25 * powerWhere(defTroops, defTribe, defUp, (u) => u.type !== "air", "defA") : 0;
-  const defAir = defTribe ? countWhere(defTroops, defTribe, (u) => u.type === "air") > 0 : false;
+  const skyU = (u) => u.type === "air" || u.role === "Flak";
+  const DA = defTribe ? powerWhere(defTroops, defTribe, defUp, skyU, "defA") + 0.25 * powerWhere(defTroops, defTribe, defUp, (u) => !skyU(u), "defA") : 0;
+  const defAir = defTribe ? countWhere(defTroops, defTribe, skyU) > 0 : false;
   const atkAir = attack.a > 0 && attack.a >= AIR_MIN_SHARE * (attack.g + attack.a);
   if (atkAir && AA > DA) {
     out.air = "attacker";
@@ -15613,6 +15648,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.362",date:"2026-11-15",title:"Defenders with a job",groups:[["Defense",["Shield Trooper, Rooster Guard and Goo Blob are now ground walls: much stronger on the ground, weaker against flyers.","New flak units for Humans (Skyguard) and Aliens (Spore Spitter): strong against air, weak on the ground. They count fully in the air phase.","New Coop Hawk for Chickens: fast, and up to +150% defense when the attack is made of raiders.","Existing units keep their place and use the new numbers right away."]],["Balance",["Air attacks now beat a wall-only defense, so scouting the enemy army matters. A mix of wall and flak holds against everything."]]]},
   {v:"1.0.361",date:"2026-11-15",title:"Report categories",groups:[["Reports",["Fights are now split into Attack and Defense, each with Won with no losses, Won with losses and Lost filters.","Aurora reports moved into Other, and Spies is now called Spying."]]]},
   {v:"1.0.360",date:"2026-11-15",title:"Warmer cards, sharper icons",groups:[["Look",["Cards are a deeper peach cream with a tan band border and a fine dark outline.","Buttons are a richer rust orange with a darker lip.","Chips, the resource bar and the tab bar use the same tan band."]],["Icons",["Every drawn icon has a warm outline, so icons stay clear on any background.","New drawn icons replace more emoji: done and cancel marks, plus and minus, refresh, megaphone, bomb, key, fast forward, light bulb, snow, tag, sun and clouds."]]]},
   {v:"1.0.359",date:"2026-11-15",title:"Cream and terracotta",groups:[["Look",["Cards, panels and the top bar are warm cream with a soft brown border.","Buttons are glossy terracotta, and the selected tab uses the same colour.","Chips are rounded pills.","The resource bar is one cream strip with round icons and thin dividers.","Dark mode keeps its dark cards and picks up the new buttons."]],["Unchanged",["Layout, tabs and all information stay exactly as they were."]]]},
@@ -35168,7 +35204,8 @@ function wikiChapter(W, tab) {
       "🎩 Envoys need ground troops alongside them: an army of only air units can't take a colony.",
       "Monster camps, the Landing Zone and landmarks fight as before. Every report and the simulator show who won the air and which traits worked.",
     ])));
-    cards.push(wkCard("traits", "🏷️", "Unit traits", wkP("Every unit has one small rule, shown as a chip on its card. It depends on its role, so all tribes get the same rules.") + kt({ head: ["Role", "Trait"], left: 2, rows: Object.keys(C.traits || {}).map(function (k) { var t = C.traits[k]; return [esc(k), t.icon + " <b>" + esc(t.name) + "</b>: " + esc(t.text)]; }) }) + wkNote("Drilled, Trample, Bulwark and Bombs away count in battles against colonies; Quick hands on every raid.")));
+    cards.push(wkCard("traits", "🏷️", "Unit traits", wkP("Every unit has one small rule, shown as a chip on its card. It depends on its role, so all tribes get the same rules.") + kt({ head: ["Role", "Trait"], left: 2, rows: Object.keys(C.traits || {}).map(function (k) { var t = C.traits[k]; return [esc(k), t.icon + " <b>" + esc(t.name) + "</b>: " + esc(t.text)]; }) }) + wkNote("Drilled, Trample, Bulwark, Skyward, Intercept and Bombs away count in battles against colonies; Quick hands on every raid.")));
+    cards.push(wkCard("defmix", "🛡️", "Building your defense", wkP("Defenders are not all the same. Walls (Shield Trooper, Rooster Guard, Goo Blob) are strong on the ground and weak in the air. Flak (Skyguard, Spore Spitter) is the other way round. The Coop Hawk is fast and hits raiders hardest. A battle uses the attacker's ground and air share, so scout first and build against what is coming.") + kt({ head: ["Tribe", "Defenders"], left: 1, rows: [["🧑‍🚀 Humans", "Wall and flak"], ["🐔 Chickens", "Cheap wall and hawk"], ["👽 Aliens", "Huge slow wall and flak"]] }) + wkNote("Units you already have keep their place and use the new numbers right away. Flak and the hawk need Barracks 3 and Lab 2.")));
     cards.push(wkCard("morale", "🙅", "Morale", wkP("Attacking a player with fewer than a quarter of your points costs morale: up to " + (C.moraleMax || 30) + "% less attack and loot, the bigger the gap the more. Players of similar size fight at full strength. Inactive colonies and monster camps never cost morale.") + kt({ head: ["Their points vs yours", "Attack and loot"], left: 1, rows: [["25% or more", "full"], ["20%", "−6%"], ["10%", "−18%"], ["5%", "−24%"], ["near 0", "−30%"]] })));
     cards.push(wkCard("calc", "🧮", "What counts in a battle", kt({
       head: ["Factor", "Effect"],
