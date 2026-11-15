@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.356";
+const GAME_VERSION = "1.0.357";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.357",date:"2026-11-15",title:"A bigger map",groups:[["Map",["On phones the map is taller and fills more of the screen, so you see more tiles at once.","The mini map, Go to box and controls hint now sit together in one compact strip under the map.","The white frame on the mini map follows the taller view."]]]},
   {v:"1.0.356",date:"2026-11-15",title:"Dark mode you can read",groups:[["Dark mode",["Cards, banners, tabs, panels and windows now switch to dark colours, so text and numbers stay readable everywhere.","The welcome card, the commander window and the settings window follow the dark palette too."]],["Layout",["The welcome card stays clear of the phone tab bar and sits below open windows.","The Mission Board title is no longer cut off in the side panel.","Phone tab labels are a little larger."]]]},
   {v:"1.0.355",date:"2026-11-14",title:"The commander window stays open",groups:[["Commander",["Scrolling the commander sheet no longer closes it when you drag back up.","Swipe down to close still works from the top of any sheet."]]]},
   {v:"1.0.354",date:"2026-11-14",title:"Labels read as labels again",groups:[["Login",["The Log in and Make my account buttons show their real names again.","Stray quotes around icons from the emoji restore are gone."]]]},
@@ -20742,16 +20743,18 @@ const PAGE = `<!DOCTYPE html>
     background: rgba(255,255,255,0.85); border: 1px solid var(--line); border-radius: 50%; pointer-events: none;
   }
   .compass::before { content: "▲"; position: absolute; top: -3px; color: var(--red); font-size: 12px; }
-  .maptools { display: grid; grid-template-columns: auto 1fr; gap: 12px; margin-top: 14px; align-items: start; }
+  .maptools { display: grid; grid-template-columns: auto 1fr; gap: 10px; margin-top: 10px; align-items: center; }
   #minimap {
-    width: 153px; height: 153px; image-rendering: pixelated; cursor: crosshair;
+    width: 110px; height: 110px; image-rendering: pixelated; cursor: crosshair;
     border: 1px solid var(--line); border-radius: var(--radius-sm); box-shadow: 0 2px 6px rgba(62,34,38,0.1); background: #4a2234;
   }
-  .maptools .side-tools { display: flex; flex-direction: column; gap: 8px; }
+  .maptools .side-tools { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .maptools small { font-size: 11px; line-height: 1.25; color: var(--muted); }
   .legend { display: flex; flex-wrap: wrap; gap: 5px; }
   .legend span { font-size: 12px; font-weight: 600; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 6px; }
-  .goto { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .goto input { width: 64px; padding: 6px; }
+  .goto { display: flex; gap: 5px; align-items: center; }
+  .goto b { white-space: nowrap; }
+  .goto input { width: 58px; padding: 5px 6px; }
   .goto .btn { width: auto; }
   .tileinfo h3 { margin: 0 0 4px; font-size: 20px; }
   .tileinfo p { margin: 4px 0; }
@@ -22622,7 +22625,9 @@ const PAGE = `<!DOCTYPE html>
     /* popups use the whole width and respect the home bar */
     .sheet { max-height: 92vh; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
     /* map: the info about a tapped tile shows as a card above the tabs */
-    .mapview { overscroll-behavior: contain; }
+    .mapview { overscroll-behavior: contain; aspect-ratio: 1 / 1.25; max-height: max(380px, calc(100dvh - 260px)); }
+    .mapgrid .mappanel { padding: 12px; }
+    #minimap { width: 84px; height: 84px; }
     .mapgrid .tileinfo {
       position: fixed; left: 8px; right: 8px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 12;
       max-height: 46vh; overflow-y: auto; margin: 0; padding: 12px 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
@@ -34164,6 +34169,12 @@ function T() {
   return v ? v.clientWidth / ZOOMS[map.zoom] : 40;
 }
 
+// the map can be taller than it is wide: half the number of tile rows in view
+function viewHalfRows() {
+  var v = document.getElementById("mapview");
+  return v ? v.clientHeight / T() / 2 : ZOOMS[map.zoom] / 2;
+}
+
 // ---------- 📌 personal markers ----------
 var mkf = { x: null, y: null, icon: "📌", label: "" };
 // 🔥 a fight in the last hour on this tile (everyone sees the smoke)
@@ -34259,8 +34270,9 @@ function loadChunk(force) {
   var cy = Math.round(map.cam.y);
   if (!force && map.chunk) {
     var c = map.chunk.center;
-    var margin = (map.chunk.size - 1) / 2 - ZOOMS[map.zoom] / 2 - 1;
-    if (Math.abs(map.cam.x - c.x) < margin && Math.abs(map.cam.y - c.y) < margin) return;
+    var marginX = (map.chunk.size - 1) / 2 - ZOOMS[map.zoom] / 2 - 1;
+    var marginY = (map.chunk.size - 1) / 2 - viewHalfRows() - 1;
+    if (Math.abs(map.cam.x - c.x) < marginX && Math.abs(map.cam.y - c.y) < marginY) return;
   }
   map.loading = true;
   fetch("/api/map?x=" + cx + "&y=" + cy).then(function (r) {
@@ -34460,10 +34472,11 @@ function positionWorld() {
   if (!view_ || !world || !map.chunk) return;
   var t = T();
   var W = view_.clientWidth;
+  var H = view_.clientHeight;
   var o = map.chunk.origin;
   world.style.setProperty("--T", t + "px");
   var tx = W / 2 - (map.cam.x - o.x + 0.5) * t;
-  var ty = W / 2 - (o.y - map.cam.y + 0.5) * t;
+  var ty = H / 2 - (o.y - map.cam.y + 0.5) * t;
   world.style.transform = "translate3d(" + tx + "px," + ty + "px,0)";
   world.classList.toggle("labels", ZOOMS[map.zoom] <= 9);
   var sel = document.getElementById("selbox");
@@ -34513,9 +34526,10 @@ function drawMinimap() {
   });
   if (map.cam) {
     var half = ZOOMS[map.zoom] / 2;
+    var halfY = viewHalfRows();
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 0.6;
-    ctx.strokeRect(map.cam.x + R - half + 0.5, R - map.cam.y - half + 0.5, half * 2, half * 2);
+    ctx.strokeRect(map.cam.x + R - half + 0.5, R - map.cam.y - halfY + 0.5, half * 2, halfY * 2);
   }
 }
 
