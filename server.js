@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.355";
+const GAME_VERSION = "1.0.356";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15613,6 +15613,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.356",date:"2026-11-15",title:"Dark mode you can read",groups:[["Dark mode",["Cards, banners, tabs, panels and windows now switch to dark colours, so text and numbers stay readable everywhere.","The welcome card, the commander window and the settings window follow the dark palette too."]],["Layout",["The welcome card stays clear of the phone tab bar and sits below open windows.","The Mission Board title is no longer cut off in the side panel.","Phone tab labels are a little larger."]]]},
   {v:"1.0.355",date:"2026-11-14",title:"The commander window stays open",groups:[["Commander",["Scrolling the commander sheet no longer closes it when you drag back up.","Swipe down to close still works from the top of any sheet."]]]},
   {v:"1.0.354",date:"2026-11-14",title:"Labels read as labels again",groups:[["Login",["The Log in and Make my account buttons show their real names again.","Stray quotes around icons from the emoji restore are gone."]]]},
   {v:"1.0.353",date:"2026-11-14",title:"The colony loads again",groups:[["Startup",["Fixed a crash on open: leftover icon calls stopped the game on the warming-up screen.","Icons stay the original emojis, so the first screen can finish loading."]],["Load",["Removed a Google Fonts request the game is not allowed to load.","Repeat visits revalidate the homepage instead of downloading it from scratch every time."]]]},
@@ -23829,13 +23830,29 @@ const PAGE = `<!DOCTYPE html>
 
 /* Optional dark palette. Keep status accents and resource colors intact. */
 html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important; color:#eee8f2!important; }
-.dark-mode { --paper:#28232d; --line:#49414f; --line-strong:#716579; --ink:#eee8f2; --muted:#b9adbf; --accent:#345b51; --tribe:#302a35; }
+.dark-mode { --paper:#28232d; --surface:#28232d; --surface-2:#332c39; --card:#2f2935; --tray:#332c39; --tray-2:#3b3342; --soft:#332c39; --line:#49414f; --line-strong:#716579; --ink:#eee8f2; --muted:#b9adbf; --accent:#f2b84b; --accent-ink:#2a1c06; --accent-soft:#4a3a1c; --green-soft:#1f3a30; --teal-soft:#1f3a36; --red-soft:#4a2724; --tribe:#302a35; --well:inset 0 3px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(255,255,255,.06); --sh:0 1px 0 rgba(0,0,0,.3), 0 14px 30px -14px rgba(0,0,0,.6); --sh-sm:0 1px 0 rgba(0,0,0,.3), 0 6px 12px -8px rgba(0,0,0,.6); }
 .dark-mode .card,.dark-mode .panel,.dark-mode .sheet,.dark-mode .sheet-body,.dark-mode .setcard,.dark-mode .traffic,.dark-mode .mv,.dark-mode .farm-card,.dark-mode .report-card,.dark-mode .modal-content { background-color:#28232d!important;color:#eee8f2!important;border-color:#49414f!important; }
 .dark-mode input,.dark-mode select,.dark-mode textarea,.dark-mode .code,.dark-mode .searchbox { background:#211d25!important;color:#f5eff8!important;border-color:#615769!important; }
 .dark-mode button:not(.danger):not(.alert):not(.red):not(.green),.dark-mode .btn.ghost { color:#eee8f2; }
 .dark-mode .hint,.dark-mode small,.dark-mode .muted { color:#b9adbf; }
 .dark-mode table td,.dark-mode table th { border-color:#49414f; }
 .dark-mode a { color:#9bd6ff; }
+
+/* 1.0.356 visual fixes */
+/* the welcome card: below open windows, clear of the phone tab bar, readable in dark mode */
+#tut, #tut.onb.top { z-index: 9; }
+@media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); max-height: 40vh; overflow-y: auto; border-radius: var(--radius-md); } }
+.dark-mode .tut-card { background: #3a3220; color: var(--ink); border-color: #5a4b2c; }
+.dark-mode .panel, .dark-mode .lead, .dark-mode .card, .dark-mode .sheet { background-image: none !important; }
+.dark-mode .verfoot { background: rgba(40,35,45,.86) !important; color: var(--muted) !important; }
+.dark-mode h2.section, .dark-mode .build-advice, .dark-mode .fx-core { background: rgba(40,35,45,.9) !important; color: var(--ink) !important; }
+.dark-mode .compass, .dark-mode .pan { background: rgba(40,35,45,.88) !important; color: var(--ink) !important; }
+.dark-mode .mb-daily, .dark-mode .ord.on { background: #4a3a1c !important; color: var(--ink) !important; }
+.dark-mode .sheet-head:not(.t-food):not(.t-metal):not(.t-stone):not(.t-war):not(.t-wood) { background: #3a3045 !important; }
+/* the Mission Board title keeps its full name in the narrow desktop side panel */
+@media (min-width: 560px) { .mboard .qhead { flex-wrap: wrap; row-gap: 4px; } .mboard .qhead b { flex: 1 1 100%; } }
+/* phone tab labels */
+@media (max-width: 559px) { body.in .nav button { font-size: 11px; } body.in .nav button span { font-size: 20px; } }
 
 .fl-actions {display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:5px 0;}
 .fl-actions .btn {min-height:32px!important;padding:5px 8px!important;font-size:12px!important;line-height:1.2!important;border-radius:8px!important;box-shadow:none!important;margin:0!important;}
