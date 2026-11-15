@@ -1,14 +1,15 @@
 # MarsL working handoff
 
 ## Read this first
-- Repo: https://github.com/gidang98/MarsL — `main` @ `4075444` (1.0.355). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- Live now: **1.0.355** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
+- Repo: https://github.com/gidang98/MarsL — `main` @ `fc078d9` (1.0.356). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
+- Live now: **1.0.356** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.356**. 1.0.340 through 1.0.355 are taken.
+- Next game version is **1.0.357**. 1.0.340 through 1.0.356 are taken.
 
 ## Current release
+- **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.
 - **1.0.355** keeps the commander sheet open while scrolling (swipe-to-close only from the top of a sheet). PR #22, deploy run 43654774552. Upload and restarts succeeded; all three servers reported 1.0.355, but verify marked them failed because the version grep matched twice. Fixed in the workflow afterwards.
 - **1.0.354** fixes login and register labels that still showed raw `svgIconFor(...)` text after the emoji restore. Commit https://github.com/gidang98/MarsL/commit/784fedf853352442fff18dcacd2054f20fdc432d (PR #20).
 - **1.0.353** stops the startup crash (`svgIconFor is not defined` inside `newsTicker`). Homepage cache is revalidate, not `no-store`. The blocked Google Fonts stylesheet is gone. PR #19.
@@ -71,7 +72,7 @@ Read only comments newer than **6873618887**. Post claims and handoffs there wit
 | --- | --- | --- | --- | --- | --- |
 | Handoff sync | Grok-coord-20261114 | this commit on main | WORKSPACE.md, REBASE.md header | Done | None. Next AI reads "Read this first" |
 | Game load + labels 1.0.353–354 | Grok-loadfix-20261114 | main / 784fedf | server.js startup and auth labels | Live 1.0.354 | None |
-| Codex farm, dark mode, UI, mobile | Codex, unpushed | old base, version numbers collide | server.js | Not on main | Rebase onto 784fedf, renumber from 1.0.355 |
+| Codex farm, dark mode, UI, mobile | Codex, unpushed | old base, version numbers collide | server.js | Not on main | Rebase onto 784fedf, renumber from 1.0.357; 1.0.356 already restyles dark mode, so check overlap first |
 | Shared AI workspace setup | Completed | main | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads "Read this first" |
 | Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
 | Admin Dashboard v2.1 | Kimi | main | server.js admin block | Deployed in an earlier release | None |
