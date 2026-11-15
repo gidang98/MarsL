@@ -101,3 +101,19 @@ test("player-facing text never mentions fake players", () => {
   const all = JSON.stringify([ROLES, CATEGORIES, WELCOME, RULES]).toLowerCase();
   assert.doesNotMatch(all, /\bnpc|\bfake\b|\bbot colon/);
 });
+
+test("state is recovered from the channel when the disk was wiped", async () => {
+  const { recoverLastVersion } = require("../src/announcer");
+  const msgs = new Map([["2", { id: "2", author: { id: "B" }, embeds: [{ title: "v1.0.356 — C" }] }], ["1", { id: "1", author: { id: "B" }, embeds: [{ title: "v1.0.355 — B" }] }]]);
+  const channel = { messages: { fetch: async () => msgs } };
+  const store = memStore();
+  await recoverLastVersion(channel, "B", store);
+  assert.equal(store.load().lastVersion, "1.0.356");
+
+  const embed = statusEmbed([{ name: "A", up: true, version: "1" }]);
+  const edits = [];
+  const ch = { ...fakeChannel(), messages: { fetch: async (arg) => (typeof arg === "string" ? { edit: async (m) => edits.push(m) } : new Map([["9", { id: "9", author: { id: "B" }, embeds: [{ title: embed.title }] }]])) } };
+  await refreshStatus({ servers: [], channel: ch, botId: "B", store: memStore(), getAll: async () => [{ name: "A", up: true, version: "1" }] });
+  assert.equal(edits.length, 1);
+  assert.equal(ch.sent.length, 0);
+});
