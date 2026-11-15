@@ -3,9 +3,15 @@ const { fetchAll } = require("./gameApi");
 const { statusEmbed } = require("./format");
 const state = require("./state");
 
-async function refreshStatus({ servers, channel, store = state, getAll = fetchAll }) {
+async function refreshStatus({ servers, channel, botId, store = state, getAll = fetchAll }) {
   const embed = statusEmbed(await getAll(servers));
-  const { statusMessageId } = store.load();
+  let { statusMessageId } = store.load();
+  if (!statusMessageId && botId) {
+    // lost state: reuse the card the bot posted before instead of adding a second one
+    const msgs = await channel.messages.fetch({ limit: 30 });
+    const old = [...msgs.values()].find((m) => m.author && m.author.id === botId && m.embeds[0] && m.embeds[0].title === embed.title);
+    if (old) statusMessageId = old.id;
+  }
   if (statusMessageId) {
     try {
       const msg = await channel.messages.fetch(statusMessageId);

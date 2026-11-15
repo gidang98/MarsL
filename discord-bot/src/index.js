@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, ChannelType, Events, MessageFlags } = require
 const cfg = require("./config");
 const { definitions, handlers } = require("./commands");
 const { toggleRole } = require("./setup");
-const { announceNew } = require("./announcer");
+const { announceNew, recoverLastVersion } = require("./announcer");
 const { refreshStatus } = require("./statusboard");
 
 if (!cfg.token || !cfg.guildId) {
@@ -24,9 +24,10 @@ async function logToStaff(guild, text) {
 async function tick(guild) {
   const status = textChannel(guild, "server-status");
   const notes = textChannel(guild, "patch-notes");
-  if (status) await refreshStatus({ servers: cfg.SERVERS, channel: status }).catch((e) => logToStaff(guild, "Status update failed: " + e.message));
+  if (status) await refreshStatus({ servers: cfg.SERVERS, channel: status, botId: client.user.id }).catch((e) => logToStaff(guild, "Status update failed: " + e.message));
   if (notes) {
     const pingRole = guild.roles.cache.find((r) => r.name === "Updates");
+    await recoverLastVersion(notes, client.user.id).catch(() => {});
     await announceNew({ server: cfg.notesServer, channel: notes, pingRole }).catch((e) => logToStaff(guild, "Patch-note check failed: " + e.message));
   }
 }

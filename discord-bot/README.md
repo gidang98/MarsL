@@ -29,6 +29,17 @@ The bot only reads the public `/api/config` and `/api/patch-notes` endpoints. It
 
 The bot has to keep running to answer commands and post updates. Use a process manager such as pm2, or an always-on task at your host.
 
+## Host it without your own computer
+
+The bot only needs a host that keeps one program running all day. `discord-bot/Dockerfile` works on container hosts such as Render (as a **Background Worker**), Railway or Fly.io, and on a small VPS:
+
+1. Create an account on the host and connect the GitHub repository `gidang98/MarsL`.
+2. Make a new worker or service from that repository. Set the root directory to `discord-bot` and pick **Docker** as the runtime.
+3. Add the settings from `.env.example` as environment variables on the host: at least `DISCORD_TOKEN` and `GUILD_ID`.
+4. Deploy. The log should say `Ready as ...`. Then run `/setup` in Discord.
+
+Hosts that wipe their disk on every deploy are fine: the bot finds its last patch-note post and its status card again in Discord. Free web-service plans that go to sleep are not suitable, because a sleeping bot is offline.
+
 ## Notes
 
 - The first run only records the current game version. Only versions released after that are announced.
