@@ -1,14 +1,15 @@
 # MarsL working handoff
 
 ## Read this first
-- Repo: https://github.com/gidang98/MarsL — `main` @ `784fedf` (1.0.354). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- Live now: **1.0.354** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
+- Repo: https://github.com/gidang98/MarsL — `main` @ `4075444` (1.0.355). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
+- Live now: **1.0.355** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.355**. 1.0.340 through 1.0.354 are taken.
+- Next game version is **1.0.356**. 1.0.340 through 1.0.355 are taken.
 
 ## Current release
+- **1.0.355** keeps the commander sheet open while scrolling (swipe-to-close only from the top of a sheet). PR #22, deploy run 43654774552. Upload and restarts succeeded; all three servers reported 1.0.355, but verify marked them failed because the version grep matched twice. Fixed in the workflow afterwards.
 - **1.0.354** fixes login and register labels that still showed raw `svgIconFor(...)` text after the emoji restore. Commit https://github.com/gidang98/MarsL/commit/784fedf853352442fff18dcacd2054f20fdc432d (PR #20).
 - **1.0.353** stops the startup crash (`svgIconFor is not defined` inside `newsTicker`). Homepage cache is revalidate, not `no-store`. The blocked Google Fonts stylesheet is gone. PR #19.
 - Deploy run https://github.com/gidang98/MarsL/actions/runs/43532892971 was **cancelled during verify**. The upload had already landed. All three `/api/config` responses are 1.0.354. A cancelled verify is not a failed release when the live version already matches.

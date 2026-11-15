@@ -139,8 +139,8 @@ jobs:
               attempt=$((attempt + 1))
               echo "  [$attempt/$max] Checking ${label}..."
               if response=$(curl --fail --silent --max-time 15 "$url" 2>/dev/null); then
-                version=$(echo "$response" | grep -oP '"version":"\K[^"]+' || echo "unknown")
-                id=$(echo "$response" | grep -oP '"(id|server)":"\K[^"]+' || echo "unknown")
+                version=$(echo "$response" | grep -oP '"version":"\K[^"]+' | head -n1 || echo "unknown")
+                id=$(echo "$response" | grep -oP '"(id|server)":"\K[^"]+' | head -n1 || echo "unknown")
                 if [[ "$version" == "$EXPECTED_VERSION" ]]; then
                   echo "  ✅ ${label}: version=${version}, id=${id}"
                   return 0

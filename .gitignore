@@ -1,0 +1,5 @@
+node_modules/
+logs/*
+!logs/2026-11-12.log
+*.sqlite
+*.db
