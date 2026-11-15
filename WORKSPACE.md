@@ -2,11 +2,11 @@
 
 ## Read this first
 - Repo: https://github.com/gidang98/MarsL — `main` @ `fc078d9` (1.0.356). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- `main` also has **1.0.357** to **1.0.359** (bigger, full-width phone map, compact minimap strip, cream/terracotta look), merged but NOT deployed until the owner asks. Live now: **1.0.356** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
+- `main` also has **1.0.357** to **1.0.360** (bigger, full-width phone map, compact minimap strip, cream/rust look, outlined drawn icons), merged but NOT deployed until the owner asks. Live now: **1.0.356** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). Confirmed on `/api/config`. Do not redeploy this release unless the owner asks.
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.360**. 1.0.340 through 1.0.359 are taken.
+- Next game version is **1.0.361**. 1.0.340 through 1.0.360 are taken.
 
 ## Current release
 - **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.
@@ -18,6 +18,9 @@
 
 ## Discord bot
 `discord-bot/` is a separate discord.js bot (server layout via `/setup`, `/status`, `/patchnotes`, `/bug`, patch-note announcer). Not loaded by `server.js`, not deployed by the workflow. Setup steps are in `discord-bot/README.md`. Untested against real Discord until the owner adds the token.
+
+## Icons
+Emoji in rendered text are swapped for drawn icons by `giWalk` (`GI_MAP`, `GI_RE`, `GI_RE_G`, sprite `#gi-sprite`). Since 1.0.360 each `gi-*` symbol holds an outline copy (`<use class="gio">`) under a `<g id="gib-*">` body; new symbols must follow that shape. To cover another emoji, add a symbol and add the emoji to all three of `GI_MAP`, `GI_RE` and `GI_RE_G`.
 
 ## Do not redo
 - The blank "Warming up the rockets…" screen and the broken auth labels are fixed on `main`.
