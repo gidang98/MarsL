@@ -347,17 +347,16 @@ function protectionAuto() {
   const f = Math.sqrt(Math.max(1, PRODUCTION_SPEED));
   return { hours: Math.max(6, Math.round(PROTECTION_BASE_HOURS / f)), points: Math.round(PROTECTION_BASE_POINTS * f) };
 }
-// Later landers start next to far bigger colonies, so protection grows with the
-// age of the server: +1 server day per 30 days of age (at most +3 days) and up to
-// twice the points (reached at server day 100). Counted in server days, so every
-// game speed keeps the same shape. Owner-set numbers are left exactly as set.
-const PROT_LATE_DAYS_PER = 30, PROT_LATE_DAYS_MAX = 3, PROT_LATE_POINTS_DAY = 100;
+// Later landers start next to far bigger colonies, so the points that end
+// protection grow with the age of the server, up to twice as many at server day 100.
+// Players can also extend their protection once by PROT_EXTEND_DAYS server days
+// (see /api/extend-protection). Owner-set numbers are left exactly as set.
+const PROT_EXTEND_DAYS = 3, PROT_LATE_POINTS_DAY = 100;
 function serverAgeDays() { try { return Math.max(0, serverClock().day - 1); } catch (e) { return 0; } }
 function protectionHours() {
   const own = Number(settingOf("protection_hours", "0"));
   if (own > 0) return own;
-  const late = Math.min(PROT_LATE_DAYS_MAX, serverAgeDays() / PROT_LATE_DAYS_PER);
-  return Math.round((protectionAuto().hours + late * serverDayMs() / 3600000) * 10) / 10;
+  return protectionAuto().hours;
 }
 function protectionPoints() {
   const own = Number(settingOf("protection_points", "0"));
@@ -541,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.379";
+const GAME_VERSION = "1.0.380";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1914,6 +1913,7 @@ addColumn("users", "farm_hidden", "INTEGER NOT NULL DEFAULT 0"); // how many rep
 addColumn("camps", "updated_at", "INTEGER NOT NULL DEFAULT 0");
 addColumn("users", "quests", "TEXT NOT NULL DEFAULT '{}'");
 addColumn("users", "protected_until", "INTEGER NOT NULL DEFAULT 0");
+addColumn("users", "prot_ext", "INTEGER NOT NULL DEFAULT 0"); // the protected_until value after the player extended it (once per protection)
 addColumn("users", "prot_grace", "INTEGER NOT NULL DEFAULT 0"); // the protected_until value a returning newcomer got as grace (holds only once)
 addColumn("users", "tutorial", "INTEGER NOT NULL DEFAULT 0");
 addColumn("users", "banned", "INTEGER NOT NULL DEFAULT 0");
@@ -1984,7 +1984,7 @@ function playerPoints(userId) {
 function protectionOf(userId, now) {
   const vac = vacationOf(userId, now);
   if (vac.on || vac.shield) return { active: true, vacation: true, on: vac.on, until: vac.on ? vac.until : vac.shield };
-  const row = db.prepare("SELECT protected_until, prot_grace, last_seen, bot FROM users WHERE id = ?").get(userId);
+  const row = db.prepare("SELECT protected_until, prot_grace, prot_ext, last_seen, bot FROM users WHERE id = ?").get(userId);
   const until = row ? row.protected_until : 0;
   const t = now || Date.now();
   if (!until) return { active: false };
@@ -1998,7 +1998,7 @@ function protectionOf(userId, now) {
     endProtection(userId);
     return { active: false };
   }
-  return { active: true, until, points, pointsNeeded: protectionPoints() };
+  return { active: true, until, points, pointsNeeded: protectionPoints(), extendMs: row.prot_ext === until ? 0 : PROT_EXTEND_DAYS * serverDayMs() };
 }
 
 function endProtection(userId) {
@@ -7133,6 +7133,16 @@ app.post("/api/tutorial", requireLogin, (req, res) => {
 });
 
 // Give up beginner protection early (to attack other players)
+// Extend beginner protection once by PROT_EXTEND_DAYS server days
+app.post("/api/extend-protection", requireLogin, (req, res) => {
+  if (req.sitterId) return res.status(403).json({ error: "Use your own account to extend protection." });
+  const now = Date.now();
+  const p = protectionOf(req.user.id, now);
+  if (!p.active || p.vacation || p.held || !p.extendMs) return res.status(400).json({ error: p.active && !p.extendMs ? "You already extended your protection." : "You have no protection to extend." });
+  const until = p.until + p.extendMs;
+  db.prepare("UPDATE users SET protected_until = ?, prot_ext = ? WHERE id = ?").run(until, until, req.user.id);
+  withColony(req, res, null);
+});
 app.post("/api/end-protection", requireLogin, (req, res) => {
   endProtection(req.user.id);
   withColony(req, res, null);
@@ -16208,6 +16218,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.380",date:"2026-11-16",title:"Extend your protection",groups:[["🛡️ Protection",["You can now extend your beginner protection once by 3 server days (⏳ button in the protection bar). This replaces the automatic extra days for later landers from 1.0.379; the higher points limit for later landers stays."]]]},
   {v:"1.0.379",date:"2026-11-16",title:"Fairer beginner protection",groups:[["🛡️ Protection",["Protection no longer runs out while you are away: if it would end before you come back, it holds (up to 3 server days) and restarts with a short grace when you log in. This works once.","The later you land on a server, the longer protection lasts (up to +3 server days) and the more points it takes to end it (up to twice as many)."]]]},
   {v:"1.0.378",date:"2026-11-16",title:"Every game speed keeps its pace",groups:[["Time",["The Relic Hunt hold time and the gear auction durations now scale with the server's game speed, so a fast server no longer needs a full day of holding or bidding. Everything is shown as real time: minutes below one hour, hours above."]]]},
   {v:"1.0.377",date:"2026-11-16",title:"Gear auction and Star Credits",groups:[["Auction",["New 🏛️ Gear auction (top bar, or the 🏛️ button next to a piece of gear in your commander's bag). Put gear from your bag up for 12, 24 or 48 real hours with a start price.","Players bid with 💠 Star Credits. Each bid is at least 5% higher and is paid up front, so an outbid player gets the credits back at once. A bid in the last 10 minutes adds 10 minutes.","The highest bid wins when time is up. The seller gets the price minus a 5% fee. Gear nobody bids on, or that you take back before the first bid, returns to your bag. If the bag is full, collect it later from My auctions.","You can run 5 auctions at a time. Equipped gear can't be sold."]],["Star Credits",["A new account-wide balance shown in the auction. How to earn Star Credits is still open, so for now the server owner can hand them out."]]]},
@@ -32642,6 +32653,7 @@ function protectionBanner(d) {
   var h = '<div class="protect" title="Nobody can attack or spy on you until the time is up or you reach ' + p.pointsNeeded + ' points. Attacking a player ends it."><span class="big">🛡️</span><div><b>Protected · ' + shortTime(p.until - serverNow()) + " left</b>";
   h += "<small>or until " + p.pointsNeeded + " points (" + p.points + " now)</small></div>";
   h += '<button class="btn small" data-targets="1" title="Find nearby targets; hostile colony missions end beginner protection">' + '🎯' + ' Targets</button>';
+  if (p.extendMs) h += '<button class="btn small" data-extend-protection="1" data-ms="' + p.extendMs + '" title="Once per protection">⏳ +' + shortTime(p.extendMs) + "</button>";
   h += '<button class="btn small ghost" data-end-protection="1">End now</button></div>';
   return h + graduationBox(d);
 }
@@ -35822,7 +35834,7 @@ function wikiChapter(W, tab) {
         "✅ / ❌ guess whether everything at home would win, and how much of it you would lose. It assumes average luck: 🧮 Simulate shows the details, 🔍 Spy shows what is really there.",
         "Attacking, raiding or scouting another colony ends your beginner protection.",
         "⏳ Protection waits for you: if it would run out while you are away, it holds for up to " + hrTxt(3 * W.protection.dayHours) + " and restarts with " + hrTxt(6 * W.protection.dayHours / 24) + " when you log in, once.",
-        "🌱 The later you land on a server, the longer it lasts and the more points it takes to end it (up to +3 server days and twice the points).",
+        "⏳ Tap <b>+</b> in the protection bar to extend it once by " + hrTxt(3 * W.protection.dayHours) + ". 🌱 The later you land on a server, the more points it takes to end it (up to twice as many).",
       ])));
       cards.push(wkCard("training", "🎓", "Combat training", wkP("Four quests right after A Tiny Army teach a fight from start to finish: 🧮 simulate a camp, 🔍 spy on it, ⚔️ beat it, then 🌊 send two waves at once. The 🎯 Targets list shows the step you are on, with its reward ready to claim.")));
       cards.push(wkCard("milestones", "🎉", "Milestones", kt({ head: ["Milestone", "Gift (each resource)", "🎖️ Commander"], rows: [["🏳️ Your second colony", "+" + shortNum(Lv.firstColony) + " into the new colony", "+150 xp"], ["🗿 Your first landmark", "+" + shortNum(Lv.firstLandmark) + " into the claiming colony", "+250 xp"]] }) + wkNote("Once per player. They show up on the 📋 Mission Board. Whatever doesn't fit into the storage is lost.")));
@@ -37739,7 +37751,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -38085,6 +38097,10 @@ document.addEventListener("click", function (e) {
   } else if (has("data-graduate")) {
     if (confirm("Graduate now? Your beginner protection ends and other players can attack you.")) {
       post("/api/graduate", {}, function (r) { confetti(); toast("🎓 Graduated! +" + shortNum(r && r.graduated || 0) + " of each waits in your reward storage", true); });
+    }
+  } else if (has("data-extend-protection")) {
+    if (confirm("Extend your beginner protection by " + shortTime(Number(attr("data-ms"))) + "? You can do this once.")) {
+      post("/api/extend-protection", {}, function () { toast("🛡️ Protection extended"); });
     }
   } else if (has("data-end-protection")) {
     if (confirm("End your beginner protection now? Other players can then attack you.")) {
