@@ -2,11 +2,11 @@
 
 ## Read this first
 - Repo: https://github.com/gidang98/MarsL — `main` @ `fc078d9` (1.0.356). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- `main` has **1.0.365** (closer ground/air defense numbers, reinforcements count for defender traits; on top of 1.0.364 fight icons and defender unlocks). Live now: **1.0.363** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`); 1.0.364 and 1.0.365 are merged but not deployed until the owner asks.
+- `main` has **1.0.366** (Humans strongest on the ground and Aliens in the air, a fast defender for every tribe; on top of 1.0.365 closer ground/air numbers and 1.0.364 fight icons). Live now: **1.0.363** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`); 1.0.364 to 1.0.366 are merged but not deployed until the owner asks.
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.366**. 1.0.340 through 1.0.365 are taken.
+- Next game version is **1.0.367**. 1.0.340 through 1.0.366 are taken.
 
 ## Current release
 - **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.

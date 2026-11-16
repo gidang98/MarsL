@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.365";
+const GAME_VERSION = "1.0.366";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -855,14 +855,14 @@ const TRIBES = {
       },
       guard: {
         name: "Shield Trooper", icon: "🛡️", role: "Defender", type: "ground",
-        atk: 12, defG: 80, defA: 40, speed: 5, carry: 20, upkeep: 2,
+        atk: 12, defG: 96, defA: 28, speed: 5, carry: 20, upkeep: 2,
         cost: { wood: 90, stone: 110, metal: 90, food: 40 }, time: 70, building: "barracks", level: 1, lab: 1,
         quote: "Nobody gets past me. Except through the back door.",
       },
       skyguard: {
         name: "Skyguard", icon: "📡", role: "Flak", type: "ground",
-        atk: 8, defG: 44, defA: 80, speed: 6, carry: 10, upkeep: 2,
-        cost: { wood: 80, stone: 70, metal: 120, food: 40 }, time: 75, building: "barracks", level: 2, lab: 2,
+        atk: 8, defG: 44, defA: 62, speed: 14, carry: 10, upkeep: 2,
+        cost: { wood: 85, stone: 70, metal: 130, food: 40 }, time: 75, building: "barracks", level: 2, lab: 2,
         quote: "Anything with wings is my business.",
       },
       drone: {
@@ -1079,14 +1079,14 @@ const TRIBES = {
       },
       blob: {
         name: "Goo Blob", icon: "🦠", role: "Defender", type: "ground",
-        atk: 12, defG: 102, defA: 48, speed: 3, carry: 10, upkeep: 3,
+        atk: 12, defG: 76, defA: 62, speed: 3, carry: 10, upkeep: 3,
         cost: { wood: 115, stone: 140, metal: 130, food: 55 }, time: 90, building: "barracks", level: 1, lab: 1,
         quote: "Blorp.",
       },
       spitter: {
         name: "Spore Spitter", icon: "🍄", role: "Flak", type: "ground",
-        atk: 10, defG: 50, defA: 106, speed: 4, carry: 5, upkeep: 3,
-        cost: { wood: 120, stone: 100, metal: 170, food: 60 }, time: 100, building: "hangar", level: 3, lab: 4,
+        atk: 10, defG: 36, defA: 124, speed: 12, carry: 5, upkeep: 3,
+        cost: { wood: 125, stone: 100, metal: 185, food: 60 }, time: 100, building: "hangar", level: 3, lab: 4,
         quote: "Pfft. Pfft. Splat. Down it goes.",
       },
       probe: {
@@ -15652,6 +15652,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.366",date:"2026-11-16",title:"Humans on the ground, Aliens in the air",groups:[["Tribes",["Humans now defend best against ground armies and are weaker in the air: Shield Trooper 96 ground / 28 air, Skyguard 44 / 62. Aliens are the opposite: Goo Blob 76 / 62, Spore Spitter 36 / 124, the best flak in the game."]],["Fast defenders",["Every tribe now has a fast defender to send as reinforcement. The Skyguard moves at speed 14 and the Spore Spitter at 12, next to the Coop Hawk at 20. No new units: both were slow before and cost a little more now.","Units you already have use the new numbers right away."]]]},
   {v:"1.0.365",date:"2026-11-16",title:"Closer ground and air defense",groups:[["Balance",["Walls now hold better against air and flak holds better against ground troops, so the wrong defender is thin instead of useless. Shield Trooper 80 ground / 40 air, Skyguard 44 / 80, Goo Blob 102 / 48, Spore Spitter 50 / 106, Rooster Guard 52 / 36. A mix of wall and flak still beats either alone.","Units you already have use the new numbers right away."]],["Reinforcements",["Bulwark, Intercept, Skyward and the air phase now count reinforcements as well as troops stationed in the colony, so allies can send flak or fast interceptors to help."]]]},
   {v:"1.0.364",date:"2026-11-15",title:"Fight icons and defender unlocks",groups:[["Reports",["Battle reports show a coloured sword or shield in the title: green for a win without losses, yellow with losses, red for a loss. Defense has a grey shield for a loss without losses and a blue one for support that arrived.","The Defense filter now has five results: held with no losses, held with losses, lost with losses, lost with no losses and support arrived.","The Victory banner no longer repeats attack and defense, they are in the statistics at the bottom of the report.","Incoming attacks use the red sword in the alert pill, the alarm list and the troop traffic."]],["Defense",["Humans get the Skyguard earlier (Barracks 2, Lab 2).","Aliens train the Spore Spitter in the Hangar (level 3, Lab 4), so their anti-air comes later.","Chickens still have no anti-air unit: the Coop Hawk and plenty of Roosters are their answer."]]]},
   {v:"1.0.363",date:"2026-11-15",title:"Icons everywhere, working close buttons",groups:[["Fixes",["The X on pop-ups closes again when you tap the cross itself, not only the edge of the button.","Fourteen icons that never showed up (trophy, rocket, house, user, box, book, door, question mark and more) are now drawn.","The mission board stays open when you switch views in a browser. Phones still fold it away."]],["Look",["About 110 new drawn icons replace the last emoji: faces, medals, arrows, clothing, tools, animals, weather and controls.","Header, side buttons, login page and other fixed parts of the page use drawn icons too."]]]},
@@ -35257,7 +35258,7 @@ function wikiChapter(W, tab) {
       "Monster camps, the Landing Zone and landmarks fight as before. Every report and the simulator show who won the air and which traits worked.",
     ])));
     cards.push(wkCard("traits", "🏷️", "Unit traits", wkP("Every unit has one small rule, shown as a chip on its card. It depends on its role, so all tribes get the same rules.") + kt({ head: ["Role", "Trait"], left: 2, rows: Object.keys(C.traits || {}).map(function (k) { var t = C.traits[k]; return [esc(k), t.icon + " <b>" + esc(t.name) + "</b>: " + esc(t.text)]; }) }) + wkNote("Drilled, Trample, Bulwark, Skyward, Intercept and Bombs away count in battles against colonies; Quick hands on every raid.")));
-    cards.push(wkCard("defmix", "🛡️", "Building your defense", wkP("Defenders are not all the same. Walls (Shield Trooper, Rooster Guard, Goo Blob) are strong on the ground and weak in the air. Flak (Skyguard, Spore Spitter) is the other way round. The Coop Hawk is fast and hits raiders hardest. Walls hold a little against air and flak holds a little on the ground, so the wrong unit is thin, not useless. Stationed troops and reinforcements both count for these rules. A battle uses the attacker's ground and air share, so scout first and build against what is coming.") + kt({ head: ["Tribe", "Defenders"], left: 1, rows: [["🧑‍🚀 Humans", "Wall and early flak"], ["🐔 Chickens", "Cheap wall and hawk, no flak"], ["👽 Aliens", "Huge slow wall and late flak from the Hangar"]] }) + wkNote("Units you already have keep their place and use the new numbers right away. Skyguard: Barracks 2, Lab 2. Spore Spitter: Hangar 3, Lab 4. Coop Hawk: Barracks 3, Lab 2.")));
+    cards.push(wkCard("defmix", "🛡️", "Building your defense", wkP("Defenders are not all the same. Walls (Shield Trooper, Rooster Guard, Goo Blob) are strong on the ground and weak in the air. Flak (Skyguard, Spore Spitter) is the other way round. Humans are best against ground armies and weakest in the air, Aliens the other way round, Chickens sit in between. Every tribe has one fast defender to send as reinforcement: Coop Hawk, Skyguard, Spore Spitter. The Coop Hawk also hits raiders hardest. Walls hold a little against air and flak holds a little on the ground, so the wrong unit is thin, not useless. Stationed troops and reinforcements both count for these rules. A battle uses the attacker's ground and air share, so scout first and build against what is coming.") + kt({ head: ["Tribe", "Defenders"], left: 1, rows: [["🧑‍🚀 Humans", "Strongest wall on the ground, fast light flak"], ["🐔 Chickens", "Cheap wall and hawk, no flak"], ["👽 Aliens", "Softer slow wall, the best flak, fast from the Hangar"]] }) + wkNote("Units you already have keep their place and use the new numbers right away. Skyguard: Barracks 2, Lab 2. Spore Spitter: Hangar 3, Lab 4. Coop Hawk: Barracks 3, Lab 2.")));
     cards.push(wkCard("morale", "🙅", "Morale", wkP("Attacking a player with fewer than a quarter of your points costs morale: up to " + (C.moraleMax || 30) + "% less attack and loot, the bigger the gap the more. Players of similar size fight at full strength. Inactive colonies and monster camps never cost morale.") + kt({ head: ["Their points vs yours", "Attack and loot"], left: 1, rows: [["25% or more", "full"], ["20%", "−6%"], ["10%", "−18%"], ["5%", "−24%"], ["near 0", "−30%"]] })));
     cards.push(wkCard("calc", "🧮", "What counts in a battle", kt({
       head: ["Factor", "Effect"],
