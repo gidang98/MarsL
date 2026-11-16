@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.370";
+const GAME_VERSION = "1.0.371";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -536,11 +536,11 @@ const GAME_VERSION = "1.0.370";
 const THIS_SERVER = process.env.SERVER_ID || "open-test";
 const SERVER_LIST = [
   { id: "open-test", name: "OpenTest-Server", stage: "Open Beta", url: process.env.OPEN_TEST_URL || "https://marsl-game.com" },
-  // a round of about one and a half days: x500, Aurora on day 10 (a day is about 3.4 hours)
+  // a round of about one and a half days: x500, Aurora on day 30 (a day is about 1 hour)
   { id: "speed-test", name: "SpeedTest-Server", stage: "Open Beta", url: process.env.SPEED_TEST_URL || "https://speed.marsl-game.com",
-    speed: 500, speeds: { production: 500, build: 500, move: 30 }, clock: { landmarks: 3, relic: 6, aurora: 10 }, restartHours: 4 },
-  // the real thing: normal speed (x1), the long round with the default clock
-  { id: "classic", name: "Classic-Server", stage: "Open Beta", url: process.env.CLASSIC_URL || "https://classic.marsl-game.com", speed: 1, clock: { landmarks: 7, relic: 21, aurora: 60 } },
+    speed: 500, speeds: { production: 500, build: 500, move: 30 }, clock: { landmarks: 7, relic: 17, aurora: 30 }, restartHours: 4 },
+  // the real thing: normal speed (x1), a round of about a year: landmarks on day 35, Relic Hunt on day 250, Aurora on day 340 (a day is 24 hours)
+  { id: "classic", name: "Classic-Server", stage: "Open Beta", url: process.env.CLASSIC_URL || "https://classic.marsl-game.com", speed: 1, clock: { landmarks: 35, relic: 250, aurora: 340 } },
 ];
 const THIS_PRESET = SERVER_LIST.find((x) => x.id === THIS_SERVER) || SERVER_LIST[0];
 if (process.env.SERVER_NAME) THIS_PRESET.name = process.env.SERVER_NAME;
@@ -2694,7 +2694,7 @@ function specDef(s) {
 }
 // 🛬 late landers: who joins after day 7 gets a boost to production and build
 // speed that fades over 7 server days (bigger the older the server is)
-const LATE_DAY = 7, LATE_DAYS = 7, LATE_PER_DAY = 0.02, LATE_MAX = 0.6;
+const LATE_DAY = 22, LATE_DAYS = 22, LATE_PER_DAY = 0.0065, LATE_MAX = 0.6;
 const lateCache = new Map();
 function lateInfo(userId, now) {
   if (!userId || BOT_IDS.has(userId)) return null;
@@ -7515,12 +7515,12 @@ app.post("/api/routes/add", requireLogin, (req, res) => {
     if (hasStart) {
       const startAt = Number(body.startAt);
       if (!Number.isFinite(startAt)) return "Pick a valid sending time";
-      if (startAt > now + 2 * serverDayMs()) return "That sending time is too far ahead";
+      if (startAt > now + 2 * holdDayMs()) return "That sending time is too far ahead";
       nextAt = Math.max(now, startAt);
     } else if (hasLand) {
       firstLandAt = Number(body.landAt);
       if (!Number.isFinite(firstLandAt)) return "Pick a valid landing time";
-      if (firstLandAt > now + 2 * serverDayMs()) return "That landing time is too far ahead";
+      if (firstLandAt > now + 2 * holdDayMs()) return "That landing time is too far ahead";
       const targetPos = db.prepare("SELECT x, y FROM colonies WHERE id = ?").get(target.id);
       const trip = merchantTrip(colony, targetPos.x, targetPos.y, now);
       nextAt = firstLandAt - trip;
@@ -11305,15 +11305,20 @@ app.post("/api/admin/aurora/start", requireOwner, (req, res) => {
 //  (see serverDayMs for how long a day is at each game speed).
 //  Winning Project Aurora wins the server. The owner can move the days.
 // =====================================================================
-const SERVER_CLOCK_DEFAULT = THIS_PRESET.clock || { landmarks: 21, relic: 45, aurora: 90 };
-// One server day lasts 24 real hours at speed x10 (the days below are meant
-// for that). Slower servers get longer days and faster ones shorter days, but
-// only with the square root of the speed, so a faster round is still a faster
-// round without the big events rushing past.
-const CLOCK_REF_SPEED = 10;
+const SERVER_CLOCK_DEFAULT = THIS_PRESET.clock || { landmarks: 35, relic: 250, aurora: 340 };
+// A day lasts 24 real hours at normal speed (x1), so "day 340" on the Classic
+// server is real day 340. Faster servers get shorter days, but only with the
+// square root of the speed, so a faster round is still a faster round without
+// the big events rushing past. The event days below are the days at x1: a round
+// at speed s lasts that many days divided by the square root of s.
+const CLOCK_REF_SPEED = 1;
 function serverDayMs() {
   return Math.round(86400000 * Math.sqrt(CLOCK_REF_SPEED / Math.max(1, PRODUCTION_SPEED)));
 }
+// Until 1.0.370 a day was this much longer. Rules that are not "once per day" keep
+// their old real-time length by measuring in these long days (offers, notices, trader life ...).
+const DAY_K = Math.sqrt(10);
+function holdDayMs() { return Math.round(serverDayMs() * DAY_K); }
 // The clock stood at day "d" (fractional, 0 = start) at time "t". A speed change
 // sets a new anchor, so the days never jump.
 function clockAnchor() {
@@ -11350,12 +11355,12 @@ const ACTS = [
   { key: "landing", icon: "🛬", name: "Landing", rule: "Beginner protection and the first rich sites." },
   { key: "expansion", icon: "🏗️", name: "Expansion", rule: "Colony specialisations can be chosen." },
   { key: "discovery", icon: "🗿", name: "Discovery", rule: "Landmarks open. Monster camps level up: +25% monsters and bounty." },
-  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "The Relic Hunt runs. ⚡ Ion storms join the weather." },
-  { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +50%." },
+  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "The Relic Hunt runs. ⚡ Ion storms join the weather. Monster camps: +50%." },
+  { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +75%." },
 ];
 function actDays() {
   const d = clockDays();
-  return [1, Math.max(2, Math.round(d.landmarks / 3)), d.landmarks, d.relic, d.aurora];
+  return [1, Math.max(2, Math.min(4, Math.round(d.landmarks / 3))), d.landmarks, d.relic, d.aurora];
 }
 function actAt(day) {
   const ds = actDays();
@@ -11371,9 +11376,14 @@ function actsView(now) {
   const an = clockAnchor(), dm = serverDayMs();
   return { now: i, list: ACTS.map((a, k) => ({ key: a.key, icon: a.icon, name: a.name, rule: a.rule, day: ds[k], at: Math.round(an.t + (ds[k] - 1 - an.d) * dm) })) };
 }
+// camps level up in steps: +25% when the landmarks open, +40% halfway to the Relic Hunt,
+// +50% with the Relic Hunt and +75% with Aurora
 function campActMult() {
   const a = actNow();
-  return a >= 4 ? 1.5 : a >= 2 ? 1.25 : 1;
+  if (a >= 4) return 1.75;
+  if (a === 3) return 1.5;
+  if (a === 2) { const d = clockDays(); return clockDayNow() >= d.landmarks + (d.relic - d.landmarks) / 2 ? 1.4 : 1.25; }
+  return 1;
 }
 
 // what the game (and the guide) shows
@@ -13667,7 +13677,7 @@ function heroSpeed(h) {
   return HERO_SPEED * (1 + heroGearStats(h).move / 100 + ((h.pts && h.pts.way) || 0) * HERO_SKILLS.way.per / 100) * (heroRule(h, "explorer", 75) ? 2 : 1);
 }
 function heroRecoverMs() {
-  return Math.round(serverDayMs() * 0.25);
+  return Math.round(holdDayMs() * 0.25);
 }
 function heroLockMs() {
   return Math.round(HERO_SETTLE_MS / MOVE_SPEED); // settling in after a move
@@ -14352,7 +14362,7 @@ function diploTick() {
   const now = Date.now();
   db.prepare("DELETE FROM alliance_pacts WHERE state = 'ending' AND ends_at <= ?").run(now);
   // offers nobody answered within 3 server days
-  db.prepare("DELETE FROM alliance_pacts WHERE state = 'offer' AND at < ?").run(now - 3 * serverDayMs());
+  db.prepare("DELETE FROM alliance_pacts WHERE state = 'offer' AND at < ?").run(now - 3 * holdDayMs());
   db.prepare("DELETE FROM alliance_pacts WHERE a NOT IN (SELECT id FROM alliances) OR b NOT IN (SELECT id FROM alliances)").run();
   db.prepare("DELETE FROM alliance_war_marks WHERE a NOT IN (SELECT id FROM alliances) OR b NOT IN (SELECT id FROM alliances)").run();
 }
@@ -14371,7 +14381,7 @@ function diploView(aid, now) {
     const t = tagOf(w.a === aid ? w.b : w.a);
     return { id: w.id, tag: t.tag, name: t.name, since: w.at, declared: w.a === aid };
   });
-  return { pacts, wars, noticeMs: Math.round(serverDayMs() / 2) };
+  return { pacts, wars, noticeMs: Math.round(holdDayMs() / 2) };
 }
 
 app.post("/api/alliance/diplo", requireLogin, (req, res) => {
@@ -14409,7 +14419,7 @@ app.post("/api/alliance/diplo", requireLogin, (req, res) => {
         db.prepare("DELETE FROM alliance_pacts WHERE id = ?").run(p.id);
         diploPost(other, "🕊️ " + mine + (p.a === me.id ? " withdrew its offer of a " : " declined your ") + name + ".", now);
       } else if (p.state === "on") {
-        const notice = Math.round(serverDayMs() / 2);
+        const notice = Math.round(holdDayMs() / 2);
         db.prepare("UPDATE alliance_pacts SET state = 'ending', ends_at = ? WHERE id = ?").run(now + notice, p.id);
         diploPost(other, "🕊️ " + mine + " ended your " + name + ". It stays in force for " + Math.round(notice / 3600000) + " more hours.", now);
       } else return "That pact is already ending";
@@ -15439,14 +15449,14 @@ function wikiExtra() {
     market: { offers: OFFER_MAX, min: OFFER_MIN, ratioMin: OFFER_RATIO_MIN, ratioMax: OFFER_RATIO_MAX, lastsMs: offerMs() },
     ally: { officers: ALLY_OFFICERS_MAX, shared: SHARED_MAX },
     rules: { raidMin: RAID_MIN_UNITS },
-    longterm: { acts: actsView(Date.now()), leagues: LEAGUES, contests: LEAGUE_CONTESTS, late: { day: LATE_DAY, days: LATE_DAYS, per: Math.round(LATE_PER_DAY * 100), max: Math.round(LATE_MAX * 100) }, titles: LEGACY_TITLES.map((t) => ({ name: t.name, how: t.how })) },
+    longterm: { acts: actsView(Date.now()), leagues: LEAGUES, contests: LEAGUE_CONTESTS, late: { day: LATE_DAY, days: LATE_DAYS, per: Math.round(LATE_PER_DAY * 1000) / 10, max: Math.round(LATE_MAX * 100) }, titles: LEGACY_TITLES.map((t) => ({ name: t.name, how: t.how })) },
     econ: { specs: COLONY_SPECS, specHq: SPEC_HQ, change: SPEC_CHANGE_COST, forecasts: FORECASTS.map((f) => ({ icon: f.icon, name: f.name, text: f.text, w: f.w })), rich: { pct: Math.round(RICH_BONUS * 100), per: RICH_PER_QUARTER, waves: RICH_WAVES.map((w, i) => ({ n: w.n, day: richWaveDay(i) })), ring: RICH_RING } },
     newp: { gradGift: GRAD_GIFT, gradH: GRAD_WINDOW_MS / 3600000, raid: typicalRaidAttack(), insPct: Math.round(INS_SHARE * 100), insClaims: INS_CLAIMS, insHeavy: Math.round(INS_HEAVY * 100), insHour: INS_MORNING_UTC, scorp: SCORP_PACK, scorpS: SCORP_MS / 1000, planSlots: PLAN_SLOTS, allyGift: BOARD_ALLY_GIFT, badges: BOARD_BADGES.map((b) => [b.n, b.icon, b.title]) },
     living: { daily: [1, 2, 3, 4, 5, 6, 7].map((n) => dailyAmount(n)), dailyMax: DAILY_MAX_STREAK, powers: TRIBE_POWERS, war: WAR_POWERS, warTwice: WAR_TWICE_LEVEL, lock: POWER_LOCK, rally: POWER_RALLY, mind: Math.round(POWER_MIND * 100), warLoot: Math.round(WAR_LOOT * 100), paths: HERO_PATHS, pathOpen: HERO_PATH_OPEN, road: HERO_ROAD, fxMin: Math.round(FX_SHOW_MS / 60000),
       trader: { range: TRADER_RANGE, max: Math.round(TRADER_BASE * 1.4 / 10) * 10, hours: Math.round(traderLifeMs() / 360000) / 10 },
       targetRange: TARGET_RANGE, firstColony: giftScale(R(FIRST_COLONY_GIFT, FIRST_COLONY_GIFT, FIRST_COLONY_GIFT, FIRST_COLONY_GIFT)).wood, firstLandmark: giftScale(R(FIRST_LANDMARK_GIFT, FIRST_LANDMARK_GIFT, FIRST_LANDMARK_GIFT, FIRST_LANDMARK_GIFT)).wood },
     waves: { max: WAVE_MAX, gaps: WAVE_GAPS, luck: WAVE_LUCK.map((x) => Math.round(x * 1000) / 10) },
-    diplo: { warMax: WAR_MAX, pactMax: PACT_MAX, noticeMs: Math.round(serverDayMs() / 2) },
+    diplo: { warMax: WAR_MAX, pactMax: PACT_MAX, noticeMs: Math.round(holdDayMs() / 2) },
     boost: {
       free: Math.round(BOOST_FREE_MAX * 100),
       overtime: Math.round(OVERTIME_CUT * 100), overtimeMaxMs: Math.round((OVERTIME_MAX_MIN * 60000) / BUILD_SPEED),
@@ -15652,6 +15662,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.371",date:"2026-11-16",title:"A day is a day: the Classic round lasts a year",groups:[["Days",["A day now lasts 24 real hours on the Classic server (x1), so day 340 is real day 340. It used to be 76 hours. Faster servers still have shorter days; the wiki clock card shows how long a day is.","Once-per-day things now really come back every 24 hours on Classic: daily supply, home power, war power, overtime, alliance help and the weather forecast.","The daily supply is a third of its old size (40 per resource on day 1) because it comes three times as often. Loyalty regrows about 13 per day, a third of before, so it takes the same real time as before. Late landers, offers, trader life, war notice and adventure spawns keep their old real-time lengths.","Vacation now means real days: 1 to 14 days, a cooldown of 7 days."]],["The year",["Classic: landmarks open on day 35, the Relic Hunt starts on day 250 and Project Aurora on day 340, three months after the Relic Hunt. The round lasts about a year.","Servers with the default clock use the same days; a round at speed s lasts that many days divided by the square root of s. The SpeedTest server keeps its round of about a day and a half (landmarks 7, Relic Hunt 17, Aurora 30).","Monster camps level up in four steps: +25% when the landmarks open, +40% halfway to the Relic Hunt, +50% with the Relic Hunt and +75% with Aurora. Specialisations open on day 4 at the latest."]]]},
   {v:"1.0.370",date:"2026-11-16",title:"Shorter last-visit label",groups:[["Server selection",["The time since your last visit now reads \"<1h ago\", \"5h ago\" and \"3d ago\"."]]]},
   {v:"1.0.369",date:"2026-11-16",title:"Steady icons and farm lists for every colony",groups:[["Fixes",["The drawn icons no longer flash back to plain emojis once a second on the send screen (distance, travel time, arrival). Icons are now drawn in the same frame as any update, everywhere, and the send screen updates in place."],["Farm lists",["Every colony's lists can now be opened and edited from any colony: rename, targets, troop presets, sorting, delete. Before, other colonies only showed a Start button.","The colony you are in comes first and is marked, with the other colonies below it."]]]]},
   {v:"1.0.368",date:"2026-11-16",title:"A tidier server selection",groups:[["Server selection",["The selection now lists only the servers you have joined, the one you played last first and highlighted, with the hours since your last visit.","A new button, Join a new server, opens the servers you can still join, with the age of each server in days. New players see that list straight away.","The New rounds calendar stays in the header of both views."]]]},
@@ -17270,7 +17281,7 @@ db.exec(`
 `);
 
 function offerMs() {
-  return serverDayMs();
+  return holdDayMs();
 }
 function offerMerchants(colonyId) {
   return db.prepare("SELECT COALESCE(SUM(merchants), 0) AS n FROM market_offers WHERE colony_id = ?").get(colonyId).n;
@@ -17500,7 +17511,7 @@ const ADV_SPAWN_H = 2;
 const ADV_START = 2;
 const ADV_WEIGHTS = { short: 50, normal: 35, long: 15 };
 function advSpawnMs() {
-  return Math.round((serverDayMs() / 24) * ADV_SPAWN_H);
+  return Math.round((holdDayMs() / 24) * ADV_SPAWN_H);
 }
 function advRollKind() {
   let r = Math.random() * 100;
@@ -17735,7 +17746,7 @@ const TRAP_PER_LEVEL = 10;
 const BOMBARD_PER_LEVEL = 2;
 const LOYALTY_MAX = 100;
 const LOYALTY_HIT = [20, 30]; // per envoy
-const LOYALTY_PER_DAY = 40; // per server day, a bit more with a higher HQ
+const LOYALTY_PER_DAY = 13; // per day, a bit more with a higher HQ (a day was 3.2 times longer before 1.0.371, it was 40)
 const LOYALTY_AFTER = 25; // a fresh conquest starts here
 
 addColumn("movements", "aim", "TEXT");
@@ -19085,7 +19096,7 @@ app.post('/api/retention',requireLogin,(req,res)=>{
 });
 
 // ---------- 🎁 daily supply ----------
-const DAILY_BASE = 120; // of every resource on day 1
+const DAILY_BASE = 40; // of every resource on day 1 (it comes every 24 h now, it was 120 every 76 h at x1)
 const DAILY_MAX_STREAK = 7;
 function dailyOf(userId) {
   const r = db.prepare("SELECT daily FROM users WHERE id = ?").get(userId);
@@ -19375,7 +19386,7 @@ addColumn("users", "milestone", "TEXT NOT NULL DEFAULT ''");
 const TRADER_RANGE = 12; // tiles: a colony this close can trade with the caravan
 const TRADER_BASE = 1200; // the most it swaps
 const TRADER_NAMES = ["Dusty Pete's Caravan", "The Rust Nomads", "Granny Ox & Sons", "Crater Bazaar", "The Wandering Spoon", "Sol & Moon Traders", "Old Meteorite Mo", "Tumbleweed Express"];
-function traderLifeMs() { return Math.max(30 * 60000, Math.round(serverDayMs() / 3)); }
+function traderLifeMs() { return Math.max(30 * 60000, Math.round(holdDayMs() / 3)); }
 function traderAt(x, y, now) {
   return db.prepare("SELECT * FROM npc_traders WHERE x = ? AND y = ? AND until > ?").get(x, y, now || Date.now()) || null;
 }
@@ -35488,7 +35499,7 @@ function wikiChapter(W, tab) {
         var ev = CK.events[r[0]];
         return [r[1] + " " + r[2], "Day " + ev.day, ev.at <= Date.now() ? "✅ started" : new Date(ev.at).toLocaleDateString(), r[3]];
       });
-      cards.push(wkCard("clock", "🗓️", "Server clock · today is day " + CK.day, kt({ head: ["Event", "Server day", "Starts", "What"], left: 4, rows: ckRows }) + wkNote("The <b>server is won</b> by the first alliance that lights the Aurora.")));
+      cards.push(wkCard("clock", "🗓️", "Server clock · today is day " + CK.day, kt({ head: ["Event", "Server day", "Starts", "What"], left: 4, rows: ckRows }) + wkNote("A day lasts " + wkDur(CK.dayMs) + ".") + wkNote("The <b>server is won</b> by the first alliance that lights the Aurora.")));
     }
     cards.push(wkCard("events", "🎉", "Mars events", kt({ head: ["Event", "Effect", "Lasts"], left: 2, rows: W.events.map(function (e) { return [e.icon + " " + e.name, e.text, e.hours + " h"]; }) })));
     cards.push(wkCard("relic", "🏆", "Relic Hunt", wkP("The first team (alliance or lone player) holding <b>" + W.relic.count + " landmarks</b> at the same time for <b>" + W.relic.hours + " h</b> in a row wins a permanent badge.")));
@@ -39218,10 +39229,10 @@ function activityPanel() {
 }
 // [label, production, build, move, what it feels like]
 var SPEED_PRESETS = [
-  ["🐢 Normal ×1", 1, 1, 1, "slow and steady: the round lasts about 9 months, a server day is 76 h"],
-  ["🎮 Fast ×3", 3, 3, 3, "about 5 months, a server day is 44 h"],
-  ["⚡ Quick ×10", 10, 10, 10, "about 3 months, a server day is 24 h"],
-  ["🧪 Testing ×60", 60, 60, 30, "about 5 weeks, a server day is 10 h"],
+  ["🐢 Normal ×1", 1, 1, 1, "slow and steady: the round lasts about a year, a day is 24 h"],
+  ["🎮 Fast ×3", 3, 3, 3, "about 6 months, a day is 14 h"],
+  ["⚡ Quick ×10", 10, 10, 10, "about 3.5 months, a day is 7.6 h"],
+  ["🧪 Testing ×60", 60, 60, 30, "about 6 weeks, a day is 3.1 h"],
 ];
 var goalState = null;
 var protState = null;
