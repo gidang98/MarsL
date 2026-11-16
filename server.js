@@ -5409,6 +5409,8 @@ function marketView(s, colony, tribe) {
     everyChoices: ROUTE_EVERY_MINUTES,
     intervalMin: ROUTE_INTERVAL_MIN,
     intervalMax: ROUTE_INTERVAL_MAX,
+    relicTargets: db.prepare("SELECT colonies.id, colonies.name, colonies.user_id FROM landmarks JOIN colonies ON colonies.id = landmarks.holder_id WHERE colonies.user_id <> ?").all(colony.userId)
+      .filter((c) => routeTargetOk(colony.userId, c)).map((c) => ({ id: c.id, name: c.name, owner: usernameOf(c.user_id) })),
     routes: (s.routes || []).map((r) => {
       const t = db.prepare("SELECT name, x, y FROM colonies WHERE id = ?").get(r.to);
       return Object.assign({}, r, { toName: t ? t.name : "???", toX: t ? t.x : null, toY: t ? t.y : null });
@@ -7513,6 +7515,14 @@ const TRANSFER_SHARE = { 1: 0.5, 2: 0.15, 3: 0.05 }; // of the sender's producti
 const RAID_INCOME_SHARE = 0.5;
 const GIFT_MIN_POINTS = 100; // below this (or in beginner protection) nobody can gift
 const FAIR_TRADE_MIN = 0.9, FAIR_TRADE_MAX = 1.1; // locked accounts: market deals of about 1:1
+// A colony holding a relic (a landmark)
+function holdsRelic(colonyId) { return !!db.prepare("SELECT 1 FROM landmarks WHERE holder_id = ?").get(colonyId); }
+// Automatic routes only go to your own colonies - or to an ally's colony that holds a relic (food only)
+function routeTargetOk(userId, target) {
+  if (!target) return false;
+  if (target.user_id === userId) return true;
+  return areAllies(target.user_id, userId) && !accountsLinked(target.user_id, userId) && holdsRelic(target.id);
+}
 function transferMs() { return TRANSFER_DAYS * serverDayMs(); }
 function logTransfer(from, to, n, kind, now) {
   if (!(n > 0) || !from || !to || from === to || BOT_IDS.has(from) || BOT_IDS.has(to)) return;
@@ -7589,7 +7599,7 @@ app.post("/api/trade", requireLogin, (req, res) => {
     let kind = "gift";
     if (toOther) {
       const mostlyFood = goods.food * 2 >= total;
-      if (mostlyFood && db.prepare("SELECT 1 FROM landmarks WHERE holder_id = ?").get(target.id)) kind = "relic";
+      if (mostlyFood && holdsRelic(target.id)) kind = "relic";
       else if (mostlyFood && total <= stationedFeedRoom(req.user.id, target.id, now)) kind = "feed";
       else {
         const lock = giftLocked(req.user.id, now);
@@ -7647,10 +7657,12 @@ function maxRoutes(s) {
 // Try one route now. Returns a short text for "last result".
 function runRoute(s, colony, route, now) {
   const target = db.prepare("SELECT id, user_id, name FROM colonies WHERE id = ?").get(route.to);
-  if (!target || target.user_id !== colony.userId) {
+  if (!target || !routeTargetOk(colony.userId, target)) {
     route.on = false;
-    return "⛔ Target colony is gone - route stopped";
+    return target && target.user_id !== colony.userId ? "⛔ That colony no longer holds a relic of your alliance - route stopped" : "⛔ Target colony is gone - route stopped";
   }
+  const foreign = target.user_id !== colony.userId; // an ally's relic colony: food only
+  const kinds = foreign ? ["food"] : RESOURCES;
   const free = merchantsFree(s, colony.id);
   if (!free) return "🐪 No free merchants";
   const cap = capacities(s);
@@ -7665,7 +7677,7 @@ function runRoute(s, colony, route, now) {
     let availableTotal = 0;
     for (const r of RESOURCES) {
       const keep = Math.floor((cap[r] * route.keep) / 100) + held[r];
-      available[r] = Math.max(0, Math.floor(s.res[r]) - keep);
+      available[r] = kinds.includes(r) ? Math.max(0, Math.floor(s.res[r]) - keep) : 0;
       availableTotal += available[r];
       goods[r] = 0;
     }
@@ -7687,6 +7699,7 @@ function runRoute(s, colony, route, now) {
     }
   } else {
     for (const r of RESOURCES) {
+      if (!kinds.includes(r)) { goods[r] = 0; continue; }
       const keep = Math.floor((cap[r] * route.keep) / 100) + held[r];
       const n = Math.max(0, Math.min(route.res[r] || 0, Math.floor(s.res[r]) - keep, room));
       goods[r] = n;
@@ -7696,6 +7709,7 @@ function runRoute(s, colony, route, now) {
   }
   if (!total) return "📦 Nothing to send (keeping " + route.keep + "% in storage)";
   const used = sendMerchants(s, colony, target.id, goods, now, true);
+  if (foreign) logTransfer(colony.userId, target.user_id, total, "relic", now);
   return "✅" + " Sent " + total + " with " + used + (used === 1 ? " merchant" : " merchants");
 }
 
@@ -7730,7 +7744,7 @@ app.post("/api/routes/add", requireLogin, (req, res) => {
     if (!levelOf(s, "market")) return "You need a marketplace first";
     if (s.routes.length >= maxRoutes(s)) return "Your marketplace can only run " + maxRoutes(s) + " route(s). Upgrade it for more!";
     const target = db.prepare("SELECT id, user_id FROM colonies WHERE id = ?").get(Number(body.to));
-    if (!target || target.user_id !== req.user.id) return "Automatic merchants only travel between your own colonies";
+    if (!routeTargetOk(req.user.id, target)) return "Automatic merchants only travel between your own colonies, or to an ally's colony that holds a relic";
     if (target.id === colony.id) return "Pick another one of your colonies";
     const every = Number(body.every);
     if (!Number.isInteger(every) || every < ROUTE_INTERVAL_MIN || every > ROUTE_INTERVAL_MAX) {
@@ -7747,7 +7761,8 @@ app.post("/api/routes/add", requireLogin, (req, res) => {
       amounts[r] = n;
       total += n;
     }
-    if (!allSurplus && !total) return "Tell the merchants what to carry, or enable Send all surplus";
+    if (target.user_id !== req.user.id) for (const r of RESOURCES) if (r !== "food") { total -= amounts[r]; amounts[r] = 0; } // relic supply: food only
+    if (!allSurplus && !total) return "Tell the merchants what to carry, or enable Send all surplus" + (target.user_id !== req.user.id ? " (food only for a relic colony)" : "");
     // Optional first departure time OR a desired first arrival time. When an
     // arrival is selected, calculate departure from the current travel time.
     // Later deliveries repeat at the chosen interval from that first departure.
@@ -16341,7 +16356,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.389",date:"2026-11-16",title:"Sharing between players",groups:[["Sharing resources",["Resources and 🛡️ support troops only go to your own colonies and to members of your alliance. Others no longer get the 🐪 Resources button or the Support mission.","Every gift, market deal and raid between two players goes into a 7 server day ledger. The net amount you can pass to one player is limited by your production plus half of your recent raid income.","The limit depends on how the two accounts are connected: unrelated players get the most, accounts that used the same network get much less, and sitters or a shared device get the least. Connected accounts can no longer raid each other.","Beginners and small accounts (under 100 points) can not gift; they can still make fair, about 1 to 1 deals on the market.","Exceptions: a colony holding a relic can take unlimited help from allies, and food for troops you keep stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit.","Tapping 🐪 Resources on a colony now opens the Send tab straight away instead of the tab you used last."]]]},
+  {v:"1.0.389",date:"2026-11-16",title:"Sharing between players",groups:[["Sharing resources",["Resources and 🛡️ support troops only go to your own colonies and to members of your alliance. Others no longer get the 🐪 Resources button or the Support mission.","Every gift, market deal and raid between two players goes into a 7 server day ledger. The net amount you can pass to one player is limited by your production plus half of your recent raid income.","The limit depends on how the two accounts are connected: unrelated players get the most, accounts that used the same network get much less, and sitters or a shared device get the least. Connected accounts can no longer raid each other.","Beginners and small accounts (under 100 points) can not gift; they can still make fair, about 1 to 1 deals on the market.","Exceptions: a colony holding a relic can take unlimited help from allies, and food for troops you keep stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit.","Automatic 🔁 trade routes only go to your own colonies, or to an alliance member's colony that holds a relic (food only). A route stops by itself when that colony no longer holds one.","Tapping 🐪 Resources on a colony now opens the Send tab straight away instead of the tab you used last."]]]},
   {v:"1.0.388",date:"2026-11-16",title:"Troop traffic by kind",groups:[["Troop traffic",["The full list now groups by kind of movement instead of by destination: one row per kind (attacks, raids, support, returning troops and so on) with how many there are, the total troops and the soonest arrival.","Tap a row to unfold every single movement with its own place, troops and timer. Fold all / Unfold all still work, and sorting is unchanged.","Troops stationed abroad stay grouped by place."]]]},
   {v:"1.0.387",date:"2026-11-16",title:"Lookouts and camp art",groups:[["👁️ Sight",["Your Expedition Base (Lookout Perch, Relic Scanner) now shows which unit types are marching at you: an attack made of fewer troops than the building's level lists its units, but never how many. Cloaked alien armies stay hidden."]],["Camps",["The Spore Garden, Kraken Crater and Golem Quarry show their art on the map again."]]]},
   {v:"1.0.386",date:"2026-11-16",title:"A clearer troop traffic card",groups:[["🧭 Troop traffic",["The traffic card now has four fixed tiles: incoming attacks (red swords), outgoing attacks (green swords), incoming support (blue shield) and outgoing support (new green shield with an arrow out). Each shows how many movements there are and when the first one arrives; the incoming attack tile pulses while an attack is on its way.","Spies, merchants, settlers, returning troops and the rest each have their own icon and sit in one quiet line below, and \"All\" opens the full list. The list uses the same icons, so your own attacks and support are green and shielded instead of generic."]]]},
@@ -34107,10 +34122,12 @@ function routesPanel(d) {
     h += "<small>" + (r.on ? "⏱ next in " + shortTime(Math.max(0, r.nextAt - serverNow())) : "⏸️ paused") + (r.last ? " · " + esc(r.last) : "") + "</small>";
     h += '<div class="rt-btns"><button type="button" class="btn small ghost" data-route-toggle="' + r.id + '">' + (r.on ? "⏸️ Pause" : "▶️ Start") + '</button><button type="button" class="btn small ghost" data-route-del="' + r.id + '" title="Delete route">🗑️</button></div></div>';
   });
-  if (!others.length) return h + '<p class="empty">Automatic routes can only target your own colonies. Found a second colony first. 🏳️</p>';
+  var relics = m.relicTargets || [];
+  if (!others.length && !relics.length) return h + '<p class="empty">Automatic routes only go to your own colonies, or food to an ally colony that holds a relic. Found a second colony first. 🏳️</p>';
   if (m.routes.length >= m.maxRoutes) return h + '<p class="hint">All ' + m.maxRoutes + (m.maxRoutes === 1 ? " route" : " routes") + " used. Upgrade the " + m.name + " for more.</p>";
   h += '<form id="routeform" class="mkform"><h4 class="sidesub">' + '➕' + ' New route</h4><div class="mkrow"><b>To</b><select data-rt="to">';
   others.forEach(function (c) { h += '<option value="' + c.id + '"' + (String(c.id) === rt.to ? " selected" : "") + ">" + esc(c.name) + "</option>"; });
+  relics.forEach(function (c) { h += '<option value="' + c.id + '"' + (String(c.id) === rt.to ? " selected" : "") + ">🏺 " + esc(c.name) + " (" + esc(c.owner) + ", food only)</option>"; });
   h += "</select></div>";
   h += '<label class="ofally"><input type="checkbox" data-rt="allSurplus"' + (rt.allSurplus ? " checked" : "") + '> ' + '📦' + ' Send all surplus resources automatically</label>';
   h += '<p class="hint">When enabled, each run sends as much wood, stone, metal and food as possible above your reserve. Cargo space is shared proportionally between resource types.</p>';
@@ -36080,7 +36097,7 @@ function wikiChapter(W, tab) {
     var M = W.market;
     var mr = [];
     for (var ml = 1; ml <= 10; ml++) mr.push([ml, ml * M.perLevel, wkN(ml * M.perLevel * M.carry), (M.swapBase + M.swapPer * ml) + " per 100"]);
-    cards.push(wkCard("market", "🐪", "Marketplace", kt({ head: ["Lv", "Merchants", "Can carry", "Swap rate"], rows: mr }) + wkNote(trf("Normal merchants carry {0} (more or less depending on the tribe) and travel {1} tiles/h. Trade routes send resources between your own colonies by themselves; pick a 🕐 first-run time when creating one if you want that first batch to land at a specific moment (every run after that keeps to the chosen interval). The ⚖️ Balance tab swaps all four resources at once at the same rate; if you're short on resources for a build and have enough spare elsewhere, a 💱 Cover with market button fills it in for you - just confirm the swap. On a troop, ⚖️ Fit resources for N fills it in so your stock matches that unit's cost ratio, for as many of them as possible (the count is set for training, too).", M.carry, M.speed)) + wkNote("🤝 Resources and 🛡️ support only go to your own colonies and to members of your alliance. Over 7 server days the net amount you can pass to one player is limited by your production plus half of your recent raid income; accounts that share a network get far less, sitters or a shared device the least, and they can't raid each other. Beginners and accounts under 100 points can't gift, only trade about 1 to 1. A colony holding a relic takes unlimited help from allies, and food for troops stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit.")));
+    cards.push(wkCard("market", "🐪", "Marketplace", kt({ head: ["Lv", "Merchants", "Can carry", "Swap rate"], rows: mr }) + wkNote(trf("Normal merchants carry {0} (more or less depending on the tribe) and travel {1} tiles/h. Trade routes send resources between your own colonies by themselves; pick a 🕐 first-run time when creating one if you want that first batch to land at a specific moment (every run after that keeps to the chosen interval). The ⚖️ Balance tab swaps all four resources at once at the same rate; if you're short on resources for a build and have enough spare elsewhere, a 💱 Cover with market button fills it in for you - just confirm the swap. On a troop, ⚖️ Fit resources for N fills it in so your stock matches that unit's cost ratio, for as many of them as possible (the count is set for training, too).", M.carry, M.speed)) + wkNote("🤝 Resources and 🛡️ support only go to your own colonies and to members of your alliance. Over 7 server days the net amount you can pass to one player is limited by your production plus half of your recent raid income; accounts that share a network get far less, sitters or a shared device the least, and they can't raid each other. Beginners and accounts under 100 points can't gift, only trade about 1 to 1. A colony holding a relic takes unlimited help from allies, and food for troops stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit. Automatic 🔁 routes only go to your own colonies, or to an ally colony that holds a relic (food only).")));
     var T = W.colonies;
     var acc = 0;
     var tr = T.terra.map(function (n, i) { acc += n; return ["Colony " + (i + 2), wkN(n), wkN(acc)]; });
