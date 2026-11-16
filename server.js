@@ -830,6 +830,7 @@ const TRIBES = {
     home: "🧑‍🚀",
     color: "#ffd23f",
     desc: "Balanced builders and traders: solid at everything, with strong walls, busy markets and guns for the sky.",
+    play: { level: 1, effort: "2-3 short check-ins a day, about 30 min in total" },
     names: {
       wood: ["Bio-Dome Forest", "🌲"],
       stone: ["Regolith Quarry", "⛏️"],
@@ -942,6 +943,7 @@ const TRIBES = {
     home: "🐔",
     color: "#ff9f43",
     desc: "Cheap, fast and many: a raiding swarm that trains quickly, hides its loot well and hunts raiders with hawks.",
+    play: { level: 2, effort: "4-6 check-ins a day, about 1 hour in total: raids need regular sending" },
     names: {
       wood: ["Twig Grove", "🪺"],
       stone: ["Pebble Pit", "🪨"],
@@ -1054,6 +1056,7 @@ const TRIBES = {
     home: "👽",
     color: "#7dff6b",
     desc: "Expensive and slow, but every single unit is a monster: huge ground walls and spore flak, backed by top research.",
+    play: { level: 3, effort: "1-2 longer sessions a day, about 45 min: careful planning, few mistakes allowed" },
     names: {
       wood: ["Fungus Forest", "🍄"],
       stone: ["Crystal Quarry", "💎"],
@@ -7192,6 +7195,7 @@ app.get("/api/tribes", (req, res) => {
       icon: TRIBES[key].icon,
       color: TRIBES[key].color,
       desc: TRIBES[key].desc,
+      play: TRIBES[key].play,
       units: Object.values(TRIBES[key].units).filter((u) => !isSettler(u)).map((u) => u.icon).join(" "),
       perks: tribePerkList(key),
     }))
@@ -16356,7 +16360,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.389",date:"2026-11-16",title:"Sharing between players",groups:[["Sharing resources",["Resources and 🛡️ support troops only go to your own colonies and to members of your alliance. Others no longer get the 🐪 Resources button or the Support mission.","Every gift, market deal and raid between two players goes into a 7 server day ledger. The net amount you can pass to one player is limited by your production plus half of your recent raid income.","The limit depends on how the two accounts are connected: unrelated players get the most, accounts that used the same network get much less, and sitters or a shared device get the least. Connected accounts can no longer raid each other.","Beginners and small accounts (under 100 points) can not gift; they can still make fair, about 1 to 1 deals on the market.","Exceptions: a colony holding a relic can take unlimited help from allies, and food for troops you keep stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit.","Automatic 🔁 trade routes only go to your own colonies, or to an alliance member's colony that holds a relic (food only). A route stops by itself when that colony no longer holds one.","Tapping 🐪 Resources on a colony now opens the Send tab straight away instead of the tab you used last."]]]},
+  {v:"1.0.389",date:"2026-11-16",title:"Sharing between players",groups:[["Joining",["The tribe choice now shows how hard each tribe is to play (easy, medium, hard) and how much time it suggests per day."]],["Sharing resources",["Resources and 🛡️ support troops only go to your own colonies and to members of your alliance. Others no longer get the 🐪 Resources button or the Support mission.","Every gift, market deal and raid between two players goes into a 7 server day ledger. The net amount you can pass to one player is limited by your production plus half of your recent raid income.","The limit depends on how the two accounts are connected: unrelated players get the most, accounts that used the same network get much less, and sitters or a shared device get the least. Connected accounts can no longer raid each other.","Beginners and small accounts (under 100 points) can not gift; they can still make fair, about 1 to 1 deals on the market.","Exceptions: a colony holding a relic can take unlimited help from allies, and food for troops you keep stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit.","Automatic 🔁 trade routes only go to your own colonies, or to an alliance member's colony that holds a relic (food only). A route stops by itself when that colony no longer holds one.","Tapping 🐪 Resources on a colony now opens the Send tab straight away instead of the tab you used last."]]]},
   {v:"1.0.388",date:"2026-11-16",title:"Troop traffic by kind",groups:[["Troop traffic",["The full list now groups by kind of movement instead of by destination: one row per kind (attacks, raids, support, returning troops and so on) with how many there are, the total troops and the soonest arrival.","Tap a row to unfold every single movement with its own place, troops and timer. Fold all / Unfold all still work, and sorting is unchanged.","Troops stationed abroad stay grouped by place."]]]},
   {v:"1.0.387",date:"2026-11-16",title:"Lookouts and camp art",groups:[["👁️ Sight",["Your Expedition Base (Lookout Perch, Relic Scanner) now shows which unit types are marching at you: an attack made of fewer troops than the building's level lists its units, but never how many. Cloaked alien armies stay hidden."]],["Camps",["The Spore Garden, Kraken Crater and Golem Quarry show their art on the map again."]]]},
   {v:"1.0.386",date:"2026-11-16",title:"A clearer troop traffic card",groups:[["🧭 Troop traffic",["The traffic card now has four fixed tiles: incoming attacks (red swords), outgoing attacks (green swords), incoming support (blue shield) and outgoing support (new green shield with an arrow out). Each shows how many movements there are and when the first one arrives; the incoming attack tile pulses while an attack is on its way.","Spies, merchants, settlers, returning troops and the rest each have their own icon and sit in one quiet line below, and \"All\" opens the full list. The list uses the same icons, so your own attacks and support are green and shielded instead of generic."]]]},
@@ -21571,6 +21575,11 @@ const PAGE = `<!DOCTYPE html>
   .tribe-pick:hover .ti { animation: wiggle 0.4s ease-in-out; }
   .tribe-pick b { font-size: 17px; }
   .tribe-pick small { display: block; font-weight: 500; font-size: 13px; }
+  .tribe-pick .tp-play { margin-top: 2px; }
+  .tribe-pick .tp-play b { font-size: 13px; letter-spacing: 1px; }
+  .tribe-pick .tp-play.lv1 b { color: #2f8f4e; }
+  .tribe-pick .tp-play.lv2 b { color: #c47a12; }
+  .tribe-pick .tp-play.lv3 b { color: #b8322f; }
   .tribe-pick.on { box-shadow: 0 0 0 4px var(--ink); transform: translateY(1px) rotate(-1deg); }
 
   #toast {
@@ -28557,7 +28566,9 @@ function renderHopTribe() {
   (tribes || []).forEach(function (t) {
     h += '<button type="button" class="tribe-pick' + (regTribe === t.key ? " on" : "") + '" data-tribe="' + t.key + '">';
     h += '<span class="ti" style="background:' + t.color + '">' + t.icon + "</span>";
-    h += "<span><b>" + t.name + "</b><small>" + t.desc + "</small><small>" + trStr("Troops:") + " " + t.units + "</small>";
+    h += "<span><b>" + t.name + "</b><small>" + t.desc + "</small>";
+    if (t.play) h += '<small class="tp-play lv' + t.play.level + '"><b>' + ["", "●○○ Easy", "●●○ Medium", "●●● Hard"][t.play.level] + "</b> · ⏱ " + esc(t.play.effort) + "</small>";
+    h += "<small>" + trStr("Troops:") + " " + t.units + "</small>";
     if (regTribe === t.key && t.perks) h += perkChips(t.perks, true);
     h += "</span></button>";
   });
