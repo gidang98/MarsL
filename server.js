@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.386";
+const GAME_VERSION = "1.0.387";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -742,7 +742,7 @@ const TRIBE_BUILD = {
     weaponry: { info: "The {weaponry} upgrades troops for more attack and defense, up to its level." },
     hangar: { info: "The {hangar} trains air troops, which hit the enemy’s often weaker air defense." },
     hub: { info: "The {hub} earns terra for new colonies, runs terraforming projects and opens settler slots." },
-    outpost: { info: "The {outpost} sends expeditions to Mars landmarks. Each level reaches further and speeds up the claim; levels 5, 10 and 15 unlock a garrison bonus, a stronger relic and weaker guardians." },
+    outpost: { info: "The {outpost} sends expeditions to Mars landmarks. Each level reaches further and speeds up the claim; levels 5, 10 and 15 unlock a garrison bonus, a stronger relic and weaker guardians. It also sees what is marching at you: an attack of fewer troops than its level shows which unit types it brings, never how many." },
     sawmill: { info: "The {sawmill} boosts the wood income of the whole colony. Needs a {wood} at level 10." },
     kiln: { info: "The {kiln} boosts the stone income of the whole colony. Needs a {stone} at level 10." },
     foundry: { info: "The {foundry} boosts the metal income of the whole colony. Needs a {metal} at level 10." },
@@ -763,7 +763,7 @@ const TRIBE_BUILD = {
     weaponry: { info: "The {weaponry} upgrades troops for more attack and defense, up to its level." },
     hangar: { requires: { hq: 7, barracks: 6, lab: 3 }, info: "The {hangar} trains flyers. Chickens have a few strong ones, and they train fast." },
     hub: { info: "The {hub} earns terra for new colonies, runs terraforming projects and opens settler slots." },
-    outpost: { info: "The {outpost} watches over the landmarks from high up. Each level sees 2 tiles further and shortens the claim; levels 5, 10 and 15 each hatch a new edge." },
+    outpost: { info: "The {outpost} watches over the landmarks from high up. Each level sees 2 tiles further and shortens the claim; levels 5, 10 and 15 each hatch a new edge. It also sees what is marching at you: an attack of fewer troops than its level shows which unit types it brings, never how many." },
     sawmill: { info: "The {sawmill} weaves more wood out of the whole colony. Needs a {wood} at level 10." },
     kiln: { info: "The {kiln} polishes more stone out of the whole colony. Needs a {stone} at level 10." },
     foundry: { info: "The {foundry} melts more metal out of the whole colony. Needs a {metal} at level 10." },
@@ -784,7 +784,7 @@ const TRIBE_BUILD = {
     weaponry: { requires: { hq: 4, lab: 2 }, info: "The {weaponry} gives Aliens the sharpest upgrades: every level hits 20% harder than for other tribes, in every battle." },
     hangar: { requires: { hq: 6, barracks: 4, lab: 4 }, info: "The {hangar} launches saucers. Science first, then the sky." },
     hub: { info: "The {hub} earns terra for new colonies, runs terraforming projects and opens settler slots." },
-    outpost: { info: "The {outpost} scans the landmarks. Each level scans 2 tiles further and shortens the claim; levels 5, 10 and 15 each unlock a new edge." },
+    outpost: { info: "The {outpost} scans the landmarks. Each level scans 2 tiles further and shortens the claim; levels 5, 10 and 15 each unlock a new edge. It also sees what is marching at you: an attack of fewer troops than its level shows which unit types it brings, never how many." },
     sawmill: { info: "The {sawmill} presses more wood out of the whole colony. Needs a {wood} at level 10." },
     kiln: { info: "The {kiln} grinds more stone out of the whole colony. Needs a {stone} at level 10." },
     foundry: { info: "The {foundry} smelts more metal out of the whole colony. Needs a {metal} at level 10." },
@@ -5466,7 +5466,26 @@ function paceInfo(from, tx, ty) {
     .map((u) => ({ icon: u.icon, name: u.name, speed: u.speed * perkOf(tribe.key, "speed") * MOVE_SPEED }));
   return { dist: Math.round(distance(from.x, from.y, tx, ty) * 1000) / 1000, units };
 }
+// 👁️ The Expedition Base (Lookout Perch, Relic Scanner) shows WHAT is marching at you,
+// never how many: an attack made of fewer troops than the base's level shows its unit types.
+const SIGHT_TROOPS_PER_LEVEL = 1;
+function sightFor(userId) {
+  let cache = null;
+  return (colonyId) => {
+    if (!cache) { cache = {}; for (const c of coloniesOf(userId)) cache[c.id] = outpostLevelOf(c.state); }
+    return colonyId ? cache[colonyId] || 0 : Math.max(0, ...Object.values(cache));
+  };
+}
+function seenUnits(m, from, level) {
+  if (!level || !from || m.power === "alien") return null; // a cloaked army stays a mystery
+  let troops;
+  try { troops = JSON.parse(m.troops); } catch (e) { return null; }
+  const total = Object.values(troops).reduce((a, n) => a + (n || 0), 0);
+  if (total <= 0 || total >= level * SIGHT_TROOPS_PER_LEVEL) return null;
+  return unitList(troops, tribeOf(from.tribe), null).map((u) => ({ key: u.key, icon: u.icon, name: u.name, type: u.type }));
+}
 function movementsFor(userId, now) {
+  const sight = sightFor(userId);
   const myIds = colonyIdsOf(userId);
   if (!myIds.length) return [];
   const mineSet = new Set(myIds);
@@ -5646,6 +5665,7 @@ function movementsFor(userId, now) {
       endAt: stay ? null : m.arrive_at,
       pace: !stay && !friendly && m.mission !== "trade" && to && m.power !== "alien" ? paceInfo(from, to.x, to.y) : null,
       cloaked: !stay && m.power === "alien",
+      seen: !stay && !friendly && m.mission !== "trade" ? seenUnits(m, from, sight(m.target_id)) : null,
       // 🎺 a show-off commander can't hide that it is coming
       showoff: !stay && !friendly && m.hero && from && heroReady && !BOT_IDS.has(from.user_id) ? (heroOf(from.user_id, now) || {}).quirk === "showoff" : false,
       spottedAt: !stay && !friendly && m.mission !== "trade" ? spottedAt(userId, m) : null,
@@ -5678,6 +5698,7 @@ function movementsFor(userId, now) {
         y: from ? from.y : null,
         to: "🚩 Landing Zone",
         units: null,
+        seen: seenUnits(m, from, sight(0)),
         loot: null,
         startAt: null,
         pace: paceInfo(from, 0, 0),
@@ -5709,6 +5730,7 @@ function movementsFor(userId, now) {
         y: from ? from.y : null,
         to: l.icon + " " + l.name,
         units: null,
+        seen: seenUnits(m, from, sight(0)),
         loot: null,
         startAt: null,
         pace: paceInfo(from, l.x, l.y),
@@ -16217,6 +16239,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.387",date:"2026-11-16",title:"Lookouts and camp art",groups:[["👁️ Sight",["Your Expedition Base (Lookout Perch, Relic Scanner) now shows which unit types are marching at you: an attack made of fewer troops than the building's level lists its units, but never how many. Cloaked alien armies stay hidden."]],["Camps",["The Spore Garden, Kraken Crater and Golem Quarry show their art on the map again."]]]},
   {v:"1.0.386",date:"2026-11-16",title:"A clearer troop traffic card",groups:[["🧭 Troop traffic",["The traffic card now has four fixed tiles: incoming attacks (red swords), outgoing attacks (green swords), incoming support (blue shield) and outgoing support (new green shield with an arrow out). Each shows how many movements there are and when the first one arrives; the incoming attack tile pulses while an attack is on its way.","Spies, merchants, settlers, returning troops and the rest each have their own icon and sit in one quiet line below, and \"All\" opens the full list. The list uses the same icons, so your own attacks and support are green and shielded instead of generic."]]]},
   {v:"1.0.385",date:"2026-11-16",title:"A better Finish button",groups:[["⚡ Queue",["The free Finish button on the last minutes of a job is now a chunky green button with a bolt and a soft pulse, so it is easy to spot. It looks the same in the speed-up sheet."]]]},
   {v:"1.0.384",date:"2026-11-16",title:"Icon polish",groups:[["🎨 Icons",["Icons that were drawn as bare lines (fog, wind, chain, link, DNA, swirl, exchange, recycle, knot) now have the same chunky outline as the rest.","About 60 icons that sat off-centre or looked too small or too big next to their neighbours were re-centred and resized, so every icon has the same visual weight."]]]},
@@ -29221,6 +29244,9 @@ var mvSort = { by: "time", rev: false };
 try { var _ms = JSON.parse(localStorage.getItem("mvsort") || "null"); if (_ms && _ms.by) mvSort = _ms; } catch (e) {}
 var mvOpenG = {}; // which groups are unfolded
 var MV_SORTS = [["time", "⏱", "Soonest"], ["type", "🧭", "Type"], ["size", "🪖", "Size"], ["name", "📍", "Place"]];
+// 👁️ unit types a lookout recognises in a small incoming army (never the numbers)
+function seenIcons(m) { return m.seen && m.seen.length ? m.seen.map(function (u) { return u.icon; }).join(" ") : ""; }
+function seenTitle(m) { return m.seen && m.seen.length ? "Spotted: " + m.seen.map(function (u) { return u.name; }).join(", ") + " (how many stays hidden)" : ""; }
 function mvSize(m) {
   return m.units ? m.units.reduce(function (n, u) { return n + u.count; }, 0) : m.merchants || 0;
 }
@@ -29294,7 +29320,7 @@ function mvRow(m, count) {
   var left = m.endAt ? Math.max(0, m.endAt - now) : 0;
   var pct = m.endAt && m.startAt ? Math.max(0, Math.min(100, Math.round((1 - left / Math.max(1, m.endAt - m.startAt)) * 100))) : 100;
   var h = '<button class="mv' + (isThreat(m) ? " danger" : m.dir === "in" ? " in" : "") + '" data-move-open="' + m.id + '" title="' + esc(mvTitle(m)) + '">';
-  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, folded into the first to arrive">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.merchants ? "<small>" + m.merchants + " 🐪</small>" : "") + "</span>";
+  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, folded into the first to arrive">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.seen ? '<small title="' + esc(seenTitle(m)) + '">👁️ ' + seenIcons(m) + "</small>" : m.merchants ? "<small>" + m.merchants + " 🐪</small>" : "") + "</span>";
   h += '<span class="mv-t">' + (m.endAt ? mvClock(left) : "📍") + "</span>";
   if (m.endAt && m.startAt) h += '<i class="mv-bar"><u style="width:' + pct + '%"></u></i>';
   return h + "</button>";
@@ -29432,6 +29458,7 @@ function moveSheet(d, id) {
   }
   h += '<table class="mvtab"><tbody>' + rows.map(function (r) { return "<tr><th>" + r[0] + "</th><td>" + r[1] + "</td></tr>"; }).join("") + "</tbody></table>";
   if (m.units && m.units.length) h += '<div class="side"><h4>🪖 Troops</h4>' + unitTable(m.units, false) + "</div>";
+  if (m.seen && m.seen.length) h += '<div class="side"><h4>👁️ Spotted</h4><p class="stat">' + m.seen.map(function (u) { return u.icon + " " + esc(u.name); }).join(" · ") + "</p><small>Your lookout recognises these units, but not how many.</small></div>";
   if (m.merchants && !m.units) h += '<p class="stat">' + '🐪' + ' <b>' + m.merchants + "</b> " + (m.merchants === 1 ? "merchant" : "merchants") + "</p>";
   if (m.loot) h += '<div class="side"><h4>' + '💰' + ' Carrying</h4>' + resLine(m.loot) + "</div>";
   if (m.pace && m.endAt) {
@@ -29600,7 +29627,7 @@ function attackAlarm(d) {
   h += '<div class="alarm-list">';
   threats.slice(0, 4).forEach(function (m) {
     var kind = m.cloaked ? "❓" : m.type === "raid" ? "💰" : giSvg("swordR");
-    h += '<small class="alarm-row"><b>' + kind + " " + fmt(Math.max(0, m.endAt - serverNow())) + "</b> " + esc(m.name) + (m.showoff ? " · 🎺 with its commander" : "") + (multiColony() && m.to ? " → " + esc(m.to) : "") + " · " + clockText(m.endAt) + "</small>";
+    h += '<small class="alarm-row"><b>' + kind + " " + fmt(Math.max(0, m.endAt - serverNow())) + "</b> " + esc(m.name) + (m.seen ? " · 👁️ " + seenIcons(m) : "") + (m.showoff ? " · 🎺 with its commander" : "") + (multiColony() && m.to ? " → " + esc(m.to) : "") + " · " + clockText(m.endAt) + "</small>";
   });
   if (threats.length > 4) h += '<small class="alarm-row">+' + (threats.length - 4) + " more, see 🧭 Troop traffic</small>";
   return h + "</div></div></div>";
@@ -35277,7 +35304,7 @@ function terrainCode(x, y) {
 }
 
 // 1.0.247: clay pieces on the map. Colonies grow in three sizes with their points.
-var MAP_CAMP_ART = { "🦂": "scorpion", "🍄": "spore", "🧌": "troll", "🦇": "bat", "🦎": "lizard", "🪱": "worm", "🗿": "golem", "🐙": "kraken" };
+var MAP_CAMP_ART = { "🦂": "scorpion", "🪷": "spore", "🧌": "troll", "🦇": "bat", "🦎": "lizard", "🪱": "worm", "🪅": "golem", "🪬": "kraken" };
 var MAP_LMK_ART = { "🚙": "rover", "🥔": "potato", "🦴": "bones", "🧦": "sock", "🗿": "face", "🛸": "ufo", "🥚": "egg", "🎸": "guitar" };
 var COLONY_SIZE_AT = [150, 600]; // points: below the first = small, below the second = medium, else large
 function mapArt(key) { return FX_ART.t[key] ? '<img class="mclay" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : ""; }
@@ -35981,7 +36008,7 @@ function wikiChapter(W, tab) {
     }) + wkNote("Support troops eat from the colony they're defending once they've arrived, not from home. Once they've arrived, open their movement in 🧭 Troop Traffic to 🧭 Redirect them straight to a different colony, or 🏡 Call them home - no need to recall first (while they're still on the way, let them arrive, or call them back). Whoever is hosting them can redirect or send home that support too, not just whoever sent it - their own troops from another of their colonies, or an ally's troops, as long as it's stationed with them. The 📊 All colonies overview lists exactly who's where, unit by unit: 🏠 at home, 🤝 support hosted there, 🚶 away and on the move, and your whole account's total army at the top - handy for planning an attack or a defense.")));
     cards.push(wkCard("flow", "🧭", "Staying on top of things", wkList([
       "📦 <b>Overflow tip</b>: when a resource is 90% full or more, a strip on the Fields and Colony tabs names the best way to spend it: the affordable build that uses the most of that resource (one tap to start it), or training troops, or the market when nothing else fits.",
-      "🚨 <b>Incoming attacks</b>: the red bar lists the next four arrivals, soonest first, with ⚔️ attack, 💰 raid or ❓ (a cloaked army), the countdown, who sends it and the time. More are in 🧭 Troop traffic.",
+      "🚨 <b>Incoming attacks</b>: the red bar lists the next four arrivals, soonest first, with ⚔️ attack, 💰 raid or ❓ (a cloaked army), the countdown, who sends it and the time. More are in 🧭 Troop traffic. A small army, fewer troops than your Expedition Base, Lookout Perch or Relic Scanner level, also shows which kinds of units it holds, never how many.",
       "🪖 <b>Army overview</b>: under your troops at home, one line shows how many are 🏠 home, 🚶 away and ⏳ in training.",
       "🌙 <b>While you were away</b>: after at least 30 minutes offline, your next visit opens a summary: attacks on you (held off or lost, and how much was stolen), your own attacks, landmark events and new colonies, with the most important reports to read first. Tap 'Welcome back' to close it.",
     ])));
