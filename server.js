@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.384";
+const GAME_VERSION = "1.0.385";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -16217,6 +16217,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.385",date:"2026-11-16",title:"A better Finish button",groups:[["⚡ Queue",["The free Finish button on the last minutes of a job is now a chunky green button with a bolt and a soft pulse, so it is easy to spot. It looks the same in the speed-up sheet."]]]},
   {v:"1.0.384",date:"2026-11-16",title:"Icon polish",groups:[["🎨 Icons",["Icons that were drawn as bare lines (fog, wind, chain, link, DNA, swirl, exchange, recycle, knot) now have the same chunky outline as the rest.","About 60 icons that sat off-centre or looked too small or too big next to their neighbours were re-centred and resized, so every icon has the same visual weight."]]]},
   {v:"1.0.383",date:"2026-11-16",title:"Star Credits icon and a unique icon for every troop",groups:[["🎫 Star Credits",["Star Credits have their own drawn icon, and the 🎓 graduation reward is now 500 Star Credits (once per account) instead of resources.","New icons: Crater Mortar, Egg Catapult, Spore Cannon, Acid Slug, Mother Hen, Coop Hawk, Spore Puff, Dust Kraken and Crystal Golem each got a drawn icon of their own, so no two troops share one anymore. Spies, info and free-slot markers are drawn too."]]]},
   {v:"1.0.382",date:"2026-11-16",title:"Protection extension follows game speed",groups:[["🛡️ Protection",["The one-time protection extension is now half of the beginner protection, so it scales with the game speed: 72 h on Classic, 6 h on fast servers."]]]},
@@ -24599,6 +24600,26 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .auc-side .ok { color: #2f9e6e; opacity: 1; }
 .auc-bid { display: flex; gap: 4px; }
 .auc-bid input { width: 84px; }
+/* 1.0.385 the free Finish button: a chunky green pill with a bolt and a soft pulse that says "ready" */
+body .x.freefin, body .btn.finbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  color: #fff; font-weight: 800; letter-spacing: 0.2px; text-shadow: 0 1px 0 rgba(0, 60, 20, 0.35);
+  background: linear-gradient(180deg, #6fdc86 0%, #38b055 55%, #2d9a49 100%);
+  border: 2px solid #1d7a37; border-bottom-width: 4px; border-radius: 999px;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 3px 8px rgba(45, 154, 73, 0.4);
+  cursor: pointer; transition: filter 0.15s ease, transform 0.08s ease;
+}
+body .x.freefin { width: auto; height: 38px; padding: 0 14px 0 10px; font-size: 13.5px; animation: finGlow 2.6s ease-in-out infinite; }
+body .btn.finbtn { min-width: 90px; }
+body .x.freefin .gi, body .btn.finbtn .gi { width: 1.15em; height: 1.15em; vertical-align: 0; }
+body .x.freefin:hover, body .btn.finbtn:hover { filter: brightness(1.08) saturate(1.1); }
+body .x.freefin:active, body .btn.finbtn:active { transform: translateY(2px); border-bottom-width: 2px; margin-bottom: 2px; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35); }
+body .x.freefin:focus-visible, body .btn.finbtn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 5px #1d7a37; }
+@keyframes finGlow {
+  0%, 100% { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 3px 8px rgba(45, 154, 73, 0.4), 0 0 0 0 rgba(111, 220, 134, 0.55); }
+  60% { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 3px 8px rgba(45, 154, 73, 0.4), 0 0 0 8px rgba(111, 220, 134, 0); }
+}
+@media (prefers-reduced-motion: reduce) { body .x.freefin { animation: none; } }
 /* 1.0.364 reports: the result icon (coloured sword or shield) sits left of the title */
 .report.rep2 .report-head, .report.rep2:not(.open) .report-head { position: relative; padding-left: 40px; }
 .report.rep2 .report-head .ri { display: block; position: absolute; grid-column: auto; grid-row: auto; left: 8px; top: 7px; width: 26px; font-size: 20px; line-height: 1; text-align: center; }
@@ -28551,7 +28572,7 @@ function crewQueueHtml(d) {
 
 // ⚡ speed up, or (in its last minute on ×10, 5 on ×1) finish for free
 function boostOrFree(q) {
-  return q.freeNow ? '<button class="x freefin" data-free-job="' + q.id + '" title="Finish now, for free">Finish</button>' : '<button class="x boost" data-boost="' + q.id + '" title="Speed up">⚡</button>';
+  return q.freeNow ? '<button class="x freefin" data-free-job="' + q.id + '" title="Finish now, for free"><span class="fin-i">⚡</span>Finish</button>' : '<button class="x boost" data-boost="' + q.id + '" title="Speed up">⚡</button>';
 }
 // 🏘️ a slot lent to another colony of mine
 function lentHtml(d) {
@@ -28663,7 +28684,7 @@ function boostRow(icon, title, text, btn) {
   return '<div class="boostrow"><span class="bi">' + icon + '</span><div><b>' + title + "</b><small>" + text + "</small></div>" + btn + "</div>";
 }
 function boostBtn(how, label, ok) {
-  return '<button class="btn small' + (ok ? "" : " ghost") + '" data-boost-do="' + how + '"' + (ok ? "" : " disabled") + ">" + label + "</button>";
+  return '<button class="btn small' + (ok ? "" : " ghost") + (ok && how === "free" ? " finbtn" : "") + '" data-boost-do="' + how + '"' + (ok ? "" : " disabled") + ">" + (ok && how === "free" ? '<span class="fin-i">⚡</span>' : "") + label + "</button>";
 }
 function boostSheet(d) {
   var q = boostJob(d, sheet.slot);
