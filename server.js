@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.371";
+const GAME_VERSION = "1.0.372";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -539,8 +539,8 @@ const SERVER_LIST = [
   // a round of about one and a half days: x500, Aurora on day 30 (a day is about 1 hour)
   { id: "speed-test", name: "SpeedTest-Server", stage: "Open Beta", url: process.env.SPEED_TEST_URL || "https://speed.marsl-game.com",
     speed: 500, speeds: { production: 500, build: 500, move: 30 }, clock: { landmarks: 7, relic: 17, aurora: 30 }, restartHours: 4 },
-  // the real thing: normal speed (x1), a round of about a year: landmarks on day 35, Relic Hunt on day 250, Aurora on day 340 (a day is 24 hours)
-  { id: "classic", name: "Classic-Server", stage: "Open Beta", url: process.env.CLASSIC_URL || "https://classic.marsl-game.com", speed: 1, clock: { landmarks: 35, relic: 250, aurora: 340 } },
+  // the real thing: normal speed (x1), a round of about a year: landmarks on day 30, Storm Season on day 118, Relic Hunt on day 250, Aurora on day 340 (a day is 24 hours)
+  { id: "classic", name: "Classic-Server", stage: "Open Beta", url: process.env.CLASSIC_URL || "https://classic.marsl-game.com", speed: 1, clock: { landmarks: 30, relic: 250, aurora: 340 } },
 ];
 const THIS_PRESET = SERVER_LIST.find((x) => x.id === THIS_SERVER) || SERVER_LIST[0];
 if (process.env.SERVER_NAME) THIS_PRESET.name = process.env.SERVER_NAME;
@@ -11305,7 +11305,7 @@ app.post("/api/admin/aurora/start", requireOwner, (req, res) => {
 //  (see serverDayMs for how long a day is at each game speed).
 //  Winning Project Aurora wins the server. The owner can move the days.
 // =====================================================================
-const SERVER_CLOCK_DEFAULT = THIS_PRESET.clock || { landmarks: 35, relic: 250, aurora: 340 };
+const SERVER_CLOCK_DEFAULT = THIS_PRESET.clock || { landmarks: 30, relic: 250, aurora: 340 };
 // A day lasts 24 real hours at normal speed (x1), so "day 340" on the Classic
 // server is real day 340. Faster servers get shorter days, but only with the
 // square root of the speed, so a faster round is still a faster round without
@@ -11350,17 +11350,20 @@ function clockDays() {
   for (const k in SERVER_CLOCK_DEFAULT) out[k] = Number(c[k]) > 0 ? Number(c[k]) : SERVER_CLOCK_DEFAULT[k];
   return out;
 }
-// 🎭 the round as five acts. Each one changes one rule.
+// 🎭 the round as six acts. Each one changes one rule.
 const ACTS = [
   { key: "landing", icon: "🛬", name: "Landing", rule: "Beginner protection and the first rich sites." },
   { key: "expansion", icon: "🏗️", name: "Expansion", rule: "Colony specialisations can be chosen." },
   { key: "discovery", icon: "🗿", name: "Discovery", rule: "Landmarks open. Monster camps level up: +25% monsters and bounty." },
-  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "The Relic Hunt runs. ⚡ Ion storms join the weather. Monster camps: +50%." },
-  { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +75%." },
+  { key: "storm", icon: "⚡", name: "Storm Season", rule: "Ion storms join the weather. Monster camps: +50%." },
+  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "The Relic Hunt runs. Monster camps: +75%." },
+  { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +100%." },
 ];
 function actDays() {
   const d = clockDays();
-  return [1, Math.max(2, Math.min(4, Math.round(d.landmarks / 3))), d.landmarks, d.relic, d.aurora];
+  // the Storm Season starts 40% of the way from the landmarks to the Relic Hunt
+  const storm = Math.min(d.relic - 1, Math.max(d.landmarks + 1, Math.round(d.landmarks + (d.relic - d.landmarks) * 0.4)));
+  return [1, Math.max(2, Math.min(4, Math.round(d.landmarks / 3))), d.landmarks, storm, d.relic, d.aurora];
 }
 function actAt(day) {
   const ds = actDays();
@@ -11376,14 +11379,9 @@ function actsView(now) {
   const an = clockAnchor(), dm = serverDayMs();
   return { now: i, list: ACTS.map((a, k) => ({ key: a.key, icon: a.icon, name: a.name, rule: a.rule, day: ds[k], at: Math.round(an.t + (ds[k] - 1 - an.d) * dm) })) };
 }
-// camps level up in steps: +25% when the landmarks open, +40% halfway to the Relic Hunt,
-// +50% with the Relic Hunt and +75% with Aurora
+// camps level up with the acts: +25% Discovery, +50% Storm Season, +75% Relic Hunt, +100% Aurora
 function campActMult() {
-  const a = actNow();
-  if (a >= 4) return 1.75;
-  if (a === 3) return 1.5;
-  if (a === 2) { const d = clockDays(); return clockDayNow() >= d.landmarks + (d.relic - d.landmarks) / 2 ? 1.4 : 1.25; }
-  return 1;
+  return [1, 1, 1.25, 1.5, 1.75, 2][actNow()] || 1;
 }
 
 // what the game (and the guide) shows
@@ -15662,6 +15660,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.372",date:"2026-11-16",title:"Six acts: the Storm Season",groups:[["The round",["A new act, ⚡ Storm Season, fills the long stretch between the landmarks and the Relic Hunt. Ion storms now arrive with it, no longer with the Relic Hunt.","Classic (a year): 🛬 Landing day 1, 🏗️ Expansion day 4, 🗿 Discovery day 30, ⚡ Storm Season day 118, 🏆 Relic Hunt day 250, 🌌 Aurora day 340. The landmarks open on day 30, five days earlier than planned.","Monster camps now level up with every act from Discovery on: +25%, +50%, +75% and +100% monsters and bounty.","On every server the Storm Season starts 40% of the way from the landmarks to the Relic Hunt."]]]},
   {v:"1.0.371",date:"2026-11-16",title:"A day is a day: the Classic round lasts a year",groups:[["Days",["A day now lasts 24 real hours on the Classic server (x1), so day 340 is real day 340. It used to be 76 hours. Faster servers still have shorter days; the wiki clock card shows how long a day is.","Once-per-day things now really come back every 24 hours on Classic: daily supply, home power, war power, overtime, alliance help and the weather forecast.","The daily supply is a third of its old size (40 per resource on day 1) because it comes three times as often. Loyalty regrows about 13 per day, a third of before, so it takes the same real time as before. Late landers, offers, trader life, war notice and adventure spawns keep their old real-time lengths.","Vacation now means real days: 1 to 14 days, a cooldown of 7 days."]],["The year",["Classic: landmarks open on day 35, the Relic Hunt starts on day 250 and Project Aurora on day 340, three months after the Relic Hunt. The round lasts about a year.","Servers with the default clock use the same days; a round at speed s lasts that many days divided by the square root of s. The SpeedTest server keeps its round of about a day and a half (landmarks 7, Relic Hunt 17, Aurora 30).","Monster camps level up in four steps: +25% when the landmarks open, +40% halfway to the Relic Hunt, +50% with the Relic Hunt and +75% with Aurora. Specialisations open on day 4 at the latest."]]]},
   {v:"1.0.370",date:"2026-11-16",title:"Shorter last-visit label",groups:[["Server selection",["The time since your last visit now reads \"<1h ago\", \"5h ago\" and \"3d ago\"."]]]},
   {v:"1.0.369",date:"2026-11-16",title:"Steady icons and farm lists for every colony",groups:[["Fixes",["The drawn icons no longer flash back to plain emojis once a second on the send screen (distance, travel time, arrival). Icons are now drawn in the same frame as any update, everywhere, and the send screen updates in place."],["Farm lists",["Every colony's lists can now be opened and edited from any colony: rename, targets, troop presets, sorting, delete. Before, other colonies only showed a Start button.","The colony you are in comes first and is marked, with the other colonies below it."]]]]},
@@ -24537,7 +24536,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Sol-Vorhersage</b> Staubstürme und Passatwinde, einen Tag im Voraus bekannt.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Wöchentliche Ligen</b> Vier Ligen nach Größe, damit auch kleine Kolonien gewinnen.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Warnungen</b> Dein Handy klingelt, wenn ein Angriff kommt, auch wenn das Spiel geschlossen ist.",
-  "A round in five acts": "Eine Runde in fünf Akten",
+  "A round in six acts": "Eine Runde in sechs Akten",
   "Landing": "Landung",
   "Crash-land under protection and grab the first rich sites.": "Lande unter Schutz und sichere dir die ersten reichen Standorte.",
   "Expansion": "Ausbau",
@@ -24584,7 +24583,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Previsioni del Sol</b> Tempeste di polvere e venti commerciali, previste con un giorno d'anticipo.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Leghe settimanali</b> Quattro leghe per dimensione, così vincono anche le colonie piccole.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Avvisi</b> Il telefono suona quando arriva un attacco, anche con il gioco chiuso.",
-  "A round in five acts": "Un round in cinque atti",
+  "A round in six acts": "Un round in sei atti",
   "Landing": "Atterraggio",
   "Crash-land under protection and grab the first rich sites.": "Atterra sotto protezione e prendi i primi siti ricchi.",
   "Expansion": "Espansione",
@@ -24631,7 +24630,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prévisions du Sol</b> Tempêtes de poussière et vents alizés, connus un jour à l'avance.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Ligues hebdomadaires</b> Quatre ligues selon la taille, pour que les petites colonies gagnent aussi.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Alertes</b> Votre téléphone sonne quand une attaque arrive, même jeu fermé.",
-  "A round in five acts": "Une partie en cinq actes",
+  "A round in six acts": "Une partie en six actes",
   "Landing": "Atterrissage",
   "Crash-land under protection and grab the first rich sites.": "Atterrissez sous protection et saisissez les premiers sites riches.",
   "Expansion": "Expansion",
@@ -24678,7 +24677,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Sol tahmini</b> Toz fırtınaları ve ticaret rüzgârları, bir gün önceden bilinir.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Haftalık ligler</b> Büyüklüğe göre dört lig, böylece küçük koloniler de kazanır.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Uyarılar</b> Bir saldırı geldiğinde, oyun kapalıyken bile telefonun çalar.",
-  "A round in five acts": "Beş perdelik bir tur",
+  "A round in six acts": "Altı perdelik bir tur",
   "Landing": "İniş",
   "Crash-land under protection and grab the first rich sites.": "Koruma altında sert iniş yap ve ilk zengin bölgeleri kap.",
   "Expansion": "Genişleme",
@@ -24725,7 +24724,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Pronóstico del Sol</b> Tormentas de polvo y vientos alisios, que se conocen con un día de antelación.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Ligas semanales</b> Cuatro ligas por tamaño, para que también ganen las colonias pequeñas.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Avisos</b> Tu móvil suena cuando llega un ataque, aunque el juego esté cerrado.",
-  "A round in five acts": "Una partida en cinco actos",
+  "A round in six acts": "Una partida en seis actos",
   "Landing": "Aterrizaje",
   "Crash-land under protection and grab the first rich sites.": "Aterriza bajo protección y toma los primeros sitios ricos.",
   "Expansion": "Expansión",
@@ -24772,7 +24771,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Прогноз Сола</b> Пылевые бури и пассаты — известны за день.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Еженедельные лиги</b> Четыре лиги по размеру, так что побеждают и маленькие колонии.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Оповещения</b> Телефон зазвонит, когда приближается атака, даже если игра закрыта.",
-  "A round in five acts": "Раунд в пяти актах",
+  "A round in six acts": "Раунд в шести актах",
   "Landing": "Посадка",
   "Crash-land under protection and grab the first rich sites.": "Приземлись под защитой и займи первые богатые места.",
   "Expansion": "Расширение",
@@ -24819,7 +24818,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Dự báo Sol</b> Bão bụi và gió mậu dịch, biết trước một ngày.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Giải đấu hằng tuần</b> Bốn giải theo quy mô, để thuộc địa nhỏ cũng chiến thắng.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Cảnh báo</b> Điện thoại reo khi có cuộc tấn công, kể cả khi đã đóng trò chơi.",
-  "A round in five acts": "Một vòng chơi, năm màn",
+  "A round in six acts": "Một vòng chơi, sáu màn",
   "Landing": "Hạ cánh",
   "Crash-land under protection and grab the first rich sites.": "Hạ cánh dưới sự bảo vệ và giành những địa điểm giàu có đầu tiên.",
   "Expansion": "Mở rộng",
@@ -24866,7 +24865,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Previsão do Sol</b> Tempestades de poeira e ventos alísios, conhecidos com um dia de antecedência.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Ligas semanais</b> Quatro ligas por tamanho, para que colônias pequenas também ganhem.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Alertas</b> Seu celular toca quando um ataque está chegando, mesmo com o jogo fechado.",
-  "A round in five acts": "Uma partida em cinco atos",
+  "A round in six acts": "Uma partida em seis atos",
   "Landing": "Pouso",
   "Crash-land under protection and grab the first rich sites.": "Pouse sob proteção e pegue os primeiros locais ricos.",
   "Expansion": "Expansão",
@@ -24913,7 +24912,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prakiraan Sol</b> Badai debu dan angin pasat, diketahui sehari sebelumnya.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Liga mingguan</b> Empat liga berdasarkan ukuran, jadi koloni kecil juga bisa menang.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Peringatan</b> Ponselmu berdering saat serangan datang, bahkan saat game ditutup.",
-  "A round in five acts": "Satu ronde dalam lima babak",
+  "A round in six acts": "Satu ronde dalam enam babak",
   "Landing": "Pendaratan",
   "Crash-land under protection and grab the first rich sites.": "Mendaratlah dengan perlindungan dan rebut lokasi kaya pertama.",
   "Expansion": "Ekspansi",
@@ -24960,7 +24959,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prognoza Sola</b> Burze pyłowe i wiatry pasatowe, znane dzień wcześniej.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Tygodniowe ligi</b> Cztery ligi według wielkości, więc małe kolonie też wygrywają.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Alerty</b> Telefon zadzwoni, gdy nadchodzi atak, nawet przy zamkniętej grze.",
-  "A round in five acts": "Runda w pięciu aktach",
+  "A round in six acts": "Runda w sześciu aktach",
   "Landing": "Lądowanie",
   "Crash-land under protection and grab the first rich sites.": "Rozbij się pod ochroną i zdobądź pierwsze bogate miejsca.",
   "Expansion": "Ekspansja",
@@ -25007,7 +25006,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Předpověď Sola</b> Prachové bouře a pasáty, známé den předem.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Týdenní ligy</b> Čtyři ligy podle velikosti, takže vyhrávají i malé kolonie.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Upozornění</b> Telefon zazvoní, když se blíží útok, i se zavřenou hrou.",
-  "A round in five acts": "Kolo v pěti aktech",
+  "A round in six acts": "Kolo v šesti aktech",
   "Landing": "Přistání",
   "Crash-land under protection and grab the first rich sites.": "Přistaň pod ochranou a zabeř první bohatá místa.",
   "Expansion": "Expanze",
@@ -25054,7 +25053,7 @@ var I18N = {
   "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Predpoveď Sola</b> Prachové búrky a pasáty, známe deň vopred.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Týždenné ligy</b> Štyri ligy podľa veľkosti, takže vyhrávajú aj malé kolónie.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Upozornenia</b> Telefón zazvoní, keď sa blíži útok, aj so zatvorenou hrou.",
-  "A round in five acts": "Kolo v piatich aktoch",
+  "A round in six acts": "Kolo v šiestich aktoch",
   "Landing": "Pristátie",
   "Crash-land under protection and grab the first rich sites.": "Pristaň pod ochranou a obsaď prvé bohaté miesta.",
   "Expansion": "Expanzia",
@@ -25140,7 +25139,7 @@ var GTR = {
 "My profile": ["Mein Profil", "Il mio profilo", "Mon profil", "Profilim", "Mi perfil", "Мой профиль", "Hồ sơ của tôi", "Meu perfil", "Profilku", "Mój profil", "Můj profil", "Môj profil"],
 "Act # of # · Landing": ["Akt # von # · Landung", "Atto # di # · Atterraggio", "Acte # sur # · Atterrissage", "Perde # / # · İniş", "Acto # de # · Aterrizaje", "Акт # из # · Посадка", "Màn # / # · Hạ cánh", "Ato # de # · Pouso", "Babak # dari # · Pendaratan", "Akt # z # · Lądowanie", "Akt # z # · Přistání", "Akt # z # · Pristátie"],
 "Server day #": ["Servertag #", "Giorno # del server", "Jour # du serveur", "Sunucu günü #", "Día # del servidor", "День сервера #", "Ngày máy chủ #", "Dia # do servidor", "Hari server #", "Dzień serwera #", "Den serveru #", "Deň servera #"],
-"About the five acts": ["Über die fünf Akte", "I cinque atti", "À propos des cinq actes", "Beş perde hakkında", "Sobre los cinco actos", "О пяти актах", "Về năm màn chơi", "Sobre os cinco atos", "Tentang lima babak", "O pięciu aktach", "O pěti aktech", "O piatich aktoch"],
+"About the six acts": ["Über die sechs Akte", "I sei atti", "À propos des six actes", "Altı perde hakkında", "Sobre los seis actos", "О шести актах", "Về sáu màn chơi", "Sobre os seis atos", "Tentang enam babak", "O sześciu aktach", "O šesti aktech", "O šiestich aktoch"],
 "Landing: Beginner protection and the first rich sites.": ["Landung: Anfängerschutz und die ersten reichen Orte.", "Atterraggio: protezione iniziale e i primi siti ricchi.", "Atterrissage : protection des débutants et premiers sites riches.", "İniş: Acemi koruması ve ilk zengin bölgeler.", "Aterrizaje: protección de principiante y los primeros sitios ricos.", "Посадка: защита новичка и первые богатые места.", "Hạ cánh: bảo vệ người mới và những địa điểm giàu có đầu tiên.", "Pouso: proteção de iniciante e os primeiros locais ricos.", "Pendaratan: perlindungan pemula dan lokasi kaya pertama.", "Lądowanie: ochrona nowicjusza i pierwsze bogate miejsca.", "Přistání: ochrana nováčka a první bohatá místa.", "Pristátie: ochrana nováčika a prvé bohaté miesta."],
 "Landing": ["Landung", "Atterraggio", "Atterrissage", "İniş", "Aterrizaje", "Посадка", "Hạ cánh", "Pouso", "Pendaratan", "Lądowanie", "Přistání", "Pristátie"],
 "day #": ["Tag #", "giorno #", "jour #", "gün #", "día #", "день #", "ngày #", "dia #", "hari #", "dzień #", "den #", "deň #"],
@@ -25836,7 +25835,7 @@ var GTR = {
 "🛡️ Infantry defense, 🎯 Air defense. Send = the weaker side. 🏅 trophies per monster killed.": ["🛡️ Infanterieverteidigung, 🎯 Luftverteidigung. Senden = die schwächere Seite. 🏅 Trophäen pro getötetem Monster.", "🛡️ Difesa di fanteria, 🎯 Difesa aerea. Invio = il lato più debole. 🏅 trofei per ogni mostro ucciso.", "🛡️ Défense d'infanterie, 🎯 Défense aérienne. Envoi = le camp le plus faible. 🏅 trophées par monstre tué.", "🛡️ Piyade savunması, 🎯 Hava savunması. Gönder = daha zayıf taraf. 🏅 öldürülen canavar başına kupa.", "🛡️ Defensa de infantería, 🎯 Defensa aérea. Enviar = el lado más débil. 🏅 trofeos por monstruo abatido.", "🛡️ Защита пехоты, 🎯 Защита от воздуха. Отправка = слабейшая сторона. 🏅 трофеи за каждого убитого монстра.", "🛡️ Phòng thủ bộ binh, 🎯 Phòng không. Gửi = bên yếu hơn. 🏅 cúp cho mỗi quái bị hạ.", "🛡️ Defesa de infantaria, 🎯 Defesa aérea. Enviar = o lado mais fraco. 🏅 troféus por monstro abatido.", "🛡️ Pertahanan infanteri, 🎯 Pertahanan udara. Kirim = pihak yang lebih lemah. 🏅 trofi per monster yang dibunuh.", "🛡️ Obrona piechoty, 🎯 Obrona powietrzna. Wyślij = słabsza strona. 🏅 trofea za każdego pokonanego potwora.", "🛡️ Obrana pěchoty, 🎯 Protivzdušná obrana. Odeslat = slabší strana. 🏅 trofeje za každou zabitou příšeru.", "🛡️ Obrana pechoty, 🎯 Protivzdušná obrana. Odoslať = slabšia strana. 🏅 trofeje za každú zabitú príšeru."],
 "Only the holder can send more guards there.": ["Nur der Besitzer kann dort weitere Wachen hinschicken.", "Solo chi detiene il controllo può inviarvi altre guardie.", "Seul le détenteur peut y envoyer davantage de gardes.", "Oraya daha fazla nöbetçi yalnızca sahibi gönderebilir.", "Solo quien la posee puede enviar más guardias allí.", "Больше стражи туда может отправить только владелец.", "Chỉ người giữ mới có thể gửi thêm lính canh đến đó.", "Só quem detém pode enviar mais guardas para lá.", "Hanya pemegang yang bisa mengirim penjaga tambahan ke sana.", "Tylko posiadacz może wysłać tam więcej strażników.", "Jen držitel tam může poslat další stráže.", "Iba držiteľ tam môže poslať ďalšie stráže."],
 "Hours of a typical player’s production, per member (at least # count). Any member can give; a full pot raises the level by itself.": ["Stunden der typischen Produktion eines Spielers, pro Mitglied (mindestens # zählen). Jedes Mitglied kann geben; ein voller Topf erhöht die Stufe von selbst.", "Ore della produzione tipica di un giocatore, per membro (almeno # conteggi). Ogni membro può contribuire; un fondo pieno aumenta il livello da solo.", "Heures de production d'un joueur typique, par membre (au moins # comptent). Chaque membre peut donner ; un pot plein fait monter le niveau tout seul.", "Tipik bir oyuncunun üretim saatleri, üye başına (en az # sayılır). Her üye verebilir; dolu bir kap seviyeyi kendiliğinden yükseltir.", "Horas de producción de un jugador típico, por miembro (al menos # cuentan). Cualquier miembro puede aportar; un bote lleno sube el nivel por sí solo.", "Часы производства типичного игрока, на каждого участника (засчитываются от # шт.). Любой участник может внести вклад; полный котёл сам повышает уровень.", "Số giờ sản xuất của một người chơi điển hình, mỗi thành viên (tối thiểu # được tính). Mọi thành viên đều có thể góp; bình đầy sẽ tự nâng cấp.", "Horas de produção de um jogador típico, por membro (pelo menos # contam). Qualquer membro pode contribuir; um pote cheio sobe o nível sozinho.", "Jam produksi pemain biasa, per anggota (minimal # dihitung). Anggota mana pun bisa menyumbang; kas penuh menaikkan level dengan sendirinya.", "Godziny produkcji typowego gracza, na członka (liczy się co najmniej # ). Każdy członek może wpłacić; pełna pula sama podnosi poziom.", "Hodiny produkce typického hráče, na člena (počítá se alespoň # ). Kdokoli může přispět; plný hrnec zvýší úroveň sám.", "Hodiny produkcie typického hráča, na člena (počíta sa aspoň # ). Ktokoľvek môže prispieť; plný hrniec zvýši úroveň sám."],
-"Every round runs in five acts, shown on the timeline at the top of your colony. Each act changes one rule, so there is always something coming.": ["Jede Runde läuft in fünf Akten, die auf der Zeitleiste oben in deiner Kolonie zu sehen sind. Jeder Akt ändert eine Regel, daher kommt immer etwas Neues.", "Ogni round si svolge in cinque atti, mostrati sulla linea del tempo in cima alla tua colonia. Ogni atto cambia una regola, quindi c'è sempre qualcosa in arrivo.", "Chaque manche se déroule en cinq actes, affichés sur la frise en haut de ta colonie. Chaque acte change une règle, il y a donc toujours quelque chose à venir.", "Her tur beş perdede oynanır; bunlar kolonin üstündeki zaman çizelgesinde gösterilir. Her perde bir kuralı değiştirir, bu yüzden her zaman yeni bir şey gelir.", "Cada ronda transcurre en cinco actos, que se muestran en la línea de tiempo en la parte superior de tu colonia. Cada acto cambia una regla, así que siempre hay algo por venir.", "Каждый раунд идёт в пяти актах, которые показаны на временной шкале вверху вашей колонии. Каждый акт меняет одно правило, поэтому что-то новое всегда впереди.", "Mỗi vòng diễn ra qua năm màn, hiển thị trên dòng thời gian ở đầu thuộc địa của bạn. Mỗi màn thay đổi một quy tắc, nên luôn có điều gì đó sắp đến.", "Cada rodada tem cinco atos, mostrados na linha do tempo no topo da sua colônia. Cada ato muda uma regra, então sempre há algo a caminho.", "Setiap ronde berjalan dalam lima babak, ditampilkan di garis waktu di bagian atas koloni kamu. Setiap babak mengubah satu aturan, jadi selalu ada yang akan datang.", "Każda runda trwa pięć aktów, pokazanych na osi czasu na górze twojej kolonii. Każdy akt zmienia jedną zasadę, więc zawsze coś się zbliża.", "Každé kolo má pět dějství, zobrazených na časové ose nahoře v tvé kolonii. Každé dějství změní jedno pravidlo, takže vždy něco přichází.", "Každé kolo má päť dejstiev, zobrazených na časovej osi hore v tvojej kolónii. Každé dejstvo zmení jedno pravidlo, takže vždy niečo prichádza."],
+"Every round runs in six acts, shown on the timeline at the top of your colony. Each act changes one rule, so there is always something coming.": ["Jede Runde läuft in sechs Akten, die auf der Zeitleiste oben in deiner Kolonie zu sehen sind. Jeder Akt ändert eine Regel, daher kommt immer etwas Neues.", "Ogni round si svolge in sei atti, mostrati sulla linea del tempo in cima alla tua colonia. Ogni atto cambia una regola, quindi c'è sempre qualcosa in arrivo.", "Chaque manche se déroule en six actes, affichés sur la frise en haut de ta colonie. Chaque acte change une règle, il y a donc toujours quelque chose à venir.", "Her tur altı perdede oynanır; bunlar kolonin üstündeki zaman çizelgesinde gösterilir. Her perde bir kuralı değiştirir, bu yüzden her zaman yeni bir şey gelir.", "Cada ronda transcurre en seis actos, que se muestran en la línea de tiempo en la parte superior de tu colonia. Cada acto cambia una regla, así que siempre hay algo por venir.", "Каждый раунд идёт в шести актах, которые показаны на временной шкале вверху вашей колонии. Каждый акт меняет одно правило, поэтому что-то новое всегда впереди.", "Mỗi vòng diễn ra qua sáu màn, hiển thị trên dòng thời gian ở đầu thuộc địa của bạn. Mỗi màn thay đổi một quy tắc, nên luôn có điều gì đó sắp đến.", "Cada rodada tem seis atos, mostrados na linha do tempo no topo da sua colônia. Cada ato muda uma regra, então sempre há algo a caminho.", "Setiap ronde berjalan dalam enam babak, ditampilkan di garis waktu di bagian atas koloni kamu. Setiap babak mengubah satu aturan, jadi selalu ada yang akan datang.", "Każda runda trwa pięć aktów, pokazanych na osi czasu na górze twojej kolonii. Każdy akt zmienia jedną zasadę, więc zawsze coś się zbliża.", "Každé kolo má pět dějství, zobrazených na časové ose nahoře v tvé kolonii. Každé dějství změní jedno pravidlo, takže vždy něco přichází.", "Každé kolo má päť dejstiev, zobrazených na časovej osi hore v tvojej kolónii. Každé dejstvo zmení jedno pravidlo, takže vždy niečo prichádza."],
 "The <b>server is won</b> by the first alliance that lights the Aurora.": ["Der <b>Server wird gewonnen</b> von der ersten Allianz, die die Aurora entzündet.", "Il <b>server è vinto</b> dalla prima alleanza che accende l'Aurora.", "Le <b>serveur est remporté</b> par la première alliance qui allume l'Aurore.", "<b>Sunucu</b>, Aurora'yı ilk yakan ittifak tarafından <b>kazanılır</b>.", "El <b>servidor se gana</b> con la primera alianza que encienda la Aurora.", "<b>Сервер выигрывает</b> первый альянс, который зажжёт Аврору.", "<b>Máy chủ được thắng</b> bởi liên minh đầu tiên thắp sáng Cực quang.", "O <b>servidor é vencido</b> pela primeira aliança que acender a Aurora.", "<b>Server dimenangkan</b> oleh aliansi pertama yang menyalakan Aurora.", "<b>Serwer wygrywa</b> pierwszy sojusz, który zapali Zorzę.", "<b>Server vyhrává</b> první aliance, která rozsvítí Auroru.", "<b>Server vyhráva</b> prvá aliancia, ktorá rozsvieti Auróru."],
 "Every tribe has one silly habit that is also a real tactic.": ["Jeder Stamm hat eine alberne Angewohnheit, die zugleich eine echte Taktik ist.", "Ogni tribù ha una stramba abitudine che è anche una vera tattica.", "Chaque tribu a une drôle d'habitude qui est aussi une vraie tactique.", "Her kabilenin, aynı zamanda gerçek bir taktik olan tuhaf bir alışkanlığı vardır.", "Cada tribu tiene una costumbre tonta que también es una táctica real.", "У каждого племени есть глупая привычка, которая при этом настоящая тактика.", "Mỗi bộ tộc có một thói quen ngớ ngẩn nhưng cũng là một chiến thuật thật.", "Cada tribo tem um hábito bobo que também é uma tática de verdade.", "Setiap suku punya kebiasaan konyol yang juga merupakan taktik nyata.", "Każde plemię ma jeden głupi nawyk, który jest też prawdziwą taktyką.", "Každý kmen má jeden hloupý zvyk, který je zároveň skutečná taktika.", "Každý kmeň má jeden hlúpy zvyk, ktorý je zároveň skutočná taktika."],
 "In detail: Charge against Fortify meets +#% defense. Pillage against Ambush meets +#% defense; against Fortify the bunkers hide #% less. Precision against Ambush meets #% less defense; against Evacuate the bombards hit at random. Evacuate always costs #% defense and hides #% more.": ["Im Detail: Ansturm gegen Befestigen trifft auf +#% Verteidigung. Plündern gegen Hinterhalt trifft auf +#% Verteidigung; gegen Befestigen verbergen die Bunker #% weniger. Präzision gegen Hinterhalt trifft auf #% weniger Verteidigung; gegen Evakuieren treffen die Bombardements zufällig. Evakuieren kostet immer #% Verteidigung und verbirgt #% mehr.", "In dettaglio: Carica contro Fortifica incontra +#% di difesa. Saccheggio contro Imboscata incontra +#% di difesa; contro Fortifica i bunker nascondono #% in meno. Precisione contro Imboscata incontra #% di difesa in meno; contro Evacuazione i bombardieri colpiscono a caso. Evacuazione costa sempre #% di difesa e nasconde #% in più.", "En détail : Charge contre Fortifier rencontre +#% de défense. Pillage contre Embuscade rencontre +#% de défense ; contre Fortifier les bunkers cachent #% de moins. Précision contre Embuscade rencontre #% de défense en moins ; contre Évacuer les bombardements frappent au hasard. Évacuer coûte toujours #% de défense et cache #% de plus.", "Ayrıntılı olarak: Hücum, Güçlendirme'ye karşı +#% savunmayla karşılaşır. Yağma, Pusu'ya karşı +#% savunmayla karşılaşır; Güçlendirme'ye karşı sığınaklar #% daha az gizler. Hassasiyet, Pusu'ya karşı #% daha az savunmayla karşılaşır; Tahliye'ye karşı bombardımanlar rastgele vurur. Tahliye her zaman #% savunma maliyeti çıkarır ve #% daha fazla gizler.", "En detalle: Carga contra Fortificar se encuentra con +#% de defensa. Saqueo contra Emboscada se encuentra con +#% de defensa; contra Fortificar los refugios ocultan #% menos. Precisión contra Emboscada se encuentra con #% menos de defensa; contra Evacuar los bombardeos golpean al azar. Evacuar siempre cuesta #% de defensa y oculta #% más.", "Подробнее: Натиск против Укрепления встречает +#% к защите. Грабёж против Засады встречает +#% к защите; против Укрепления бункеры скрывают на #% меньше. Точность против Засады встречает на #% меньше защиты; против Эвакуации бомбардировки бьют наугад. Эвакуация всегда стоит #% защиты и скрывает на #% больше.", "Chi tiết: Xung phong đấu với Củng cố gặp +#% phòng thủ. Cướp bóc đấu với Phục kích gặp +#% phòng thủ; với Củng cố, hầm trú ẩn giấu ít hơn #%. Chính xác đấu với Phục kích gặp ít hơn #% phòng thủ; với Sơ tán, pháo kích đánh ngẫu nhiên. Sơ tán luôn tốn #% phòng thủ và giấu thêm #%.", "Em detalhe: Investida contra Fortificar encontra +#% de defesa. Pilhagem contra Emboscada encontra +#% de defesa; contra Fortificar os bunkers escondem #% a menos. Precisão contra Emboscada encontra #% menos de defesa; contra Evacuar os bombardeios atingem ao acaso. Evacuar sempre custa #% de defesa e esconde #% a mais.", "Secara rinci: Serbu melawan Benteng bertemu +#% pertahanan. Jarah melawan Sergap bertemu +#% pertahanan; melawan Benteng, bunker menyembunyikan #% lebih sedikit. Presisi melawan Sergap bertemu #% pertahanan lebih sedikit; melawan Evakuasi, pengebom menyerang acak. Evakuasi selalu memakan #% pertahanan dan menyembunyikan #% lebih banyak.", "Szczegółowo: Szarża przeciw Umocnieniu trafia na +#% obrony. Grabież przeciw Zasadzce trafia na +#% obrony; przeciw Umocnieniu schrony ukrywają #% mniej. Precyzja przeciw Zasadzce trafia na #% mniej obrony; przeciw Ewakuacji bombardowania uderzają losowo. Ewakuacja zawsze kosztuje #% obrony i ukrywa #% więcej.", "Podrobně: Nájezd proti Opevnění naráží na +#% obrany. Plenění proti Léčce naráží na +#% obrany; proti Opevnění bunkry skrývají #% méně. Přesnost proti Léčce naráží na #% menší obranu; proti Evakuaci bombardéry zasahují náhodně. Evakuace vždy stojí #% obrany a skrývá #% více.", "Podrobne: Nápor proti Opevneniu naráža na +#% obrany. Rabovanie proti Prepadu naráža na +#% obrany; proti Opevneniu bunkre skrývajú #% menej. Presnosť proti Prepadu naráža na #% menej obrany; proti Evakuácii bombardovanie zasahuje náhodne. Evakuácia vždy stojí #% obrany a skrýva #% viac."],
@@ -26123,7 +26122,7 @@ var GTR = {
 "Winning the server": ["Den Server gewinnen", "Vincere il server", "Gagner le serveur", "Sunucuyu kazanmak", "Ganar el servidor", "Победа на сервере", "Thắng máy chủ", "Vencer o servidor", "Memenangkan server", "Wygranie serwera", "Vítězství na serveru", "Víťazstvo na serveri"],
 "Everybody sends resources to the # 🗼 pylons. Keep a few defenders at your colonies near them.": ["Alle schicken Rohstoffe an die # 🗼 Pylonen. Halte ein paar Verteidiger in deinen Kolonien nahe bei ihnen.", "Tutti inviano risorse ai # 🗼 piloni. Tieni qualche difensore nelle tue colonie vicino a loro.", "Tout le monde envoie des ressources aux # 🗼 pylônes. Garde quelques défenseurs dans tes colonies proches.", "Herkes # 🗼 pilona kaynak gönderir. Yakınındaki kolonilerinde birkaç savunucu tut.", "Todos envían recursos a los # 🗼 pilones. Mantén algunos defensores en tus colonias cercanas.", "Все отправляют ресурсы к # 🗼 пилонам. Держите несколько защитников в колониях рядом с ними.", "Mọi người gửi tài nguyên đến # 🗼 trụ. Giữ vài quân phòng thủ ở thuộc địa gần chúng.", "Todos enviam recursos para os # 🗼 pilones. Mantenha alguns defensores nas colônias perto deles.", "Semua mengirim sumber daya ke # 🗼 pylon. Simpan beberapa pembela di koloni dekat mereka.", "Wszyscy wysyłają surowce do # 🗼 pylonów. Trzymaj kilku obrońców w pobliskich koloniach.", "Všichni posílají suroviny k # 🗼 pylonům. Měj několik obránců ve koloniích poblíž nich.", "Všetci posielajú suroviny k # 🗼 pylónom. Maj niekoľko obrancov v kolóniách blízko nich."],
 "Fill the 🚩 with the best defenders you have, and keep reinforcements ready.": ["Fülle die 🚩 mit deinen besten Verteidigern und halte Verstärkung bereit.", "Riempi la 🚩 con i migliori difensori che hai e tieni pronti i rinforzi.", "Remplis le 🚩 avec tes meilleurs défenseurs et garde des renforts prêts.", "🚩'yi en iyi savunucularınla doldur ve takviyeleri hazır tut.", "Llena el 🚩 con tus mejores defensores y mantén refuerzos listos.", "Заполните 🚩 лучшими защитниками и держите подкрепление наготове.", "Lấp đầy 🚩 bằng những quân phòng thủ tốt nhất và giữ quân tiếp viện sẵn sàng.", "Preencha a 🚩 com seus melhores defensores e mantenha reforços prontos.", "Isi 🚩 dengan pembela terbaikmu, dan siapkan bala bantuan.", "Obsadź 🚩 najlepszymi obrońcami i miej posiłki w gotowości.", "Obsaď 🚩 nejlepšími obránci a měj připravené posily.", "Obsaď 🚩 najlepšími obrancami a maj pripravené posily."],
-"The five acts": ["Die fünf Akte", "I cinque atti", "Les cinq actes", "Beş perde", "Los cinco actos", "Пять актов", "Năm màn", "Os cinco atos", "Lima babak", "Pięć aktów", "Pět aktů", "Päť dejstiev"],
+"The six acts": ["Die sechs Akte", "I sei atti", "Les six actes", "Altı perde", "Los seis actos", "Шесть актов", "Sáu màn", "Os seis atos", "Enam babak", "Sześć aktów", "Šest aktů", "Šesť dejstiev"],
 "What changes": ["Was sich ändert", "Cosa cambia", "Ce qui change", "Neler değişir", "Qué cambia", "Что меняется", "Điều gì thay đổi", "O que muda", "Apa yang berubah", "Co się zmienia", "Co se mění", "Čo sa mení"],
 "Medals and titles": ["Medaillen und Titel", "Medaglie e titoli", "Médailles et titres", "Madalyalar ve unvanlar", "Medallas y títulos", "Медали и титулы", "Huy chương và danh hiệu", "Medalhas e títulos", "Medali dan gelar", "Medale i tytuły", "Medaile a tituly", "Medaily a tituly"],
 "Unlocked by": ["Freigeschaltet durch", "Sbloccato da", "Débloqué par", "Şunun ile açılır", "Desbloqueado por", "Открывается через", "Mở khoá bằng", "Desbloqueado por", "Dibuka oleh", "Odblokowane przez", "Odemčeno pomocí", "Odomknuté pomocou"],
@@ -27461,10 +27460,11 @@ function renderLanding() {
   h += "<li><b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.</li>";
   h += '</ul></div><div class="lp-shot">' + lpPhone("board", "The Mission Board") + "</div></section>";
 
-  h += '<section class="lp-band lp-win"><h3>A round in five acts</h3><ol class="lp-road">';
+  h += '<section class="lp-band lp-win"><h3>A round in six acts</h3><ol class="lp-road">';
   h += "<li><span>🛬</span><b>Landing</b><p>Crash-land under protection and grab the first rich sites.</p></li>";
   h += "<li><span>🏗️</span><b>Expansion</b><p>Colonies pick their job. New colonies spread out.</p></li>";
   h += "<li><span>🗿</span><b>Discovery</b><p>Ancient landmarks open, and the monster camps grow up.</p></li>";
+  h += "<li><span>⚡</span><b>Storm Season</b><p>Ion storms roll in and the monster camps grow again.</p></li>";
   h += "<li><span>🏆</span><b>Relic Hunt</b><p>Hold several landmarks at once to win a relic for your team.</p></li>";
   h += "<li><span>🌌</span><b>Aurora</b><p>Alliances charge four pylons and race to light the sky. The first one wins the round.</p></li>";
   h += "</ol></section>";
@@ -28868,9 +28868,9 @@ function todayParts(d) {
   var D = d.daily, P = d.tribePower, parts = [], chips = [];
   // 🎁 the daily supply lives on the mission board
   if (d.late) parts.push('<div class="today-btn late" title="Players who land after day 7 catch up faster"><span class="tb-i">🛬</span><span><b>Late lander boost +' + Math.round(d.late.now * 100) + '%</b><small>production and build speed · fades in ' + shortTime(Math.max(0, d.late.ends - serverNow())) + "</small></span>" + helpBtn("basics:late", "About the late lander boost") + "</div>");
-  if (d.acts) { var Ac = d.acts, Cur = Ac.list[Ac.now], Nx = Ac.list[Ac.now + 1]; parts.push('<div class="today-btn forecast" data-view="ranking" title="' + esc(Cur.rule) + '"><span class="tb-i">' + Cur.icon + "</span><span><b>Act " + (Ac.now + 1) + " of 5 · " + esc(Cur.name) + "</b><small>" + (Nx ? trf("Next: {0} in {1} · {2}", Nx.icon + " " + esc(trStr(Nx.name)), shortTime(Math.max(0, Nx.at - serverNow())), esc(trStr(Nx.rule))) : esc(Cur.rule)) + "</small></span>" + helpBtn("seasons:acts", "About the five acts") + "</div>"); }
+  if (d.acts) { var Ac = d.acts, Cur = Ac.list[Ac.now], Nx = Ac.list[Ac.now + 1]; parts.push('<div class="today-btn forecast" data-view="ranking" title="' + esc(Cur.rule) + '"><span class="tb-i">' + Cur.icon + "</span><span><b>Act " + (Ac.now + 1) + " of " + Ac.list.length + " · " + esc(Cur.name) + "</b><small>" + (Nx ? trf("Next: {0} in {1} · {2}", Nx.icon + " " + esc(trStr(Nx.name)), shortTime(Math.max(0, Nx.at - serverNow())), esc(trStr(Nx.rule))) : esc(Cur.rule)) + "</small></span>" + helpBtn("seasons:acts", "About the six acts") + "</div>"); }
   if (d.late) chips.push("<span>🛬 +" + Math.round(d.late.now * 100) + "%</span>");
-  if (d.acts) chips.push("<span>" + d.acts.list[d.acts.now].icon + " Act " + (d.acts.now + 1) + "/5</span>");
+  if (d.acts) chips.push("<span>" + d.acts.list[d.acts.now].icon + " Act " + (d.acts.now + 1) + "/" + d.acts.list.length + "</span>");
   var Fc = d.forecast;
   if (Fc) chips.push("<span>" + Fc.today.icon + " " + esc(Fc.today.name) + "</span>");
   if (P && !P.used) chips.push("<span>" + P.icon + " " + esc(P.name) + "</span>");
@@ -35002,10 +35002,10 @@ function clockBar(d) {
   if (!A) { if (!nextEvents(d).length) return ""; return '<div class="seasonbar clock"><div class="sb-top"><b>🗓️ Server day ' + d.clock.day + "</b></div>" + '<div class="sb-teams">' + nextChips(d) + "</div></div>"; }
   return '<div class="seasonbar clock">' + actsLine(d) + "</div>";
 }
-// 🎭 the five acts of the round, one line everybody sees
+// 🎭 the acts of the round, one line everybody sees
 function actsLine(d) {
   var A = d.acts, now = serverNow(), cur = A.list[A.now], nx = A.list[A.now + 1];
-  var h = '<div class="sb-top"><b>' + cur.icon + " Act " + (A.now + 1) + " of 5 · " + esc(cur.name) + '</b><small>🗓️ Server day ' + d.clock.day + "</small>" + helpBtn("seasons:acts", "About the five acts") + "</div>";
+  var h = '<div class="sb-top"><b>' + cur.icon + " Act " + (A.now + 1) + " of " + A.list.length + " · " + esc(cur.name) + '</b><small>🗓️ Server day ' + d.clock.day + "</small>" + helpBtn("seasons:acts", "About the six acts") + "</div>";
   h += '<ol class="acts">' + A.list.map(function (a, i) { return '<li class="' + (i < A.now ? "done" : i === A.now ? "on" : "") + '" title="' + esc(a.name + ": " + a.rule) + '"><span>' + a.icon + "</span><small>" + esc(a.name) + "<br>day " + a.day + "</small></li>"; }).join("") + "</ol>";
   h += '<p class="acts-rule">' + esc(trStr(cur.rule)) + (nx ? " <b>" + trf("Next: {0} in {1}", nx.icon + " " + esc(trStr(nx.name)), shortTime(Math.max(0, nx.at - now))) + "</b> · " + esc(trStr(nx.rule)) : "") + "</p>";
   return h;
@@ -35482,7 +35482,7 @@ function wikiChapter(W, tab) {
   } else if (tab === "seasons") {
     var LT = W.extra && W.extra.longterm;
     if (LT) {
-      cards.push(wkCard("acts", "🎭", "The five acts", wkP("Every round runs in five acts, shown on the timeline at the top of your colony. Each act changes one rule, so there is always something coming.") + kt({ head: ["Act", "Starts", "What changes"], left: 3, rows: LT.acts.list.map(function (a, i) { return [a.icon + " " + (i + 1) + " · " + esc(a.name) + (i === LT.acts.now ? " ◀" : ""), "day " + a.day, esc(a.rule)]; }) })));
+      cards.push(wkCard("acts", "🎭", "The six acts", wkP("Every round runs in six acts, shown on the timeline at the top of your colony. Each act changes one rule, so there is always something coming.") + kt({ head: ["Act", "Starts", "What changes"], left: 3, rows: LT.acts.list.map(function (a, i) { return [a.icon + " " + (i + 1) + " · " + esc(a.name) + (i === LT.acts.now ? " ◀" : ""), "day " + a.day, esc(a.rule)]; }) })));
       cards.push(wkCard("leagues", "🏅", "Leagues", wkList([
         "Every week all players are split by points into four leagues of the same size: " + LT.leagues.map(function (l) { return l.icon + " " + l.name; }).join(", ") + " (smallest to biggest).",
         "Each week has one contest, and it rotates: " + LT.contests.map(function (c) { return c.icon + " " + c.name + " (" + c.unit + ")"; }).join(", ") + ".",
