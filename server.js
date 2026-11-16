@@ -338,14 +338,14 @@ const ROUTE_CHECK_SECONDS = 15; // how often the server looks for routes that ar
 // first. Attacking, raiding or spying on another player ends it at once
 // (monster camps are fine). Protected players can't be attacked, so they
 // also can't hide troops behind it forever.
-// At normal speed it lasts 3 days; faster servers shorten it (a player grows
+// At normal speed it lasts 6 days; faster servers shorten it (a player grows
 // faster there), but only with the square root of the speed. The owner can
 // set both numbers by hand on the admin page.
-const PROTECTION_BASE_HOURS = 72;
+const PROTECTION_BASE_HOURS = 144;
 const PROTECTION_BASE_POINTS = 120;
 function protectionAuto() {
   const f = Math.sqrt(Math.max(1, PRODUCTION_SPEED));
-  return { hours: Math.max(6, Math.round(PROTECTION_BASE_HOURS / f)), points: Math.round(PROTECTION_BASE_POINTS * f) };
+  return { hours: Math.max(12, Math.round(PROTECTION_BASE_HOURS / f)), points: Math.round(PROTECTION_BASE_POINTS * f) };
 }
 // Later landers start next to far bigger colonies, so the points that end
 // protection grow with the age of the server, up to twice as many at server day 100.
@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.380";
+const GAME_VERSION = "1.0.381";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6484,7 +6484,7 @@ function graduationView(userId, colony, now) {
   const wall = perkOf(colony.tribe, "wall") * levelOf(s, "wall");
   const def = Math.round(d.g * (1 + wall / 100) * specDef(s));
   const atk = typicalRaidAttack();
-  return { until: p.until, atRisk, hide, def, atk, verdict: def >= atk ? "holds" : def >= atk * 0.6 ? "close" : "falls", gift: GRAD_GIFT };
+  return { until: p.until, atRisk, hide, def, atk, verdict: def >= atk ? "holds" : def >= atk * 0.6 ? "close" : "falls", gift: retentionOf(userId).graduated ? 0 : GRAD_GIFT };
 }
 app.post("/api/graduate", requireLogin, (req, res) => {
   if (req.sitterId) return res.status(403).json({ error: "Use your own account to graduate." });
@@ -16218,6 +16218,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.381",date:"2026-11-16",title:"Longer protection, fewer alt tricks",groups:[["🛡️ Protection",["Beginner protection now lasts twice as long: 6 days on Classic (12 h at least on fast servers).","A second account created on a device that already has another player starts without protection.","The 🎓 graduation reward is paid once per account."]]]},
   {v:"1.0.380",date:"2026-11-16",title:"Extend your protection",groups:[["🛡️ Protection",["You can now extend your beginner protection once by 3 server days (⏳ button in the protection bar). This replaces the automatic extra days for later landers from 1.0.379; the higher points limit for later landers stays."]]]},
   {v:"1.0.379",date:"2026-11-16",title:"Fairer beginner protection",groups:[["🛡️ Protection",["Protection no longer runs out while you are away: if it would end before you come back, it holds (up to 3 server days) and restarts with a short grace when you log in. This works once.","The later you land on a server, the longer protection lasts (up to +3 server days) and the more points it takes to end it (up to twice as many)."]]]},
   {v:"1.0.378",date:"2026-11-16",title:"Every game speed keeps its pace",groups:[["Time",["The Relic Hunt hold time and the gear auction durations now scale with the server's game speed, so a fast server no longer needs a full day of holding or bidding. Everything is shown as real time: minutes below one hour, hours above."]]]},
@@ -19271,7 +19272,10 @@ app.post("/api/hop/enter", (req, res) => {
     .run(o.u, hashPassword(crypto.randomBytes(24).toString("hex"), salt), salt, Date.now(), mail, mail ? normEmail(mail) : null, mail ? 1 : 0, o.u);
   const userId = Number(result.lastInsertRowid);
   createColony(userId, tribe, "New Colony", spot.x, spot.y);
-  db.prepare("UPDATE users SET protected_until = ? WHERE id = ?").run(Date.now() + protectionHours() * 3600000, userId);
+  // an extra account on a device that already has another player starts without beginner protection
+  const dev = deviceOf(req);
+  const alt = dev && db.prepare("SELECT 1 FROM device_links d JOIN users u ON u.id = d.user_id WHERE d.device = ? AND u.id != ? AND u.bot = 0 AND u.multi_ok = 0 LIMIT 1").get(dev, userId);
+  if (!alt) db.prepare("UPDATE users SET protected_until = ? WHERE id = ?").run(Date.now() + protectionHours() * 3600000, userId);
   hopUsed.set(o.n, o.exp);
   createSession(req, res, userId);
   res.json({ ok: true });
@@ -32669,7 +32673,7 @@ function graduationBox(d) {
   h += '<div class="grad-rows"><span><small>Resources at risk</small><b>' + shortNum(g.atRisk) + "</b></span>";
   h += "<span><small>Hidden per resource</small><b>" + shortNum(g.hide) + "</b></span>";
   h += '<span title="Your infantry defense with wall and militia against a typical raid of ' + g.atk + ' attack"><small>Your defense vs a typical raid</small><b>' + V[0] + " " + shortNum(g.def) + " vs " + shortNum(g.atk) + " · " + V[1] + "</b></span></div>";
-  h += '<button class="btn small" data-graduate="1">' + '🎓' + ' Graduate now · +' + shortNum(g.gift) + " each</button></div>";
+  h += '<button class="btn small" data-graduate="1">' + '🎓' + ' Graduate now' + (g.gift ? " · +" + shortNum(g.gift) + " each" : "") + "</button></div>";
   return h;
 }
 
@@ -35834,6 +35838,7 @@ function wikiChapter(W, tab) {
         "✅ / ❌ guess whether everything at home would win, and how much of it you would lose. It assumes average luck: 🧮 Simulate shows the details, 🔍 Spy shows what is really there.",
         "Attacking, raiding or scouting another colony ends your beginner protection.",
         "⏳ Protection waits for you: if it would run out while you are away, it holds for up to " + hrTxt(3 * W.protection.dayHours) + " and restarts with " + hrTxt(6 * W.protection.dayHours / 24) + " when you log in, once.",
+        "🔗 A second account on a device that already has another player starts without protection. 🎓 The graduation reward is paid once per account.",
         "⏳ Tap <b>+</b> in the protection bar to extend it once by " + hrTxt(3 * W.protection.dayHours) + ". 🌱 The later you land on a server, the more points it takes to end it (up to twice as many).",
       ])));
       cards.push(wkCard("training", "🎓", "Combat training", wkP("Four quests right after A Tiny Army teach a fight from start to finish: 🧮 simulate a camp, 🔍 spy on it, ⚔️ beat it, then 🌊 send two waves at once. The 🎯 Targets list shows the step you are on, with its reward ready to claim.")));
