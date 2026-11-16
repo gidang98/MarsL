@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.374";
+const GAME_VERSION = "1.0.375";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1280,6 +1280,7 @@ const MONSTERS = {
   worm: { name: "Sand Worm", icon: "🪱", defG: 95, defA: 22, bounty: { wood: 12, stone: 30, metal: 18, food: 20 } },
   lizard: { name: "Lava Lizard", icon: "🦎", defG: 100, defA: 60, bounty: { wood: 20, stone: 25, metal: 35, food: 20 } },
   golem: { name: "Crystal Golem", icon: "🗿", defG: 190, defA: 170, bounty: { wood: 10, stone: 70, metal: 80, food: 0 } },
+  titan: { name: "Dust Titan", icon: "🌪️", defG: 1200, defA: 1200, bounty: { wood: 0, stone: 0, metal: 0, food: 0 } },
   kraken: { name: "Dust Kraken", icon: "🐙", defG: 2200, defA: 1500, bounty: { wood: 400, stone: 400, metal: 400, food: 400 } },
 };
 
@@ -1687,7 +1688,11 @@ function campTier(x, y) {
 }
 
 // Which kind of camp lives on this mountain (always the same)
+var titanReady = false;
+var titanCache = null;
+var TITAN_KIND = { name: "Dust Titan", icon: "🌪️", units: {}, treasure: { wood: 0, stone: 0, metal: 0, food: 0 } };
 function campKind(x, y) {
+  if (titanAt(x, y)) return TITAN_KIND;
   const kinds = CAMP_TIERS[campTier(x, y)].kinds;
   const at = CAMP_KIND_AT[x + "|" + y];
   if (at !== undefined) return kinds[at];
@@ -3930,6 +3935,11 @@ cleanOrphanCamps();
 // the treasure slowly piles up again - even in a camp without monsters.
 // Untouched (or fully healed) camps are not stored at all.
 function campAt(x, y, now) {
+  const ti = titanAt(x, y);
+  if (ti) {
+    const hp = Math.max(0, ti.hp);
+    return { troops: { titan: Math.floor(hp + 1e-9) }, frac: { titan: Math.max(0, hp - Math.floor(hp + 1e-9)) }, treasure: { wood: 0, stone: 0, metal: 0, food: 0 }, fullAt: null };
+  }
   const fresh = freshCamp(x, y);
   const row = db.prepare("SELECT * FROM camps WHERE x = ? AND y = ?").get(x, y);
   if (!row) return { troops: fresh.troops, frac: {}, treasure: fresh.treasure, fullAt: null };
@@ -3967,6 +3977,12 @@ function campAt(x, y, now) {
 }
 
 function saveCamp(x, y, camp, time) {
+  const ti = titanAt(x, y);
+  if (ti) {
+    db.prepare("UPDATE titan SET hp = ? WHERE id = ?").run((camp.troops.titan || 0) + ((camp.frac && camp.frac.titan) || 0), ti.id);
+    titanCache = null;
+    return;
+  }
   const troops = {};
   for (const k in camp.troops) troops[k] = camp.troops[k] + (camp.frac[k] || 0);
   db.prepare(
@@ -4023,6 +4039,7 @@ function campInfo(x, y, now) {
     income: campIncome(x, y),
     empty: countUnits(camp.troops) === 0,
     fullAt: camp.fullAt,
+    titan: titanView(titanAt(x, y)),
   };
 }
 
@@ -4082,7 +4099,9 @@ function resolveCamp(m) {
     const bounty = heroNote && heroNote.stash ? null : bountyAll;
     haul = loot || bounty ? { wood: 0, stone: 0, metal: 0, food: 0 } : null;
     if (haul) for (const r of RESOURCES) haul[r] = (loot ? loot[r] : 0) + (bounty ? bounty[r] : 0);
+    const titanHere = titanAt(m.target_x, m.target_y);
     saveCamp(m.target_x, m.target_y, camp, T);
+    if (titanHere) titanHit(titanHere, att.userId, campLost.titan || 0);
 
     colonyStat(att, "npc", countUnits(campLost));
     if(f.attackerWins && countUnits(campLost)>0){ communityAdd(att.userId,true,T);colonyStat(att,"campWins",1); }
@@ -4125,6 +4144,8 @@ function resolveCamp(m) {
   }
 
   cache.saveAll();
+  const ti2 = titanAt(m.target_x, m.target_y);
+  if (ti2 && ti2.hp < 1) titanSlain(ti2, T);
   finishArrival(m, survivors, haul);
 }
 
@@ -10508,13 +10529,14 @@ function meteorClaims(userId, now) {
   const r = db.prepare("SELECT n FROM meteor_claims WHERE event_id = ? AND user_id = ?").get(meteorEventId(now), userId);
   return r ? r.n : 0;
 }
+addColumn("meteors", "kind", "TEXT NOT NULL DEFAULT 'res'"); // 'gear' crates (Storm Season and later) hold commander gear
 function meteorAt(x, y, now) {
-  const r = db.prepare("SELECT res, until FROM meteors WHERE x = ? AND y = ? AND until > ?").get(x, y, now);
-  return r ? { res: JSON.parse(r.res), until: r.until } : null;
+  const r = db.prepare("SELECT res, until, kind FROM meteors WHERE x = ? AND y = ? AND until > ?").get(x, y, now);
+  return r ? { res: JSON.parse(r.res), until: r.until, kind: r.kind } : null;
 }
 function meteorsIn(x0, x1, y0, y1, now) {
-  return db.prepare("SELECT x, y, res, until FROM meteors WHERE x BETWEEN ? AND ? AND y BETWEEN ? AND ? AND until > ?").all(x0, x1, y0, y1, now)
-    .map((r) => { const res = JSON.parse(r.res); return { x: r.x, y: r.y, res, total: RESOURCES.reduce((n, k) => n + Math.floor(res[k]), 0), until: r.until }; });
+  return db.prepare("SELECT x, y, res, until, kind FROM meteors WHERE x BETWEEN ? AND ? AND y BETWEEN ? AND ? AND until > ?").all(x0, x1, y0, y1, now)
+    .map((r) => { const res = JSON.parse(r.res); return { x: r.x, y: r.y, res, total: RESOURCES.reduce((n, k) => n + Math.floor(res[k]), 0), until: r.until, gear: r.kind === "gear" }; });
 }
 // a crate is worth about one hour of a typical active player's production
 function meteorSize(now) {
@@ -10532,7 +10554,8 @@ function spawnMeteors(now, until) {
      WHERE users.bot = 0 AND users.banned = 0 AND MAX(users.last_seen, users.created_at) > ?`
   ).all(now - 3 * 86400000);
   if (!homes.length) return 0;
-  const count = Math.max(3, Math.min(15, Math.round(homes.length * 0.8)));
+  const storm = actNow(now) >= 3; // ⚡ from the Storm Season: more crates, and some hold commander gear
+  const count = Math.max(3, Math.min(storm ? 24 : 15, Math.round(homes.length * (storm ? 1.2 : 0.8))));
   const size = meteorSize(now);
   let made = 0;
   for (let i = 0; i < count * 6 && made < count; i++) {
@@ -10544,12 +10567,13 @@ function spawnMeteors(now, until) {
     if (Math.abs(x) > MAP_RADIUS || Math.abs(y) > MAP_RADIUS || Math.hypot(x, y) < 3) continue;
     if (!canSettle(x, y) || landmarkAtXY(x, y) || db.prepare("SELECT 1 FROM meteors WHERE x = ? AND y = ?").get(x, y)) continue;
     // random mix of the four resources, about "size" in total (some crates are bigger)
-    const total = Math.round(size * (0.7 + Math.random() * 0.6));
+    const gear = storm && Math.random() < 0.3;
+    const total = Math.round(size * (0.7 + Math.random() * 0.6) * (gear ? 0.4 : 1));
     const w = RESOURCES.map(() => 0.5 + Math.random());
     const sum = w.reduce((a, b) => a + b, 0);
     const res = {};
     RESOURCES.forEach((k, j) => { res[k] = Math.round((total * w[j]) / sum); });
-    db.prepare("INSERT INTO meteors (x, y, res, until) VALUES (?, ?, ?, ?)").run(x, y, JSON.stringify(res), until);
+    db.prepare("INSERT INTO meteors (x, y, res, until, kind) VALUES (?, ?, ?, ?, ?)").run(x, y, JSON.stringify(res), until, gear ? "gear" : "res");
     made++;
   }
   return made;
@@ -10578,7 +10602,14 @@ function resolveMeteor(m) {
   const met = meteorAt(m.target_x, m.target_y, T);
   let loot = null;
   const tooMany = met && meteorClaims(att.userId, T) >= METEOR_MAX_PER_PLAYER;
-  if (met && !tooMany) {
+  let gearNote = null;
+  let bagFull = false;
+  if (met && !tooMany && met.kind === "gear") {
+    const g = giveHeroGear(att.userId, heroRollTier([0, 50, 38, 12]), T);
+    if (g && g.full) bagFull = true; // the crate stays until the bag has room
+    else if (g) gearNote = g;
+  }
+  if (met && !tooMany && !bagFull) {
     db.prepare("INSERT INTO meteor_claims (event_id, user_id, n) VALUES (?, ?, 1) ON CONFLICT(event_id, user_id) DO UPDATE SET n = n + 1").run(meteorEventId(T), att.userId);
     loot = takeLoot(met.res, carryOf(troops, tribe), 0);
     const left = RESOURCES.reduce((n, k) => n + Math.floor(met.res[k]), 0);
@@ -10587,14 +10618,14 @@ function resolveMeteor(m) {
     addStats(att.userId, { loot: lootTotal(loot) });
   }
   const got = loot ? lootTotal(loot) : 0;
-  addReport(att.userId, T, got ? "☄️" : "💨", got ? "Meteor collected" : tooMany ? "Meteor: limit reached" : "Meteor gone", {
+  addReport(att.userId, T, got ? "☄️" : "💨", got ? "Meteor collected" : bagFull ? "Meteor: bag full" : tooMany ? "Meteor: limit reached" : "Meteor gone", {
     mission: "meteor",
     side: "attacker",
     attacker: Object.assign({}, colonyInfo(att), { units: unitList(troops, tribe, null) }),
     defender: { name: "Meteor crate", x: m.target_x, y: m.target_y },
     loot,
     carry: carryOf(troops, tribe),
-    flavor: got ? "Still warm. Smells like space." : "Only a crater and some footprints. Somebody was faster.",
+    flavor: gearNote ? "Still warm, and something shiny inside: " + gearNote.icon + " " + gearNote.name + " went into your commander's bag." : got ? "Still warm. Smells like space." : bagFull ? "Something shiny is inside, but your commander's bag is full. Make room and come back." : "Only a crater and some footprints. Somebody was faster.",
   });
   finishArrival(m, troops, loot);
 }
@@ -10627,6 +10658,140 @@ function eventTick() {
 setInterval(eventTick, 60000);
 setTimeout(eventTick, 20000);
 
+
+// =====================================================================
+//  🌪️ THE DUST TITAN (from the Storm Season on)
+//  Now and then a Titan takes over one monster camp. It is far too strong
+//  for one army, but every attack wears it down for good: what one army
+//  kills stays dead. Whoever deals the damage shares the loot when it
+//  falls, and the best fighters get commander gear. If nobody finishes
+//  it in time, it sinks back into the dust.
+// =====================================================================
+const TITAN_PER_PLAYER = 5; // titan units per active player (15 to 250 in all)
+const TITAN_DAYS = 0.85; // how long it stays, in server days
+const TITAN_GAP_DAYS = [5.5, 8.5]; // days between two titans
+const TITAN_LOOT_PER_UNIT = 400; // resources per titan unit, shared by the damage share
+const TITAN_MIN_SHARE = 0.02; // below 2% of the damage there is no reward
+db.exec(`
+  CREATE TABLE IF NOT EXISTS titan (
+    id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    x      INTEGER NOT NULL,
+    y      INTEGER NOT NULL,
+    hp     REAL NOT NULL,
+    hp_max REAL NOT NULL,
+    born   INTEGER NOT NULL,
+    until  INTEGER NOT NULL,
+    done   INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS titan_hits (
+    titan_id INTEGER NOT NULL,
+    user_id  INTEGER NOT NULL,
+    dmg      REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (titan_id, user_id)
+  );
+`);
+titanReady = true;
+function titanNow() {
+  const now = Date.now();
+  if (!titanCache || now - titanCache.at > 2000) {
+    const r = db.prepare("SELECT * FROM titan WHERE done = 0 AND until > ? ORDER BY id DESC LIMIT 1").get(now);
+    titanCache = { at: now, row: r || null };
+  }
+  return titanCache.row;
+}
+function titanAt(x, y) {
+  if (!titanReady) return null;
+  const t = titanNow();
+  return t && t.x === x && t.y === y ? t : null;
+}
+function titanView(t) {
+  if (!t) return null;
+  const top = db.prepare("SELECT user_id, dmg FROM titan_hits WHERE titan_id = ? ORDER BY dmg DESC LIMIT 5").all(t.id)
+    .map((r) => ({ name: usernameOf(r.user_id), dmg: Math.round(r.dmg) }));
+  return { hp: Math.ceil(t.hp), hpMax: Math.round(t.hp_max), until: t.until, top };
+}
+function titanHit(t, userId, killed) {
+  if (!killed || BOT_IDS.has(userId)) return;
+  db.prepare("INSERT INTO titan_hits (titan_id, user_id, dmg) VALUES (?, ?, ?) ON CONFLICT (titan_id, user_id) DO UPDATE SET dmg = dmg + excluded.dmg").run(t.id, userId, killed);
+}
+// a gear item straight into the commander's bag (null = no commander, {full:true} = no room)
+function giveHeroGear(userId, tierIdx, now) {
+  const h = heroOf(userId, now);
+  if (!h) return null;
+  if (h.bag.length >= HERO_BAG) return { full: true };
+  const item = heroItem(null, tierIdx);
+  h.bag.push(item);
+  heroSave(userId, h);
+  return item;
+}
+function titanScheduleNext(now) {
+  const gap = (TITAN_GAP_DAYS[0] + Math.random() * (TITAN_GAP_DAYS[1] - TITAN_GAP_DAYS[0])) * serverDayMs();
+  setSetting("titan_next", String(Math.round(now + gap)));
+}
+function titanSlain(t, T) {
+  db.prepare("UPDATE titan SET done = 1, hp = 0 WHERE id = ?").run(t.id);
+  titanCache = null;
+  titanScheduleNext(T);
+  const hits = db.prepare("SELECT user_id, dmg FROM titan_hits WHERE titan_id = ? ORDER BY dmg DESC").all(t.id).filter((r) => !BOT_IDS.has(r.user_id));
+  const total = hits.reduce((n, r) => n + r.dmg, 0) || 1;
+  const pool = Math.round(t.hp_max * TITAN_LOOT_PER_UNIT);
+  addNews("🌪️ The Dust Titan has fallen! " + (hits[0] ? usernameOf(hits[0].user_id) + " dealt the most damage." : ""), T, "event", 24);
+  hits.forEach((r, i) => {
+    const share = r.dmg / total;
+    if (share < TITAN_MIN_SHARE) return;
+    const each = Math.round((pool * share) / 4 / 10) * 10;
+    const gift = R(each, each, each, each);
+    const cols = coloniesOf(r.user_id);
+    const c = cols.find((q) => q.state.main) || cols[0];
+    if (c) { update(c.state, tribeOf(c.tribe), T); refund(c.state, gift); saveColony(c.id, c.state); }
+    const tier = i === 0 ? 3 : i < 3 ? heroRollTier([0, 0, 70, 30]) : heroRollTier([0, 60, 35, 5]);
+    const g = giveHeroGear(r.user_id, tier, T);
+    const gearText = g && g.full ? " Your commander's bag was full, so no gear this time." : g ? " Your commander found " + g.icon + " " + g.name + "." : "";
+    giveBadge(r.user_id, "titan", "🌪️", "Dust Titan Slayer", T);
+    setMilestone(r.user_id, { kind: "titan", icon: "🌪️", title: i === 0 ? "You struck the Titan down hardest!" : "The Dust Titan has fallen!", text: "You dealt " + Math.round(share * 100) + "% of the damage (rank " + (i + 1) + ")." + gearText, gift, xp: 0, x: t.x, y: t.y, at: T });
+  });
+}
+function spawnTitan(now) {
+  const active = db.prepare("SELECT COUNT(*) AS n FROM users WHERE bot = 0 AND banned = 0 AND last_seen > ?").get(now - 3 * 86400000).n;
+  const hpMax = Math.max(15, Math.min(250, active * TITAN_PER_PLAYER));
+  for (let i = 0; i < 600; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const d = 16 + Math.random() * 30;
+    const x = Math.round(Math.cos(ang) * d);
+    const y = Math.round(Math.sin(ang) * d);
+    if (terrainAt(x, y) !== "n" || db.prepare("SELECT 1 FROM colonies WHERE x = ? AND y = ?").get(x, y)) continue;
+    const until = now + Math.max(30 * 60000, Math.round(TITAN_DAYS * serverDayMs()));
+    db.prepare("INSERT INTO titan (x, y, hp, hp_max, born, until) VALUES (?, ?, ?, ?, ?, ?)").run(x, y, hpMax, hpMax, now, until);
+    titanCache = null;
+    addNews("🌪️ A Dust Titan rises at (" + x + "|" + y + ")! One army can't beat it, but every attack counts. Strike together!", now, "event", Math.round((until - now) / 3600000) || 1);
+    return true;
+  }
+  return false;
+}
+function titanTick() {
+  try {
+    const now = Date.now();
+    const t = titanNow();
+    const open = db.prepare("SELECT id FROM titan WHERE done = 0 AND until <= ?").all(now);
+    for (const o of open) {
+      db.prepare("UPDATE titan SET done = 2 WHERE id = ?").run(o.id);
+      titanCache = null;
+      titanScheduleNext(now);
+      addNews("🌪️ The Dust Titan sank back into the dust.", now, "event", 12);
+    }
+    if (t || open.length || !eventsOn() || actNow(now) < 3) return;
+    const next = Number(settingOf("titan_next")) || 0;
+    if (!next) { setSetting("titan_next", String(Math.round(now + 0.5 * serverDayMs()))); return; }
+    if (now < next) return;
+    if (!db.prepare("SELECT 1 FROM users WHERE bot = 0 AND last_seen > ?").get(now - 86400000)) return;
+    if (!spawnTitan(now)) titanScheduleNext(now);
+  } catch (e) {
+    console.error("titan:", e.message);
+  }
+}
+setInterval(titanTick, 60000);
+setTimeout(titanTick, 25000);
+
 app.get("/api/admin/events", requireOwner, (req, res) => {
   const now = Date.now();
   const row = db.prepare("SELECT value FROM settings WHERE key = 'events_next'").get();
@@ -10640,6 +10805,14 @@ app.post("/api/admin/events", requireOwner, (req, res) => {
     if (!EVENT_KINDS[b.start]) return res.status(400).json({ error: "Unknown event" });
     if (currentEvent(now)) return res.status(400).json({ error: "An event is already running" });
     startEvent(b.start, now);
+  }
+  if (b.titan === "spawn") {
+    if (titanNow()) return res.status(400).json({ error: "A Dust Titan is already out there" });
+    if (!spawnTitan(now)) return res.status(400).json({ error: "No free camp found" });
+  }
+  if (b.titan === "stop") {
+    db.prepare("UPDATE titan SET until = ? WHERE done = 0").run(now);
+    titanCache = null;
   }
   if (b.stop) {
     db.prepare("UPDATE events SET ends = ? WHERE ends > ?").run(now, now);
@@ -11482,7 +11655,7 @@ const ACTS = [
   { key: "landing", icon: "🛬", name: "Landing", rule: "Beginner protection and the first rich sites." },
   { key: "expansion", icon: "🏗️", name: "Expansion", rule: "Colony specialisations can be chosen." },
   { key: "discovery", icon: "🗿", name: "Discovery", rule: "Landmarks open. Monster camps level up: +25% monsters and bounty." },
-  { key: "storm", icon: "⚡", name: "Storm Season", rule: "Ion storms join the weather. Monster camps: +50%." },
+  { key: "storm", icon: "⚡", name: "Storm Season", rule: "Ion storms join the weather, meteor crates can hold commander gear and a Dust Titan appears now and then. Monster camps: +50%." },
   { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "Three Relic Hunts: each one stronger, the last reaches the whole alliance. Monster camps: +75%." },
   { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +100%." },
 ];
@@ -15806,6 +15979,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.375",date:"2026-11-16",title:"Storm Season: the Dust Titan and gear meteors",groups:[["Dust Titan",["From the Storm Season on, a Dust Titan takes over one monster camp every few days and stays for most of a day. It is far too strong for one army.","Every attack wears it down for good, so many players can fight it one after the other. Its health and the top fighters show on the camp card.","When it falls, everybody who dealt at least 2% of the damage shares a big resource reward by damage. The top three fighters get commander gear (the best one a Legendary). Everyone gets the Dust Titan Slayer badge.","If nobody finishes it in time, it sinks back into the dust and the camp returns."]],["Meteors",["From the Storm Season on, meteor showers drop more crates and about one in three holds commander gear. Collect it with a raid like any crate. It needs room in the commander's bag, otherwise the crate stays."]]]},
   {v:"1.0.374",date:"2026-11-16",title:"Relics live in the Expedition Base",groups:[["Relics",["A captured relic is now kept in the colony's Expedition Base (the building that sends the expeditions, with your tribe's own name) instead of a building chosen by its bonus.","The relic badge shows on that building and in the Relics page."]]]},
   {v:"1.0.373",date:"2026-11-16",title:"Relics you carry home, and three Relic Hunts",groups:[["Relics",["Landmarks are now collectible relics. Win the fight at the site and your army carries the relic home to your colony.","A captured relic leaves the map. It is kept in the colony's Expedition Base (your tribe's own name for it) and shows there.","To steal a relic, win an attack on the colony that keeps it. The thief needs an Expedition Base in range and no other relic. A relic is not guarded at its site any more, so defend the colony that keeps it.","New 🗿 Relics page in the top bar: where every relic is right now, who keeps it, and the state of the hunt."]],["Three Relic Hunts",["Hunt I (day 250 on Classic): relics help the colony that keeps them.","Hunt II (about day 280): relics are 60% stronger and help every colony of the holder.","Hunt III (about day 310): relics are 120% stronger and help the whole alliance of the holder.","Every hunt starts with all relics back at their sites. Each winner gets a badge. The Aurora still starts on day 340."]]]},
   {v:"1.0.372",date:"2026-11-16",title:"Six acts: the Storm Season",groups:[["The round",["A new act, ⚡ Storm Season, fills the long stretch between the landmarks and the Relic Hunt. Ion storms now arrive with it, no longer with the Relic Hunt.","Classic (a year): 🛬 Landing day 1, 🏗️ Expansion day 4, 🗿 Discovery day 30, ⚡ Storm Season day 118, 🏆 Relic Hunt day 250, 🌌 Aurora day 340. The landmarks open on day 30, five days earlier than planned.","Monster camps now level up with every act from Discovery on: +25%, +50%, +75% and +100% monsters and bounty.","On every server the Storm Season starts 40% of the way from the landmarks to the Relic Hunt."]]]},
@@ -35064,6 +35238,7 @@ function renderTileInfo() {
   } else if (meteor) {
     h += tipHead("☄️", "Meteor crate", "Fell from the sky · " + where(x, y, dist));
     h += tipFacts([
+      meteor.gear ? fact("🎒 commander gear inside", "gold", "Needs room in your commander's bag") : "",
       fact("💎 " + shortNum(meteor.total), "gold", "Inside: " + RES.map(function (k) { return RES_ICON[k] + " " + meteor.res[k]; }).join("  ")),
       fact("⏳ gone at " + clockText(meteor.until).slice(0, 5)),
       fact("🏃 first come, first served", "ok"),
@@ -35071,8 +35246,13 @@ function renderTileInfo() {
     h += tipActions('<button class="btn" data-send="' + x + "," + y + '">' + '💰' + ' Collect it</button>');
     h += '<p class="tip-note">No fighting: send any troops on a raid. They bring home what they can carry.</p>';
   } else if (camp) {
-    h += tipHead(camp.icon, camp.name, "Tier " + camp.tier + " monster camp · " + where(x, y, dist));
+    h += tipHead(camp.icon, camp.name, (camp.titan ? "Boss · hits add up, group attacks needed" : "Tier " + camp.tier + " monster camp") + " · " + where(x, y, dist));
     var facts = [];
+    if (camp.titan) {
+      facts.push(fact("❤️ " + camp.titan.hp + " / " + camp.titan.hpMax, "warn", "Titan units left. Every army kills part of it for good."));
+      facts.push(fact("⏳ leaves " + clockText(camp.titan.until).slice(0, 5), "", "If nobody finishes it by then, it sinks back into the dust."));
+      if (camp.titan.top.length) facts.push(fact("🥇 " + esc(camp.titan.top[0].name) + " " + camp.titan.top[0].dmg, "gold", "Top damage so far: " + camp.titan.top.map(function (q) { return esc(q.name) + " " + q.dmg; }).join(" · ")));
+    }
     if (camp.empty) facts.push(fact("💤 No monsters", "ok"));
     else {
       camp.units.forEach(function (u) {
@@ -35084,8 +35264,9 @@ function renderTileInfo() {
     var tsum = RES.reduce(function (n, k) { return n + camp.treasure[k]; }, 0);
     var isum = RES.reduce(function (n, k) { return n + camp.income[k]; }, 0);
     if(camp.bounty)facts.push(fact('🏅 '+shortNum(RES.reduce(function(n,k){return n+(camp.bounty[k]||0);},0)),'gold','Potential trophies for defeating all current monsters; additional to carried treasure. Requires survivors.'));
-    facts.push(fact("💎 " + shortNum(tsum), tsum ? "gold" : "", "Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + camp.treasure[k]; }).join("  ")));
-    facts.push(fact("📈 +" + shortNum(isum) + "/h", "", "Treasure grows by " + RES.map(function (k) { return RES_ICON[k] + camp.income[k]; }).join(" ") + " per hour. Kills pay a bounty too."));
+    if (!camp.titan) facts.push(fact("💎 " + shortNum(tsum), tsum ? "gold" : "", "Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + camp.treasure[k]; }).join("  ")));
+    if (!camp.titan) facts.push(fact("📈 +" + shortNum(isum) + "/h", "", "Treasure grows by " + RES.map(function (k) { return RES_ICON[k] + camp.income[k]; }).join(" ") + " per hour. Kills pay a bounty too."));
+    if (camp.titan) facts.push(fact("🎁 loot when it falls", "ok", "Everybody who dealt at least 2% of the damage shares the loot by damage. The top fighters get commander gear, the best a legendary."));
     if (camp.fullAt) facts.push(fact("🌱 full " + clockText(camp.fullAt).slice(0, 5), "", "Monsters grow back"));
     h += tipFacts(facts);
     h += tipActions('<button class="btn danger" data-send="' + x + "," + y + '">' + (camp.empty ? "💰 Grab the treasure" : "⚔️ Hunt the monsters") + "</button>", [
