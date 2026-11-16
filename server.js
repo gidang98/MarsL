@@ -349,9 +349,9 @@ function protectionAuto() {
 }
 // Later landers start next to far bigger colonies, so the points that end
 // protection grow with the age of the server, up to twice as many at server day 100.
-// Players can also extend their protection once by PROT_EXTEND_DAYS server days
+// Players can also extend their protection once by half of its length
 // (see /api/extend-protection). Owner-set numbers are left exactly as set.
-const PROT_EXTEND_DAYS = 3, PROT_LATE_POINTS_DAY = 100;
+const PROT_EXTEND_SHARE = 0.5, PROT_LATE_POINTS_DAY = 100; // the extension is half of the base protection, so it follows the game speed
 function serverAgeDays() { try { return Math.max(0, serverClock().day - 1); } catch (e) { return 0; } }
 function protectionHours() {
   const own = Number(settingOf("protection_hours", "0"));
@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.381";
+const GAME_VERSION = "1.0.382";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1998,7 +1998,7 @@ function protectionOf(userId, now) {
     endProtection(userId);
     return { active: false };
   }
-  return { active: true, until, points, pointsNeeded: protectionPoints(), extendMs: row.prot_ext === until ? 0 : PROT_EXTEND_DAYS * serverDayMs() };
+  return { active: true, until, points, pointsNeeded: protectionPoints(), extendMs: row.prot_ext === until ? 0 : Math.round(protectionHours() * PROT_EXTEND_SHARE * 3600000) };
 }
 
 function endProtection(userId) {
@@ -7133,7 +7133,7 @@ app.post("/api/tutorial", requireLogin, (req, res) => {
 });
 
 // Give up beginner protection early (to attack other players)
-// Extend beginner protection once by PROT_EXTEND_DAYS server days
+// Extend beginner protection once, by half of its length
 app.post("/api/extend-protection", requireLogin, (req, res) => {
   if (req.sitterId) return res.status(403).json({ error: "Use your own account to extend protection." });
   const now = Date.now();
@@ -12090,7 +12090,7 @@ app.get("/api/wiki", requireLogin, (req, res) => {
     terraProjects: Object.keys(TERRA_PROJECTS).map((k) => { const p = TERRA_PROJECTS[k]; return { name: p.name, icon: p.icon, hub: p.hub, terra: p.terra, cost: p.cost }; }),
     perkDefault: PERK_DEFAULT,
     market: { perLevel: MERCHANTS_PER_LEVEL, carry: MERCHANT_CARRY, speed: Math.round(MERCHANT_SPEED * MOVE_SPEED), swapBase: Math.round(SWAP_RATE_BASE * 100), swapPer: Math.round(SWAP_RATE_PER_LEVEL * 100) },
-    protection: { hours: protectionHours(), points: protectionPoints(), dayHours: Math.round(serverDayMs() / 360000) / 10 },
+    protection: { hours: protectionHours(), points: protectionPoints(), extendHours: Math.round(protectionHours() * PROT_EXTEND_SHARE * 10) / 10, dayHours: Math.round(serverDayMs() / 360000) / 10 },
     alliance: {
       maxMembers: ALLIANCE_MAX_MEMBERS, maxLevel: ALLY_MAX_LEVEL, growth: ALLY_LEVEL_GROWTH,
       projects: Object.keys(ALLY_PROJECTS).map((k) => { const p = ALLY_PROJECTS[k]; return { key: k, icon: p.icon, name: p.name, levels: levels(ALLY_MAX_LEVEL, (l) => allyProjText(k, l)), hours: levels(ALLY_MAX_LEVEL, (l) => Math.round(p.costHours * Math.pow(ALLY_LEVEL_GROWTH, l - 1) * 10) / 10) }; }),
@@ -16218,6 +16218,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.382",date:"2026-11-16",title:"Protection extension follows game speed",groups:[["🛡️ Protection",["The one-time protection extension is now half of the beginner protection, so it scales with the game speed: 72 h on Classic, 6 h on fast servers."]]]},
   {v:"1.0.381",date:"2026-11-16",title:"Longer protection, fewer alt tricks",groups:[["🛡️ Protection",["Beginner protection now lasts twice as long: 6 days on Classic (12 h at least on fast servers).","A second account created on a device that already has another player starts without protection.","The 🎓 graduation reward is paid once per account."]]]},
   {v:"1.0.380",date:"2026-11-16",title:"Extend your protection",groups:[["🛡️ Protection",["You can now extend your beginner protection once by 3 server days (⏳ button in the protection bar). This replaces the automatic extra days for later landers from 1.0.379; the higher points limit for later landers stays."]]]},
   {v:"1.0.379",date:"2026-11-16",title:"Fairer beginner protection",groups:[["🛡️ Protection",["Protection no longer runs out while you are away: if it would end before you come back, it holds (up to 3 server days) and restarts with a short grace when you log in. This works once.","The later you land on a server, the longer protection lasts (up to +3 server days) and the more points it takes to end it (up to twice as many)."]]]},
@@ -35839,7 +35840,7 @@ function wikiChapter(W, tab) {
         "Attacking, raiding or scouting another colony ends your beginner protection.",
         "⏳ Protection waits for you: if it would run out while you are away, it holds for up to " + hrTxt(3 * W.protection.dayHours) + " and restarts with " + hrTxt(6 * W.protection.dayHours / 24) + " when you log in, once.",
         "🔗 A second account on a device that already has another player starts without protection. 🎓 The graduation reward is paid once per account.",
-        "⏳ Tap <b>+</b> in the protection bar to extend it once by " + hrTxt(3 * W.protection.dayHours) + ". 🌱 The later you land on a server, the more points it takes to end it (up to twice as many).",
+        "⏳ Tap <b>+</b> in the protection bar to extend it once by " + hrTxt(W.protection.extendHours) + ". 🌱 The later you land on a server, the more points it takes to end it (up to twice as many).",
       ])));
       cards.push(wkCard("training", "🎓", "Combat training", wkP("Four quests right after A Tiny Army teach a fight from start to finish: 🧮 simulate a camp, 🔍 spy on it, ⚔️ beat it, then 🌊 send two waves at once. The 🎯 Targets list shows the step you are on, with its reward ready to claim.")));
       cards.push(wkCard("milestones", "🎉", "Milestones", kt({ head: ["Milestone", "Gift (each resource)", "🎖️ Commander"], rows: [["🏳️ Your second colony", "+" + shortNum(Lv.firstColony) + " into the new colony", "+150 xp"], ["🗿 Your first landmark", "+" + shortNum(Lv.firstLandmark) + " into the claiming colony", "+250 xp"]] }) + wkNote("Once per player. They show up on the 📋 Mission Board. Whatever doesn't fit into the storage is lost.")));
