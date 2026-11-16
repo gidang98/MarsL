@@ -2,11 +2,11 @@
 
 ## Read this first
 - Repo: https://github.com/gidang98/MarsL — `main` @ `fc078d9` (1.0.356). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- `main` has **1.0.367** (wall and flak a bit closer, Humans ground-strong and Aliens air-strong, fast defenders for every tribe). Live now: **1.0.367** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`), deployed on owner request.
+- `main` has **1.0.368** (server selection shows joined servers and a Join a new server list). Live now: **1.0.367** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`); 1.0.368 is merged but not deployed until the owner asks.
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.368**. 1.0.340 through 1.0.367 are taken.
+- Next game version is **1.0.369**. 1.0.340 through 1.0.368 are taken.
 
 ## Current release
 - **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.

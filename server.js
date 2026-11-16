@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.367";
+const GAME_VERSION = "1.0.368";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15652,6 +15652,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.368",date:"2026-11-16",title:"A tidier server selection",groups:[["Server selection",["The selection now lists only the servers you have joined, the one you played last first and highlighted, with the hours since your last visit.","A new button, Join a new server, opens the servers you can still join, with the age of each server in days. New players see that list straight away.","The New rounds calendar stays in the header of both views."]]]},
   {v:"1.0.367",date:"2026-11-16",title:"Wall and flak a bit closer",groups:[["Balance",["Shield Trooper is now 86 ground / 42 air (was 96 / 28) and Spore Spitter 50 ground / 104 air (was 36 / 124), so an early air rush or a ground raid no longer wipes a one-sided defense. Humans are still best on the ground and Aliens best in the air, and a wall plus flak mix still holds with far fewer losses than either alone.","Units you already have use the new numbers right away."]]]},
   {v:"1.0.366",date:"2026-11-16",title:"Humans on the ground, Aliens in the air",groups:[["Tribes",["Humans now defend best against ground armies and are weaker in the air: Shield Trooper 96 ground / 28 air, Skyguard 44 / 62. Aliens are the opposite: Goo Blob 76 / 62, Spore Spitter 36 / 124, the best flak in the game."]],["Fast defenders",["Every tribe now has a fast defender to send as reinforcement. The Skyguard moves at speed 14 and the Spore Spitter at 12, next to the Coop Hawk at 20. No new units: both were slow before and cost a little more now.","Units you already have use the new numbers right away."]]]},
   {v:"1.0.365",date:"2026-11-16",title:"Closer ground and air defense",groups:[["Balance",["Walls now hold better against air and flak holds better against ground troops, so the wrong defender is thin instead of useless. Shield Trooper 80 ground / 40 air, Skyguard 44 / 80, Goo Blob 102 / 48, Spore Spitter 50 / 106, Rooster Guard 52 / 36. A mix of wall and flak still beats either alone.","Units you already have use the new numbers right away."]],["Reinforcements",["Bulwark, Intercept, Skyward and the air phase now count reinforcements as well as troops stationed in the colony, so allies can send flak or fast interceptors to help."]]]},
@@ -18569,7 +18570,8 @@ function acctLogin(req, res) {
 function hopInfoHere(name) {
   const players = db.prepare("SELECT COUNT(*) AS n FROM users WHERE bot = 0").get().n;
   const online = db.prepare("SELECT COUNT(*) AS n FROM users WHERE bot = 0 AND last_seen > ?").get(Date.now() - 10 * 60000).n;
-  return { version: GAME_VERSION, players, online, speed: PRODUCTION_SPEED, has: !!db.prepare("SELECT 1 FROM users WHERE hub = ?").get(name) };
+  const mine = db.prepare("SELECT MAX(last_seen) AS t, COUNT(*) AS n FROM users WHERE hub = ?").get(name);
+  return { version: GAME_VERSION, players, online, speed: PRODUCTION_SPEED, has: !!(mine && mine.n), lastSeen: (mine && mine.t) || 0, startedAt: serverStartAt() };
 }
 const hopInfoCache = new Map();
 async function hopInfoOf(s, name) {
@@ -23980,6 +23982,13 @@ body .fl-sort.repfilter { flex-wrap: wrap; overflow: visible; gap: 6px; }
 body .fl-sort.repfilter button { flex: 0 0 auto; min-height: 36px; padding: 4px 12px; }
 body .fl-sort.repsub { margin-top: -4px; }
 body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
+/* 1.0.368 server selection: joined servers, then a join list */
+.srv-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 6px; padding: 11px 10px; font: inherit; font-weight: 800; color: var(--ink); background: transparent; border: 2px dashed var(--line); border-radius: var(--radius-sm); cursor: pointer; }
+.srv-add:hover, .srv-add:focus-visible { border-color: var(--tribe, #ffd23f); background: var(--card); }
+.srv-add .srv-n { font-style: normal; min-width: 20px; padding: 1px 6px; border-radius: 99px; font-size: 12px; text-align: center; color: #fff; background: #2e9d57; }
+.srv-title { margin: 6px 0 2px; font-size: 15px; }
+.srv-none { margin: 8px 0; font-size: 13px; opacity: 0.7; }
+.srvhead .srv-back { font-weight: 800; opacity: 1; }
 /* 1.0.364 reports: the result icon (coloured sword or shield) sits left of the title */
 .report.rep2 .report-head, .report.rep2:not(.open) .report-head { position: relative; padding-left: 40px; }
 .report.rep2 .report-head .ri { display: block; position: absolute; grid-column: auto; grid-row: auto; left: 8px; top: 7px; width: 26px; font-size: 20px; line-height: 1; text-align: center; }
@@ -27646,10 +27655,45 @@ function apost(url, body, after) {
     .catch(function () { toast("No connection"); });
 }
 function loadAcct() {
+  srvJoin = false;
   fetch("/api/acct").then(function (r) { return r.json(); }).then(function (d) { acct = d; renderAuth(); }).catch(function () { acct = { ok: false }; renderAuth(); });
 }
 function hopTo(id) {
-  apost("/api/hop", { server: id }, function (d) { if (d && d.url) location.href = d.url; });
+  apost("/api/hop", { server: id }, function (d) { if (d && d.url) { srvRemember(id); location.href = d.url; } });
+}
+// the server selection: only servers this account joined, plus a "Join a new server" list
+var srvJoin = false;
+function srvMemKey() { return "marsl_srv_" + ((acct && acct.name) || ""); }
+function srvMem() { try { return JSON.parse(localStorage.getItem(srvMemKey()) || "{}") || {}; } catch (e) { return {}; } }
+function srvRemember(id) { try { var m = srvMem(); m.last = id; m.seen = m.seen || {}; m.seen[id] = 1; localStorage.setItem(srvMemKey(), JSON.stringify(m)); } catch (e) {} }
+function srvJoined(s, mem) { var si = acct.info && acct.info[s.id]; if (si) return !!si.has; return !!(mem.seen && mem.seen[s.id]); } // a server that did not answer counts as joined if this browser entered it before
+function srvSeen(s) { var si = acct.info && acct.info[s.id]; return (si && si.lastSeen) || 0; }
+function srvIsTest(s) { return /test/i.test(s.id + " " + s.name); }
+function srvSpeed(s) { var si = (acct.info && acct.info[s.id]) || {}; return si.speed || s.speed || 0; }
+// hours since the last visit, and the age of a server in days
+function srvAgo(t) {
+  var m = (Date.now() - t) / 60000;
+  if (m < 10) return "active now";
+  var h = Math.floor(m / 60);
+  if (h < 1) return trStr("less than 1 h ago");
+  return h < 72 ? h + " h ago" : Math.floor(h / 24) + " d ago";
+}
+function srvAge(t) {
+  var d = Math.floor((Date.now() - t) / 86400000);
+  return d < 1 ? trStr("new today") : d + (d === 1 ? " day old" : " days old");
+}
+function srvCard(s, join, last) {
+  var si = (acct.info && acct.info[s.id]) || {};
+  var ver = si.version || s.version;
+  var spd = si.speed || s.speed;
+  var pl = si.players !== undefined && si.players !== null ? si.players : s.players;
+  var sub = esc(trStr(s.stage)) + (ver ? " · " + esc(ver) : "") + (pl !== null && pl !== undefined ? " · 👥 " + pl : "");
+  if (!join && si.lastSeen) sub += " · " + srvAgo(si.lastSeen);
+  if (join && si.startedAt) sub += " · " + srvAge(si.startedAt);
+  if (srvIsTest(s)) sub += ' · <i class="srv-tag">' + '🧪' + ' new updates first, rules may change</i>';
+  if (!s.open) sub += " · " + trStr("not connected yet");
+  var x = spd ? '<span class="srv-x ' + (spd >= 200 ? "t4" : spd >= 20 ? "t3" : spd >= 3 ? "t2" : "") + '">×' + spd + "<small>" + trStr(spd >= 200 ? "blitz" : spd >= 20 ? "fast" : spd >= 3 ? "quick" : "normal") + "</small></span>" : '<span class="srv-i">' + '🌍' + '</span>';
+  return '<button type="button" class="srv' + (s.open ? "" : " off") + (last ? " on" : "") + '"' + (s.open ? ' data-hop="' + esc(s.id) + '"' : " disabled") + ">" + x + '<span class="srv-t"><b>' + esc(s.name) + "</b><small>" + sub + '</small></span><span class="srv-go">' + (join ? "Join ▶" : "▶") + "</span></button>";
 }
 // the main server after logging in: pick where to play
 function renderServers() {
@@ -27657,19 +27701,25 @@ function renderServers() {
   document.body.classList.remove("in", "side-open");
   var h = '<div class="panel auth"><span class="rocket">🚀</span>';
   h += '<div class="acctbar"><b>' + '👤' + ' ' + esc(acct.name) + '</b><button type="button" class="linkbtn" data-acct-out="1">Log out</button></div>';
-  h += '<div class="srvpick"><div class="srvhead"><small>Choose a server · each has its own world</small><button type="button" class="linkbtn" data-calendar="1">' + '📅' + ' New rounds</button></div>';
-  (config.servers || []).forEach(function (s) {
-    var si = (acct.info && acct.info[s.id]) || {};
-    var ver = si.version || s.version;
-    var spd = si.speed || s.speed;
-    var pl = si.players !== undefined && si.players !== null ? si.players : s.players;
-    var sub = esc(trStr(s.stage)) + (ver ? " · " + esc(ver) : "") + (pl !== null && pl !== undefined ? " · 👥 " + pl : "");
-    if (/test/i.test(s.id + " " + s.name)) sub += ' · <i class="srv-tag">' + '🧪' + ' new updates first, rules may change</i>';
-    if (si.has) sub += " · 🏠 " + trStr("you play here");
-    if (!s.open) sub += " · " + trStr("not connected yet");
-    h += '<button type="button" class="srv' + (s.open ? "" : " off") + '"' + (s.open ? ' data-hop="' + esc(s.id) + '"' : " disabled") + ">" + (spd ? '<span class="srv-x ' + (spd >= 200 ? "t4" : spd >= 20 ? "t3" : spd >= 3 ? "t2" : "") + '">×' + spd + "<small>" + trStr(spd >= 200 ? "blitz" : spd >= 20 ? "fast" : spd >= 3 ? "quick" : "normal") + "</small></span>" : '<span class="srv-i">' + '🌍' + '</span>') + '<span class="srv-t"><b>' + esc(s.name) + "</b><small>" + sub + '</small></span><span class="srv-go">▶</span></button>';
-  });
-  h += "</div>";
+  var mem = srvMem(), all = config.servers || [];
+  var mine = all.filter(function (s) { return srvJoined(s, mem); });
+  mine.sort(function (x, y) { return srvSeen(y) - srvSeen(x); }); // the server you played last comes first
+  var more = all.filter(function (s) { return !srvJoined(s, mem); });
+  more.sort(function (x, y) { return (y.open ? 1 : 0) - (x.open ? 1 : 0) || (srvIsTest(x) ? 1 : 0) - (srvIsTest(y) ? 1 : 0) || (srvSpeed(x) - srvSpeed(y)); });
+  var moreOpen = more.filter(function (s) { return s.open; }).length;
+  var cal = '<button type="button" class="linkbtn" data-calendar="1">' + '📅' + ' New rounds</button>';
+  if (srvJoin || !mine.length) {
+    h += '<div class="srvpick"><div class="srvhead">' + (mine.length ? '<button type="button" class="linkbtn srv-back" data-srv-join="0">← Your servers</button>' : "<small>Pick a server · each has its own world</small>") + cal + "</div>";
+    if (mine.length) h += '<b class="srv-title">Join a new server</b>';
+    more.forEach(function (s) { h += srvCard(s, true, false); });
+    if (!more.length) h += '<p class="srv-none">You are on every server. New ones show up here.</p>';
+    h += "</div>";
+  } else {
+    h += '<div class="srvpick"><div class="srvhead"><small>Your servers</small>' + cal + "</div>";
+    mine.forEach(function (s, i) { h += srvCard(s, false, i === 0 && mine.length > 1 && srvSeen(s) > 0); });
+    if (more.length) h += '<button type="button" class="srv-add" data-srv-join="1"><span>＋</span> Join a new server' + (moreOpen ? '<i class="srv-n">' + moreOpen + "</i>" : "") + "</button>";
+    h += "</div>";
+  }
   h += '<button type="button" class="linkbtn" data-acct-fold="1">' + (acctFold ? "▴" : "▾") + " Password and email</button>";
   if (acctFold) {
     h += '<form id="pwform"><label for="pw0">Current password</label><input id="pw0" type="password" autocomplete="current-password" required>';
@@ -36972,7 +37022,7 @@ document.addEventListener("submit", function (e) {
 
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
-    "[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
+    "[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
     "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
@@ -37226,6 +37276,9 @@ document.addEventListener("click", function (e) {
   } else if (has("data-acct-fold")) {
     acctFold = !acctFold;
     renderAuth();
+  } else if (has("data-srv-join")) {
+    srvJoin = attr("data-srv-join") === "1";
+    renderServers();
   } else if (has("data-hop")) {
     hopTo(attr("data-hop"));
   } else if (has("data-respawn-cancel")) {
