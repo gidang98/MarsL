@@ -477,7 +477,8 @@ const LANDMARK_REGROW_HOURS = 1.5; // a half-beaten guard force is back to full 
 // The first alliance (or lone player) that holds RELIC_HUNT_COUNT landmarks
 // at the same time, without a break for RELIC_HUNT_HOURS real hours, wins.
 const RELIC_HUNT_COUNT = 5;
-const RELIC_HUNT_HOURS = 24;
+const RELIC_HUNT_HOURS = 24; // on Classic; other game speeds scale it (relicHoursDefault)
+function relicHoursDefault() { return scaleHours(RELIC_HUNT_HOURS, 0.25); }
 
 // ---------- Balancing: alliances ----------
 const ALLIANCE_MAX_MEMBERS = 12;
@@ -526,7 +527,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.377";
+const GAME_VERSION = "1.0.378";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -9412,7 +9413,7 @@ function seasonTick() {
   }
   if (enough) {
     se.streak = { key: top.key, name: top.name, since: now };
-    addNews("🗿 " + top.name + " holds " + top.held + " landmarks! " + se.hours + "h until they win the Relic Hunt.", now, "season", 12);
+    addNews("🗿 " + top.name + " holds " + top.held + " landmarks! " + hrTxt(se.hours) + " until they win the Relic Hunt.", now, "season", 12);
     writeSeason(se);
   } else if (se.streak) {
     addNews("💥 " + se.streak.name + " lost its grip on the landmarks. The Relic Hunt is open again!", now, "season", 12);
@@ -9499,7 +9500,7 @@ app.get("/api/admin/landmarks", requireOwner, (req, res) => {
     season: readSeason(),
     clock: serverClock(),
     clockDays: clockDays(),
-    defaults: { count: RELIC_HUNT_COUNT, hours: RELIC_HUNT_HOURS, auroraCharge: AURORA_CHARGE_HOURS, auroraHours: auroraDefaultHours() },
+    defaults: { count: RELIC_HUNT_COUNT, hours: relicHoursDefault(), auroraCharge: AURORA_CHARGE_HOURS, auroraHours: auroraDefaultHours() },
     landmarks: LANDMARKS.map((l) => {
       const r = landmarkRow(l);
       const uid = landmarkHolderUser(r);
@@ -9540,7 +9541,7 @@ function startRelicHunt(b) {
   const old = readSeason();
   if (old && old.active) return "A server goal is already running";
   const count = Math.max(2, Math.min(LANDMARKS.length, parseInt(b.count, 10) || RELIC_HUNT_COUNT));
-  const hours = Math.max(1, Math.min(240, parseInt(b.hours, 10) || RELIC_HUNT_HOURS));
+  const hours = Math.max(0.05, Math.min(240, Number(b.hours) || relicHoursDefault()));
   const now = Date.now();
   const hunt = Math.max(1, Math.min(RELIC_TIERS.length, parseInt(b.hunt, 10) || (old && old.kind === "relic" ? (old.hunt || 1) + 1 : 1)));
   const t = RELIC_TIERS[hunt - 1];
@@ -10809,7 +10810,9 @@ setTimeout(titanTick, 25000);
 addColumn("users", "credits", "INTEGER NOT NULL DEFAULT 0");
 const CREDIT = { icon: "💠", name: "Star Credits" };
 const AUCTION_FEE = 0.05; // of the final price
-const AUCTION_HOURS = [12, 24, 48]; // real hours
+const AUCTION_HOURS = [12, 24, 48]; // real hours on Classic; other game speeds scale them (auctionHours)
+function auctionHours() { return AUCTION_HOURS.map((h) => scaleHours(h, 0.1)); }
+function auctionSnipeMs() { return Math.max(60000, Math.round(AUCTION_SNIPE_MS * dayScale())); }
 const AUCTION_MAX_ACTIVE = 5; // per seller
 const AUCTION_STEP = 0.05; // a new bid is at least 5% higher
 const AUCTION_SNIPE_MS = 10 * 60000; // a bid in the last 10 minutes adds this much time
@@ -10898,7 +10901,7 @@ app.get("/api/auction", requireLogin, (req, res) => {
   ).all(uid, uid, now - 7 * 86400000).filter((a) => a.status === "active" ? a.seller_id === uid || a.bidder_id === uid : true).map((a) => auctionView(a, uid));
   res.json({
     credits: creditsOf(uid), currency: CREDIT, hasHero: !!h, bagFull: !!h && h.bag.length >= HERO_BAG,
-    rules: { fee: Math.round(AUCTION_FEE * 100), hours: AUCTION_HOURS, maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMin: AUCTION_SNIPE_MS / 60000, priceMax: AUCTION_PRICE_MAX },
+    rules: { fee: Math.round(AUCTION_FEE * 100), hours: auctionHours(), maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMs: auctionSnipeMs(), priceMax: AUCTION_PRICE_MAX },
     active, mine,
     items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
   });
@@ -10912,7 +10915,7 @@ app.post("/api/auction/list", requireLogin, (req, res) => {
   const price = Math.floor(Number(b.price));
   const hours = Number(b.hours);
   if (!(price >= 1 && price <= AUCTION_PRICE_MAX)) return res.status(400).json({ error: "Start price: 1 to " + AUCTION_PRICE_MAX + " " + CREDIT.name });
-  if (!AUCTION_HOURS.includes(hours)) return res.status(400).json({ error: "Choose " + AUCTION_HOURS.join(", ") + " hours" });
+  if (!auctionHours().includes(hours)) return res.status(400).json({ error: "Choose " + auctionHours().map(hrTxt).join(", ") });
   if (db.prepare("SELECT COUNT(*) AS n FROM auctions WHERE seller_id = ? AND status = 'active'").get(uid).n >= AUCTION_MAX_ACTIVE) return res.status(400).json({ error: "You can run " + AUCTION_MAX_ACTIVE + " auctions at a time" });
   const i = h.bag.findIndex((x) => x.id === String(b.id || "") && x.kind !== "crate");
   if (i < 0) return res.status(400).json({ error: "That item is not in your bag (equipped gear can't be sold)" });
@@ -10938,7 +10941,8 @@ app.post("/api/auction/bid", requireLogin, (req, res) => {
   if (have < amount) return res.status(400).json({ error: "You have " + creditsOf(uid) + " " + CREDIT.name + " to spend" });
   if (a.bidder_id) addCredits(a.bidder_id, a.bid); // the old leader gets the credits back
   addCredits(uid, -amount);
-  const ends = a.ends_at - now < AUCTION_SNIPE_MS ? now + AUCTION_SNIPE_MS : a.ends_at;
+  const snipe = auctionSnipeMs();
+  const ends = a.ends_at - now < snipe ? now + snipe : a.ends_at;
   db.prepare("UPDATE auctions SET bid = ?, bidder_id = ?, bids = bids + 1, ends_at = ? WHERE id = ?").run(amount, uid, ends, a.id);
   res.json({ ok: true });
 });
@@ -11803,6 +11807,16 @@ function dayDate(day) {
 function serverDayMs() {
   return Math.round(86400000 * Math.sqrt(CLOCK_REF_SPEED / Math.max(1, PRODUCTION_SPEED)));
 }
+// How long a server day is next to 24 real hours (1 on Classic, about 0.04 on Speed).
+// Real-hour rules (relic hold time, auctions) are multiplied by it so every game speed
+// gets the same pacing; players always see the result as real time.
+function dayScale() { return serverDayMs() / 86400000; }
+function scaleHours(h, min) { return Math.max(min || 0.05, Math.round(h * dayScale() * 100) / 100); }
+// 0.5 -> "30 min", 1 -> "1 h", 2.5 -> "2.5 h"
+function hrTxt(h) {
+  if (h < 1) return Math.max(1, Math.round(h * 60)) + " min";
+  return (Math.round(h * 10) / 10) + " h";
+}
 // Until 1.0.370 a day was this much longer. Rules that are not "once per day" keep
 // their old real-time length by measuring in these long days (offers, notices, trader life ...).
 const DAY_K = Math.sqrt(10);
@@ -12047,8 +12061,8 @@ app.get("/api/wiki", requireLogin, (req, res) => {
     },
     events: Object.keys(EVENT_KINDS).map((k) => Object.assign({ key: k }, EVENT_KINDS[k])),
     aurora: { link: AURORA_LINK, charge: AURORA_CHARGE_HOURS, ignite: auroraDefaultHours(), drain: Math.round(AURORA_DRAIN_SHARE * 100), pylons: PYLONS.map((p) => ({ name: p.name, x: p.x, y: p.y })) },
-    relic: { count: RELIC_HUNT_COUNT, hours: RELIC_HUNT_HOURS },
-    auction: { fee: Math.round(AUCTION_FEE * 100), hours: AUCTION_HOURS, maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMin: AUCTION_SNIPE_MS / 60000 },
+    relic: { count: RELIC_HUNT_COUNT, hours: relicHoursDefault() },
+    auction: { fee: Math.round(AUCTION_FEE * 100), hours: auctionHours(), maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMs: auctionSnipeMs() },
     extra: wikiExtra(),
     tables: wikiTables(),
     formulas: {
@@ -12210,7 +12224,7 @@ function goalStates() {
     } else if (se && se.kind === key && se.active) {
       status = "running";
       text = key === "relic"
-        ? "hold " + se.count + " landmarks for " + se.hours + "h" + (se.streak ? " · " + se.streak.name + " is on a streak" : "")
+        ? "hold " + se.count + " landmarks for " + hrTxt(se.hours) + (se.streak ? " · " + se.streak.name + " is on a streak" : "")
         : "countdown " + se.hours + "h" + (se.ignition ? " · " + se.ignition.name + " is igniting" : "");
     } else if (se && se.kind === key && se.winner) {
       status = "won";
@@ -12283,7 +12297,7 @@ function resetGoal(key, now) {
   return GOAL_INFO[key].icon + " " + GOAL_INFO[key].name + " is reset and starts on server day " + days[key] + ".";
 }
 app.get("/api/admin/goals", requireOwner, (req, res) => {
-  res.json({ now: Date.now(), clock: serverClock(), days: clockDays(), dayHours: Math.round((serverDayMs() / 3600000) * 10) / 10, goals: goalStates(), defaults: { count: RELIC_HUNT_COUNT, hours: RELIC_HUNT_HOURS, auroraCharge: AURORA_CHARGE_HOURS, auroraHours: auroraDefaultHours() } });
+  res.json({ now: Date.now(), clock: serverClock(), days: clockDays(), dayHours: Math.round((serverDayMs() / 3600000) * 10) / 10, goals: goalStates(), defaults: { count: RELIC_HUNT_COUNT, hours: relicHoursDefault(), auroraCharge: AURORA_CHARGE_HOURS, auroraHours: auroraDefaultHours() } });
 });
 app.post("/api/admin/goal", requireOwner, (req, res) => {
   const b = req.body || {};
@@ -12756,7 +12770,7 @@ function serverInfo() {
   const aur = se && se.kind === "aurora" ? se : null;
   const rel = se && se.kind === "relic" ? se : null;
   if (aur && (aur.active || aur.winner)) { phase = "Project Aurora"; phaseText = aur.winner ? "Won by " + aur.winner.name + "." : "Alliances charge the pylons and fight for the Landing Zone."; }
-  else if (rel && rel.active) { phase = "Relic Hunt"; phaseText = "Hold " + rel.count + " landmarks for " + rel.hours + " hours to win."; }
+  else if (rel && rel.active) { phase = "Relic Hunt"; phaseText = "Hold " + rel.count + " landmarks for " + hrTxt(rel.hours) + " to win."; }
   else if (open) { phase = "Landmark hunt"; phaseText = "The landmarks are open. Claim them with an outpost."; }
   const aurDay = clockDays().aurora;
   const progress = Math.max(0, Math.min(1, (now - clock.start) / Math.max(1, clock.events.aurora.at - clock.start)));
@@ -16168,6 +16182,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.378",date:"2026-11-16",title:"Every game speed keeps its pace",groups:[["Time",["The Relic Hunt hold time and the gear auction durations now scale with the server's game speed, so a fast server no longer needs a full day of holding or bidding. Everything is shown as real time: minutes below one hour, hours above."]]]},
   {v:"1.0.377",date:"2026-11-16",title:"Gear auction and Star Credits",groups:[["Auction",["New 🏛️ Gear auction (top bar, or the 🏛️ button next to a piece of gear in your commander's bag). Put gear from your bag up for 12, 24 or 48 real hours with a start price.","Players bid with 💠 Star Credits. Each bid is at least 5% higher and is paid up front, so an outbid player gets the credits back at once. A bid in the last 10 minutes adds 10 minutes.","The highest bid wins when time is up. The seller gets the price minus a 5% fee. Gear nobody bids on, or that you take back before the first bid, returns to your bag. If the bag is full, collect it later from My auctions.","You can run 5 auctions at a time. Equipped gear can't be sold."]],["Star Credits",["A new account-wide balance shown in the auction. How to earn Star Credits is still open, so for now the server owner can hand them out."]]]},
   {v:"1.0.376",date:"2026-11-16",title:"Real time instead of server days",groups:[["Time",["Every player-facing text now uses real time: dates and countdowns instead of server days, hours instead of \"per server day\", and the vacation lengths in hours or days.","The clock bar shows when the round started, the acts and events show their real dates, and the wiki's clock table lists dates."]]]},
   {v:"1.0.375",date:"2026-11-16",title:"Storm Season: the Dust Titan and gear meteors",groups:[["Dust Titan",["From the Storm Season on, a Dust Titan takes over one monster camp every few days and stays for most of a day. It is far too strong for one army.","Every attack wears it down for good, so many players can fight it one after the other. Its health and the top fighters show on the camp card.","When it falls, everybody who dealt at least 2% of the damage shares a big resource reward by damage. The top three fighters get commander gear (the best one a Legendary). Everyone gets the Dust Titan Slayer badge.","If nobody finishes it in time, it sinks back into the dust and the camp returns."]],["Meteors",["From the Storm Season on, meteor showers drop more crates and about one in three holds commander gear. Collect it with a raid like any crate. It needs room in the commander's bag, otherwise the crate stays."]]]},
@@ -27408,7 +27423,7 @@ var GTR = {
 "An alliance helps you find teammates and support. Join one or create your own from the Players page. You can choose Later and continue learning.": ["Tritt einer Allianz bei oder gründe eine eigene. Verbündete können sich nicht angreifen und helfen sich beim Wachsen.", "Unisciti a un’alleanza o fondane una. Gli alleati non possono attaccarsi e si aiutano a crescere.", "Rejoins une alliance ou fonde la tienne. Les alliés ne peuvent pas s’attaquer et s’aident à grandir.", "Bir ittifaka katıl ya da kendi ittifakını kur. Müttefikler birbirine saldıramaz ve büyümeye yardım eder.", "Únete a una alianza o funda la tuya. Los aliados no pueden atacarse y se ayudan a crecer.", "Вступи в союз или создай свой. Союзники не могут нападать друг на друга и помогают друг другу расти.", "Hãy tham gia hoặc lập liên minh. Đồng minh không thể tấn công nhau và giúp nhau phát triển.", "Entre em uma aliança ou funde a sua. Aliados não podem se atacar e ajudam uns aos outros a crescer.", "Gabung aliansi atau dirikan sendiri. Sekutu tidak bisa saling menyerang dan saling membantu berkembang.", "Dołącz do sojuszu lub załóż własny. Sojusznicy nie mogą się atakować i pomagają sobie rosnąć.", "Vstup do aliance nebo založ vlastní. Spojenci na sebe nemohou útočit a pomáhají si růst.", "Vstúp do aliancie alebo založ vlastnú. Spojenci na seba nemôžu útočiť a pomáhajú si rásť."],
 "For <b>{0}</b> or until <b>{1} points</b>. After that, anyone can attack you. A wall and a bunker help.": ["Für <b>{0}</b> oder bis <b>{1} Punkte</b>. Danach kann dich jeder angreifen. Eine Mauer und ein Bunker helfen.", "Per <b>{0}</b> o fino a <b>{1} punti</b>. Dopo, chiunque può attaccarti. Un muro e un bunker aiutano.", "Pendant <b>{0}</b> ou jusqu’à <b>{1} points</b>. Ensuite, n’importe qui peut t’attaquer. Un mur et un bunker aident.", "<b>{0}</b> boyunca ya da <b>{1} puana</b> kadar. Sonra herkes sana saldırabilir. Duvar ve sığınak yardımcı olur.", "Durante <b>{0}</b> o hasta <b>{1} puntos</b>. Después, cualquiera puede atacarte. Un muro y un búnker ayudan.", "В течение <b>{0}</b> или пока не наберёшь <b>{1} очков</b>. После этого тебя может атаковать любой. Стена и бункер помогут.", "Trong <b>{0}</b> hoặc đến khi đạt <b>{1} điểm</b>. Sau đó ai cũng có thể tấn công bạn. Tường và hầm trú ẩn sẽ giúp ích.", "Por <b>{0}</b> ou até <b>{1} pontos</b>. Depois disso, qualquer um pode atacar você. Um muro e um bunker ajudam.", "Selama <b>{0}</b> atau sampai <b>{1} poin</b>. Setelah itu, siapa pun bisa menyerangmu. Tembok dan bunker membantu.", "Przez <b>{0}</b> lub do <b>{1} punktów</b>. Potem każdy może cię atakować. Mur i bunkier pomagają.", "Po dobu <b>{0}</b> nebo do <b>{1} bodů</b>. Pak na tebe může útočit kdokoli. Zeď a bunkr pomáhají.", "Po dobu <b>{0}</b> alebo do <b>{1} bodov</b>. Potom na teba môže útočiť ktokoľvek. Múr a bunker pomáhajú."],
 "Your protection is over: anyone can attack you now. A wall and a bunker help.": ["Dein Schutz ist vorbei: Jetzt kann dich jeder angreifen. Eine Mauer und ein Bunker helfen.", "La tua protezione è finita: ora chiunque può attaccarti. Un muro e un bunker aiutano.", "Ta protection est terminée : n’importe qui peut t’attaquer maintenant. Un mur et un bunker aident.", "Korumanın süresi doldu: artık herkes sana saldırabilir. Duvar ve sığınak yardımcı olur.", "Tu protección terminó: ahora cualquiera puede atacarte. Un muro y un búnker ayudan.", "Твоя защита закончилась: теперь тебя может атаковать любой. Стена и бункер помогут.", "Thời gian bảo vệ đã hết: giờ ai cũng có thể tấn công bạn. Tường và hầm trú ẩn sẽ giúp ích.", "Sua proteção acabou: agora qualquer um pode atacar você. Um muro e um bunker ajudam.", "Perlindunganmu sudah berakhir: sekarang siapa pun bisa menyerangmu. Tembok dan bunker membantu.", "Twoja ochrona się skończyła: teraz każdy może cię atakować. Mur i bunkier pomagają.", "Tvá ochrana skončila: teď na tebe může útočit kdokoli. Zeď a bunkr pomáhají.", "Tvoja ochrana skončila: teraz na teba môže útočiť ktokoľvek. Múr a bunker pomáhajú."],
-"The <b>Relic Hunt</b> is on: hold {0} landmarks for {1} h. Later, the first alliance to light <b>🌌 Project Aurora</b> wins the server.": ["Die <b>Reliktjagd</b> läuft: Halte {0} Wahrzeichen für {1} h. Später gewinnt die erste Allianz, die <b>🌌 Projekt Aurora</b> entzündet, den Server.", "La <b>Caccia alle reliquie</b> è in corso: tieni {0} punti di riferimento per {1} h. Poi la prima alleanza ad accendere <b>🌌 Progetto Aurora</b> vince il server.", "La <b>Chasse aux reliques</b> est lancée : tiens {0} repères pendant {1} h. Plus tard, la première alliance à allumer <b>🌌 Projet Aurora</b> remporte le serveur.", "<b>Kalıntı Avı</b> başladı: {0} simge yapıyı {1} sa boyunca elinde tut. Daha sonra <b>🌌 Aurora Projesi</b>'ni ilk yakan ittifak sunucuyu kazanır.", "La <b>Caza de reliquias</b> está en marcha: mantén {0} hitos durante {1} h. Más adelante, la primera alianza en encender el <b>🌌 Proyecto Aurora</b> gana el servidor.", "Идёт <b>Охота за реликвиями</b>: удерживай {0} ориентиров в течение {1} ч. Позже первый союз, зажёгший <b>🌌 Проект «Аврора»</b>, выигрывает сервер.", "<b>Săn di vật</b> đang diễn ra: giữ {0} cột mốc trong {1} giờ. Sau đó liên minh đầu tiên thắp sáng <b>🌌 Dự án Aurora</b> sẽ thắng máy chủ.", "A <b>Caça às relíquias</b> começou: mantenha {0} marcos por {1} h. Depois, a primeira aliança a acender o <b>🌌 Projeto Aurora</b> vence o servidor.", "<b>Perburuan Relik</b> sedang berlangsung: kuasai {0} penanda selama {1} jam. Setelah itu, aliansi pertama yang menyalakan <b>🌌 Proyek Aurora</b> memenangkan server.", "Trwa <b>Polowanie na relikty</b>: utrzymaj {0} punktów orientacyjnych przez {1} h. Później pierwszy sojusz, który zapali <b>🌌 Projekt Aurora</b>, wygrywa serwer.", "Probíhá <b>Hon na relikvie</b>: drž {0} orientačních bodů po dobu {1} h. Později vyhraje server první aliance, která rozsvítí <b>🌌 Projekt Aurora</b>.", "Prebieha <b>Hon na relikvie</b>: drž {0} orientačných bodov po dobu {1} h. Neskôr vyhrá server prvá aliancia, ktorá rozsvieti <b>🌌 Projekt Aurora</b>."],
+"The <b>Relic Hunt</b> is on: hold {0} landmarks for {1}. Later, the first alliance to light <b>🌌 Project Aurora</b> wins the server.": ["Die <b>Reliktjagd</b> läuft: Halte {0} Wahrzeichen für {1} h. Später gewinnt die erste Allianz, die <b>🌌 Projekt Aurora</b> entzündet, den Server.", "La <b>Caccia alle reliquie</b> è in corso: tieni {0} punti di riferimento per {1} h. Poi la prima alleanza ad accendere <b>🌌 Progetto Aurora</b> vince il server.", "La <b>Chasse aux reliques</b> est lancée : tiens {0} repères pendant {1} h. Plus tard, la première alliance à allumer <b>🌌 Projet Aurora</b> remporte le serveur.", "<b>Kalıntı Avı</b> başladı: {0} simge yapıyı {1} sa boyunca elinde tut. Daha sonra <b>🌌 Aurora Projesi</b>'ni ilk yakan ittifak sunucuyu kazanır.", "La <b>Caza de reliquias</b> está en marcha: mantén {0} hitos durante {1} h. Más adelante, la primera alianza en encender el <b>🌌 Proyecto Aurora</b> gana el servidor.", "Идёт <b>Охота за реликвиями</b>: удерживай {0} ориентиров в течение {1} ч. Позже первый союз, зажёгший <b>🌌 Проект «Аврора»</b>, выигрывает сервер.", "<b>Săn di vật</b> đang diễn ra: giữ {0} cột mốc trong {1} giờ. Sau đó liên minh đầu tiên thắp sáng <b>🌌 Dự án Aurora</b> sẽ thắng máy chủ.", "A <b>Caça às relíquias</b> começou: mantenha {0} marcos por {1} h. Depois, a primeira aliança a acender o <b>🌌 Projeto Aurora</b> vence o servidor.", "<b>Perburuan Relik</b> sedang berlangsung: kuasai {0} penanda selama {1} jam. Setelah itu, aliansi pertama yang menyalakan <b>🌌 Proyek Aurora</b> memenangkan server.", "Trwa <b>Polowanie na relikty</b>: utrzymaj {0} punktów orientacyjnych przez {1} h. Później pierwszy sojusz, który zapali <b>🌌 Projekt Aurora</b>, wygrywa serwer.", "Probíhá <b>Hon na relikvie</b>: drž {0} orientačních bodů po dobu {1} h. Později vyhraje server první aliance, která rozsvítí <b>🌌 Projekt Aurora</b>.", "Prebieha <b>Hon na relikvie</b>: drž {0} orientačných bodov po dobu {1} h. Neskôr vyhrá server prvá aliancia, ktorá rozsvieti <b>🌌 Projekt Aurora</b>."],
 "The first <b>alliance</b> to light <b>🌌 Project Aurora</b> wins the server. Until then: grow, grab the 🚩 Landing Zone, climb the ranking.": ["Die erste <b>Allianz</b>, die <b>🌌 Projekt Aurora</b> entzündet, gewinnt den Server. Bis dahin: wachsen, die 🚩 Landezone sichern, im Ranking aufsteigen.", "La prima <b>alleanza</b> ad accendere <b>🌌 Progetto Aurora</b> vince il server. Fino ad allora: cresci, prendi la 🚩 zona di atterraggio, scala la classifica.", "La première <b>alliance</b> à allumer <b>🌌 Projet Aurora</b> remporte le serveur. D’ici là : grandis, prends la 🚩 zone d’atterrissage, grimpe au classement.", "<b>🌌 Aurora Projesi</b>'ni ilk yakan <b>ittifak</b> sunucuyu kazanır. O zamana kadar: büyü, 🚩 İniş Bölgesi'ni ele geçir, sıralamada yüksel.", "La primera <b>alianza</b> en encender el <b>🌌 Proyecto Aurora</b> gana el servidor. Hasta entonces: crece, toma la 🚩 zona de aterrizaje y sube en la clasificación.", "Первый <b>союз</b>, зажёгший <b>🌌 Проект «Аврора»</b>, выигрывает сервер. А пока: расти, занимай 🚩 зону посадки, поднимайся в рейтинге.", "<b>Liên minh</b> đầu tiên thắp sáng <b>🌌 Dự án Aurora</b> sẽ thắng máy chủ. Trước đó: phát triển, chiếm 🚩 Vùng hạ cánh, leo bảng xếp hạng.", "A primeira <b>aliança</b> a acender o <b>🌌 Projeto Aurora</b> vence o servidor. Até lá: cresça, tome a 🚩 zona de pouso e suba no ranking.", "<b>Aliansi</b> pertama yang menyalakan <b>🌌 Proyek Aurora</b> memenangkan server. Sampai saat itu: berkembang, rebut 🚩 Zona Pendaratan, naik peringkat.", "Pierwszy <b>sojusz</b>, który zapali <b>🌌 Projekt Aurora</b>, wygrywa serwer. Do tego czasu: rozwijaj się, zdobądź 🚩 strefę lądowania, pnij się w rankingu.", "První <b>aliance</b>, která rozsvítí <b>🌌 Projekt Aurora</b>, vyhraje server. Do té doby: rozvíjej se, získej 🚩 přistávací zónu, šplhej v žebříčku.", "Prvá <b>aliancia</b>, ktorá rozsvieti <b>🌌 Projekt Aurora</b>, vyhrá server. Dovtedy: rozvíjaj sa, získaj 🚩 pristávaciu zónu, šplhaj v rebríčku."],
 "Your colony earns terra by itself. Enough terra and {0} settlers found a <b>second colony</b>.": ["Deine Kolonie verdient Terra von selbst. Genug Terra, und {0} Siedler gründen eine <b>zweite Kolonie</b>.", "La tua colonia guadagna terra da sola. Con abbastanza terra, {0} coloni fondano una <b>seconda colonia</b>.", "Ta colonie gagne du terra toute seule. Avec assez de terra, {0} colons fondent une <b>deuxième colonie</b>.", "Kolonin kendiliğinden terra kazanır. Yeterli terra olunca {0} yerleşimci <b>ikinci bir koloni</b> kurar.", "Tu colonia gana terra por sí sola. Con suficiente terra, {0} colonos fundan una <b>segunda colonia</b>.", "Твоя колония сама зарабатывает terra. Когда terra хватит, {0} поселенцев основывают <b>вторую колонию</b>.", "Thuộc địa của bạn tự kiếm terra. Đủ terra thì {0} người định cư sẽ lập <b>thuộc địa thứ hai</b>.", "Sua colônia ganha terra sozinha. Com terra suficiente, {0} colonos fundam uma <b>segunda colônia</b>.", "Koloni kamu menghasilkan terra sendiri. Jika terra cukup, {0} pemukim mendirikan <b>koloni kedua</b>.", "Twoja kolonia sama zdobywa terrę. Gdy jej wystarczy, {0} osadników zakłada <b>drugą kolonię</b>.", "Tvá kolonie získává terru sama. Při dostatku terry založí {0} osadníků <b>druhou kolonii</b>.", "Tvoja kolónia získava terru sama. Pri dostatku terry založí {0} osadníkov <b>druhú kolóniu</b>."],
 "🌾 First harvest": ["🌾 Erste Ernte", "🌾 Primo raccolto", "🌾 Première récolte", "🌾 İlk hasat", "🌾 Primera cosecha", "🌾 Первый урожай", "🌾 Vụ thu hoạch đầu tiên", "🌾 Primeira colheita", "🌾 Panen pertama", "🌾 Pierwsze żniwa", "🌾 První sklizeň", "🌾 Prvá úroda"],
@@ -32701,7 +32716,7 @@ function tutWin(d) {
     return "<b>🌌 Project Aurora is on!</b> The first alliance that<ol class='tut-list'><li>⚡ <b>charges all 4 pylons</b> 🗼 (merchants bring resources)</li><li>🔗 <b>links</b> them to the 🚩 Landing Zone with a chain of colonies</li><li>👑 <b>holds the flag for " + se.hours + " h</b></li></ol>wins the server!";
   }
   if (se && se.active) {
-    return "<b>🏆 The Relic Hunt is on!</b> Hold <b>" + se.count + " landmarks</b> 🗿 at the same time for <b>" + se.hours + " h in a row</b> to win the Relic Hunt. The final prize, 🌌 Project Aurora, comes later.";
+    return "<b>🏆 The Relic Hunt is on!</b> Hold <b>" + se.count + " landmarks</b> 🗿 at the same time for <b>" + hrTxt(se.hours) + " in a row</b> to win the Relic Hunt. The final prize, 🌌 Project Aurora, comes later.";
   }
   return "A server is won by the first <b>alliance</b> that lights the <b>🌌 Aurora</b>. The road there:<ul class='tut-list'>" +
     clockLine(d, "landmarks", "Landmarks open", "🗿", "claim them for big bonuses") +
@@ -32747,7 +32762,7 @@ var ONB = {
   scorp: { view: "resources", title: "🦂 Uninvited guests", text: function (d, O) { var S = O.scorp || {}; return S.won ? "<b>They ran!</b> Your first defense report is waiting." : trf("<b>{0} Dust Scorpions</b> want your snacks. They arrive in <b>{1}</b>. Your troops at home will handle them.", S.n || 4, fmt(Math.max(0, (S.at || 0) - serverNow()))); } },
   ally: { view: "ranking", title: "🤝 Lonely colonies die", text: function () { return "An alliance helps you find teammates and support. Join one or create your own from the Players page. You can choose Later and continue learning."; }, spot: function () { return ["[data-ally-create]", ".ptabs"]; }, go: function () { playersTab = "alliance"; switchView("ranking"); loadAlliance(); }, yay: "Stronger together!" },
   protect: { view: "resources", title: "🛡️ You are protected", text: function (d) { var p = d.protection || {}; return p.active && !p.vacation ? trf("For <b>{0}</b> or until <b>{1} points</b>. After that, anyone can attack you. A wall and a bunker help.", shortTime(p.until - serverNow()), p.pointsNeeded) : "Your protection is over: anyone can attack you now. A wall and a bunker help."; }, spot: function () { return [".protect"]; }, btn: "Got it" },
-  goal: { view: "resources", title: "🏆 How Mars is won", text: function (d) { var se = d.world && d.world.season; return se && se.active && se.kind !== "aurora" ? trf("The <b>Relic Hunt</b> is on: hold {0} landmarks for {1} h. Later, the first alliance to light <b>🌌 Project Aurora</b> wins the server.", se.count, se.hours) : "The first <b>alliance</b> to light <b>🌌 Project Aurora</b> wins the server. Until then: grow, grab the 🚩 Landing Zone, climb the ranking."; }, spot: function () { return [".seasonbar"]; }, btn: "Got it" },
+  goal: { view: "resources", title: "🏆 How Mars is won", text: function (d) { var se = d.world && d.world.season; return se && se.active && se.kind !== "aurora" ? trf("The <b>Relic Hunt</b> is on: hold {0} landmarks for {1} h. Later, the first alliance to light <b>🌌 Project Aurora</b> wins the server.", se.count, hrTxt(se.hours)) : "The first <b>alliance</b> to light <b>🌌 Project Aurora</b> wins the server. Until then: grow, grab the 🚩 Landing Zone, climb the ranking."; }, spot: function () { return [".seasonbar"]; }, btn: "Got it" },
   terra: { view: "resources", title: "🌱 Terra", text: function (d) { return trf("Your colony earns terra by itself. Enough terra and {0} settlers found a <b>second colony</b>.", d.colonies.settlersNeeded); }, btn: "Got it" },
 };
 
@@ -35586,7 +35601,7 @@ function seasonBar(d) {
     }
     return clockBar(d);
   }
-  var h = '<div class="seasonbar"><div class="sb-top"><b>🏆 Relic Hunt</b><small>Hold ' + se.count + " landmarks for " + se.hours + "h in a row</small></div>";
+  var h = '<div class="seasonbar"><div class="sb-top"><b>🏆 Relic Hunt</b><small>Hold ' + se.count + " landmarks for " + hrTxt(se.hours) + " in a row</small></div>";
   if (se.streak) {
     var mine = se.streak.key === se.myKey;
     h += '<p class="sb-streak' + (mine ? " mine" : "") + '">⏳ <b>' + esc(se.streak.name) + "</b> wins in <b>" + fmt(Math.max(0, se.streak.winsAt - serverNow())) + "</b>" + (mine ? " · hold on!" : " · take a landmark from them!") + "</p>";
@@ -36053,14 +36068,14 @@ function wikiChapter(W, tab) {
     }
     var CK = W.clock;
     if (CK) {
-      var ckRows = [["landmarks", "🗿", "Landmarks open", "Claim them for big permanent bonuses"], ["relic", "🏆", "Relic Hunt", "Hold " + W.relic.count + " landmarks for " + W.relic.hours + " h: badge"], ["aurora", "🌌", "Project Aurora", "Wins the server"]].map(function (r) {
+      var ckRows = [["landmarks", "🗿", "Landmarks open", "Claim them for big permanent bonuses"], ["relic", "🏆", "Relic Hunt", "Hold " + W.relic.count + " landmarks for " + hrTxt(W.relic.hours) + ": badge"], ["aurora", "🌌", "Project Aurora", "Wins the server"]].map(function (r) {
         var ev = CK.events[r[0]];
         return [r[1] + " " + r[2], dateText(ev.at), ev.at <= Date.now() ? "✅ started" : new Date(ev.at).toLocaleDateString(), r[3]];
       });
       cards.push(wkCard("clock", "🗓️", "Server clock · round started " + dateText(CK.start), kt({ head: ["Event", "Date", "Status", "What"], left: 4, rows: ckRows }) + wkNote("The <b>server is won</b> by the first alliance that lights the Aurora.")));
     }
     cards.push(wkCard("events", "🎉", "Mars events", kt({ head: ["Event", "Effect", "Lasts"], left: 2, rows: W.events.map(function (e) { return [e.icon + " " + e.name, e.text, e.hours + " h"]; }) })));
-    cards.push(wkCard("relic", "🏆", "Relic Hunt", wkP("Three hunts, one after the other. The first team (alliance or lone player) holding <b>" + W.relic.count + " relics</b> at the same time for <b>" + W.relic.hours + " h</b> in a row wins the hunt and a badge. <b>Hunt I</b>: relics help the colony that keeps them. <b>Hunt II</b> (×1.6): they help every colony of the holder. <b>Hunt III</b> (×2.2): they help the whole alliance of the holder. Each hunt starts with every relic back at its site.")));
+    cards.push(wkCard("relic", "🏆", "Relic Hunt", wkP("Three hunts, one after the other. The first team (alliance or lone player) holding <b>" + W.relic.count + " relics</b> at the same time for <b>" + hrTxt(W.relic.hours) + "</b> in a row wins the hunt and a badge. <b>Hunt I</b>: relics help the colony that keeps them. <b>Hunt II</b> (×1.6): they help every colony of the holder. <b>Hunt III</b> (×2.2): they help the whole alliance of the holder. Each hunt starts with every relic back at its site.")));
     var Au = W.aurora;
     cards.push(wkCard("aurora", "🌌", "Project Aurora", kt({
       head: ["Step", "What to do"],
@@ -36086,6 +36101,7 @@ function realSpan(ms) {
   if (hrs < 48) return wkDur(ms);
   return Math.round(hrs / 24 * 10) / 10 + " days";
 }
+function hrTxt(h) { return h < 1 ? Math.max(1, Math.round(h * 60)) + " min" : (Math.round(h * 10) / 10) + " h"; }
 function dayMsNow() { return data && data.clock ? data.clock.dayMs : 86400000; }
 function dayLenText() { return wkDur(dayMsNow()); }
 function dayTs(day) { var c = data && data.clock; return c ? (c.origin || c.start) + (day - 1) * c.dayMs : 0; }
@@ -36169,7 +36185,7 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
-    if (W.auction) cards.push(wkCard("auction", "🏛️", "Gear auction", wkP("Sell commander gear to other players for 💠 Star Credits. Open it with the 🏛️ button at the top. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.join(", ") + " hours of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + W.auction.snipeMin + " minutes adds " + W.auction.snipeMin + " minutes. The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
+    if (W.auction) cards.push(wkCard("auction", "🏛️", "Gear auction", wkP("Sell commander gear to other players for 💠 Star Credits. Open it with the 🏛️ button at the top. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
       left: 1,
@@ -36889,11 +36905,11 @@ function auctionSheet() {
   if (auc.tab === "browse") {
     if (!A.active.length) h += '<p class="empty">No auctions right now. Be the first: sell a piece of gear from your commander’s bag.</p>';
     A.active.forEach(function (a) { h += aucRow(a, A); });
-    h += '<p class="hint left">Bids are paid up front and returned if somebody outbids you. A bid in the last ' + A.rules.snipeMin + " minutes adds " + A.rules.snipeMin + " minutes. Each bid is at least " + A.rules.step + "% higher.</p>";
+    h += '<p class="hint left">Bids are paid up front and returned if somebody outbids you. A bid in the last ' + hrTxt(A.rules.snipeMs / 3600000) + " adds " + hrTxt(A.rules.snipeMs / 3600000) + ". Each bid is at least " + A.rules.step + "% higher.</p>";
   } else if (auc.tab === "sell") {
     if (!A.items.length) h += '<p class="empty">No gear in your bag. Equipped gear can’t be sold: take it off first.</p>';
     A.items.forEach(function (it) {
-      h += '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === 24 ? " selected" : "") + ">" + x + " h</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
+      h += '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
     });
     h += '<p class="hint left">Start price in ' + esc(A.currency.name) + ". Up to " + A.rules.maxActive + " auctions at once. The sale costs a " + A.rules.fee + "% fee. Gear nobody bids on comes back to your bag.</p>";
   } else {
@@ -36920,7 +36936,7 @@ function relicsSheet() {
   h += "</div>";
   var Hn = R.hunt;
   if (Hn && Hn.active) {
-    h += '<p class="stat">🏆 Hold <b>' + Hn.count + " relics</b> for <b>" + Hn.hours + " h</b> in a row to win " + esc(t.name) + ".</p>";
+    h += '<p class="stat">🏆 Hold <b>' + Hn.count + " relics</b> for <b>" + hrTxt(Hn.hours) + "</b> in a row to win " + esc(t.name) + ".</p>";
     if (Hn.streak) h += '<p class="stat gold">🔥 ' + esc(Hn.streak.name) + " wins in " + fmt(Math.max(0, Hn.streak.winsAt - serverNow())) + " unless somebody breaks in.</p>";
     else if (R.standings.length) h += '<p class="stat">' + R.standings.map(function (q) { return esc(q.name) + " " + q.held + "/" + Hn.count; }).join(" · ") + "</p>";
   } else if (Hn && Hn.winner) h += '<p class="stat">🏆 ' + esc(t.name) + " was won by <b>" + esc(Hn.winner.name) + "</b>. The next hunt resets every relic.</p>";
