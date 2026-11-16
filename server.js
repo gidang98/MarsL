@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.390";
+const GAME_VERSION = "1.0.391";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -16360,6 +16360,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.391",date:"2026-11-16",title:"Auction for everyone, tidier server cards",groups:[["Gear auction",["The 🏛️ button at the top is always there now, also without a commander or gear. Everybody can browse the auctions; bidding and selling still need a commander.","The tabs show how many auctions are running and how many of yours need attention, and the empty tabs point you to what to do next."]],["Start screen",["The server cards on the start screen are tidier: the newcomer tag no longer breaks the name, servers are listed from calm to fast, and the bottom Play button steps aside at the end of the page."]]]},
   {v:"1.0.390",date:"2026-11-16",title:"A better start screen",groups:[["Start screen",["Pick a name, choose a tribe, crash-land: the three steps are shown right under the Play button.","The tribes come first now, each with its difficulty and suggested daily time, and a tap on one starts your account with that tribe already chosen. Humans are marked as the best first pick.","How you play is a swipeable row on phones, the six acts of a round are folded away, and the server list tags the calmest server for newcomers.","A Play button stays at the bottom of the screen on phones while you scroll, and the sign-up shows where you are in the three steps."]]]},
   {v:"1.0.389",date:"2026-11-16",title:"Sharing between players",groups:[["Joining",["The tribe choice now shows how hard each tribe is to play (easy, medium, hard) and how much time it suggests per day."]],["Sharing resources",["Resources and 🛡️ support troops only go to your own colonies and to members of your alliance. Others no longer get the 🐪 Resources button or the Support mission.","Every gift, market deal and raid between two players goes into a 7 server day ledger. The net amount you can pass to one player is limited by your production plus half of your recent raid income.","The limit depends on how the two accounts are connected: unrelated players get the most, accounts that used the same network get much less, and sitters or a shared device get the least. Connected accounts can no longer raid each other.","Beginners and small accounts (under 100 points) can not gift; they can still make fair, about 1 to 1 deals on the market.","Exceptions: a colony holding a relic can take unlimited help from allies, and food for troops you keep stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit.","Automatic 🔁 trade routes only go to your own colonies, or to an alliance member's colony that holds a relic (food only). A route stops by itself when that colony no longer holds one.","Tapping 🐪 Resources on a colony now opens the Send tab straight away instead of the tab you used last."]]]},
   {v:"1.0.388",date:"2026-11-16",title:"Troop traffic by kind",groups:[["Troop traffic",["The full list now groups by kind of movement instead of by destination: one row per kind (attacks, raids, support, returning troops and so on) with how many there are, the total troops and the soonest arrival.","Tap a row to unfold every single movement with its own place, troops and timer. Fold all / Unfold all still work, and sorting is unchanged.","Troops stationed abroad stay grouped by place."]]]},
@@ -23766,6 +23767,8 @@ const PAGE = `<!DOCTYPE html>
   .lp-servers { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
   .lp-srv { display: flex; gap: 14px; align-items: center; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius-md); padding: 14px; }
   .lp-srv div { min-width: 0; }
+  .lp-srv.rec { border-width: 3px; border-color: var(--ink); background: #fff7e8; box-shadow: 0 4px 0 var(--ink); }
+  .lp-srv .lp-best { display: table; margin: 4px 0 3px; white-space: nowrap; }
   .lp-srv b { font-size: 17px; }
   .lp-srv p { font-size: 14px; color: #5d4652; }
   .lp-speed { flex-shrink: 0; width: 64px; height: 64px; border-radius: var(--radius-md); display: grid; place-items: center; font-family: "Chakra Petch", "Barlow", sans-serif; font-weight: 700; font-size: 20px; background: var(--green); color: var(--ink); border: 2px solid var(--ink); }
@@ -23791,7 +23794,6 @@ const PAGE = `<!DOCTYPE html>
     .lp-sticky { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgba(255,241,224,.95) 40%); transform: translateY(110%); transition: transform .25s; pointer-events: none; }
     .lp-sticky.on { transform: none; }
     .lp-sticky .btn { pointer-events: auto; width: 100%; min-height: 52px; font-size: 19px; border: 2px solid var(--ink); box-shadow: 0 4px 0 var(--ink); }
-    .lp-final .btn { display: none; }
     .lp-shot { height: 240px; }
     .lp-shot .lp-phone { width: 210px; margin-left: -105px; top: -78px; }
     .lp-band, .lp-steps, .lp-final { padding: 20px 16px; border-radius: var(--radius-lg); }
@@ -28302,9 +28304,9 @@ function renderLanding() {
   var minSpeed = Math.min.apply(null, srv.map(function (x) { return x.speed; }));
   if (srv.length) {
     h += '<section class="lp-band"><h3>Pick your pace</h3><div class="lp-servers">';
-    srv.forEach(function (s) {
+    srv.slice().sort(function (a, b) { return a.speed - b.speed; }).forEach(function (s) {
       var fast = s.speed >= 50;
-      h += '<article class="lp-srv"><span class="lp-speed' + (fast ? " fast" : "") + '">×' + s.speed + "</span><div><b>" + esc(s.name) + (s.speed === minSpeed ? ' <em class="lp-best">Best for newcomers</em>' : "") + "</b><p>" + (s.speed >= 50 ? "Blitz speed: a whole round in a day or two." : s.speed >= 5 ? "Faster than Classic: everything runs " + s.speed + " times quicker, so a few visits a day keep you in the race." : "Normal speed: a long round you can play a few minutes a day.") + "</p></div></article>";
+      h += '<article class="lp-srv' + (s.speed === minSpeed ? " rec" : "") + '"><span class="lp-speed' + (fast ? " fast" : "") + '">×' + s.speed + "</span><div><b>" + esc(s.name) + "</b>" + (s.speed === minSpeed ? '<em class="lp-best">Best for newcomers</em>' : "") + "<p>" + (s.speed >= 50 ? "Blitz speed: a whole round in a day or two." : s.speed >= 5 ? "Faster than Classic: everything runs " + s.speed + " times quicker, so a few visits a day keep you in the race." : "Normal speed: a long round you can play a few minutes a day.") + "</p></div></article>";
     });
     h += "</div></section>";
   }
@@ -28322,7 +28324,8 @@ function lpStickyWatch() {
   lpStickyOn = true;
   window.addEventListener("scroll", function () {
     var el = document.getElementById("lpsticky");
-    if (el) el.classList.toggle("on", window.scrollY > 520);
+    var end = window.scrollY + window.innerHeight > document.documentElement.scrollHeight - 300; // the last section has its own button
+    if (el) el.classList.toggle("on", window.scrollY > 520 && !end);
   }, { passive: true });
 }
 function renderAuth() {
@@ -28691,7 +28694,7 @@ function renderTop(d) {
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
   if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
-  if (d.hero) h += '<button class="btn small ghost" data-auction="1" title="Gear auction · ' + esc(String(d.credits || 0)) + ' Star Credits">' + "🏛️" + '</button>';
+  h += '<button class="btn small ghost" data-auction="1" title="Gear auction · ' + esc(String(d.credits || 0)) + ' Star Credits">' + "🏛️" + '</button>';
   h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + "📖" + '</button><button class="btn small ghost" data-account="1" title="Settings">' + "⚙️" + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + "🚪" + '</button></div></div>';
   var tabs = [["resources", "🌾", "Fields", "fields"], ["buildings", "🏗️", "Colony", "colony"], ["troops", "⚔️", "Army", "army"], ["map", "🗺️", "Map", "map"], ["ranking", "🏆", "Players", "players"], ["reports", "📬", "Inbox", "inbox"]];
   h += '<div class="nav">';
@@ -36525,7 +36528,7 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
-    if (W.auction) cards.push(wkCard("auction", "🏛️", "Gear auction", wkP("Sell commander gear to other players for 🎫 Star Credits. Open it with the 🏛️ button at the top. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
+    if (W.auction) cards.push(wkCard("auction", "🏛️", "Gear auction", wkP("Sell commander gear to other players for 🎫 Star Credits. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
       left: 1,
@@ -37225,7 +37228,7 @@ function aucRow(a, A) {
   if (a.mine) h += a.bids ? '<small class="ok">Your item, bids are in</small>' : '<button class="btn small ghost" data-auc-cancel="' + a.id + '">Take it back</button>';
   else {
     if (a.leading) h += '<small class="ok">You lead</small>';
-    h += '<div class="auc-bid"><input type="number" min="' + a.minBid + '" value="' + a.minBid + '" id="auc-b-' + a.id + '" aria-label="Your bid"><button class="btn small" data-auc-bid="' + a.id + '">Bid</button></div>';
+    h += '<div class="auc-bid"><input type="number" min="' + a.minBid + '" value="' + a.minBid + '" id="auc-b-' + a.id + '" aria-label="Your bid"><button class="btn small" data-auc-bid="' + a.id + '"' + (A.hasHero ? "" : ' disabled title="You need a commander to receive the gear"') + ">Bid</button></div>";
   }
   return h + "</div></div>";
 }
@@ -37240,20 +37243,23 @@ function aucMine(a, A) {
 function auctionSheet() {
   var A = auc.data, h = "";
   h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Gear auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
-  h += '<div class="auc-tabs">' + [["browse", "Browse"], ["sell", "Sell gear"], ["mine", "My auctions"]].map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
-  if (!A.hasHero) return h + '<p class="empty">You need a commander to trade gear.</p>';
+  var open = A.mine.filter(function (a) { return a.status === "active" || (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))); }).length;
+  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["mine", "My auctions" + (open ? " · " + open : "")]];
+  h += '<div class="auc-tabs">' + tabs.map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+  if (!A.hasHero) h += '<p class="hint left">🎖️ Browsing is open to everyone. To bid on or sell gear you need a commander to carry it.</p>';
   if (auc.tab === "browse") {
     if (!A.active.length) h += '<p class="empty">No auctions right now. Be the first: sell a piece of gear from your commander’s bag.</p>';
     A.active.forEach(function (a) { h += aucRow(a, A); });
     h += '<p class="hint left">Bids are paid up front and returned if somebody outbids you. A bid in the last ' + hrTxt(A.rules.snipeMs / 3600000) + " adds " + hrTxt(A.rules.snipeMs / 3600000) + ". Each bid is at least " + A.rules.step + "% higher.</p>";
   } else if (auc.tab === "sell") {
-    if (!A.items.length) h += '<p class="empty">No gear in your bag. Equipped gear can’t be sold: take it off first.</p>';
+    if (!A.hasHero) h += '<p class="empty">Gear comes from your commander’s bag. Get a commander first.</p>';
+    else if (!A.items.length) h += '<p class="empty">Your bag has no gear to sell yet. Gear drops when your commander leads attacks on monster camps; equipped gear can’t be sold, take it off first.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
     A.items.forEach(function (it) {
       h += '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
     });
     h += '<p class="hint left">Start price in ' + esc(A.currency.name) + ". Up to " + A.rules.maxActive + " auctions at once. The sale costs a " + A.rules.fee + "% fee. Gear nobody bids on comes back to your bag.</p>";
   } else {
-    if (!A.mine.length) h += '<p class="empty">Nothing yet. Your auctions and the ones you lead show up here.</p>';
+    if (!A.mine.length) h += '<p class="empty">Nothing yet. Your auctions and the ones you lead show up here.</p><p class="hint left"><button class="btn small ghost" data-auc-tab="browse">Browse auctions</button></p>';
     A.mine.forEach(function (a) { h += aucMine(a, A); });
   }
   return h;
