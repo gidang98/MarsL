@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.376";
+const GAME_VERSION = "1.0.377";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6115,6 +6115,7 @@ function snapshot(user, colony) {
     crown: s.crown,
     zone: zoneInfo(user.id, now),
     relic: s.relic && landmarkByKey(s.relic) ? { icon: landmarkByKey(s.relic).icon, name: landmarkByKey(s.relic).name, bonus: relicText(landmarkByKey(s.relic)), ready: s.relicReady || 0, x: landmarkByKey(s.relic).x, y: landmarkByKey(s.relic).y, building: relicHomeOf(landmarkByKey(s.relic)), scope: relicTierDef().scope, scopeText: relicTierDef().scopeText, tier: relicTierDef().n } : null,
+    credits: creditsOf(user.id),
     relicShared: (function () { const t = relicTierDef(); if (t.scope === "colony") return []; return relicHoldings(user.id).filter((h) => h.key !== s.relic).map((h) => { const l = landmarkByKey(h.key); return l ? { icon: l.icon, name: l.name, bonus: relicText(l), ready: h.ready } : null; }).filter(Boolean); })(),
     alliance: (function () {
       const a = allianceOf(user.id);
@@ -10314,6 +10315,10 @@ function deleteUserCompletely(userId) {
   if (!user) return;
   const ids = colonyIdsOf(user.id);
   const now = Date.now();
+  for (const a of db.prepare("SELECT * FROM auctions WHERE status = 'active' AND seller_id = ?").all(user.id)) {
+    if (a.bidder_id) addCredits(a.bidder_id, a.bid);
+    db.prepare("DELETE FROM auctions WHERE id = ?").run(a.id);
+  }
   eraseUserData(user.id, user.username, ids);
   if (ids.length) {
     const marks = ids.map(() => "?").join(",");
@@ -10791,6 +10796,179 @@ function titanTick() {
 }
 setInterval(titanTick, 60000);
 setTimeout(titanTick, 25000);
+
+// =====================================================================
+//  💠 STAR CREDITS and the 🏛️ HERO GEAR AUCTION
+//  Star Credits are one balance per player. How they are earned is still
+//  open: for now the owner can hand them out. Players put commander gear
+//  up for auction for 12, 24 or 48 real hours. Bids are paid up front (the
+//  previous leader gets the credits back at once), the highest bid wins
+//  when the time is up, and a late bid adds a few minutes. The seller pays
+//  a small fee on a sale. Unsold gear goes back to its owner.
+// =====================================================================
+addColumn("users", "credits", "INTEGER NOT NULL DEFAULT 0");
+const CREDIT = { icon: "💠", name: "Star Credits" };
+const AUCTION_FEE = 0.05; // of the final price
+const AUCTION_HOURS = [12, 24, 48]; // real hours
+const AUCTION_MAX_ACTIVE = 5; // per seller
+const AUCTION_STEP = 0.05; // a new bid is at least 5% higher
+const AUCTION_SNIPE_MS = 10 * 60000; // a bid in the last 10 minutes adds this much time
+const AUCTION_PRICE_MAX = 1000000;
+db.exec(`
+  CREATE TABLE IF NOT EXISTS auctions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    seller_id   INTEGER NOT NULL,
+    item        TEXT NOT NULL,
+    start_price INTEGER NOT NULL,
+    bid         INTEGER NOT NULL DEFAULT 0,
+    bidder_id   INTEGER NOT NULL DEFAULT 0,
+    bids        INTEGER NOT NULL DEFAULT 0,
+    created_at  INTEGER NOT NULL,
+    ends_at     INTEGER NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'active',
+    outcome     TEXT NOT NULL DEFAULT '',
+    claimed     INTEGER NOT NULL DEFAULT 0,
+    settled_at  INTEGER NOT NULL DEFAULT 0
+  );
+`);
+function creditsOf(userId) {
+  const r = db.prepare("SELECT credits FROM users WHERE id = ?").get(userId);
+  return r ? r.credits : 0;
+}
+function addCredits(userId, n) {
+  if (userId && n) db.prepare("UPDATE users SET credits = MAX(0, credits + ?) WHERE id = ?").run(Math.round(n), userId);
+}
+function auctionMinBid(a) {
+  return a.bidder_id ? Math.max(a.bid + 1, Math.ceil(a.bid * (1 + AUCTION_STEP))) : a.start_price;
+}
+function auctionItem(a) {
+  return heroFixItem(JSON.parse(a.item));
+}
+function auctionView(a, uid) {
+  return {
+    id: a.id, item: auctionItem(a), seller: usernameOf(a.seller_id), mine: a.seller_id === uid,
+    price: a.bidder_id ? a.bid : a.start_price, bids: a.bids, leading: a.bidder_id === uid,
+    leader: a.bidder_id ? usernameOf(a.bidder_id) : null, endsAt: a.ends_at, minBid: auctionMinBid(a),
+    status: a.status, outcome: a.outcome, claimed: !!a.claimed, won: a.outcome === "sold" && a.bidder_id === uid,
+    fee: a.outcome === "sold" ? Math.floor(a.bid * AUCTION_FEE) : 0, sold: a.outcome === "sold" ? a.bid : 0,
+  };
+}
+// the item goes into the commander's bag: to the winner, or back to the seller
+function auctionDeliver(a, now) {
+  const uid = a.outcome === "sold" ? a.bidder_id : a.seller_id;
+  const h = heroOf(uid, now);
+  if (!h || h.bag.length >= HERO_BAG) return false;
+  h.bag.push(heroFixItem(JSON.parse(a.item)));
+  heroSave(uid, h);
+  db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
+  return true;
+}
+function auctionSettle(id, now) {
+  const a = db.prepare("SELECT * FROM auctions WHERE id = ? AND status = 'active'").get(id);
+  if (!a) return;
+  let outcome = "unsold";
+  if (a.bidder_id) {
+    outcome = "sold";
+    addCredits(a.seller_id, a.bid - Math.floor(a.bid * AUCTION_FEE));
+  }
+  db.prepare("UPDATE auctions SET status = 'done', outcome = ?, settled_at = ? WHERE id = ?").run(outcome, now, a.id);
+  auctionDeliver(Object.assign({}, a, { outcome }), now);
+}
+function auctionTick() {
+  try {
+    const now = Date.now();
+    for (const a of db.prepare("SELECT id FROM auctions WHERE status = 'active' AND ends_at <= ?").all(now)) auctionSettle(a.id, now);
+    // gear that did not fit in a full bag keeps trying
+    for (const a of db.prepare("SELECT * FROM auctions WHERE status = 'done' AND claimed = 0 AND outcome IN ('sold','unsold','cancelled')").all()) auctionDeliver(a, now);
+  } catch (e) {
+    console.error("auction:", e.message);
+  }
+}
+setInterval(auctionTick, 30000);
+setTimeout(auctionTick, 15000);
+
+app.get("/api/auction", requireLogin, (req, res) => {
+  const uid = req.user.id;
+  const now = Date.now();
+  auctionTick();
+  const h = heroOf(uid, now);
+  const active = db.prepare("SELECT * FROM auctions WHERE status = 'active' ORDER BY ends_at LIMIT 100").all().map((a) => auctionView(a, uid));
+  const mine = db.prepare(
+    `SELECT * FROM auctions WHERE (seller_id = ? OR bidder_id = ?) AND (status = 'active' OR claimed = 0 OR settled_at > ?) ORDER BY id DESC LIMIT 40`
+  ).all(uid, uid, now - 7 * 86400000).filter((a) => a.status === "active" ? a.seller_id === uid || a.bidder_id === uid : true).map((a) => auctionView(a, uid));
+  res.json({
+    credits: creditsOf(uid), currency: CREDIT, hasHero: !!h, bagFull: !!h && h.bag.length >= HERO_BAG,
+    rules: { fee: Math.round(AUCTION_FEE * 100), hours: AUCTION_HOURS, maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMin: AUCTION_SNIPE_MS / 60000, priceMax: AUCTION_PRICE_MAX },
+    active, mine,
+    items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
+  });
+});
+app.post("/api/auction/list", requireLogin, (req, res) => {
+  const uid = req.user.id;
+  const b = req.body || {};
+  const now = Date.now();
+  const h = heroOf(uid, now);
+  if (!h) return res.status(400).json({ error: "You need a commander first" });
+  const price = Math.floor(Number(b.price));
+  const hours = Number(b.hours);
+  if (!(price >= 1 && price <= AUCTION_PRICE_MAX)) return res.status(400).json({ error: "Start price: 1 to " + AUCTION_PRICE_MAX + " " + CREDIT.name });
+  if (!AUCTION_HOURS.includes(hours)) return res.status(400).json({ error: "Choose " + AUCTION_HOURS.join(", ") + " hours" });
+  if (db.prepare("SELECT COUNT(*) AS n FROM auctions WHERE seller_id = ? AND status = 'active'").get(uid).n >= AUCTION_MAX_ACTIVE) return res.status(400).json({ error: "You can run " + AUCTION_MAX_ACTIVE + " auctions at a time" });
+  const i = h.bag.findIndex((x) => x.id === String(b.id || "") && x.kind !== "crate");
+  if (i < 0) return res.status(400).json({ error: "That item is not in your bag (equipped gear can't be sold)" });
+  const item = h.bag.splice(i, 1)[0];
+  heroSave(uid, h);
+  db.prepare("INSERT INTO auctions (seller_id, item, start_price, created_at, ends_at) VALUES (?, ?, ?, ?, ?)").run(uid, JSON.stringify(item), price, now, now + hours * 3600000);
+  res.json({ ok: true });
+});
+app.post("/api/auction/bid", requireLogin, (req, res) => {
+  const uid = req.user.id;
+  const b = req.body || {};
+  const now = Date.now();
+  const a = db.prepare("SELECT * FROM auctions WHERE id = ? AND status = 'active'").get(Number(b.id) || 0);
+  if (!a || a.ends_at <= now) return res.status(400).json({ error: "This auction is over" });
+  if (a.seller_id === uid) return res.status(400).json({ error: "That is your own auction" });
+  if (accountsLinked(a.seller_id, uid)) return res.status(400).json({ error: LINKED_MSG });
+  if (!heroOf(uid, now)) return res.status(400).json({ error: "You need a commander to receive the gear" });
+  const amount = Math.floor(Number(b.amount));
+  const min = auctionMinBid(a);
+  if (!(amount >= min)) return res.status(400).json({ error: "The lowest bid is " + min + " " + CREDIT.name });
+  if (amount > AUCTION_PRICE_MAX * 10) return res.status(400).json({ error: "That bid is too high" });
+  const have = creditsOf(uid) + (a.bidder_id === uid ? a.bid : 0);
+  if (have < amount) return res.status(400).json({ error: "You have " + creditsOf(uid) + " " + CREDIT.name + " to spend" });
+  if (a.bidder_id) addCredits(a.bidder_id, a.bid); // the old leader gets the credits back
+  addCredits(uid, -amount);
+  const ends = a.ends_at - now < AUCTION_SNIPE_MS ? now + AUCTION_SNIPE_MS : a.ends_at;
+  db.prepare("UPDATE auctions SET bid = ?, bidder_id = ?, bids = bids + 1, ends_at = ? WHERE id = ?").run(amount, uid, ends, a.id);
+  res.json({ ok: true });
+});
+app.post("/api/auction/cancel", requireLogin, (req, res) => {
+  const uid = req.user.id;
+  const now = Date.now();
+  const a = db.prepare("SELECT * FROM auctions WHERE id = ? AND status = 'active' AND seller_id = ?").get(Number((req.body || {}).id) || 0, uid);
+  if (!a) return res.status(400).json({ error: "That auction is gone" });
+  if (a.bids > 0) return res.status(400).json({ error: "Somebody already bid. It runs until the end." });
+  db.prepare("UPDATE auctions SET status = 'done', outcome = 'cancelled', settled_at = ? WHERE id = ?").run(now, a.id);
+  auctionDeliver(Object.assign({}, a, { outcome: "cancelled" }), now);
+  res.json({ ok: true });
+});
+app.post("/api/auction/claim", requireLogin, (req, res) => {
+  const uid = req.user.id;
+  const a = db.prepare("SELECT * FROM auctions WHERE id = ? AND status = 'done' AND claimed = 0").get(Number((req.body || {}).id) || 0);
+  const mine = a && (a.outcome === "sold" ? a.bidder_id === uid : a.seller_id === uid);
+  if (!mine) return res.status(400).json({ error: "Nothing to collect" });
+  if (!auctionDeliver(a, Date.now())) return res.status(400).json({ error: "Your commander's bag is full. Make room first." });
+  res.json({ ok: true });
+});
+// the owner hands out Star Credits (how players earn them is still open)
+app.post("/api/admin/credits", requireOwner, (req, res) => {
+  const b = req.body || {};
+  const u = db.prepare("SELECT id, username FROM users WHERE username = ?").get(String(b.username || ""));
+  const n = Math.round(Number(b.amount));
+  if (!u || !Number.isFinite(n) || n === 0) return res.status(400).json({ error: "Name and a non-zero amount, please" });
+  addCredits(u.id, n);
+  res.json({ ok: true, credits: creditsOf(u.id) });
+});
 
 app.get("/api/admin/events", requireOwner, (req, res) => {
   const now = Date.now();
@@ -11870,6 +12048,7 @@ app.get("/api/wiki", requireLogin, (req, res) => {
     events: Object.keys(EVENT_KINDS).map((k) => Object.assign({ key: k }, EVENT_KINDS[k])),
     aurora: { link: AURORA_LINK, charge: AURORA_CHARGE_HOURS, ignite: auroraDefaultHours(), drain: Math.round(AURORA_DRAIN_SHARE * 100), pylons: PYLONS.map((p) => ({ name: p.name, x: p.x, y: p.y })) },
     relic: { count: RELIC_HUNT_COUNT, hours: RELIC_HUNT_HOURS },
+    auction: { fee: Math.round(AUCTION_FEE * 100), hours: AUCTION_HOURS, maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMin: AUCTION_SNIPE_MS / 60000 },
     extra: wikiExtra(),
     tables: wikiTables(),
     formulas: {
@@ -15989,6 +16168,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.377",date:"2026-11-16",title:"Gear auction and Star Credits",groups:[["Auction",["New 🏛️ Gear auction (top bar, or the 🏛️ button next to a piece of gear in your commander's bag). Put gear from your bag up for 12, 24 or 48 real hours with a start price.","Players bid with 💠 Star Credits. Each bid is at least 5% higher and is paid up front, so an outbid player gets the credits back at once. A bid in the last 10 minutes adds 10 minutes.","The highest bid wins when time is up. The seller gets the price minus a 5% fee. Gear nobody bids on, or that you take back before the first bid, returns to your bag. If the bag is full, collect it later from My auctions.","You can run 5 auctions at a time. Equipped gear can't be sold."]],["Star Credits",["A new account-wide balance shown in the auction. How to earn Star Credits is still open, so for now the server owner can hand them out."]]]},
   {v:"1.0.376",date:"2026-11-16",title:"Real time instead of server days",groups:[["Time",["Every player-facing text now uses real time: dates and countdowns instead of server days, hours instead of \"per server day\", and the vacation lengths in hours or days.","The clock bar shows when the round started, the acts and events show their real dates, and the wiki's clock table lists dates."]]]},
   {v:"1.0.375",date:"2026-11-16",title:"Storm Season: the Dust Titan and gear meteors",groups:[["Dust Titan",["From the Storm Season on, a Dust Titan takes over one monster camp every few days and stays for most of a day. It is far too strong for one army.","Every attack wears it down for good, so many players can fight it one after the other. Its health and the top fighters show on the camp card.","When it falls, everybody who dealt at least 2% of the damage shares a big resource reward by damage. The top three fighters get commander gear (the best one a Legendary). Everyone gets the Dust Titan Slayer badge.","If nobody finishes it in time, it sinks back into the dust and the camp returns."]],["Meteors",["From the Storm Season on, meteor showers drop more crates and about one in three holds commander gear. Collect it with a raid like any crate. It needs room in the commander's bag, otherwise the crate stays."]]]},
   {v:"1.0.374",date:"2026-11-16",title:"Relics live in the Expedition Base",groups:[["Relics",["A captured relic is now kept in the colony's Expedition Base (the building that sends the expeditions, with your tribe's own name) instead of a building chosen by its bonus.","The relic badge shows on that building and in the Relics page."]]]},
@@ -24349,6 +24529,17 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .rl-t { display: grid; gap: 2px; min-width: 0; }
 .rl-t small { font-size: 12px; opacity: .85; }
 .relic-badge { cursor: pointer; }
+/* 1.0.377 gear auction */
+.auc-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+.auc-row { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; margin-bottom: 6px; }
+.auc-row.lead { border-color: #2f9e6e; background: rgba(47, 158, 110, .1); }
+.auc-row.mine { border-color: #c9a227; background: rgba(201, 162, 39, .08); }
+.auc-item { min-width: 0; flex: 1; }
+.auc-side { display: grid; gap: 3px; justify-items: end; text-align: right; }
+.auc-side small { font-size: 12px; opacity: .85; }
+.auc-side .ok { color: #2f9e6e; opacity: 1; }
+.auc-bid { display: flex; gap: 4px; }
+.auc-bid input { width: 84px; }
 /* 1.0.364 reports: the result icon (coloured sword or shield) sits left of the title */
 .report.rep2 .report-head, .report.rep2:not(.open) .report-head { position: relative; padding-left: 40px; }
 .report.rep2 .report-head .ri { display: block; position: absolute; grid-column: auto; grid-row: auto; left: 8px; top: 7px; width: 26px; font-size: 20px; line-height: 1; text-align: center; }
@@ -28188,6 +28379,7 @@ function renderTop(d) {
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
   if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
+  if (d.hero) h += '<button class="btn small ghost" data-auction="1" title="Gear auction · ' + esc(String(d.credits || 0)) + ' Star Credits">' + "🏛️" + '</button>';
   h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + "📖" + '</button><button class="btn small ghost" data-account="1" title="Settings">' + "⚙️" + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + "🚪" + '</button></div></div>';
   var tabs = [["resources", "🌾", "Fields", "fields"], ["buildings", "🏗️", "Colony", "colony"], ["troops", "⚔️", "Army", "army"], ["map", "🗺️", "Map", "map"], ["ranking", "🏆", "Players", "players"], ["reports", "📬", "Inbox", "inbox"]];
   h += '<div class="nav">';
@@ -33151,7 +33343,7 @@ function heroSheet(d) {
       if(H.starMetal>0&&(it.rank||0)<5)h+='<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">Upgrade with 1 Star Metal</button>';
       var armedScrap = heroScrapArm.id === it.id && Date.now() - heroScrapArm.at < 4000;
       h += '<div class="stayrow"><div><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + "</div>";
-      h += '<button class="btn small" data-hero-equip="' + it.id + '">Equip</button><button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + "</button></div>";
+      h += '<button class="btn small" data-hero-equip="' + it.id + '">Equip</button><button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + '</button><button class="btn small ghost" data-auction="sell" title="Sell at auction">🏛️</button></div>';
     });
     if (!H.bag.length) h += '<p class="empty">Empty. Lead an attack on a monster camp: its bounty and gear end up here.</p>';
     else if (H.level < 4) h += '<p class="hint left">Collect puts the bounty into ' + esc(H.stashTo || H.home) + ", the colony you are looking at. Whatever doesn’t fit stays here.</p>";
@@ -34287,6 +34479,9 @@ function renderSheet() {
   } else if (sheet.kind === "wiki") {
     if (!wiki.data) { closeSheet(); return; }
     h += wikiSheet();
+  } else if (sheet.kind === "auction") {
+    if (!auc.data) { closeSheet(); return; }
+    h += auctionSheet();
   } else if (sheet.kind === "relics") {
     if (!relicsData) { closeSheet(); return; }
     h += relicsSheet();
@@ -35974,6 +36169,7 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
+    if (W.auction) cards.push(wkCard("auction", "🏛️", "Gear auction", wkP("Sell commander gear to other players for 💠 Star Credits. Open it with the 🏛️ button at the top. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.join(", ") + " hours of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + W.auction.snipeMin + " minutes adds " + W.auction.snipeMin + " minutes. The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
       left: 1,
@@ -36652,6 +36848,60 @@ function landmarkTileInfo(l, dist) {
   return h;
 }
 var LM_GUARD = "🗿";
+
+
+// ---------- the gear auction ----------
+var auc = { data: null, tab: "browse" };
+function openAuction(tab) {
+  fetch("/api/auction").then(function (r) { return r.json(); }).then(function (j) {
+    auc.data = j;
+    if (tab) auc.tab = tab;
+    if (sheet && sheet.kind === "auction") renderSheet(); else openSheet("auction", null);
+  }).catch(function () { toast("⚠️ The server does not answer"); });
+}
+function aucPost(path, body, msg) {
+  post(path, body, function () { if (msg) toast(msg, true); openAuction(); });
+}
+function aucRow(a, A) {
+  var it = a.item;
+  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + "</div>";
+  h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>" + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids yet") + "</small><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + esc(a.seller) + "</small>";
+  if (a.mine) h += a.bids ? '<small class="ok">Your item, bids are in</small>' : '<button class="btn small ghost" data-auc-cancel="' + a.id + '">Take it back</button>';
+  else {
+    if (a.leading) h += '<small class="ok">You lead</small>';
+    h += '<div class="auc-bid"><input type="number" min="' + a.minBid + '" value="' + a.minBid + '" id="auc-b-' + a.id + '" aria-label="Your bid"><button class="btn small" data-auc-bid="' + a.id + '">Bid</button></div>';
+  }
+  return h + "</div></div>";
+}
+function aucMine(a, A) {
+  var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + '</span></b></div><div class="auc-side">';
+  if (a.status === "active") h += "<small>" + (a.mine ? "Your auction" : "You lead") + " · " + A.currency.icon + " " + shortNum(a.price) + " · ⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + "</small>";
+  else if (a.outcome === "sold") h += "<small>" + (a.mine ? "Sold for " + A.currency.icon + " " + shortNum(a.sold) + " (fee " + shortNum(a.fee) + ")" : "You won it for " + A.currency.icon + " " + shortNum(a.sold)) + "</small>";
+  else h += "<small>" + (a.outcome === "cancelled" ? "Taken back" : "Nobody bid") + "</small>";
+  if (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))) h += '<button class="btn small" data-auc-claim="' + a.id + '">Collect ' + (A.bagFull ? "(bag full)" : "") + "</button>";
+  return h + "</div></div>";
+}
+function auctionSheet() {
+  var A = auc.data, h = "";
+  h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Gear auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
+  h += '<div class="auc-tabs">' + [["browse", "Browse"], ["sell", "Sell gear"], ["mine", "My auctions"]].map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+  if (!A.hasHero) return h + '<p class="empty">You need a commander to trade gear.</p>';
+  if (auc.tab === "browse") {
+    if (!A.active.length) h += '<p class="empty">No auctions right now. Be the first: sell a piece of gear from your commander’s bag.</p>';
+    A.active.forEach(function (a) { h += aucRow(a, A); });
+    h += '<p class="hint left">Bids are paid up front and returned if somebody outbids you. A bid in the last ' + A.rules.snipeMin + " minutes adds " + A.rules.snipeMin + " minutes. Each bid is at least " + A.rules.step + "% higher.</p>";
+  } else if (auc.tab === "sell") {
+    if (!A.items.length) h += '<p class="empty">No gear in your bag. Equipped gear can’t be sold: take it off first.</p>';
+    A.items.forEach(function (it) {
+      h += '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === 24 ? " selected" : "") + ">" + x + " h</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
+    });
+    h += '<p class="hint left">Start price in ' + esc(A.currency.name) + ". Up to " + A.rules.maxActive + " auctions at once. The sale costs a " + A.rules.fee + "% fee. Gear nobody bids on comes back to your bag.</p>";
+  } else {
+    if (!A.mine.length) h += '<p class="empty">Nothing yet. Your auctions and the ones you lead show up here.</p>';
+    A.mine.forEach(function (a) { h += aucMine(a, A); });
+  }
+  return h;
+}
 
 // ---------- the Relics page ----------
 var relicsData = null;
@@ -37449,7 +37699,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-relics],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -37865,6 +38115,21 @@ document.addEventListener("click", function (e) {
     });
   } else if (has("data-relics")) {
     openRelics();
+  } else if (has("data-auction")) {
+    openAuction(attr("data-auction") === "1" ? "" : attr("data-auction"));
+  } else if (has("data-auc-tab")) {
+    auc.tab = attr("data-auc-tab");
+    renderSheet();
+  } else if (has("data-auc-bid")) {
+    var abid = attr("data-auc-bid"), ain = document.getElementById("auc-b-" + abid);
+    aucPost("/api/auction/bid", { id: abid, amount: ain ? ain.value : 0 }, "💠 Bid placed");
+  } else if (has("data-auc-list")) {
+    var alid = attr("data-auc-list"), apr = document.getElementById("auc-p-" + alid), ahr = document.getElementById("auc-h-" + alid);
+    aucPost("/api/auction/list", { id: alid, price: apr ? apr.value : 0, hours: ahr ? ahr.value : 24 }, "🏛️ Auction started");
+  } else if (has("data-auc-cancel")) {
+    aucPost("/api/auction/cancel", { id: attr("data-auc-cancel") }, "Gear is back in your bag");
+  } else if (has("data-auc-claim")) {
+    aucPost("/api/auction/claim", { id: attr("data-auc-claim") }, "🎒 Gear is in your bag");
   } else if (has("data-main-info")) {
     openSheet("main", null);
   } else if (has("data-make-main")) {
