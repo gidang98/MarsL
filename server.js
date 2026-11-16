@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.387";
+const GAME_VERSION = "1.0.389";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -830,6 +830,7 @@ const TRIBES = {
     home: "🧑‍🚀",
     color: "#ffd23f",
     desc: "Balanced builders and traders: solid at everything, with strong walls, busy markets and guns for the sky.",
+    play: { level: 1, effort: "2-3 short check-ins a day, about 30 min in total" },
     names: {
       wood: ["Bio-Dome Forest", "🌲"],
       stone: ["Regolith Quarry", "⛏️"],
@@ -942,6 +943,7 @@ const TRIBES = {
     home: "🐔",
     color: "#ff9f43",
     desc: "Cheap, fast and many: a raiding swarm that trains quickly, hides its loot well and hunts raiders with hawks.",
+    play: { level: 2, effort: "4-6 check-ins a day, about 1 hour in total: raids need regular sending" },
     names: {
       wood: ["Twig Grove", "🪺"],
       stone: ["Pebble Pit", "🪨"],
@@ -1054,6 +1056,7 @@ const TRIBES = {
     home: "👽",
     color: "#7dff6b",
     desc: "Expensive and slow, but every single unit is a monster: huge ground walls and spore flak, backed by top research.",
+    play: { level: 3, effort: "1-2 longer sessions a day, about 45 min: careful planning, few mistakes allowed" },
     names: {
       wood: ["Fungus Forest", "🍄"],
       stone: ["Crystal Quarry", "💎"],
@@ -2171,6 +2174,15 @@ db.exec(`
     n       INTEGER NOT NULL
   );
   CREATE INDEX IF NOT EXISTS stats_log_at ON stats_log (at);
+  CREATE TABLE IF NOT EXISTS transfers (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_user INTEGER NOT NULL,
+    to_user   INTEGER NOT NULL,
+    at        INTEGER NOT NULL,
+    n         INTEGER NOT NULL,
+    kind      TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS transfers_pair ON transfers (from_user, to_user, at);
 `);
 const WEEKLY_KEYS = ["atk_kills", "def_kills", "npc_kills", "loot"];
 
@@ -4494,7 +4506,7 @@ function resolveArrival(m) {
     const defPk = heroPerks(def.userId);
     if (defPk && defPk.qm50 && defPk.home === def.id) carry = Math.min(carry, Math.floor(RESOURCES.reduce((n, r) => n + Math.max(0, Math.floor(def.state.res[r]) - hidden), 0) / 2));
     if (f.attackerWins && carry > 0) loot = takeLoot(def.state.res, carry, hidden);
-    if (loot && att.userId !== def.userId) insuranceClaim(def.userId, loot, resBefore, att.name, T);
+    if (loot && att.userId !== def.userId) { insuranceClaim(def.userId, loot, resBefore, att.name, T); logTransfer(def.userId, att.userId, lootTotal(loot), "raid", T); }
 
     // "⚔️" fighting your own colony is real (troops fall, loot moves, bombards
     // hit), but it never counts for stats, rankings, badges or commander xp
@@ -5392,6 +5404,7 @@ function marketView(s, colony, tribe) {
     merchants: level * MERCHANTS_PER_LEVEL,
     free: level ? merchantsFree(s, colony.id) : 0,
     carry: merchantCarry(s),
+    gift: (() => { const now = Date.now(); const lock = giftLocked(colony.userId, now); return { lock, cap: lock ? 0 : transferAllowance(colony.userId, 1, now) }; })(),
     speed: MERCHANT_SPEED * MOVE_SPEED, // tiles per real hour
     rate: swapRate(level, colony.tribe, colony.userId),
     maxRoutes: maxRoutes(s),
@@ -5399,6 +5412,8 @@ function marketView(s, colony, tribe) {
     everyChoices: ROUTE_EVERY_MINUTES,
     intervalMin: ROUTE_INTERVAL_MIN,
     intervalMax: ROUTE_INTERVAL_MAX,
+    relicTargets: db.prepare("SELECT colonies.id, colonies.name, colonies.user_id FROM landmarks JOIN colonies ON colonies.id = landmarks.holder_id WHERE colonies.user_id <> ?").all(colony.userId)
+      .filter((c) => routeTargetOk(colony.userId, c)).map((c) => ({ id: c.id, name: c.name, owner: usernameOf(c.user_id) })),
     routes: (s.routes || []).map((r) => {
       const t = db.prepare("SELECT name, x, y FROM colonies WHERE id = ?").get(r.to);
       return Object.assign({}, r, { toName: t ? t.name : "???", toX: t ? t.x : null, toY: t ? t.y : null });
@@ -7180,6 +7195,7 @@ app.get("/api/tribes", (req, res) => {
       icon: TRIBES[key].icon,
       color: TRIBES[key].color,
       desc: TRIBES[key].desc,
+      play: TRIBES[key].play,
       units: Object.values(TRIBES[key].units).filter((u) => !isSettler(u)).map((u) => u.icon).join(" "),
       perks: tribePerkList(key),
     }))
@@ -7484,6 +7500,85 @@ app.post("/api/routes/quiet", requireLogin, (req, res) => {
 });
 
 // Merchants carry resources to another colony. body { x, y, res: { wood: n, ... } }
+// =====================================================================
+//  🤝 SHARING BETWEEN PLAYERS (anti-pushing)
+//  Resources only go to your own colonies and to members of your alliance. Every
+//  gift, market deal and raid between two players goes into a ledger. Over a rolling
+//  7 server days the NET amount one player may pass to another is capped by the
+//  sender's production (plus half of their recent raid income), and the cap shrinks
+//  the closer the two accounts are connected:
+//    type 1 unrelated players, type 2 shared network before or a past device,
+//    type 3 sitters or a shared device (strictest).
+//  Beginners and tiny accounts can't gift at all (fair 1:1 market deals only).
+//  Exceptions: a colony holding a relic takes unlimited help from allies, and food
+//  for troops you keep stationed there raises your allowance - both need at least
+//  half the load to be food. Pylons have no limit (their own flow).
+// =====================================================================
+const TRANSFER_DAYS = 7;
+const TRANSFER_SHARE = { 1: 0.5, 2: 0.15, 3: 0.05 }; // of the sender's production over the window
+const RAID_INCOME_SHARE = 0.5;
+const GIFT_MIN_POINTS = 100; // below this (or in beginner protection) nobody can gift
+const FAIR_TRADE_MIN = 0.9, FAIR_TRADE_MAX = 1.1; // locked accounts: market deals of about 1:1
+// A colony holding a relic (a landmark)
+function holdsRelic(colonyId) { return !!db.prepare("SELECT 1 FROM landmarks WHERE holder_id = ?").get(colonyId); }
+// Automatic routes only go to your own colonies - or to an ally's colony that holds a relic (food only)
+function routeTargetOk(userId, target) {
+  if (!target) return false;
+  if (target.user_id === userId) return true;
+  return areAllies(target.user_id, userId) && !accountsLinked(target.user_id, userId) && holdsRelic(target.id);
+}
+function transferMs() { return TRANSFER_DAYS * serverDayMs(); }
+function logTransfer(from, to, n, kind, now) {
+  if (!(n > 0) || !from || !to || from === to || BOT_IDS.has(from) || BOT_IDS.has(to)) return;
+  db.prepare("INSERT INTO transfers (from_user, to_user, at, n, kind) VALUES (?, ?, ?, ?, ?)").run(from, to, now || Date.now(), Math.round(n), kind);
+}
+// 1 unrelated, 2 recent connection, 3 active connection
+function connectionType(a, b, now) {
+  now = now || Date.now();
+  if (db.prepare("SELECT 1 FROM account_sitters WHERE (user_id = ? AND sitter_id = ?) OR (user_id = ? AND sitter_id = ?)").get(a, b, b, a)) return 3;
+  const when = (col) => db.prepare("SELECT MAX(CASE WHEN x.last_seen < y.last_seen THEN x.last_seen ELSE y.last_seen END) AS t FROM device_links x JOIN device_links y ON x." + col + " = y." + col + " WHERE x.user_id = ? AND y.user_id = ?" + (col === "ip_hash" ? " AND x.ip_hash <> ''" : "")).get(a, b).t || 0;
+  const dev = when("device");
+  if (dev) return now - dev < 14 * 86400000 ? 3 : 2;
+  const ip = when("ip_hash");
+  return ip && now - ip < 30 * 86400000 ? 2 : 1;
+}
+function transferSum(from, to, since, kinds) {
+  return db.prepare("SELECT COALESCE(SUM(n), 0) AS n FROM transfers WHERE from_user = ? AND to_user = ? AND at > ? AND kind IN (" + kinds.map(() => "?").join(",") + ")").get(from, to, since, ...kinds).n;
+}
+const NET_KINDS = ["gift", "trade", "raid"];
+function productionWindow(userId) {
+  let perHour = 0;
+  for (const c of coloniesOf(userId)) { const p = production(c.state); perHour += RESOURCES.reduce((n, r) => n + p[r], 0); }
+  return perHour * PRODUCTION_SPEED * (transferMs() / 3600000);
+}
+function transferAllowance(userId, type, now) {
+  const raids = db.prepare("SELECT COALESCE(SUM(n), 0) AS n FROM transfers WHERE to_user = ? AND kind = 'raid' AND at > ?").get(userId, now - transferMs()).n;
+  return Math.floor(productionWindow(userId) * TRANSFER_SHARE[type] + raids * RAID_INCOME_SHARE);
+}
+// How much more can `from` pass to `to` right now (net of what came back)?
+function transferRoom(from, to, now) {
+  const type = connectionType(from, to, now);
+  const since = now - transferMs();
+  const net = transferSum(from, to, since, NET_KINDS) - transferSum(to, from, since, NET_KINDS);
+  return { type, room: Math.max(0, transferAllowance(from, type, now) - Math.max(0, net)) };
+}
+function giftLocked(userId, now) {
+  if (protectionOf(userId, now).active) return "Accounts under beginner protection can't send resources, only trade fairly on the market";
+  if (playerPoints(userId) < GIFT_MIN_POINTS) return "Small accounts (under " + GIFT_MIN_POINTS + " points) can't send resources, only trade fairly on the market";
+  return "";
+}
+function fairTrade(give, want) { const r = want / Math.max(1, give); return r >= FAIR_TRADE_MIN && r <= FAIR_TRADE_MAX; }
+// troops you keep in that colony eat: the food you may send there on top of your allowance
+function stationedFeedRoom(userId, targetColonyId, now) {
+  let up = 0;
+  for (const row of db.prepare("SELECT m.troops, c.tribe FROM movements m JOIN colonies c ON c.id = m.attacker_id WHERE m.target_id = ? AND m.target_kind = 'colony' AND m.mission = 'reinforce' AND m.phase = 'stay' AND c.user_id = ?").all(targetColonyId, userId)) {
+    const t = tribeOf(row.tribe), troops = JSON.parse(row.troops);
+    for (const k in troops) if (t.units[k]) up += troops[k] * t.units[k].upkeep;
+  }
+  const owner = db.prepare("SELECT user_id FROM colonies WHERE id = ?").get(targetColonyId);
+  const used = owner ? transferSum(userId, owner.user_id, now - transferMs(), ["feed"]) : 0;
+  return Math.max(0, Math.floor(up * (transferMs() / 3600000)) - used);
+}
 app.post("/api/trade", requireLogin, (req, res) => {
   withColony(req, res, (s, tribe, colony) => {
     const body = req.body || {};
@@ -7492,6 +7587,8 @@ app.post("/api/trade", requireLogin, (req, res) => {
     if (!target) return "There is no colony at that spot";
     if (target.id === colony.id) return "That's this colony, silly!";
     if (accountsLinked(target.user_id, req.user.id)) return LINKED_MSG;
+    const toOther = target.user_id !== req.user.id;
+    if (toOther && !areAllies(target.user_id, req.user.id)) return "You can only send resources to your own colonies and to members of your alliance";
     const goods = {};
     let total = 0;
     for (const r of RESOURCES) {
@@ -7502,10 +7599,24 @@ app.post("/api/trade", requireLogin, (req, res) => {
       total += n;
     }
     if (total === 0) return "Put something on the camels first";
+    const now = Date.now();
+    let kind = "gift";
+    if (toOther) {
+      const mostlyFood = goods.food * 2 >= total;
+      if (mostlyFood && holdsRelic(target.id)) kind = "relic";
+      else if (mostlyFood && total <= stationedFeedRoom(req.user.id, target.id, now)) kind = "feed";
+      else {
+        const lock = giftLocked(req.user.id, now);
+        if (lock) return lock;
+        const t = transferRoom(req.user.id, target.user_id, now);
+        if (total > t.room) return "Your sharing limit with that player allows " + t.room.toLocaleString() + " more over " + TRANSFER_DAYS + " server days" + (t.type > 1 ? " (connected accounts get a much lower limit)" : "");
+      }
+    }
     const need = Math.ceil(total / merchantCarry(s));
     const free = merchantsFree(s, colony.id);
     if (need > free) return "You need " + need + " merchants but only " + free + " are free";
-    sendMerchants(s, colony, target.id, goods, Date.now());
+    sendMerchants(s, colony, target.id, goods, now);
+    if (toOther) logTransfer(req.user.id, target.user_id, total, kind, now);
     return null;
   });
 });
@@ -7550,10 +7661,12 @@ function maxRoutes(s) {
 // Try one route now. Returns a short text for "last result".
 function runRoute(s, colony, route, now) {
   const target = db.prepare("SELECT id, user_id, name FROM colonies WHERE id = ?").get(route.to);
-  if (!target || target.user_id !== colony.userId) {
+  if (!target || !routeTargetOk(colony.userId, target)) {
     route.on = false;
-    return "⛔ Target colony is gone - route stopped";
+    return target && target.user_id !== colony.userId ? "⛔ That colony no longer holds a relic of your alliance - route stopped" : "⛔ Target colony is gone - route stopped";
   }
+  const foreign = target.user_id !== colony.userId; // an ally's relic colony: food only
+  const kinds = foreign ? ["food"] : RESOURCES;
   const free = merchantsFree(s, colony.id);
   if (!free) return "🐪 No free merchants";
   const cap = capacities(s);
@@ -7568,7 +7681,7 @@ function runRoute(s, colony, route, now) {
     let availableTotal = 0;
     for (const r of RESOURCES) {
       const keep = Math.floor((cap[r] * route.keep) / 100) + held[r];
-      available[r] = Math.max(0, Math.floor(s.res[r]) - keep);
+      available[r] = kinds.includes(r) ? Math.max(0, Math.floor(s.res[r]) - keep) : 0;
       availableTotal += available[r];
       goods[r] = 0;
     }
@@ -7590,6 +7703,7 @@ function runRoute(s, colony, route, now) {
     }
   } else {
     for (const r of RESOURCES) {
+      if (!kinds.includes(r)) { goods[r] = 0; continue; }
       const keep = Math.floor((cap[r] * route.keep) / 100) + held[r];
       const n = Math.max(0, Math.min(route.res[r] || 0, Math.floor(s.res[r]) - keep, room));
       goods[r] = n;
@@ -7599,6 +7713,7 @@ function runRoute(s, colony, route, now) {
   }
   if (!total) return "📦 Nothing to send (keeping " + route.keep + "% in storage)";
   const used = sendMerchants(s, colony, target.id, goods, now, true);
+  if (foreign) logTransfer(colony.userId, target.user_id, total, "relic", now);
   return "✅" + " Sent " + total + " with " + used + (used === 1 ? " merchant" : " merchants");
 }
 
@@ -7633,7 +7748,7 @@ app.post("/api/routes/add", requireLogin, (req, res) => {
     if (!levelOf(s, "market")) return "You need a marketplace first";
     if (s.routes.length >= maxRoutes(s)) return "Your marketplace can only run " + maxRoutes(s) + " route(s). Upgrade it for more!";
     const target = db.prepare("SELECT id, user_id FROM colonies WHERE id = ?").get(Number(body.to));
-    if (!target || target.user_id !== req.user.id) return "Automatic merchants only travel between your own colonies";
+    if (!routeTargetOk(req.user.id, target)) return "Automatic merchants only travel between your own colonies, or to an ally's colony that holds a relic";
     if (target.id === colony.id) return "Pick another one of your colonies";
     const every = Number(body.every);
     if (!Number.isInteger(every) || every < ROUTE_INTERVAL_MIN || every > ROUTE_INTERVAL_MAX) {
@@ -7650,7 +7765,8 @@ app.post("/api/routes/add", requireLogin, (req, res) => {
       amounts[r] = n;
       total += n;
     }
-    if (!allSurplus && !total) return "Tell the merchants what to carry, or enable Send all surplus";
+    if (target.user_id !== req.user.id) for (const r of RESOURCES) if (r !== "food") { total -= amounts[r]; amounts[r] = 0; } // relic supply: food only
+    if (!allSurplus && !total) return "Tell the merchants what to carry, or enable Send all surplus" + (target.user_id !== req.user.id ? " (food only for a relic colony)" : "");
     // Optional first departure time OR a desired first arrival time. When an
     // arrival is selected, calculate departure from the current travel time.
     // Later deliveries repeat at the chosen interval from that first departure.
@@ -7825,10 +7941,14 @@ function checkSend(req, s, tribe, colony, body, avail) {
     return "That's your own colony - you already know everything about it";
   } else if (mission !== "reinforce" && areAllies(target.user_id, req.user.id)) {
     return "That's an ally! Friendly fire is off.";
+  } else if (mission === "reinforce" && target.user_id !== req.user.id && !areAllies(target.user_id, req.user.id)) {
+    return "You can only send troops to help your own colonies and members of your alliance";
   } else if (accountsLinked(target.user_id, req.user.id)) {
     return LINKED_MSG;
   } else if (mission !== "reinforce" && pactBlocks(target.user_id, req.user.id)) {
     return pactBlocks(target.user_id, req.user.id);
+  } else if (mission === "raid" && target.user_id !== req.user.id && connectionType(target.user_id, req.user.id) >= 2) {
+    return "Connected accounts (shared sitting, device or network) can't raid each other";
   }
 
   // beginner protection
@@ -8098,6 +8218,7 @@ app.post("/api/redirect", requireLogin, (req, res) => {
     const target = db.prepare("SELECT id, x, y, user_id FROM colonies WHERE x = ? AND y = ?").get(x, y);
     if (!target) return "There's no colony there";
     if (target.id === m.target_id) return "They're already headed there";
+    if (!mine.includes(target.id) && !areAllies(target.user_id, owner.userId)) return "You can only send troops to your own colonies and to your alliance";
     if (accountsLinked(target.user_id, req.user.id)) return LINKED_MSG;
 
     const now = Date.now();
@@ -16239,6 +16360,8 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.389",date:"2026-11-16",title:"Sharing between players",groups:[["Joining",["The tribe choice now shows how hard each tribe is to play (easy, medium, hard) and how much time it suggests per day."]],["Sharing resources",["Resources and 🛡️ support troops only go to your own colonies and to members of your alliance. Others no longer get the 🐪 Resources button or the Support mission.","Every gift, market deal and raid between two players goes into a 7 server day ledger. The net amount you can pass to one player is limited by your production plus half of your recent raid income.","The limit depends on how the two accounts are connected: unrelated players get the most, accounts that used the same network get much less, and sitters or a shared device get the least. Connected accounts can no longer raid each other.","Beginners and small accounts (under 100 points) can not gift; they can still make fair, about 1 to 1 deals on the market.","Exceptions: a colony holding a relic can take unlimited help from allies, and food for troops you keep stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit.","Automatic 🔁 trade routes only go to your own colonies, or to an alliance member's colony that holds a relic (food only). A route stops by itself when that colony no longer holds one.","Tapping 🐪 Resources on a colony now opens the Send tab straight away instead of the tab you used last."]]]},
+  {v:"1.0.388",date:"2026-11-16",title:"Troop traffic by kind",groups:[["Troop traffic",["The full list now groups by kind of movement instead of by destination: one row per kind (attacks, raids, support, returning troops and so on) with how many there are, the total troops and the soonest arrival.","Tap a row to unfold every single movement with its own place, troops and timer. Fold all / Unfold all still work, and sorting is unchanged.","Troops stationed abroad stay grouped by place."]]]},
   {v:"1.0.387",date:"2026-11-16",title:"Lookouts and camp art",groups:[["👁️ Sight",["Your Expedition Base (Lookout Perch, Relic Scanner) now shows which unit types are marching at you: an attack made of fewer troops than the building's level lists its units, but never how many. Cloaked alien armies stay hidden."]],["Camps",["The Spore Garden, Kraken Crater and Golem Quarry show their art on the map again."]]]},
   {v:"1.0.386",date:"2026-11-16",title:"A clearer troop traffic card",groups:[["🧭 Troop traffic",["The traffic card now has four fixed tiles: incoming attacks (red swords), outgoing attacks (green swords), incoming support (blue shield) and outgoing support (new green shield with an arrow out). Each shows how many movements there are and when the first one arrives; the incoming attack tile pulses while an attack is on its way.","Spies, merchants, settlers, returning troops and the rest each have their own icon and sit in one quiet line below, and \"All\" opens the full list. The list uses the same icons, so your own attacks and support are green and shielded instead of generic."]]]},
   {v:"1.0.385",date:"2026-11-16",title:"A better Finish button",groups:[["⚡ Queue",["The free Finish button on the last minutes of a job is now a chunky green button with a bolt and a soft pulse, so it is easy to spot. It looks the same in the speed-up sheet."]]]},
@@ -17940,6 +18063,7 @@ app.post("/api/market/offer", requireLogin, (req, res) => {
     if (!(ga >= OFFER_MIN) || !(wa >= OFFER_MIN)) return "At least " + OFFER_MIN + " on both sides";
     const ratio = wa / ga;
     if (ratio < OFFER_RATIO_MIN - 1e-9 || ratio > OFFER_RATIO_MAX + 1e-9) return "Fair trades only: ask for " + OFFER_RATIO_MIN + "× to " + OFFER_RATIO_MAX + "× of what you give";
+    if (giftLocked(req.user.id, now) && !fairTrade(ga, wa)) return "Beginners and small accounts can only offer fair deals, about 1 to 1";
     if (db.prepare("SELECT COUNT(*) AS n FROM market_offers WHERE user_id = ?").get(req.user.id).n >= OFFER_MAX) return "You have " + OFFER_MAX + " open offers already";
     if (ga > Math.floor(s.res[give])) return "You don't have that much " + give;
     const need = Math.ceil(ga / merchantCarry(s));
@@ -17969,6 +18093,7 @@ app.post("/api/market/accept", requireLogin, (req, res) => {
     if (levelOf(s, "market") === 0) return "You need a marketplace first";
     if (accountsLinked(o.user_id, req.user.id)) return LINKED_MSG;
     if (o.ally_only && !areAllies(o.user_id, req.user.id)) return "This offer is for their alliance only";
+    if ((giftLocked(req.user.id, now) || giftLocked(o.user_id, now)) && !fairTrade(o.give_amt, o.want_amt)) return "Beginners and small accounts can only make fair deals, about 1 to 1";
     if (o.want_amt > Math.floor(s.res[o.want_res])) return "You need " + o.want_amt + " " + o.want_res;
     const need = Math.ceil(o.want_amt / merchantCarry(s));
     const free = merchantsFree(s, colony.id);
@@ -17985,6 +18110,8 @@ app.post("/api/market/accept", requireLogin, (req, res) => {
                               target_kind, target_x, target_y, loot, merchants, route)
        VALUES (?, ?, 'trade', '{}', ?, ?, ?, 'out', ?, 'colony', ?, ?, ?, ?, 0)`
     ).run(pc.id, colony.id, now, now + trip, now + 2 * trip, now + trip, colony.x, colony.y, JSON.stringify(resOnly(o.give_res, o.give_amt)), o.merchants);
+    logTransfer(req.user.id, o.user_id, o.want_amt, "trade", now);
+    logTransfer(o.user_id, req.user.id, o.give_amt, "trade", now);
     addReport(o.user_id, now, "🤝", tt("Offer taken: {0}", shortColonyName(req.user.username)), {
       mission: "offer", giveRes: o.give_res, giveAmt: o.give_amt, wantRes: o.want_res, wantAmt: o.want_amt, by: req.user.username, from: colony.name,
     });
@@ -21448,6 +21575,11 @@ const PAGE = `<!DOCTYPE html>
   .tribe-pick:hover .ti { animation: wiggle 0.4s ease-in-out; }
   .tribe-pick b { font-size: 17px; }
   .tribe-pick small { display: block; font-weight: 500; font-size: 13px; }
+  .tribe-pick .tp-play { margin-top: 2px; }
+  .tribe-pick .tp-play b { font-size: 13px; letter-spacing: 1px; }
+  .tribe-pick .tp-play.lv1 b { color: #2f8f4e; }
+  .tribe-pick .tp-play.lv2 b { color: #c47a12; }
+  .tribe-pick .tp-play.lv3 b { color: #b8322f; }
   .tribe-pick.on { box-shadow: 0 0 0 4px var(--ink); transform: translateY(1px) rotate(-1deg); }
 
   #toast {
@@ -23021,6 +23153,7 @@ const PAGE = `<!DOCTYPE html>
   .mv.danger .mv-bar u { background: #d63c3c; }
   .mvg { display: grid; gap: 3px; }
   .mv-x { font-style: normal; font-size: 11px; font-weight: 800; padding: 0 6px; border-radius: 8px; background: var(--tribe); color: #fff; align-self: center; }
+  .mv-c { display: block; text-align: right; font-size: 10px; opacity: .6; }
   .mvg-t { display: block; width: 100%; padding: 2px 8px; font: inherit; font-size: 11px; font-weight: 700; text-align: left; color: inherit; background: rgba(0,0,0,0.05); border: 0; border-radius: 8px; cursor: pointer; opacity: 0.85; }
   .mvg.open { padding-left: 8px; border-left: 3px solid var(--tribe); }
   .mvsort { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0 2px; font-size: 12px; }
@@ -28433,7 +28566,9 @@ function renderHopTribe() {
   (tribes || []).forEach(function (t) {
     h += '<button type="button" class="tribe-pick' + (regTribe === t.key ? " on" : "") + '" data-tribe="' + t.key + '">';
     h += '<span class="ti" style="background:' + t.color + '">' + t.icon + "</span>";
-    h += "<span><b>" + t.name + "</b><small>" + t.desc + "</small><small>" + trStr("Troops:") + " " + t.units + "</small>";
+    h += "<span><b>" + t.name + "</b><small>" + t.desc + "</small>";
+    if (t.play) h += '<small class="tp-play lv' + t.play.level + '"><b>' + ["", "●○○ Easy", "●●○ Medium", "●●● Hard"][t.play.level] + "</b> · ⏱ " + esc(t.play.effort) + "</small>";
+    h += "<small>" + trStr("Troops:") + " " + t.units + "</small>";
     if (regTribe === t.key && t.perks) h += perkChips(t.perks, true);
     h += "</span></button>";
   });
@@ -29253,7 +29388,7 @@ function mvSize(m) {
 function mvGroups(list) {
   var map = {}, order = [];
   list.forEach(function (m) {
-    var k = m.dir + "|" + m.type + "|" + (m.mission || "") + "|" + (m.x !== undefined && m.y !== undefined ? m.x + "," + m.y : "id:" + m.id);
+    var k = m.dir + "|" + m.type + "|" + (m.mission || "") + (m.type === "abroad" ? "|" + (m.x !== undefined && m.y !== undefined ? m.x + "," + m.y : "id:" + m.id) : "");
     if (!map[k]) { map[k] = { key: k, items: [] }; order.push(map[k]); }
     map[k].items.push(m);
   });
@@ -29291,12 +29426,17 @@ function mvGroup(g) {
   if(g.head.type==="abroad" && g.items.length>1)return mvStationedGroup(g);
   var n = g.items.length;
   var open = !!mvOpenG[g.key];
-  var h = '<div class="mvg' + (open ? " open" : "") + '">' + mvRow(g.head, n);
-  if (n > 1) {
-    var last = g.items[n - 1];
-    h += '<button class="mvg-t" data-mvgroup="' + esc(g.key) + '">' + (open ? "▴ Fold " + (n - 1) + " back in" : "▾ " + (n - 1) + " more " + esc(mvTitle(g.head).toLowerCase()) + " folded" + (last.endAt ? " · last in " + mvClock(Math.max(0, last.endAt - serverNow())) : "")) + "</button>";
-    if (open) g.items.slice(1).forEach(function (m) { h += mvRow(m); });
-  }
+  if (n === 1) return '<div class="mvg">' + mvRow(g.head) + "</div>";
+  // one row per kind of movement: total troops, soonest arrival; tap to see each one with its place
+  var sum = {}, all = true, merch = 0;
+  g.items.forEach(function (m) {
+    if (m.units) m.units.forEach(function (u) { var k = (u.key || "") + "|" + u.name + "|" + u.icon; if (!sum[k]) sum[k] = Object.assign({}, u, { count: 0 }); sum[k].count += u.count; }); else all = false;
+    merch += m.merchants || 0;
+  });
+  var head = Object.assign({}, g.head, { name: mvTitle(g.head), units: all ? Object.keys(sum).map(function (k) { return sum[k]; }) : null, merchants: merch || g.head.merchants, seen: null });
+  var last = g.items[n - 1];
+  var h = '<div class="mvg' + (open ? " open" : "") + '">' + mvRow(head, n, g.key, open);
+  if (open) g.items.forEach(function (m) { h += mvRow(m); });
   return h + "</div>";
 }
 function mvSortBar(d) {
@@ -29315,13 +29455,13 @@ function mvUnits(units) {
   var h = list.slice(0, 3).map(function (u) { return u.count + " " + u.icon; }).join(" ");
   return h + (list.length > 3 ? " +" + (list.length - 3) : "");
 }
-function mvRow(m, count) {
+function mvRow(m, count, groupKey, open) {
   var now = serverNow();
   var left = m.endAt ? Math.max(0, m.endAt - now) : 0;
   var pct = m.endAt && m.startAt ? Math.max(0, Math.min(100, Math.round((1 - left / Math.max(1, m.endAt - m.startAt)) * 100))) : 100;
-  var h = '<button class="mv' + (isThreat(m) ? " danger" : m.dir === "in" ? " in" : "") + '" data-move-open="' + m.id + '" title="' + esc(mvTitle(m)) + '">';
-  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, folded into the first to arrive">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.seen ? '<small title="' + esc(seenTitle(m)) + '">👁️ ' + seenIcons(m) + "</small>" : m.merchants ? "<small>" + m.merchants + " 🐪</small>" : "") + "</span>";
-  h += '<span class="mv-t">' + (m.endAt ? mvClock(left) : "📍") + "</span>";
+  var h = '<button class="mv' + (isThreat(m) ? " danger" : m.dir === "in" ? " in" : "") + '" ' + (groupKey ? 'data-mvgroup="' + esc(groupKey) + '" aria-expanded="' + !!open + '"' : 'data-move-open="' + m.id + '"') + ' title="' + esc(mvTitle(m)) + '">';
+  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, tap to see each">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.seen ? '<small title="' + esc(seenTitle(m)) + '">👁️ ' + seenIcons(m) + "</small>" : m.merchants ? "<small>" + m.merchants + " 🐪</small>" : "") + "</span>";
+  h += '<span class="mv-t">' + (m.endAt ? mvClock(left) : "📍") + (groupKey ? '<small class="mv-c">' + (open ? "▴" : "▾") + "</small>" : "") + "</span>";
   if (m.endAt && m.startAt) h += '<i class="mv-bar"><u style="width:' + pct + '%"></u></i>';
   return h + "</button>";
 }
@@ -32074,6 +32214,7 @@ function sendSheet(d) {
   ].forEach(function (m) {
     if (!!t.settle !== (m[0] === "settle")) return;
     if (t.camp && m[0] === "reinforce") return;
+    if (m[0] === "reinforce" && !t.mine && !t.ally && !t.zone && !t.landmark && !t.settle && !t.meteor) return; // support only goes to your alliance
     if (t.meteor && m[0] !== "raid") return;
     if (t.mine && m[0] === "scout") return; // attack, raid or support your own colony
     if ((t.zone || t.landmark) && (m[0] === "raid" || (m[0] === "reinforce" && !zoneMine) || (m[0] === "attack" && zoneMine))) return;
@@ -33992,10 +34133,12 @@ function routesPanel(d) {
     h += "<small>" + (r.on ? "⏱ next in " + shortTime(Math.max(0, r.nextAt - serverNow())) : "⏸️ paused") + (r.last ? " · " + esc(r.last) : "") + "</small>";
     h += '<div class="rt-btns"><button type="button" class="btn small ghost" data-route-toggle="' + r.id + '">' + (r.on ? "⏸️ Pause" : "▶️ Start") + '</button><button type="button" class="btn small ghost" data-route-del="' + r.id + '" title="Delete route">🗑️</button></div></div>';
   });
-  if (!others.length) return h + '<p class="empty">Automatic routes can only target your own colonies. Found a second colony first. 🏳️</p>';
+  var relics = m.relicTargets || [];
+  if (!others.length && !relics.length) return h + '<p class="empty">Automatic routes only go to your own colonies, or food to an ally colony that holds a relic. Found a second colony first. 🏳️</p>';
   if (m.routes.length >= m.maxRoutes) return h + '<p class="hint">All ' + m.maxRoutes + (m.maxRoutes === 1 ? " route" : " routes") + " used. Upgrade the " + m.name + " for more.</p>";
   h += '<form id="routeform" class="mkform"><h4 class="sidesub">' + '➕' + ' New route</h4><div class="mkrow"><b>To</b><select data-rt="to">';
   others.forEach(function (c) { h += '<option value="' + c.id + '"' + (String(c.id) === rt.to ? " selected" : "") + ">" + esc(c.name) + "</option>"; });
+  relics.forEach(function (c) { h += '<option value="' + c.id + '"' + (String(c.id) === rt.to ? " selected" : "") + ">🏺 " + esc(c.name) + " (" + esc(c.owner) + ", food only)</option>"; });
   h += "</select></div>";
   h += '<label class="ofally"><input type="checkbox" data-rt="allSurplus"' + (rt.allSurplus ? " checked" : "") + '> ' + '📦' + ' Send all surplus resources automatically</label>';
   h += '<p class="hint">When enabled, each run sends as much wood, stone, metal and food as possible above your reserve. Cargo space is shared proportionally between resource types.</p>';
@@ -34075,6 +34218,7 @@ function sendPanel(d) {
   h += "</div>";
   h += '<div class="mkquick"><button type="button" class="chipbtn" data-mk-fill="1" title="Top up the last camel">' + '🧺' + ' Fill</button><button type="button" class="chipbtn" data-mk-even="1" title="Same amount of everything">⚖️ Even</button><button type="button" class="chipbtn" data-mk-clear="1">' + '✖' + ' Clear</button></div>';
   h += '<div class="sendinfo" id="mkinfo"></div>';
+  h += '<p class="hint" title="Resources only go to your own colonies and your alliance. Over 7 server days the net amount to one member is limited by your production; connected accounts get far less.">' + (m.gift.lock ? "🔒 " + esc(trStr(m.gift.lock)) : "🤝 Up to " + shortNum(m.gift.cap) + " net per member over 7 server days") + "</p>";
   h += '<button class="btn" type="submit"' + (m.free ? "" : " disabled") + ">🐪 Send merchants</button></form>";
   return h;
 }
@@ -35656,7 +35800,7 @@ function renderTileInfo() {
         tipBtn('data-send-spy="' + x + "," + y + '"', "🔍", "Spy"),
         tipBtn('data-sim-at="' + x + "," + y + '"', "🧮", "Simulate"),
         tipBtn('data-farm-add="' + x + "," + y + '" data-name="' + esc(c.name) + '"', "📋", "Farm list"),
-        tipBtn('data-market-to="' + x + "," + y + '"', "🐪", "Resources"),
+        c.ally ? tipBtn('data-market-to="' + x + "," + y + '"', "🐪", "Resources") : "",
         tipBtn('data-write="' + esc(c.owner) + '"', "✉️", "Message"),
       ]);
       h += farmPickRow(x, y);
@@ -35964,7 +36108,7 @@ function wikiChapter(W, tab) {
     var M = W.market;
     var mr = [];
     for (var ml = 1; ml <= 10; ml++) mr.push([ml, ml * M.perLevel, wkN(ml * M.perLevel * M.carry), (M.swapBase + M.swapPer * ml) + " per 100"]);
-    cards.push(wkCard("market", "🐪", "Marketplace", kt({ head: ["Lv", "Merchants", "Can carry", "Swap rate"], rows: mr }) + wkNote(trf("Normal merchants carry {0} (more or less depending on the tribe) and travel {1} tiles/h. Trade routes send resources between your own colonies by themselves; pick a 🕐 first-run time when creating one if you want that first batch to land at a specific moment (every run after that keeps to the chosen interval). The ⚖️ Balance tab swaps all four resources at once at the same rate; if you're short on resources for a build and have enough spare elsewhere, a 💱 Cover with market button fills it in for you - just confirm the swap. On a troop, ⚖️ Fit resources for N fills it in so your stock matches that unit's cost ratio, for as many of them as possible (the count is set for training, too).", M.carry, M.speed))));
+    cards.push(wkCard("market", "🐪", "Marketplace", kt({ head: ["Lv", "Merchants", "Can carry", "Swap rate"], rows: mr }) + wkNote(trf("Normal merchants carry {0} (more or less depending on the tribe) and travel {1} tiles/h. Trade routes send resources between your own colonies by themselves; pick a 🕐 first-run time when creating one if you want that first batch to land at a specific moment (every run after that keeps to the chosen interval). The ⚖️ Balance tab swaps all four resources at once at the same rate; if you're short on resources for a build and have enough spare elsewhere, a 💱 Cover with market button fills it in for you - just confirm the swap. On a troop, ⚖️ Fit resources for N fills it in so your stock matches that unit's cost ratio, for as many of them as possible (the count is set for training, too).", M.carry, M.speed)) + wkNote("🤝 Resources and 🛡️ support only go to your own colonies and to members of your alliance. Over 7 server days the net amount you can pass to one player is limited by your production plus half of your recent raid income; accounts that share a network get far less, sitters or a shared device the least, and they can't raid each other. Beginners and accounts under 100 points can't gift, only trade about 1 to 1. A colony holding a relic takes unlimited help from allies, and food for troops stationed in a colony raises your allowance, both when at least half of the load is food. Pylons have no limit. Automatic 🔁 routes only go to your own colonies, or to an ally colony that holds a relic (food only).")));
     var T = W.colonies;
     var acc = 0;
     var tr = T.terra.map(function (n, i) { acc += n; return ["Colony " + (i + 2), wkN(n), wkN(acc)]; });
@@ -39118,6 +39262,7 @@ document.addEventListener("click", function (e) {
     var mt = attr("data-market-to").split(",");
     mk.x = mt[0];
     mk.y = mt[1];
+    mkTab = "send";
     if (sheet && (sheet.kind === "market" || sheet.kind === "building")) renderSheet();
     else openSheet("market", null);
   } else if (has("data-terra-open")) {
