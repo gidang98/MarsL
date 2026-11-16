@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.375";
+const GAME_VERSION = "1.0.376";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -4601,7 +4601,7 @@ function resolveSettle(m) {
   const terra = terraOf(att.userId, T);
   let problem = null;
   if (!canSettle(m.target_x, m.target_y)) problem = "Somebody else was faster, or the land is not free anymore.";
-  else if (richAt(m.target_x, m.target_y) && clockDayNow(T) < richWaveDay(richAt(m.target_x, m.target_y).wave || 0)) problem = "This ✨ rich site opens on server day " + richWaveDay(richAt(m.target_x, m.target_y).wave || 0) + ".";
+  else if (richAt(m.target_x, m.target_y) && clockDayNow(T) < richWaveDay(richAt(m.target_x, m.target_y).wave || 0)) problem = "This ✨ rich site opens on " + dayDate(richWaveDay(richAt(m.target_x, m.target_y).wave || 0)) + ".";
   else if (need === null) problem = "You already have the most colonies a commander can handle.";
   else if (terra < need) problem = "Not enough terra yet (" + terra + " / " + need + ").";
 
@@ -6584,7 +6584,7 @@ app.post("/api/spec", requireLogin, (req, res) => {
     const key = String((req.body || {}).key || "");
     if (!COLONY_SPECS[key]) return "Unknown specialisation";
     if (levelOf(s, "hq") < SPEC_HQ) return "Specialisations open at " + tribe.names.hq[0] + " level " + SPEC_HQ;
-    if (actNow() < 1) return "Specialisations open with Act 2 (Expansion) on server day " + actDays()[1];
+    if (actNow() < 1) return "Specialisations open with Act 2 (Expansion) on " + dayDate(actDays()[1]);
     if (s.spec === key) return "This colony already is a " + COLONY_SPECS[key].name;
     if (s.spec) {
       const n = SPEC_CHANGE_COST;
@@ -11612,6 +11612,16 @@ const SERVER_CLOCK_DEFAULT = THIS_PRESET.clock || { landmarks: 30, relic: 250, a
 // the big events rushing past. The event days below are the days at x1: a round
 // at speed s lasts that many days divided by the square root of s.
 const CLOCK_REF_SPEED = 1;
+// "24 h": the length of a day in real hours, for texts
+function dayTxt() {
+  const h = serverDayMs() / 3600000;
+  return (h < 10 ? Math.round(h * 10) / 10 : Math.round(h)) + " h";
+}
+// a short real date for a server day, for texts
+function dayDate(day) {
+  const an = clockAnchor();
+  return new Date(an.t + (day - 1 - an.d) * serverDayMs()).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: SERVER_TZ });
+}
 function serverDayMs() {
   return Math.round(86400000 * Math.sqrt(CLOCK_REF_SPEED / Math.max(1, PRODUCTION_SPEED)));
 }
@@ -11699,7 +11709,7 @@ function serverClock() {
   const dm = serverDayMs();
   const mk = (day) => ({ day, at: Math.round(an.t + (day - 1 - an.d) * dm) });
   const ev = { landmarks: mk(days.landmarks), relic: mk(days.relic), aurora: mk(days.aurora) };
-  return { day: Math.floor(an.d + (now - an.t) / dm) + 1, start, dayMs: dm, events: ev };
+  return { day: Math.floor(an.d + (now - an.t) / dm) + 1, start, dayMs: dm, origin: Math.round(an.t - an.d * dm), events: ev };
 }
 function clockDoneRead() {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'server_clock_done'").get();
@@ -12772,7 +12782,7 @@ function who(name, tag) { return "<b>" + esc(name) + "</b>" + (tag ? " [" + esc(
 
 function ageCard(d) {
   var h = '<div class="card wide"><h2>🕰️ Server age and progress</h2><div class="stats">';
-  h += '<div class="stat"><small>' + trStr("Server day") + '</small><b>' + d.age.day + "</b></div>";
+  h += '<div class="stat"><small>' + trStr("Running") + '</small><b>' + Math.max(0, Math.floor((Date.now() - d.age.start) / 86400000)) + " d</b></div>";
   h += '<div class="stat"><small>Started</small><b style="font-size:16px">' + new Date(d.age.start).toLocaleDateString() + "</b></div>";
   h += '<div class="stat"><small>Round progress</small><b>' + Math.round(d.progress * 100) + "%</b></div>";
   h += '<div class="stat"><small>Speed</small><b>×' + d.server.speed + "</b></div>";
@@ -12817,7 +12827,7 @@ function playersCard(d) {
 function landmarksCard(d) {
   var h = '<div class="card wide"><h2>🗿 Landmarks</h2>';
   if (!d.landmarks.length) {
-    h += '<div class="empty"><b>' + '🔒' + ' Not yet on the map</b><p class="muted">' + T("The landmarks appear on server day {0} ({1}).", d.landmarksDay, '<span class="cd" data-at="' + d.landmarksAt + '">' + countdown(d.landmarksAt - nowMs()) + "</span>") + "</p></div></div>";
+    h += '<div class="empty"><b>' + '🔒' + ' Not yet on the map</b><p class="muted">' + T("The landmarks appear in {0}.", '<span class="cd" data-at="' + d.landmarksAt + '">' + countdown(d.landmarksAt - nowMs()) + "</span>") + "</p></div></div>";
     return h;
   }
   var t = nowMs();
@@ -13739,7 +13749,7 @@ const HERO_FALL_XP = 0.03; // share of the progress to the next level lost when 
 // leading armies and guarding home. The other three are for other jobs.
 const HERO_SKILLS = {
   str: { icon: "💪", name: "Strength", per: 5, max: 100, unit: " attack and defense", text: "of its own: in every fight it leads, and for its colony while it is home", btn: "+5" },
-  vit: { icon: "❤️", name: "Vitality", per: 1.2, ward: 0.4, max: 100, unit: " health per server day", text: "and 0.4% less health lost in fights per point", btn: "+1.2 ❤️" },
+  vit: { icon: "❤️", name: "Vitality", per: 1.2, ward: 0.4, max: 100, unit: " health per " + dayTxt(), text: "and 0.4% less health lost in fights per point", btn: "+1.2 ❤️" },
   haul: { icon: "⚔️", name: "Tactics", per: 0.25, max: 60, unit: "% attack and defense", text: "for the army it leads and its colony while at home · capped at 15%", btn: "+0.25%" },
   prod: { icon: "⛏️", name: "Foreman", per: fieldProduction(10) * FIELD_LAYOUT.length / 400, pct: 0, max: 100, unit: "/h of each resource", text: "in its home colony, even while it is away, travelling or recovering; 100 points equal the average output per resource of level-10 starter fields", btn: "+production" },
 };
@@ -13823,7 +13833,7 @@ function heroPathMax(h) { return h.level >= HERO_PATH_OPEN ? Math.min(100,h.leve
 const HERO_ROAD = [
   { lv: 5, icon: "🧭", text: "Tribe path opens (capacity grows with level) · a quirk" },
   { lv: 10, icon: "🎭", text: "Archetype · tribe path capacity: 20 points" },
-  { lv: 15, icon: "⚔️", text: "War power twice per server day" },
+  { lv: 15, icon: "⚔️", text: "War power twice every " + dayTxt() },
   { lv: 100, icon: "🌟", text: "Legendary Commander badge" },
 ];
 function heroMend(h) { return h && h.tribe === "alien" ? Math.min(0.15, (h.pts.path || 0) * HERO_PATHS.alien.per * (1+heroGearStats(h).identity/100) / 100) : 0; }
@@ -13855,7 +13865,7 @@ const HERO_STATS = {
   atkPct: { icon: "⚔️", name: "army attack", unit: "%" },
   defPct: { icon: "🛡️", name: "colony defense", unit: "%" },
   ward: { icon: "🩹", name: "less health lost", unit: "%" },
-  regen: { icon: "❤️", name: "health per server day", unit: "" },
+  regen: { icon: "❤️", name: "health per " + dayTxt(), unit: "" },
   xp: { icon: "⭐", name: "experience", unit: "%" },
   carry: { icon: "🎒", name: "army carry", unit: "%" },
   bounty: { icon: "📦", name: "bounty", unit: "%" },
@@ -14746,7 +14756,7 @@ app.post("/api/alliance/diplo", requireLogin, (req, res) => {
       const o = byTag();
       if (!o) return "No alliance with that tag";
       if (o.id === me.id) return "That's your own alliance";
-      if (pactBetween(me.id, o.id)) return "You have a pact with [" + o.tag + "]. End it first (it takes half a server day).";
+      if (pactBetween(me.id, o.id)) return "You have a pact with [" + o.tag + "]. End it first (it takes " + fmtDur(holdDayMs() / 2) + ").";
       if (warBetween(me.id, o.id)) return "You are already at war with [" + o.tag + "]";
       if (db.prepare("SELECT COUNT(*) AS n FROM alliance_war_marks WHERE a = ? OR b = ?").get(me.id, me.id).n >= WAR_MAX) return "At most " + WAR_MAX + " wars at the same time";
       db.prepare("INSERT INTO alliance_war_marks (a, b, at) VALUES (?, ?, ?)").run(me.id, o.id, now);
@@ -15979,6 +15989,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.376",date:"2026-11-16",title:"Real time instead of server days",groups:[["Time",["Every player-facing text now uses real time: dates and countdowns instead of server days, hours instead of \"per server day\", and the vacation lengths in hours or days.","The clock bar shows when the round started, the acts and events show their real dates, and the wiki's clock table lists dates."]]]},
   {v:"1.0.375",date:"2026-11-16",title:"Storm Season: the Dust Titan and gear meteors",groups:[["Dust Titan",["From the Storm Season on, a Dust Titan takes over one monster camp every few days and stays for most of a day. It is far too strong for one army.","Every attack wears it down for good, so many players can fight it one after the other. Its health and the top fighters show on the camp card.","When it falls, everybody who dealt at least 2% of the damage shares a big resource reward by damage. The top three fighters get commander gear (the best one a Legendary). Everyone gets the Dust Titan Slayer badge.","If nobody finishes it in time, it sinks back into the dust and the camp returns."]],["Meteors",["From the Storm Season on, meteor showers drop more crates and about one in three holds commander gear. Collect it with a raid like any crate. It needs room in the commander's bag, otherwise the crate stays."]]]},
   {v:"1.0.374",date:"2026-11-16",title:"Relics live in the Expedition Base",groups:[["Relics",["A captured relic is now kept in the colony's Expedition Base (the building that sends the expeditions, with your tribe's own name) instead of a building chosen by its bonus.","The relic badge shows on that building and in the Relics page."]]]},
   {v:"1.0.373",date:"2026-11-16",title:"Relics you carry home, and three Relic Hunts",groups:[["Relics",["Landmarks are now collectible relics. Win the fight at the site and your army carries the relic home to your colony.","A captured relic leaves the map. It is kept in the colony's Expedition Base (your tribe's own name for it) and shows there.","To steal a relic, win an attack on the colony that keeps it. The thief needs an Expedition Base in range and no other relic. A relic is not guarded at its site any more, so defend the colony that keeps it.","New 🗿 Relics page in the top bar: where every relic is right now, who keeps it, and the state of the hunt."]],["Three Relic Hunts",["Hunt I (day 250 on Classic): relics help the colony that keeps them.","Hunt II (about day 280): relics are 60% stronger and help every colony of the holder.","Hunt III (about day 310): relics are 120% stronger and help the whole alliance of the holder.","Every hunt starts with all relics back at their sites. Each winner gets a badge. The Aurora still starts on day 340."]]]},
@@ -29209,7 +29220,7 @@ function todayParts(d) {
   if (d.sitting || (view !== "resources" && view !== "buildings")) return null;
   var D = d.daily, P = d.tribePower, parts = [], chips = [];
   // 🎁 the daily supply lives on the mission board
-  if (d.late) parts.push('<div class="today-btn late" title="Players who land after day 7 catch up faster"><span class="tb-i">🛬</span><span><b>Late lander boost +' + Math.round(d.late.now * 100) + '%</b><small>production and build speed · fades in ' + shortTime(Math.max(0, d.late.ends - serverNow())) + "</small></span>" + helpBtn("basics:late", "About the late lander boost") + "</div>");
+  if (d.late) parts.push('<div class="today-btn late" title="Players who land late catch up faster"><span class="tb-i">🛬</span><span><b>Late lander boost +' + Math.round(d.late.now * 100) + '%</b><small>production and build speed · fades in ' + shortTime(Math.max(0, d.late.ends - serverNow())) + "</small></span>" + helpBtn("basics:late", "About the late lander boost") + "</div>");
   if (d.acts) { var Ac = d.acts, Cur = Ac.list[Ac.now], Nx = Ac.list[Ac.now + 1]; parts.push('<div class="today-btn forecast" data-view="ranking" title="' + esc(Cur.rule) + '"><span class="tb-i">' + Cur.icon + "</span><span><b>Act " + (Ac.now + 1) + " of " + Ac.list.length + " · " + esc(Cur.name) + "</b><small>" + (Nx ? trf("Next: {0} in {1} · {2}", Nx.icon + " " + esc(trStr(Nx.name)), shortTime(Math.max(0, Nx.at - serverNow())), esc(trStr(Nx.rule))) : esc(Cur.rule)) + "</small></span>" + helpBtn("seasons:acts", "About the six acts") + "</div>"); }
   if (d.late) chips.push("<span>🛬 +" + Math.round(d.late.now * 100) + "%</span>");
   if (d.acts) chips.push("<span>" + d.acts.list[d.acts.now].icon + " Act " + (d.acts.now + 1) + "/" + d.acts.list.length + "</span>");
@@ -32490,7 +32501,7 @@ function clockLine(d, key, label, icon, what) {
   var c = d.clock && d.clock.events && d.clock.events[key];
   if (!c) return "";
   var past = c.at <= serverNow();
-  return "<li>" + icon + " <b>" + (past ? "Now" : "Day " + c.day) + "</b> · " + label + (what ? " <small>" + what + "</small>" : "") + "</li>";
+  return "<li>" + icon + " <b>" + (past ? "Now" : dateText(c.at)) + "</b> · " + label + (what ? " <small>" + what + "</small>" : "") + "</li>";
 }
 function tutWin(d) {
   var se = d.world && d.world.season;
@@ -32971,7 +32982,7 @@ function vacationBox(d) {
   if (v.cool) return h + '<p class="hint">The next vacation is possible in ' + shortTime(v.cool - serverNow()) + ".</p>";
   h += '<p class="hint">Nobody can attack or spy on you. You can’t send troops or goods. Everything keeps growing.</p>';
   h += '<div class="setrow"><select id="vacdays" aria-label="Vacation length">';
-  [1, 2, 3, 5, 7, 10, 14].forEach(function (n) { if (n >= v.minDays && n <= v.maxDays) h += '<option value="' + n + '"' + (n === 7 ? " selected" : "") + ">" + n + (n === 1 ? " day" : " days") + "</option>"; });
+  [1, 2, 3, 5, 7, 10, 14].forEach(function (n) { if (n >= v.minDays && n <= v.maxDays) h += '<option value="' + n + '"' + (n === 7 ? " selected" : "") + ">" + realSpan(n * dayMsNow()) + "</option>"; });
   h += '</select><button class="btn ghost" data-vac-start="1"' + (v.canStart ? " disabled" : "") + ">🏖️ Start vacation</button></div>";
   if (v.canStart) h += '<p class="reason">' + esc(v.canStart) + "</p>";
   return h;
@@ -33072,7 +33083,7 @@ function heroSheet(d) {
     h += '<div class="hrevive"><p class="hint">Pay to end the recovery early - back in ' + shortTime(H.reviveMs) + " instead of " + shortTime(H.hurtLeft) + ".</p>";
     h += costChips(H.reviveCost, d.res) + '<button class="btn small" type="button" data-hero-revive="1">' + '💉' + ' Revive now</button></div>';
   }
-  h += '<div class="hvit"><div class="hvit-row" title="Health"><span>❤️</span>' + heroBar("hp" + (H.hp >= H.hpMax * 0.5 ? " ok" : ""), H.hp, H.hpMax) + "<b>" + H.hp + " / " + H.hpMax + "</b>" + "<small>+" + H.regen + " per server day" + (H.hpFullIn ? " · full in " + shortTime(H.hpFullIn) : "") + "</small></div>";
+  h += '<div class="hvit"><div class="hvit-row" title="Health"><span>❤️</span>' + heroBar("hp" + (H.hp >= H.hpMax * 0.5 ? " ok" : ""), H.hp, H.hpMax) + "<b>" + H.hp + " / " + H.hpMax + "</b>" + "<small>+" + H.regen + " per " + dayLenText() + "" + (H.hpFullIn ? " · full in " + shortTime(H.hpFullIn) : "") + "</small></div>";
   h += '<div class="hvit-row" title="Experience"><span>⭐</span>' + heroBar("xp", H.need ? H.xp : 1, H.need || 1) + "<b>" + (H.need ? H.xp + " / " + H.need + " xp" : "max") + "</b></div></div>";
   h += '<div class="hpts"><div title="Its own attack, plus a bonus for the army it leads"><b>⚔️ ' + H.points.atk + "</b><small>attack" + (H.bonus.atk ? " +" + H.bonus.atk + "%" : "") + "</small></div>" + '<div title="Its own defense at home"><b>🛡️ ' + H.points.def + "</b><small>defense" + (H.bonus.def ? " +" + H.bonus.def + "%" : "") + '</small></div><div title="Carry of the army it leads"><b>' + '🎒' + ' +' + H.bonus.carry + '%</b><small>carry</small></div><div title="Own production where it is stationed"><b>⛏️ ' + H.bonus.prod + "</b><small>/h +" + (H.bonus.prodPct || 0) + "%</small></div></div>";
   var used = H.bag.length;
@@ -34998,7 +35009,7 @@ function drawTiles() {
         if (py) inner = pylonTile(py);
       }
       var rch = (ch.rich || []).filter(function (r) { return r.x === x && r.y === y; })[0];
-      if (rch && !rch.taken) inner += '<i class="rich' + (rch.open ? "" : " shut") + '" title="Rich site · +20% production' + (rch.open ? "" : " · opens on day " + rch.day) + '">✨</i>';
+      if (rch && !rch.taken) inner += '<i class="rich' + (rch.open ? "" : " shut") + '" title="Rich site · +20% production' + (rch.open ? "" : " · opens on " + dateText(dayTs(rch.day))) + '">✨</i>';
       var amk = allyMarkAt(x, y);
       var trd = traderAt(x, y);
       if (trd && !colonyAt(x, y)) { var tra = mapArt("map-ev-trader"); inner = '<span class="trader' + (tra ? " clay" : "") + (trd.used ? " used" : "") + '" title="' + esc(trd.name) + '">' + (tra || "🐫") + "</span>"; }
@@ -35321,7 +35332,7 @@ function renderTileInfo() {
         h += '<p class="tip-note">' + info.info + "</p>";
       }
       var rs = (map.chunk.rich || []).filter(function (r) { return r.x === x && r.y === y; })[0];
-      if (rs && canSettle) h += '<p class="tip-note">' + '✨' + ' <b>Rich site</b>: a colony here produces 20% more of everything. ' + (rs.open ? "Open now: first come, first served." : "Opens on server day " + rs.day + ".") + " " + helpBtn("map:rich", "About rich sites") + "</p>";
+      if (rs && canSettle) h += '<p class="tip-note">' + '✨' + ' <b>Rich site</b>: a colony here produces 20% more of everything. ' + (rs.open ? "Open now: first come, first served." : "Opens on " + dateText(dayTs(rs.day)) + ".") + " " + helpBtn("map:rich", "About rich sites") + "</p>";
       if (canSettle) h += tipActions('<button class="btn" data-settle="' + x + "," + y + '"' + (rs && !rs.open ? " disabled" : "") + '>🏳️ Settle here</button>');
     } else {
       h += tipHead("🌫️", "Somewhere out there", where(x, y, dist));
@@ -35346,26 +35357,26 @@ function nextEvents(d) {
 }
 function nextChips(d) {
   var c = d.clock, now = serverNow();
-  return nextEvents(d).map(function (e) { return "<span>" + e[1] + " " + e[2] + " <b>in " + shortTime(c.events[e[0]].at - now) + "</b> <small>(day " + c.events[e[0]].day + ")</small></span>"; }).join("");
+  return nextEvents(d).map(function (e) { return "<span>" + e[1] + " " + e[2] + " <b>in " + shortTime(c.events[e[0]].at - now) + "</b> <small>(" + dateText(c.events[e[0]].at) + ")</small></span>"; }).join("");
 }
 // Nothing running yet: when the big events start (by themselves)
 function clockBar(d) {
   var A = d.acts;
-  if (!A) { if (!nextEvents(d).length) return ""; return '<div class="seasonbar clock"><div class="sb-top"><b>🗓️ Server day ' + d.clock.day + "</b></div>" + '<div class="sb-teams">' + nextChips(d) + "</div></div>"; }
+  if (!A) { if (!nextEvents(d).length) return ""; return '<div class="seasonbar clock"><div class="sb-top"><b>🗓️ Round started ' + dateText(d.clock.start) + "</b></div>" + '<div class="sb-teams">' + nextChips(d) + "</div></div>"; }
   return '<div class="seasonbar clock">' + actsLine(d) + "</div>";
 }
 // 🎭 the acts of the round, one line everybody sees
 function actsLine(d) {
   var A = d.acts, now = serverNow(), cur = A.list[A.now], nx = A.list[A.now + 1];
-  var h = '<div class="sb-top"><b>' + cur.icon + " Act " + (A.now + 1) + " of " + A.list.length + " · " + esc(cur.name) + '</b><small>🗓️ Server day ' + d.clock.day + "</small>" + helpBtn("seasons:acts", "About the six acts") + "</div>";
-  h += '<ol class="acts">' + A.list.map(function (a, i) { return '<li class="' + (i < A.now ? "done" : i === A.now ? "on" : "") + '" title="' + esc(a.name + ": " + a.rule) + '"><span>' + a.icon + "</span><small>" + esc(a.name) + "<br>day " + a.day + "</small></li>"; }).join("") + "</ol>";
+  var h = '<div class="sb-top"><b>' + cur.icon + " Act " + (A.now + 1) + " of " + A.list.length + " · " + esc(cur.name) + '</b><small>🗓️ Round started ' + dateText(d.clock.start) + "</small>" + helpBtn("seasons:acts", "About the six acts") + "</div>";
+  h += '<ol class="acts">' + A.list.map(function (a, i) { return '<li class="' + (i < A.now ? "done" : i === A.now ? "on" : "") + '" title="' + esc(a.name + ": " + a.rule) + '"><span>' + a.icon + "</span><small>" + esc(a.name) + "<br>" + dateText(a.at) + "</small></li>"; }).join("") + "</ol>";
   h += '<p class="acts-rule">' + esc(trStr(cur.rule)) + (nx ? " <b>" + trf("Next: {0} in {1}", nx.icon + " " + esc(trStr(nx.name)), shortTime(Math.max(0, nx.at - now))) + "</b> · " + esc(trStr(nx.rule)) : "") + "</p>";
   return h;
 }
 // under a running event: what is still coming, one compact line
 function nextLine(d) {
   var n = nextChips(d);
-  return n ? '<div class="sb-next"><small>🗓️ Day ' + d.clock.day + " · next</small>" + n + "</div>" : "";
+  return n ? '<div class="sb-next"><small>🗓️ Next</small>' + n + "</div>" : "";
 }
 
 function seasonBar(d) {
@@ -35527,7 +35538,7 @@ function wikiChapter(W, tab) {
   if (tab === "basics") {
     cards.push(wkCard("goal", "🎯", "What is MarsL about?", wkP("You land on Mars with one colony. Grow it, found more colonies, train troops, trade and team up in an alliance. The big goals: hold the 🚩 Landing Zone, claim landmarks and win the server together.")));
       var LL = W.extra && W.extra.longterm && W.extra.longterm.late;
-      if (LL) cards.push(wkCard("late", "🛬", "Late landers", wkP("Who lands after server day " + LL.day + " gets a boost to production and build speed: " + LL.per + "% per server day the server is old when you land (at most " + LL.max + "%). It fades evenly over " + LL.days + " server days. The bar at the top of your colony shows how much is left.")));
+      if (LL) cards.push(wkCard("late", "🛬", "Late landers", wkP("Who lands after " + dateText(dayTs(LL.day)) + " gets a boost to production and build speed: " + LL.per + "% per " + dayLenText() + " the server is old when you land (at most " + LL.max + "%). It fades evenly over " + wkDur(LL.days * dayMsNow()) + ". The bar at the top of your colony shows how much is left.")));
       cards.push(wkCard("start", "🧭", "Your first hours", wkList([
       "Upgrade your <b>resource fields</b> first: everything is paid with them.",
       "Follow the <b>📋 Mission Board</b>: one build, one army and one world mission at a time, each with a reward.",
@@ -35559,11 +35570,11 @@ function wikiChapter(W, tab) {
     cards.push(wkCard("tribes", "🧬", "The three tribes", tr3 + wkNote("Everything not listed is the same for every tribe. The troops differ too: see ⚔️ Troops.")));
     var Lv = W.extra && W.extra.living;
     if (Lv) {
-      cards.push(wkCard("daily", "🎁", "Daily supply", wkP("Once per server day you can collect a free crate of every resource on the 📋 Mission Board. Every day in a row it grows, up to day " + Lv.dailyMax + "; miss a day and it starts over at day 1. It goes into the colony you are in (up to its storage).") + kt({ head: ["Day"].concat(Lv.daily.map(function (_, i) { return String(i + 1); })), rows: [["Each"].concat(Lv.daily.map(function (n) { return shortNum(n); }))] })));
+      cards.push(wkCard("daily", "🎁", "Daily supply", wkP("Once every " + dayLenText() + " you can collect a free crate of every resource on the 📋 Mission Board. Every day in a row it grows, up to day " + Lv.dailyMax + "; miss a day and it starts over at day 1. It goes into the colony you are in (up to its storage).") + kt({ head: ["Day"].concat(Lv.daily.map(function (_, i) { return String(i + 1); })), rows: [["Each"].concat(Lv.daily.map(function (n) { return shortNum(n); }))] })));
       var tName = function (k) { var t = (W.tribes || []).filter(function (x) { return x.key === k; })[0]; return t ? t.icon + " " + t.name : k; };
       cards.push(wkCard("powers", "✨", "Tribe powers", wkP("Every tribe has two powers of its own. Tap the power button at the top of your colony.") + kt({ head: ["Tribe", "⚙️ Home power", "⚔️ War power"], left: 3, rows: Object.keys(Lv.powers).map(function (k) { var p = Lv.powers[k], w = Lv.war[k]; return [tName(k), "<b>" + p.icon + " " + p.name + "</b><br>" + p.text, "<b>" + w.icon + " " + w.name + "</b><br>" + w.text]; }) }) + wkList([
-        "⚙️ <b>Home power</b>: once per server day in every colony. You choose what it works on: 🚨 Lockdown (humans) defends harder or hides more for 6 hours, 📣 Rally Cry (chickens) boosts the ground or air troops of the next attack or raid from this colony that lands within 8 hours, 🧠 Mind Link (aliens) speeds up one job. Lockdown and Rally Cry show in the battle report when they worked.",
-        "⚔️ <b>War power</b>: once per server day for you (twice with a commander at level " + Lv.warTwice + "). Tick it in the send window for one attack or raid; it isn’t used if you don’t tick it. 🛰️ Orbital Recon and 🌀 Cloak only work against other colonies, 🐔 Stampede against colonies and monster camps. Not in waves or farm lists.",
+        "⚙️ <b>Home power</b>: once every " + dayLenText() + " in every colony. You choose what it works on: 🚨 Lockdown (humans) defends harder or hides more for 6 hours, 📣 Rally Cry (chickens) boosts the ground or air troops of the next attack or raid from this colony that lands within 8 hours, 🧠 Mind Link (aliens) speeds up one job. Lockdown and Rally Cry show in the battle report when they worked.",
+        "⚔️ <b>War power</b>: once every " + dayLenText() + " for you (twice with a commander at level " + Lv.warTwice + "). Tick it in the send window for one attack or raid; it isn’t used if you don’t tick it. 🛰️ Orbital Recon and 🌀 Cloak only work against other colonies, 🐔 Stampede against colonies and monster camps. Not in waves or farm lists.",
         "🛰️ The recon report arrives next to the fight report, even if your whole army falls. It shows what is left right after the fight, so a single cheap unit with the power ticked works as a scout that can’t be caught.",
         "🌀 A cloaked army shows up as an attack with no pace to read: the defender can’t tell a raid from an attack or a fake from a real one.",
         "The fight report says when a war power was used.",
@@ -35609,7 +35620,7 @@ function wikiChapter(W, tab) {
     var Ec = W.extra && W.extra.econ;
     if (Ec) {
       cards.push(wkCard("specs", "🏷️", "Colony specialisations", wkP(trf("When a colony's {0} reaches level {1}, pick one specialisation for it (🏗️ Colony → Specialisation). They open with Act 2 (Expansion). Each opens a building of its own (10 levels). Changing later costs {2} of each resource and tears the old special building down.", wkBName(W, "hq"), Ec.specHq, shortNum(Ec.change))) + kt({ head: ["Specialisation", "Effect", "Its building, per level"], left: 3, rows: Object.keys(Ec.specs).map(function (k) { var c = Ec.specs[k]; return [c.icon + " " + c.name, c.text, wkBName(W, c.building) + ": " + (k === "breadbasket" ? "troops here eat 1% less" : k === "industrial" ? "+1% wood, stone and metal" : "+1% defense")]; }) }) + wkNote("Several colonies, different jobs: a Breadbasket feeds big armies, an Industrial Town builds, a Garrison holds the front. Merchants and trade routes move the goods between them.")));
-      cards.push(wkCard("forecast", "☁️", "Sol forecast", wkP("Every server day has its weather, known a day ahead. The bar at the top of your colony shows today and tomorrow. Production changes count from the start of the server day.") + kt({ head: ["Weather", "Effect", "How often"], left: 2, rows: Ec.forecasts.map(function (f) { var tot = Ec.forecasts.reduce(function (n, x) { return n + x.w; }, 0); return [f.icon + " " + f.name, f.text, Math.round(f.w / tot * 100) + "%"]; }) }) + wkNote("Plan around it: stockpile before a bad day, sell when swaps are cheap, send merchants on windy days.")));
+      cards.push(wkCard("forecast", "☁️", "Sol forecast", wkP("The weather changes every " + dayLenText() + " and is known one step ahead. The bar at the top of your colony shows today and tomorrow. Production changes count from the start of each period.") + kt({ head: ["Weather", "Effect", "How often"], left: 2, rows: Ec.forecasts.map(function (f) { var tot = Ec.forecasts.reduce(function (n, x) { return n + x.w; }, 0); return [f.icon + " " + f.name, f.text, Math.round(f.w / tot * 100) + "%"]; }) }) + wkNote("Plan around it: stockpile before a bad day, sell when swaps are cheap, send merchants on windy days.")));
     }
     cards.push(wkCard("terra", "🌱", "Terra for new colonies", kt({ head: ["", "Terra", "Σ so far"], rows: tr }) + wkNote(trf("Plus {0} settlers (hub level {1}). Every colony earns terra by itself. There is no colony limit: the table shows the first 15, each one needs more terra than the last.", T.settlers, T.hubLevel))));
     cards.push(wkCard("organize", "🗂️", "Organizing your colonies", wkList([
@@ -35720,7 +35731,7 @@ function wikiChapter(W, tab) {
     var Er = W.extra && W.extra.econ && W.extra.econ.rich;
     if (Er) cards.push(wkCard("rich", "✨", "Rich sites", wkList([
       "Every quarter of the map has " + Er.per + " rich sites (✨ on the map), " + Er.ring[0] + " to " + Er.ring[1] + " tiles from the centre. A colony founded on one produces <b>+" + Er.pct + "%</b> of every resource for good.",
-      "They open in waves: " + Er.waves.map(function (w) { return w.n + " per quarter on server day " + w.day; }).join(", ") + ". A closed site shows a grey ✨ and can't be settled yet.",
+      "They open in waves: " + Er.waves.map(function (w) { return w.n + " per quarter on " + dateText(dayTs(w.day)); }).join(", ") + ". A closed site shows a grey ✨ and can't be settled yet.",
       "Only settlers can take them; new players never land on one. First come, first served: expect company.",
     ])));
     cards.push(wkCard("terrain", "🏜️", "Terrain", kt({ head: ["", "Tile", "Settle"], left: 2, rows: W.terrain.map(function (t) { return [t.icon || WK_TILE[t.key] || "🟫", "<b>" + t.name + "</b><br><small>" + esc(t.info) + "</small>", t.buildable ? "✅" : "–"]; }) })));
@@ -35849,9 +35860,9 @@ function wikiChapter(W, tab) {
     if (CK) {
       var ckRows = [["landmarks", "🗿", "Landmarks open", "Claim them for big permanent bonuses"], ["relic", "🏆", "Relic Hunt", "Hold " + W.relic.count + " landmarks for " + W.relic.hours + " h: badge"], ["aurora", "🌌", "Project Aurora", "Wins the server"]].map(function (r) {
         var ev = CK.events[r[0]];
-        return [r[1] + " " + r[2], "Day " + ev.day, ev.at <= Date.now() ? "✅ started" : new Date(ev.at).toLocaleDateString(), r[3]];
+        return [r[1] + " " + r[2], dateText(ev.at), ev.at <= Date.now() ? "✅ started" : new Date(ev.at).toLocaleDateString(), r[3]];
       });
-      cards.push(wkCard("clock", "🗓️", "Server clock · today is day " + CK.day, kt({ head: ["Event", "Server day", "Starts", "What"], left: 4, rows: ckRows }) + wkNote("A day lasts " + wkDur(CK.dayMs) + ".") + wkNote("The <b>server is won</b> by the first alliance that lights the Aurora.")));
+      cards.push(wkCard("clock", "🗓️", "Server clock · round started " + dateText(CK.start), kt({ head: ["Event", "Date", "Status", "What"], left: 4, rows: ckRows }) + wkNote("The <b>server is won</b> by the first alliance that lights the Aurora.")));
     }
     cards.push(wkCard("events", "🎉", "Mars events", kt({ head: ["Event", "Effect", "Lasts"], left: 2, rows: W.events.map(function (e) { return [e.icon + " " + e.name, e.text, e.hours + " h"]; }) })));
     cards.push(wkCard("relic", "🏆", "Relic Hunt", wkP("Three hunts, one after the other. The first team (alliance or lone player) holding <b>" + W.relic.count + " relics</b> at the same time for <b>" + W.relic.hours + " h</b> in a row wins the hunt and a badge. <b>Hunt I</b>: relics help the colony that keeps them. <b>Hunt II</b> (×1.6): they help every colony of the holder. <b>Hunt III</b> (×2.2): they help the whole alliance of the holder. Each hunt starts with every relic back at its site.")));
@@ -35873,6 +35884,17 @@ function wikiChapter(W, tab) {
 }
 // ---------- newer systems: commander, speed-ups, attack rules, waves, diplomacy, badges ----------
 // "6 min", "1.5 h", "40 s"
+// real time everywhere: the server day only exists inside the code
+// a span of time in hours, or in days from two days on
+function realSpan(ms) {
+  var hrs = ms / 3600000;
+  if (hrs < 48) return wkDur(ms);
+  return Math.round(hrs / 24 * 10) / 10 + " days";
+}
+function dayMsNow() { return data && data.clock ? data.clock.dayMs : 86400000; }
+function dayLenText() { return wkDur(dayMsNow()); }
+function dayTs(day) { var c = data && data.clock; return c ? (c.origin || c.start) + (day - 1) * c.dayMs : 0; }
+function dateText(ts) { return ts ? new Date(ts).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : ""; }
 function wkDur(ms) {
   var s = Math.round(ms / 1000);
   if (s < 90) return s + " s";
@@ -35904,10 +35926,10 @@ function wikiMore(W, tab, cards) {
     ])));
     var Va = X.vac;
     cards.push(wkCard("vacation", "🏖️", "Vacation mode", wkList([
-      "Start it in Settings for " + Va.vacMin + " to " + Va.vacMax + " server days (a server day lasts " + wkDur(Va.dayMs) + ").",
+      "Start it in Settings for " + wkDur(Va.vacMin * Va.dayMs) + " to " + wkDur(Va.vacMax * Va.dayMs) + ".",
       "While it runs nobody can attack, raid or spy on you, and you can’t send troops, goods or take market offers. Building, training and production go on.",
       "To start, all your troops must be home, no enemy may be on the way, and you can’t hold the Landing Zone or a landmark relic. It also ends your beginner protection.",
-      "End it early after " + Va.vacMin + " day, or it ends by itself. Then you are shielded for another " + wkDur(Va.vacShieldMs) + " and the next vacation is possible after " + Va.vacCool + " server days.",
+      "End it early after " + wkDur(Va.vacMin * Va.dayMs) + ", or it ends by itself. Then you are shielded for another " + wkDur(Va.vacShieldMs) + " and the next vacation is possible after " + wkDur(Va.vacCool * Va.dayMs) + ".",
       "🏖️ marks players on vacation on the map, in profiles and in the member list.",
     ])));
     cards.push(wkCard("sitting", "🪑", "Account sitters", wkList([
@@ -35921,12 +35943,12 @@ function wikiMore(W, tab, cards) {
       head: ["", "How", "Saves"],
       left: 3,
       rows: [
-        ["🕐 Overtime", "Once per server day in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
+        ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (5 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
-        ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per server day)", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
+        ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
-    }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job. A server day lasts " + wkDur(Bo.dayMs) + ".")));
+    }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job.")));
     var Mk = X.market;
     cards.push(wkCard("offers", "📋", "Market offers", wkList([
       "In the market’s 📋 Offers tab you post an offer: one resource you give, one you want. Ask for " + Mk.ratioMin + "× to " + Mk.ratioMax + "× of what you give, at least " + Mk.min + " on each side.",
@@ -35958,7 +35980,7 @@ function wikiMore(W, tab, cards) {
       rows: He.skills.filter(function (s) { return s.name !== "Tribe path" && !s.arch; }).map(function (s) { return [s.icon + " " + s.name, "+" + s.per + (s.unit.charAt(0) === "%" ? "" : " ") + s.unit, s.max, s.text]; }),
     }) + wkList([
       "Every player has one. It levels up (max " + He.maxLevel + ") from battles and adventures and gets 1 skill point per level.",
-      "❤️ <b>Health</b> (" + He.hp + "): leading an army costs up to " + He.dmgLead + " health in a fight, defending up to " + He.dmgGuard + " (the more its side loses, the more it costs). It grows back by " + He.hpDay + " per server day (gear can add more). At 0 it falls.",
+      "❤️ <b>Health</b> (" + He.hp + "): leading an army costs up to " + He.dmgLead + " health in a fight, defending up to " + He.dmgGuard + " (the more its side loses, the more it costs). It grows back by " + He.hpDay + " per " + dayLenText() + " (gear can add more). At 0 it falls.",
       "⚔️ <b>Attack and defense points</b>: it fights itself, with " + He.atkBase + " attack and " + He.defBase + " defense, +" + He.atkLvl + " each per level, plus its gear. Leading an army it adds its attack; at home and healthy it adds its defense. Every skill point in 💪 Strength adds to <b>both</b> its attack and its defense. On faster servers the points are bigger (about " + wkN(Math.round(He.scale * 10) / 10) + "× here), like the armies.",
       "✨ <b>Skill points</b>: four per level, up to level 100. 💪 Strength (attack + defense), ❤️ Vitality (faster healing, less health lost) and 🧭 the tribe path (see Tribe paths) are for every commander. From level " + He.archLevel + " an <b>archetype</b> opens three more skills (see Archetypes); 🎒 Logistics and ⛏️ Foreman belong to the Quartermaster. 🔄 Reset skills gives all points back for some resources (more at a higher level) and lets you choose the archetype again. Older Leadership and Guard points became Strength.",
       "📦 <b>Bounty stash</b>: slide or type how much of each resource to take, or tap 📦 What fits, ½ Half or 0 None. Short of a resource for a build in any of your colonies? Tap the red cost chip with 📦 on it and the missing amount comes straight from the stash.",
@@ -35967,7 +35989,7 @@ function wikiMore(W, tab, cards) {
       "🎒 <b>Inventory</b> (" + He.bag + " slots): gear from monster camps and adventures (see Commander gear). Scrap spare gear for xp.",
       "💰 <b>Bounty stash</b>: when it leads troops against a monster camp, the camp’s bounty goes into its stash. Collect any amount into whichever of your colonies you are looking at.",
       "🚶 <b>Moving</b>: it walks " + He.speed + " tiles/h to another of your colonies and settles in for " + wkDur(He.settleMs) + ". No bonus while on the way; it shows up in 🧭 Troop Traffic like any other movement. Move it from its own panel (open it, then 🏅 Skills) or, quicker, from the send window: picking one of your other colonies as the target offers a 🚶 Restation button right there (it asks you to confirm, since it's easy to tap by accident).",
-      "💀 <b>Falling</b>: if its health hits 0, if the army it leads is wiped out or loses " + He.fallFrac + "% or more of its troops in a lost fight (a raid it can’t win too), or if its colony loses an attack, or loses " + He.fallFrac + "% or more of its troops in a lost raid, while it defends, it falls, recovers for one server day (" + wkDur(He.recoverMs) + "), comes back with " + He.hpBack + " health and loses " + He.fallPct + "% of its progress to the next level. Paying a resource cost (scaling with its level) cuts that down to " + wkDur(He.reviveMs) + " - it's open from the commander panel while it's down.",
+      "💀 <b>Falling</b>: if its health hits 0, if the army it leads is wiped out or loses " + He.fallFrac + "% or more of its troops in a lost fight (a raid it can’t win too), or if its colony loses an attack, or loses " + He.fallFrac + "% or more of its troops in a lost raid, while it defends, it falls, recovers for " + wkDur(He.recoverMs) + ", comes back with " + He.hpBack + " health and loses " + He.fallPct + "% of its progress to the next level. Paying a resource cost (scaling with its level) cuts that down to " + wkDur(He.reviveMs) + " - it's open from the commander panel while it's down.",
       "⚔️ It joins one wave or attack at a time: tick 🎖️ in the send window (with or without troops).",
       "📈 <b>Leveling</b>: level 1 → 2 needs 100 xp, then the need rises smoothly (240, 420, 640 …). One fight gives at most one level.",
     ])));
@@ -36059,7 +36081,7 @@ function wikiMore(W, tab, cards) {
       "At 0 the colony becomes yours, if you have enough terra for one more colony (like settling). Without enough terra it stays at 0 until you have it.",
       "A ⭐ main colony can never be taken.",
       "Taken over: the buildings and fields stay. Troops, queues, training, wounded and routes of the old owner are gone, their armies from there are lost, and helpers walk home. The envoys stay as the new administration. Loyalty starts at " + Cq.loyaltyAfter + ".",
-      "Loyalty grows back by itself: about " + Cq.loyaltyPerDay + " per server day, a bit faster with a higher HQ. The HQ shows it when it isn’t full, and every colony in your colony list and the All colonies overview shows its current loyalty (🎩).",
+      "Loyalty grows back by itself: about " + Cq.loyaltyPerDay + " per " + dayLenText() + ", a bit faster with a higher HQ. The HQ shows it when it isn’t full, and every colony in your colony list and the All colonies overview shows its current loyalty (🎩).",
     ])));
     cards.push(wkCard("rules", "📏", "Attack rules", kt({
       head: ["Rule", "Limit"],
@@ -36117,7 +36139,7 @@ function wikiMore(W, tab, cards) {
     cards.push(wkCard("lfa", "🙋", "Looking for an alliance", wkP("Without an alliance, 🏆 Players → Discover lets you show up as looking, with a few words about you. Leaders and officers see you in their Discover list and can invite you right there; your profile shows it too. It switches off by itself when you join an alliance.")));
     cards.push(wkCard("holdings", "🏳️", "Who holds what", wkP("The 🏳️ button on the map lists the Landing Zone and every landmark with its bonus and who holds it, with the alliance tag. On the map, held landmarks and the flag show the holder’s name under them.")));
     cards.push(wkCard("shared", "📑", "Shared reports", wkP("Open a report and tap 📤 Share with alliance (a short note is optional). It appears under 📑 Shared reports on the alliance page for every member. The newest " + Al.shared + " stay. Who shared it, officers and the leader can remove it.")));
-    cards.push(wkCard("buildhelp", "🔨", "Build help", wkP("Ask for help on one of your build jobs with ⚡ → 🤝 Ask. It shows up on your allies’ alliance page: each helper cuts " + Bo.ally + "% (up to " + Bo.allyMax + "%), and you can help every ally, " + Bo.allyPerMember + " times each per server day (once per job).")));
+    cards.push(wkCard("buildhelp", "🔨", "Build help", wkP("Ask for help on one of your build jobs with ⚡ → 🤝 Ask. It shows up on your allies’ alliance page: each helper cuts " + Bo.ally + "% (up to " + Bo.allyMax + "%), and you can help every ally, " + Bo.allyPerMember + " times each per " + dayLenText() + " (once per job).")));
   } else if (tab === "seasons") {
     cards.push(wkCard("badges", "🎖️", "Badges", kt({
       head: ["Badge", "Kept"],
@@ -36613,7 +36635,7 @@ function landmarkTileInfo(l, dist) {
   var ex = (data && data.expedition) || { range: 0, name: "Expedition Base", icon: "🧭" };
   var near = ex.range > 0 && parseFloat(dist) <= ex.range;
   var heldHere = data && data.relic;
-  if (!l.open) facts.push(fact("🔒 Sealed", "warn", "They open on a fixed server day - see the clock at the top"));
+  if (!l.open) facts.push(fact("🔒 Sealed", "warn", "They open on a fixed date - see the clock at the top"));
   else if (!(H && (H.mine || H.ally))) {
     if (!ex.range) facts.push(fact("❌ needs " + ex.icon + " " + esc(ex.name), "warn", "Build the " + ex.name + " in this colony to claim landmarks"));
     else facts.push(fact(near ? "✅ in range" : "❌ max " + ex.range + " tiles", near ? "ok" : "warn", "Your " + ex.name + " reaches landmarks up to " + ex.range + " tiles away"));
@@ -36639,7 +36661,7 @@ function openRelics() {
 function relicsSheet() {
   var R = relicsData, t = R.tier, h = "";
   h += '<div class="sheet-head"><span class="hi">🗿</span><div><h3>Relics of Mars</h3><b>' + esc(t.name) + (t.n > 1 ? " · ×" + t.mult + " stronger" : "") + "</b></div></div>";
-  if (!R.open) return h + '<p class="info">🔒 The relics are still sealed. They open on a fixed server day: see the clock at the top.</p>';
+  if (!R.open) return h + '<p class="info">🔒 The relics are still sealed. They open on a fixed date: see the clock at the top.</p>';
   h += '<p class="info">Win the fight at a relic site and your army carries it home. It leaves the map and is kept in the Expedition Base of that colony. After that it can only be taken by winning an attack on that colony. In ' + esc(t.name) + " its bonus reaches <b>" + esc(t.scopeText) + "</b>.</p>";
   h += '<div class="rl-hunts">';
   R.tiers.forEach(function (q) {
