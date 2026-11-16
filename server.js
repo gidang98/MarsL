@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.388";
+const GAME_VERSION = "1.0.389";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -5392,6 +5392,7 @@ function marketView(s, colony, tribe) {
     merchants: level * MERCHANTS_PER_LEVEL,
     free: level ? merchantsFree(s, colony.id) : 0,
     carry: merchantCarry(s),
+    gift: (() => { const g = giftRoom(colony.userId, Date.now()); return { left: g.out, cap: g.cap }; })(),
     speed: MERCHANT_SPEED * MOVE_SPEED, // tiles per real hour
     rate: swapRate(level, colony.tribe, colony.userId),
     maxRoutes: maxRoutes(s),
@@ -7484,6 +7485,18 @@ app.post("/api/routes/quiet", requireLogin, (req, res) => {
 });
 
 // Merchants carry resources to another colony. body { x, y, res: { wood: n, ... } }
+// 🤝 Gifts to other players only go to your own alliance, and only so much per server day:
+// a quarter of everything your colonies can store, sent and also received. That keeps
+// a pile of side accounts from feeding one main account.
+const GIFT_CAP_SHARE = 0.25;
+function giftRoom(userId, now) {
+  let cap = 0;
+  for (const c of coloniesOf(userId)) { const k = capacities(c.state); cap += RESOURCES.reduce((n, r) => n + k[r], 0); }
+  cap = Math.floor(cap * GIFT_CAP_SHARE);
+  const since = now - serverDayMs();
+  const sum = (key) => db.prepare("SELECT COALESCE(SUM(n), 0) AS n FROM stats_log WHERE user_id = ? AND key = ? AND at > ?").get(userId, key, since).n;
+  return { cap, out: Math.max(0, cap - sum("giftout")), inn: Math.max(0, cap - sum("giftin")) };
+}
 app.post("/api/trade", requireLogin, (req, res) => {
   withColony(req, res, (s, tribe, colony) => {
     const body = req.body || {};
@@ -7492,6 +7505,8 @@ app.post("/api/trade", requireLogin, (req, res) => {
     if (!target) return "There is no colony at that spot";
     if (target.id === colony.id) return "That's this colony, silly!";
     if (accountsLinked(target.user_id, req.user.id)) return LINKED_MSG;
+    const toOther = target.user_id !== req.user.id;
+    if (toOther && !areAllies(target.user_id, req.user.id)) return "You can only send resources to your own colonies and to members of your alliance";
     const goods = {};
     let total = 0;
     for (const r of RESOURCES) {
@@ -7502,10 +7517,20 @@ app.post("/api/trade", requireLogin, (req, res) => {
       total += n;
     }
     if (total === 0) return "Put something on the camels first";
+    const now = Date.now();
+    if (toOther) {
+      const mine = giftRoom(req.user.id, now), theirs = giftRoom(target.user_id, now);
+      if (total > mine.out) return "Your gift limit for this server day allows " + mine.out.toLocaleString() + " more to your alliance";
+      if (total > theirs.inn) return "That member can only take " + theirs.inn.toLocaleString() + " more gift resources this server day";
+    }
     const need = Math.ceil(total / merchantCarry(s));
     const free = merchantsFree(s, colony.id);
     if (need > free) return "You need " + need + " merchants but only " + free + " are free";
-    sendMerchants(s, colony, target.id, goods, Date.now());
+    sendMerchants(s, colony, target.id, goods, now);
+    if (toOther) {
+      db.prepare("INSERT INTO stats_log (user_id, at, key, n) VALUES (?, ?, 'giftout', ?)").run(req.user.id, now, total);
+      db.prepare("INSERT INTO stats_log (user_id, at, key, n) VALUES (?, ?, 'giftin', ?)").run(target.user_id, now, total);
+    }
     return null;
   });
 });
@@ -7825,6 +7850,8 @@ function checkSend(req, s, tribe, colony, body, avail) {
     return "That's your own colony - you already know everything about it";
   } else if (mission !== "reinforce" && areAllies(target.user_id, req.user.id)) {
     return "That's an ally! Friendly fire is off.";
+  } else if (mission === "reinforce" && target.user_id !== req.user.id && !areAllies(target.user_id, req.user.id)) {
+    return "You can only send troops to help your own colonies and members of your alliance";
   } else if (accountsLinked(target.user_id, req.user.id)) {
     return LINKED_MSG;
   } else if (mission !== "reinforce" && pactBlocks(target.user_id, req.user.id)) {
@@ -8098,6 +8125,7 @@ app.post("/api/redirect", requireLogin, (req, res) => {
     const target = db.prepare("SELECT id, x, y, user_id FROM colonies WHERE x = ? AND y = ?").get(x, y);
     if (!target) return "There's no colony there";
     if (target.id === m.target_id) return "They're already headed there";
+    if (!mine.includes(target.id) && !areAllies(target.user_id, owner.userId)) return "You can only send troops to your own colonies and to your alliance";
     if (accountsLinked(target.user_id, req.user.id)) return LINKED_MSG;
 
     const now = Date.now();
@@ -16239,6 +16267,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.389",date:"2026-11-16",title:"Gifts and support stay in the alliance",groups:[["Market",["Resources and 🛡️ support troops can only go to your own colonies and to members of your alliance. Everyone else no longer gets the 🐪 Resources button or the Support mission.","Gifts to alliance members have a limit: a quarter of everything your colonies can store per server day, counted for what you send and, separately, for what a member receives. The Send tab shows how much of your limit is left.","Tapping 🐪 Resources on a colony now opens the Send tab straight away instead of the tab you used last.","Swapping on the open market (offers) works as before."]]]},
   {v:"1.0.388",date:"2026-11-16",title:"Troop traffic by kind",groups:[["Troop traffic",["The full list now groups by kind of movement instead of by destination: one row per kind (attacks, raids, support, returning troops and so on) with how many there are, the total troops and the soonest arrival.","Tap a row to unfold every single movement with its own place, troops and timer. Fold all / Unfold all still work, and sorting is unchanged.","Troops stationed abroad stay grouped by place."]]]},
   {v:"1.0.387",date:"2026-11-16",title:"Lookouts and camp art",groups:[["👁️ Sight",["Your Expedition Base (Lookout Perch, Relic Scanner) now shows which unit types are marching at you: an attack made of fewer troops than the building's level lists its units, but never how many. Cloaked alien armies stay hidden."]],["Camps",["The Spore Garden, Kraken Crater and Golem Quarry show their art on the map again."]]]},
   {v:"1.0.386",date:"2026-11-16",title:"A clearer troop traffic card",groups:[["🧭 Troop traffic",["The traffic card now has four fixed tiles: incoming attacks (red swords), outgoing attacks (green swords), incoming support (blue shield) and outgoing support (new green shield with an arrow out). Each shows how many movements there are and when the first one arrives; the incoming attack tile pulses while an attack is on its way.","Spies, merchants, settlers, returning troops and the rest each have their own icon and sit in one quiet line below, and \"All\" opens the full list. The list uses the same icons, so your own attacks and support are green and shielded instead of generic."]]]},
@@ -32081,6 +32110,7 @@ function sendSheet(d) {
   ].forEach(function (m) {
     if (!!t.settle !== (m[0] === "settle")) return;
     if (t.camp && m[0] === "reinforce") return;
+    if (m[0] === "reinforce" && !t.mine && !t.ally && !t.zone && !t.landmark && !t.settle && !t.meteor) return; // support only goes to your alliance
     if (t.meteor && m[0] !== "raid") return;
     if (t.mine && m[0] === "scout") return; // attack, raid or support your own colony
     if ((t.zone || t.landmark) && (m[0] === "raid" || (m[0] === "reinforce" && !zoneMine) || (m[0] === "attack" && zoneMine))) return;
@@ -34082,6 +34112,7 @@ function sendPanel(d) {
   h += "</div>";
   h += '<div class="mkquick"><button type="button" class="chipbtn" data-mk-fill="1" title="Top up the last camel">' + '🧺' + ' Fill</button><button type="button" class="chipbtn" data-mk-even="1" title="Same amount of everything">⚖️ Even</button><button type="button" class="chipbtn" data-mk-clear="1">' + '✖' + ' Clear</button></div>';
   h += '<div class="sendinfo" id="mkinfo"></div>';
+  h += '<p class="hint" title="Sending to alliance members only; a quarter of your storage per server day, to all of them together">🤝 Gifts to allies today: ' + shortNum(m.gift.left) + " of " + shortNum(m.gift.cap) + " left</p>";
   h += '<button class="btn" type="submit"' + (m.free ? "" : " disabled") + ">🐪 Send merchants</button></form>";
   return h;
 }
@@ -35663,7 +35694,7 @@ function renderTileInfo() {
         tipBtn('data-send-spy="' + x + "," + y + '"', "🔍", "Spy"),
         tipBtn('data-sim-at="' + x + "," + y + '"', "🧮", "Simulate"),
         tipBtn('data-farm-add="' + x + "," + y + '" data-name="' + esc(c.name) + '"', "📋", "Farm list"),
-        tipBtn('data-market-to="' + x + "," + y + '"', "🐪", "Resources"),
+        c.ally ? tipBtn('data-market-to="' + x + "," + y + '"', "🐪", "Resources") : "",
         tipBtn('data-write="' + esc(c.owner) + '"', "✉️", "Message"),
       ]);
       h += farmPickRow(x, y);
@@ -35971,7 +36002,7 @@ function wikiChapter(W, tab) {
     var M = W.market;
     var mr = [];
     for (var ml = 1; ml <= 10; ml++) mr.push([ml, ml * M.perLevel, wkN(ml * M.perLevel * M.carry), (M.swapBase + M.swapPer * ml) + " per 100"]);
-    cards.push(wkCard("market", "🐪", "Marketplace", kt({ head: ["Lv", "Merchants", "Can carry", "Swap rate"], rows: mr }) + wkNote(trf("Normal merchants carry {0} (more or less depending on the tribe) and travel {1} tiles/h. Trade routes send resources between your own colonies by themselves; pick a 🕐 first-run time when creating one if you want that first batch to land at a specific moment (every run after that keeps to the chosen interval). The ⚖️ Balance tab swaps all four resources at once at the same rate; if you're short on resources for a build and have enough spare elsewhere, a 💱 Cover with market button fills it in for you - just confirm the swap. On a troop, ⚖️ Fit resources for N fills it in so your stock matches that unit's cost ratio, for as many of them as possible (the count is set for training, too).", M.carry, M.speed))));
+    cards.push(wkCard("market", "🐪", "Marketplace", kt({ head: ["Lv", "Merchants", "Can carry", "Swap rate"], rows: mr }) + wkNote(trf("Normal merchants carry {0} (more or less depending on the tribe) and travel {1} tiles/h. Trade routes send resources between your own colonies by themselves; pick a 🕐 first-run time when creating one if you want that first batch to land at a specific moment (every run after that keeps to the chosen interval). The ⚖️ Balance tab swaps all four resources at once at the same rate; if you're short on resources for a build and have enough spare elsewhere, a 💱 Cover with market button fills it in for you - just confirm the swap. On a troop, ⚖️ Fit resources for N fills it in so your stock matches that unit's cost ratio, for as many of them as possible (the count is set for training, too).", M.carry, M.speed)) + wkNote("🤝 Resources and 🛡️ support only go to your own colonies and to members of your alliance. Gifts are limited to a quarter of your total storage per server day, and a member can only receive that much per server day too.")));
     var T = W.colonies;
     var acc = 0;
     var tr = T.terra.map(function (n, i) { acc += n; return ["Colony " + (i + 2), wkN(n), wkN(acc)]; });
@@ -39125,6 +39156,7 @@ document.addEventListener("click", function (e) {
     var mt = attr("data-market-to").split(",");
     mk.x = mt[0];
     mk.y = mt[1];
+    mkTab = "send";
     if (sheet && (sheet.kind === "market" || sheet.kind === "building")) renderSheet();
     else openSheet("market", null);
   } else if (has("data-terra-open")) {
