@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.369";
+const GAME_VERSION = "1.0.370";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15652,6 +15652,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.370",date:"2026-11-16",title:"Shorter last-visit label",groups:[["Server selection",["The time since your last visit now reads \"<1h ago\", \"5h ago\" and \"3d ago\"."]]]},
   {v:"1.0.369",date:"2026-11-16",title:"Steady icons and farm lists for every colony",groups:[["Fixes",["The drawn icons no longer flash back to plain emojis once a second on the send screen (distance, travel time, arrival). Icons are now drawn in the same frame as any update, everywhere, and the send screen updates in place."],["Farm lists",["Every colony's lists can now be opened and edited from any colony: rename, targets, troop presets, sorting, delete. Before, other colonies only showed a Start button.","The colony you are in comes first and is marked, with the other colonies below it."]]]]},
   {v:"1.0.368",date:"2026-11-16",title:"A tidier server selection",groups:[["Server selection",["The selection now lists only the servers you have joined, the one you played last first and highlighted, with the hours since your last visit.","A new button, Join a new server, opens the servers you can still join, with the age of each server in days. New players see that list straight away.","The New rounds calendar stays in the header of both views."]]]},
   {v:"1.0.367",date:"2026-11-16",title:"Wall and flak a bit closer",groups:[["Balance",["Shield Trooper is now 86 ground / 42 air (was 96 / 28) and Spore Spitter 50 ground / 104 air (was 36 / 124), so an early air rush or a ground raid no longer wipes a one-sided defense. Humans are still best on the ground and Aliens best in the air, and a wall plus flak mix still holds with far fewer losses than either alone.","Units you already have use the new numbers right away."]]]},
@@ -27680,8 +27681,8 @@ function srvAgo(t) {
   var m = (Date.now() - t) / 60000;
   if (m < 10) return "active now";
   var h = Math.floor(m / 60);
-  if (h < 1) return trStr("less than 1 h ago");
-  return h < 72 ? h + " h ago" : Math.floor(h / 24) + " d ago";
+  if (h < 1) return "&lt;1h ago"; // shown as HTML, so the < is escaped
+  return h < 72 ? h + "h ago" : Math.floor(h / 24) + "d ago";
 }
 function srvAge(t) {
   var d = Math.floor((Date.now() - t) / 86400000);
