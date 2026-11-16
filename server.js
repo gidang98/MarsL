@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.372";
+const GAME_VERSION = "1.0.373";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1397,8 +1397,23 @@ for (const l of LANDMARKS) l.key = l.x + "|" + l.y;
 function landmarkByKey(key) {
   return LANDMARKS.find((l) => l.key === key) || null;
 }
+// 1.0.373: a captured relic is carried home. While it sits in a colony its site
+// is empty: it looks like a mountain again and nobody can attack the spot.
+const LM_AWAY = new Set();
 function landmarkAtXY(x, y) {
-  return LM_VISIBLE ? LANDMARKS.find((l) => l.x === x && l.y === y) || null : null;
+  const l = LM_VISIBLE ? LANDMARKS.find((q) => q.x === x && q.y === y) || null : null;
+  return l && !LM_AWAY.has(l.key) ? l : null;
+}
+// the three Relic Hunts: each one stronger, and each one reaches further
+const RELIC_TIERS = [
+  { n: 1, mult: 1, scope: "colony", name: "Relic Hunt I", scopeText: "the colony that holds it" },
+  { n: 2, mult: 1.6, scope: "account", name: "Relic Hunt II", scopeText: "every colony of the holder" },
+  { n: 3, mult: 2.2, scope: "alliance", name: "Relic Hunt III", scopeText: "the whole alliance of the holder" },
+];
+// the building where a held relic is kept (it shows there)
+const RELIC_HOME = { metal: "warehouse", stone: "warehouse", wood: "warehouse", food: "granary", all: "hq", defense: "wall", train: "barracks", terra: "hub" };
+function relicHomeOf(l) {
+  return RELIC_HOME[l.bonus.kind === "res" ? l.bonus.res : l.bonus.kind] || "hq";
 }
 // All features below are defined for ONE quarter (x > 0, y >= 0) and the map
 // turns them around the centre, so every quarter has the very same land.
@@ -1647,9 +1662,13 @@ rebuildCamps(1);
 // The landmarks appear on the map (or vanish from it) together with the clock event
 function setLandmarksVisible(on) {
   LM_VISIBLE = !!on;
+  if (typeof db !== "undefined" && db.prepare("SELECT name FROM sqlite_master WHERE name = 'landmarks'").get()) {
+    LM_AWAY.clear();
+    for (const r of db.prepare("SELECT key FROM landmarks WHERE holder_id IS NOT NULL").all()) LM_AWAY.add(r.key);
+  }
   for (const l of LANDMARKS) {
     const row = MAP_ROWS[MAP_RADIUS - l.y];
-    const tile = LM_VISIBLE ? "l" : BASE_ROWS[MAP_RADIUS - l.y][l.x + MAP_RADIUS];
+    const tile = LM_VISIBLE && !LM_AWAY.has(l.key) ? "l" : BASE_ROWS[MAP_RADIUS - l.y][l.x + MAP_RADIUS];
     MAP_ROWS[MAP_RADIUS - l.y] = row.slice(0, l.x + MAP_RADIUS) + tile + row.slice(l.x + MAP_RADIUS + 1);
   }
 }
@@ -2596,13 +2615,59 @@ function timeGrowth(type, level) {
   return Math.pow(TIME_GROWTH, level - 1);
 }
 
-// The bonus of the landmark this colony holds (0 if none or another kind)
+// Which relic hunt is running (or ran last): it sets how strong the relics are and who gets them
+let relicTierCache = { at: 0, n: 1 };
+function relicTierDef() {
+  const now = Date.now();
+  if (now - relicTierCache.at > 3000) {
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'relic_tier'").get();
+    relicTierCache = { at: now, n: Math.max(1, Math.min(RELIC_TIERS.length, Number(row && row.value) || 1)) };
+  }
+  return RELIC_TIERS[relicTierCache.n - 1];
+}
+// Who holds which relic (rebuilt every few seconds, or right away when one moves)
+let relicHoldCache = null;
+function relicMoved(l) {
+  const r = db.prepare("SELECT holder_id FROM landmarks WHERE key = ?").get(l.key);
+  if (r && r.holder_id) LM_AWAY.add(l.key); else LM_AWAY.delete(l.key);
+  setLandmarksVisible(LM_VISIBLE);
+  relicHoldCache = null;
+}
+function relicHoldings(uid) {
+  const now = Date.now();
+  if (!relicHoldCache || now - relicHoldCache.at > 3000) {
+    const byUser = new Map();
+    for (const r of db.prepare("SELECT l.key, l.ready_at, c.user_id FROM landmarks l JOIN colonies c ON c.id = l.holder_id WHERE l.holder_id IS NOT NULL").all()) {
+      if (!byUser.has(r.user_id)) byUser.set(r.user_id, []);
+      byUser.get(r.user_id).push({ key: r.key, ready: r.ready_at || 0 });
+    }
+    relicHoldCache = { at: now, byUser, scoped: new Map() };
+  }
+  const t = relicTierDef();
+  if (relicHoldCache.scoped.has(uid)) return relicHoldCache.scoped.get(uid);
+  let list = relicHoldCache.byUser.get(uid) || [];
+  if (t.scope === "alliance") {
+    const a = allianceOf(uid);
+    if (a) { list = []; for (const m of allianceMembers(a.id)) list = list.concat(relicHoldCache.byUser.get(m.id) || []); }
+  }
+  relicHoldCache.scoped.set(uid, list);
+  return list;
+}
+// The bonus the colony gets from relics: Hunt I only the holding colony, Hunt II the whole account, Hunt III the whole alliance
 function relicBonus(s, kind, res) {
-  const l = s.relic ? landmarkByKey(s.relic) : null;
-  if (!l || l.bonus.kind !== kind) return 0;
-  if (kind === "res" && l.bonus.res !== "all" && l.bonus.res !== res) return 0;
-  if (s.relicReady && Date.now() < s.relicReady) return 0; // still claiming: the bonus starts when the claim is over
-  return l.bonus.value * (outpostLevelOf(s) >= 10 ? 1 + OUTPOST_RELIC_BONUS : 1);
+  const t = relicTierDef();
+  const wide = t.scope !== "colony" && s._uid;
+  const held = wide ? relicHoldings(s._uid) : s.relic ? [{ key: s.relic, ready: s.relicReady || 0 }] : [];
+  let total = 0;
+  const now = Date.now();
+  for (const h of held) {
+    const l = landmarkByKey(h.key);
+    if (!l || l.bonus.kind !== kind) continue;
+    if (kind === "res" && l.bonus.res !== "all" && l.bonus.res !== res) continue;
+    if (h.ready && now < h.ready) continue; // still claiming: the bonus starts when the claim is over
+    total += l.bonus.value * t.mult * (!wide && outpostLevelOf(s) >= 10 ? 1 + OUTPOST_RELIC_BONUS : 1);
+  }
+  return total;
 }
 
 function trainDuration(s, unit) {
@@ -2807,7 +2872,7 @@ function production(s) {
   // 🏷️ specialisation, ✨ rich site and the ☁️ sol forecast
   for (const r of RESOURCES) p[r] = Math.round(p[r] * econMult(s, r));
   if (s.crown) for (const r of RESOURCES) p[r] = Math.round(p[r] * (1 + ZONE_PROD_BONUS));
-  if (s.relic) for (const r of RESOURCES) p[r] = Math.round(p[r] * (1 + relicBonus(s, "res", r)));
+  if (s.relic || relicTierDef().scope !== "colony") for (const r of RESOURCES) p[r] = Math.round(p[r] * (1 + relicBonus(s, "res", r)));
   // ⛏️ the commander's Foreman skill: a share of the fields' production plus a
   // fixed amount (only where it is stationed)
   if (heroReady && s._cid) {
@@ -4371,6 +4436,8 @@ function resolveArrival(m) {
     // 💥 nothing left standing: the colony is wiped off the map after the reports
     if (bombed && colonyPoints(def.state) === 0) razed = { id: def.id, name: def.name, x: def.x, y: def.y, by: att.name, to: att.userId, from: def.userId };
     const freed = won ? freePrisoners(def, att.userId, T) : null;
+    // 🗿 a colony that keeps a relic can lose it to a won attack
+    const relicSteal = won && !razed && att.userId !== def.userId && def.state.relic && Object.keys(survivors).length > 0 ? stealRelic(att, def, T) : null;
 
     // Loot is really taken out of the defender's storage
     let carry = Math.round((carryOf(survivors, atkTribe) + (m.mission === "raid" ? raiderCarryBonus(survivors, atkTribe) : 0)) * (aHero ? 1 + heroBonus(aHero).carry / 100 : 1) * (m.power === "chicken" ? 1 + WAR_LOOT : 1) * bm.carry * morale); // 🐔 Stampede
@@ -4422,6 +4489,7 @@ function resolveArrival(m) {
       razed: !!razed,
       freed: freed ? countUnits(freed) : 0,
       envoy,
+      relic: relicSteal ? { icon: relicSteal.l.icon, name: relicSteal.l.name, taken: relicSteal.taken } : null,
       loot,
       carry,
       hidden,
@@ -4443,7 +4511,7 @@ function resolveArrival(m) {
         scavenged,
         defender: Object.assign({}, defender, { units: anySurvivor ? unitList(defBefore, defTribe, defLost) : null }),
         support: anySurvivor ? support : [],
-        flavor: pick(f.attackerWins ? FLAVOR.attackWin : FLAVOR.attackLoss),
+        flavor: pick(f.attackerWins ? FLAVOR.attackWin : FLAVOR.attackLoss) + (relicSteal ? " " + relicSteal.l.icon + " " + relicSteal.text : ""),
       })
     );
     if (m.power === "human") orbitalRecon(att, def, defTribe, attacker, defender, supportsAt(def.id, cache), T); // 🛰️
@@ -4459,7 +4527,7 @@ function resolveArrival(m) {
         hero: defHeroNote,
         defender: Object.assign({}, defender, { units: unitList(defBefore, defTribe, defLost) }),
         support,
-        flavor: pick(f.attackerWins ? FLAVOR.defendLoss : FLAVOR.defendWin),
+        flavor: pick(f.attackerWins ? FLAVOR.defendLoss : FLAVOR.defendWin) + (relicSteal && relicSteal.taken ? " " + relicSteal.l.icon + " " + relicSteal.l.name + " was carried off!" : ""),
       })
     );
     // Helpers get a report too
@@ -6026,7 +6094,8 @@ function snapshot(user, colony) {
     serverTz: SERVER_TZ,
     crown: s.crown,
     zone: zoneInfo(user.id, now),
-    relic: s.relic && landmarkByKey(s.relic) ? { icon: landmarkByKey(s.relic).icon, name: landmarkByKey(s.relic).name, bonus: landmarkByKey(s.relic).bonus.text, ready: s.relicReady || 0, x: landmarkByKey(s.relic).x, y: landmarkByKey(s.relic).y } : null,
+    relic: s.relic && landmarkByKey(s.relic) ? { icon: landmarkByKey(s.relic).icon, name: landmarkByKey(s.relic).name, bonus: relicText(landmarkByKey(s.relic)), ready: s.relicReady || 0, x: landmarkByKey(s.relic).x, y: landmarkByKey(s.relic).y, building: relicHomeOf(landmarkByKey(s.relic)), scope: relicTierDef().scope, scopeText: relicTierDef().scopeText, tier: relicTierDef().n } : null,
+    relicShared: (function () { const t = relicTierDef(); if (t.scope === "colony") return []; return relicHoldings(user.id).filter((h) => h.key !== s.relic).map((h) => { const l = landmarkByKey(h.key); return l ? { icon: l.icon, name: l.name, bonus: relicText(l), ready: h.ready } : null; }).filter(Boolean); })(),
     alliance: (function () {
       const a = allianceOf(user.id);
       return a ? { tag: a.tag, name: a.name } : null;
@@ -7905,18 +7974,6 @@ app.post("/api/recall", requireLogin, (req, res) => {
       ).run(m.attacker_id, m.target_id, m.mission, JSON.stringify(going), now, now, now + trip, now + trip, m.target_kind, m.target_x, m.target_y);
     }
 
-    // Nobody left at a landmark? The guardians wake up, the bonus is gone.
-    if (m.target_kind === "landmark") {
-      const l = landmarkAtXY(m.target_x, m.target_y);
-      if (l && landmarkGarrison(l).length === 0) {
-        const r = landmarkRow(l);
-        const holder = r.holder_id === active.id ? active : r.holder_id ? loadColony(r.holder_id) : null;
-        if (holder && holder !== active) update(holder.state, tribeOf(holder.tribe), now);
-        loseLandmark(l, holder);
-        if (holder && holder !== active) saveColony(holder.id, holder.state);
-      }
-    }
-
     // Nobody left at the flag? Then the robots take the zone back.
     if (m.target_kind === "zone" && zoneGarrison().length === 0) {
       const z = zoneRow();
@@ -8206,7 +8263,7 @@ app.get("/api/map", requireLogin, (req, res) => {
     colonies,
     camps,
     meteors: meteorsIn(cx - R, cx + R, cy - R, cy + R, now).concat([landerTile(req.user.id, cx - R, cx + R, cy - R, cy + R)].filter(Boolean)).map((m) => Object.assign(m, { targeted: targeted.has(m.x + "|" + m.y) })),
-    landmarks: (landmarksOpen() ? LANDMARKS : []).filter((l) => Math.abs(l.x - cx) <= R && Math.abs(l.y - cy) <= R).map((l) => landmarkInfo(l, req.user.id)),
+    landmarks: (landmarksOpen() ? LANDMARKS : []).filter((l) => !LM_AWAY.has(l.key) && Math.abs(l.x - cx) <= R && Math.abs(l.y - cy) <= R).map((l) => landmarkInfo(l, req.user.id)),
     allyMarks: allyMarksIn(req.user.id, cx - R, cx + R, cy - R, cy + R),
     inAlliance: !!allianceOf(req.user.id),
     rich: richIn(cx - R, cx + R, cy - R, cy + R, now),
@@ -8314,8 +8371,47 @@ function landmarkHolderUser(r) {
 function loseLandmark(l, colony) {
   if (colony && colony.state.relic === l.key) { colony.state.relic = null; colony.state.relicReady = 0; }
   db.prepare("UPDATE landmarks SET holder_id = NULL, since = NULL, ready_at = 0, guards = ?, guards_at = ? WHERE key = ?").run(landmarkGuardsFull(l), Date.now(), l.key);
+  relicMoved(l); // back at its site
 }
 
+// 1.0.373: relics are carried home, nobody stays at the site any more.
+// Old guard troops walk home once.
+db.prepare("UPDATE movements SET phase = 'back', arrive_at = ?, return_at = ?, next_at = ? WHERE target_kind = 'landmark' AND phase = 'stay'").run(Date.now(), Date.now() + 60000, Date.now() + 60000);
+setLandmarksVisible(landmarksOpen());
+
+// Why this colony cannot take the relic out of a colony (null = it can)
+function relicStealBlock(l, att, def) {
+  const out = tribeOf(att.tribe).names.outpost[0];
+  const range = landmarkRangeOf(att.state);
+  if (!range) return "needs " + (/^[aeiou]/i.test(out) ? "an " : "a ") + out + " to take relics";
+  if (distance(att.x, att.y, def.x, def.y) > range) return "is too far away to take it (its " + out + " reaches " + range + " tiles)";
+  if (att.state.relic && att.state.relic !== l.key) return "already holds another relic";
+  return null;
+}
+// A won attack on a colony that keeps a relic: the relic changes hands, if the attacker may hold it
+function stealRelic(att, def, T) {
+  const l = def.state.relic ? landmarkByKey(def.state.relic) : null;
+  if (!l) return null;
+  const no = relicStealBlock(l, att, def);
+  if (no) return { l, taken: false, text: att.name + " " + no + ". The relic stays." };
+  const readyAt = T + claimMsOf(att.state);
+  def.state.relic = null;
+  def.state.relicReady = 0;
+  att.state.relic = l.key;
+  att.state.relicReady = readyAt;
+  db.prepare("UPDATE landmarks SET holder_id = ?, since = ?, ready_at = ?, guards = 0 WHERE key = ?").run(att.id, T, readyAt, l.key);
+  relicMoved(l);
+  addNews(l.icon + " " + usernameOf(att.userId) + " took " + l.name + " from " + usernameOf(def.userId) + "!", T, "landmark", 6);
+  giveBadge(att.userId, "relic", "🗿", "Relic Keeper", T);
+  return { l, taken: true, text: "You carried " + l.icon + " " + l.name + " home. Hold it for " + fmtDur(claimMsOf(att.state)) + " and its bonus starts." };
+}
+
+// the bonus text of a relic in the strength of the current hunt
+function relicText(l) {
+  const t = relicTierDef();
+  const v = Math.round(l.bonus.value * t.mult * 1000) / 10;
+  return l.bonus.text.replace(/\d+(\.\d+)?%/, v + "%");
+}
 function guardianList(n, lost) {
   if (!n && !lost) return [];
   return [{ icon: LANDMARK_GUARD.icon, name: LANDMARK_GUARD.name, count: n, lost: lost || 0 }];
@@ -8331,7 +8427,7 @@ function landmarkInfo(l, userId) {
     icon: l.icon,
     name: l.name,
     info: l.info,
-    bonus: l.bonus.text,
+    bonus: relicText(l),
     range: LANDMARK_RANGE,
     open: landmarksOpen(),
     defBonus: Math.round(LANDMARK_DEF_BONUS * 100),
@@ -8372,8 +8468,20 @@ function resolveLandmark(m) {
   const l = landmarkAtXY(m.target_x, m.target_y);
   const cache = colonyCache(T);
   const att = cache.get(m.attacker_id);
-  if (!att || !l) {
+  if (!att) {
     db.prepare("DELETE FROM movements WHERE id = ?").run(m.id);
+    return;
+  }
+  if (!l) {
+    // somebody carried the relic away while the troops were on the road
+    const gone = landmarkByKey(m.target_x + "|" + m.target_y);
+    addReport(att.userId, T, "😬", tt("Too late: {0} is gone", shortColonyName(gone ? gone.name : "the relic")), {
+      mission: "spotted",
+      attacker: colonyInfo(att),
+      flavor: "The relic was already carried away. Your troops walk home and may follow the new holder.",
+    });
+    cache.saveAll();
+    finishArrival(m, JSON.parse(m.troops), null);
     return;
   }
   const tribe = tribeOf(att.tribe);
@@ -8517,6 +8625,7 @@ function resolveLandmark(m) {
     const readyAt = T + claimMsOf(att.state);
     att.state.relicReady = readyAt;
     db.prepare("UPDATE landmarks SET holder_id = ?, since = ?, ready_at = ?, guards = 0 WHERE key = ?").run(att.id, T, readyAt, l.key);
+    relicMoved(l);
     addNews(l.icon + " " + usernameOf(att.userId) + " claimed " + l.name + "!", T, "landmark", 6);
     if (!db.prepare("SELECT 1 FROM badges WHERE user_id = ? AND key = 'relic'").get(att.userId)) {
       // 🎉 the first landmark ever: a treasure from the ruins and a party
@@ -8554,7 +8663,7 @@ function resolveLandmark(m) {
       hero: atkHeroNote,
       defender: Object.assign({}, defenderInfo, { units: Object.keys(survivors).length ? defUnits : null }),
       flavor: conquered
-        ? "Your troops set up camp. Hold it for " + fmtDur(claimMsOf(att.state)) + " and the bonus starts: " + l.bonus.text + "."
+        ? "Your troops carry it home to " + att.name + ". It is kept in the " + tribeOf(att.tribe).names[relicHomeOf(l)][0] + ". Hold it for " + fmtDur(claimMsOf(att.state)) + " and the bonus starts: " + relicText(l) + "."
         : busy && f.attackerWins
         ? "You won, but " + att.name + " " + noClaim + ". Your troops walk home."
         : f.attackerWins
@@ -8577,21 +8686,7 @@ function resolveLandmark(m) {
   }
 
   cache.saveAll();
-  if (conquered) {
-    db.prepare("UPDATE movements SET troops = ?, phase = 'stay', next_at = ?, hero = 0 WHERE id = ?").run(JSON.stringify(survivors), STAY_NEXT, m.id);
-    // the troops stay as guards; a commander still standing walks home by itself
-    const hh = aHero ? heroOf(att.userId, T) : null;
-    if (hh && hh.away === m.id) {
-      const back = T + Math.max(1000, m.arrive_at - m.depart_at);
-      const ins = db.prepare(
-        "INSERT INTO movements (attacker_id, target_id, mission, troops, depart_at, arrive_at, return_at, phase, next_at, target_kind, target_x, target_y, hero) VALUES (?, 0, 'attack', '{}', ?, ?, ?, 'back', ?, 'landmark', ?, ?, 1)"
-      ).run(att.id, m.depart_at, T, back, back, l.x, l.y);
-      hh.away = Number(ins.lastInsertRowid);
-      heroSave(att.userId, hh);
-    }
-  } else {
-    finishArrival(m, survivors, null);
-  }
+  finishArrival(m, survivors, null); // the army walks home with the relic
 }
 
 // Check a send to a landmark. Returns an error text or null.
@@ -8601,10 +8696,7 @@ function landmarkSendCheck(l, mission, colony, userId) {
   const holderUser = landmarkHolderUser(r);
   if (mission === "raid") return "There is nothing to loot. Attack to claim it!";
   if (mission === "settle") return "You can't build on a landmark";
-  if (mission === "reinforce") {
-    if (holderUser !== userId) return "Only the holder can send more guards";
-    return null;
-  }
+  if (mission === "reinforce") return "A relic is carried home. Defend the colony that keeps it.";
   if (mission === "attack") {
     if (holderUser === userId) return "It's already yours! Use Support to add more guards.";
     if (holderUser && areAllies(holderUser, userId)) return "An ally holds it. Friendly fire is off!";
@@ -9291,8 +9383,8 @@ function seasonTick() {
       se.endedAt = now;
       se.winner = { key: top.key, name: top.name, at: now };
       rememberRoundWinner("relic", top.key, top.name, now);
-      for (const uid of teamMembers(top.key)) giveBadge(uid, "season" + se.number, "🏆", "Relic Hunt winner · Server " + se.number, now);
-      addNews("🏆 " + top.name + " won the Relic Hunt!", now, "season", 72);
+      for (const uid of teamMembers(top.key)) giveBadge(uid, "season" + se.number, "🏆", RELIC_TIERS[(se.hunt || 1) - 1].name + " winner · Server " + se.number, now);
+      addNews("🏆 " + top.name + " won " + RELIC_TIERS[(se.hunt || 1) - 1].name + "!", now, "season", 72);
       writeSeason(se);
     }
     return;
@@ -9329,6 +9421,8 @@ function seasonInfo(userId) {
         ? {
             kind: se.kind,
             number: se.number,
+            hunt: se.hunt || 1,
+            huntName: RELIC_TIERS[(se.hunt || 1) - 1].name,
             active: !!se.active,
             count: se.count,
             hours: se.hours,
@@ -9348,6 +9442,34 @@ function seasonInfo(userId) {
   const myKey = a ? "a" + a.id : "u" + userId;
   return { open: seasonCache.open, season: Object.assign({}, d, { myKey }) };
 }
+
+// 🗿 The relics page: where every relic is right now
+app.get("/api/relics", requireLogin, (req, res) => {
+  const uid = req.user.id;
+  const t = relicTierDef();
+  const se = readSeason();
+  const now = Date.now();
+  const mine = coloniesOf(uid)[0];
+  const myTribe = mine ? mine.tribe : "human";
+  const list = LANDMARKS.map((l) => {
+    const r = landmarkRow(l);
+    const c = r.holder_id ? db.prepare("SELECT id, user_id, name, x, y, tribe FROM colonies WHERE id = ?").get(r.holder_id) : null;
+    const out = { key: l.key, icon: l.icon, name: l.name, info: l.info, bonus: relicText(l), kind: l.bonus.kind, home: tribeOf(myTribe).names[relicHomeOf(l)][0], site: { x: l.x, y: l.y }, open: landmarksOpen() };
+    if (c) {
+      const tag = allianceOf(c.user_id);
+      out.holder = { player: usernameOf(c.user_id), colony: c.name, x: c.x, y: c.y, tag: tag ? tag.tag : null, mine: c.user_id === uid, ally: areAllies(c.user_id, uid), since: r.since, claimEnds: r.ready_at && r.ready_at > now ? r.ready_at : 0 };
+    } else out.guards = r.guards;
+    return out;
+  });
+  res.json({
+    open: landmarksOpen(),
+    tier: { n: t.n, name: t.name, mult: t.mult, scope: t.scope, scopeText: t.scopeText },
+    tiers: RELIC_TIERS.map((q) => ({ n: q.n, name: q.name, mult: q.mult, scope: q.scope, scopeText: q.scopeText, day: huntDays()[q.n - 1] })),
+    hunt: se && se.kind === "relic" ? { active: !!se.active, n: se.hunt || 1, count: se.count, hours: se.hours, streak: se.streak ? { name: se.streak.name, winsAt: se.streak.since + se.hours * 3600000 } : null, winner: se.winner || null } : null,
+    standings: relicStandings().slice(0, 5).map((q) => ({ name: q.name, held: q.held, relics: q.landmarks })),
+    relics: list,
+  });
+});
 
 // ---------- the owner's controls ----------
 app.get("/api/admin/landmarks", requireOwner, (req, res) => {
@@ -9399,10 +9521,16 @@ function startRelicHunt(b) {
   const count = Math.max(2, Math.min(LANDMARKS.length, parseInt(b.count, 10) || RELIC_HUNT_COUNT));
   const hours = Math.max(1, Math.min(240, parseInt(b.hours, 10) || RELIC_HUNT_HOURS));
   const now = Date.now();
-  const se = { kind: "relic", number: (old ? old.number || 0 : 0) + 1, active: true, count, hours, startedAt: now, streak: null, winner: null };
+  const hunt = Math.max(1, Math.min(RELIC_TIERS.length, parseInt(b.hunt, 10) || (old && old.kind === "relic" ? (old.hunt || 1) + 1 : 1)));
+  const t = RELIC_TIERS[hunt - 1];
+  if (hunt > 1) freeAllLandmarks(now); // every relic goes back to its site: the new hunt starts fresh
+  setSetting("relic_tier", String(hunt));
+  relicTierCache.at = 0;
+  relicHoldCache = null;
+  const se = { kind: "relic", number: (old ? old.number || 0 : 0) + 1, hunt, active: true, count, hours, startedAt: now, streak: null, winner: null };
   writeSeason(se);
   setLandmarksOpen(true);
-  addNews("🏆 The Relic Hunt begins! Hold " + count + " landmarks for " + hours + "h in a row to win the server.", now, "season", 48);
+  addNews("🏆 " + t.name + " begins! The relics are stronger now and reach " + t.scopeText + ". Hold " + count + " relics for " + hours + "h in a row to win.", now, "season", 48);
   return null;
 }
 app.post("/api/admin/season/start", requireOwner, (req, res) => {
@@ -11356,9 +11484,15 @@ const ACTS = [
   { key: "expansion", icon: "🏗️", name: "Expansion", rule: "Colony specialisations can be chosen." },
   { key: "discovery", icon: "🗿", name: "Discovery", rule: "Landmarks open. Monster camps level up: +25% monsters and bounty." },
   { key: "storm", icon: "⚡", name: "Storm Season", rule: "Ion storms join the weather. Monster camps: +50%." },
-  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "The Relic Hunt runs. Monster camps: +75%." },
+  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "Three Relic Hunts: each one stronger, the last reaches the whole alliance. Monster camps: +75%." },
   { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +100%." },
 ];
+// the three Relic Hunts: the first on the Relic Hunt day, the others a third and two thirds of the way to the Aurora
+function huntDays() {
+  const d = clockDays();
+  const gap = Math.max(3, d.aurora - d.relic);
+  return [d.relic, Math.round(d.relic + gap / 3), Math.round(d.relic + (gap * 2) / 3)];
+}
 function actDays() {
   const d = clockDays();
   // the Storm Season starts 40% of the way from the landmarks to the Relic Hunt
@@ -11416,6 +11550,19 @@ function scheduleTick() {
   if (!done.relic && now >= clock.events.relic.at) {
     const se = readSeason();
     if ((se?.active && se.kind === "relic") || !startRelicHunt({})) mark("relic");
+  }
+  // Hunts II and III: a running hunt that nobody is winning closes, a streak gets to finish
+  const hd = huntDays();
+  const dayAt = (day) => Math.round(clock.events.relic.at + (day - hd[0]) * clock.dayMs);
+  for (let h = 2; h <= 3; h++) {
+    const key = "hunt" + h;
+    if (done[key] || !done.relic || now < dayAt(hd[h - 1])) continue;
+    const se = readSeason();
+    if (se && se.active && se.kind === "relic") {
+      if (se.streak) continue; // the leaders may finish their 24h first
+      stopSeasonKind("relic", now);
+    }
+    if (!startRelicHunt({ hunt: h })) mark(key);
   }
   if (!done.aurora && now >= clock.events.aurora.at) {
     const se = readSeason();
@@ -15660,6 +15807,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.373",date:"2026-11-16",title:"Relics you carry home, and three Relic Hunts",groups:[["Relics",["Landmarks are now collectible relics. Win the fight at the site and your army carries the relic home to your colony.","A captured relic leaves the map. It is kept in a building of the colony (warehouse, granary, wall, barracks, hub or headquarters, depending on its bonus) and shows there.","To steal a relic, win an attack on the colony that keeps it. The thief needs an Expedition Base in range and no other relic. A relic is not guarded at its site any more, so defend the colony that keeps it.","New 🗿 Relics page in the top bar: where every relic is right now, who keeps it, and the state of the hunt."]],["Three Relic Hunts",["Hunt I (day 250 on Classic): relics help the colony that keeps them.","Hunt II (about day 280): relics are 60% stronger and help every colony of the holder.","Hunt III (about day 310): relics are 120% stronger and help the whole alliance of the holder.","Every hunt starts with all relics back at their sites. Each winner gets a badge. The Aurora still starts on day 340."]]]},
   {v:"1.0.372",date:"2026-11-16",title:"Six acts: the Storm Season",groups:[["The round",["A new act, ⚡ Storm Season, fills the long stretch between the landmarks and the Relic Hunt. Ion storms now arrive with it, no longer with the Relic Hunt.","Classic (a year): 🛬 Landing day 1, 🏗️ Expansion day 4, 🗿 Discovery day 30, ⚡ Storm Season day 118, 🏆 Relic Hunt day 250, 🌌 Aurora day 340. The landmarks open on day 30, five days earlier than planned.","Monster camps now level up with every act from Discovery on: +25%, +50%, +75% and +100% monsters and bounty.","On every server the Storm Season starts 40% of the way from the landmarks to the Relic Hunt."]]]},
   {v:"1.0.371",date:"2026-11-16",title:"A day is a day: the Classic round lasts a year",groups:[["Days",["A day now lasts 24 real hours on the Classic server (x1), so day 340 is real day 340. It used to be 76 hours. Faster servers still have shorter days; the wiki clock card shows how long a day is.","Once-per-day things now really come back every 24 hours on Classic: daily supply, home power, war power, overtime, alliance help and the weather forecast.","The daily supply is a third of its old size (40 per resource on day 1) because it comes three times as often. Loyalty regrows about 13 per day, a third of before, so it takes the same real time as before. Late landers, offers, trader life, war notice and adventure spawns keep their old real-time lengths.","Vacation now means real days: 1 to 14 days, a cooldown of 7 days."]],["The year",["Classic: landmarks open on day 35, the Relic Hunt starts on day 250 and Project Aurora on day 340, three months after the Relic Hunt. The round lasts about a year.","Servers with the default clock use the same days; a round at speed s lasts that many days divided by the square root of s. The SpeedTest server keeps its round of about a day and a half (landmarks 7, Relic Hunt 17, Aurora 30).","Monster camps level up in four steps: +25% when the landmarks open, +40% halfway to the Relic Hunt, +50% with the Relic Hunt and +75% with Aurora. Specialisations open on day 4 at the latest."]]]},
   {v:"1.0.370",date:"2026-11-16",title:"Shorter last-visit label",groups:[["Server selection",["The time since your last visit now reads \"<1h ago\", \"5h ago\" and \"3d ago\"."]]]},
@@ -24003,6 +24151,19 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .srvhead .srv-back { font-weight: 800; opacity: 1; }
 /* 1.0.369 farm lists: the colony you are in is marked */
 .farm-colony-title .farm-here { margin-left: 4px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 700; opacity: 1; color: #fff; background: #2e9d57; }
+/* 1.0.373 relics page */
+.rl-hunts { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.rl-hunt { flex: 1 1 90px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; padding: 6px 8px; font-size: 12px; opacity: .65; }
+.rl-hunt.now { opacity: 1; border-color: #c9a227; background: rgba(201, 162, 39, .12); }
+.rl-hunt.past { opacity: .5; }
+.rl-hunt small { display: block; opacity: .8; }
+.rl-list { display: grid; gap: 6px; margin-top: 8px; }
+.rl-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; }
+.rl-row.mine { border-color: #c9a227; background: rgba(201, 162, 39, .1); }
+.rl-i { font-size: 26px; line-height: 1; }
+.rl-t { display: grid; gap: 2px; min-width: 0; }
+.rl-t small { font-size: 12px; opacity: .85; }
+.relic-badge { cursor: pointer; }
 /* 1.0.364 reports: the result icon (coloured sword or shield) sits left of the title */
 .report.rep2 .report-head, .report.rep2:not(.open) .report-head { position: relative; padding-left: 40px; }
 .report.rep2 .report-head .ri { display: block; position: absolute; grid-column: auto; grid-row: auto; left: 8px; top: 7px; width: 26px; font-size: 20px; line-height: 1; text-align: center; }
@@ -27834,12 +27995,14 @@ function renderTop(d) {
   h += "<small>👤 " + (d.alliance ? '<i class="atag">' + esc(d.alliance.tag) + "</i>" : "") + esc(d.player) + ' <span class="tribe-badge">' + d.tribe.icon + " " + d.tribe.name + "</span> · (" + d.x + "|" + d.y + ")";
   if (d.colonies && d.colonies.count > 1) h += ' <button class="crown-badge mainbadge" data-main-info="1">' + (d.main ? "⭐ Main" : "🏘️ Sub-colony") + "</button>";
   if (d.crown) h += ' <span class="crown-badge">' + '👑' + ' Ruler of Mars +' + d.zone.bonus + "%</span>";
-  if (d.relic) h += ' <span class="crown-badge relic-badge" title="' + esc(d.relic.name) + '">' + d.relic.icon + " " + (d.relic.ready && d.relic.ready > serverNow() ? "⏳ " + shortTime(d.relic.ready - serverNow()) : d.relic.bonus) + "</span>";
+  if (d.relic) h += ' <button class="crown-badge relic-badge" data-relics="1" title="' + esc(d.relic.name) + ' · ' + esc(d.relic.scopeText) + '">' + d.relic.icon + " " + (d.relic.ready && d.relic.ready > serverNow() ? "⏳ " + shortTime(d.relic.ready - serverNow()) : d.relic.bonus) + "</button>";
+  if (d.relicShared && d.relicShared.length) h += ' <button class="crown-badge relic-badge" data-relics="1" title="Relics held elsewhere that reach this colony">' + d.relicShared.map(function (r) { return r.icon; }).join("") + " shared</button>";
   h += "</small></div>";
   var qready = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
   h += '<div class="topbtns"><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
+  if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
   h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + "📖" + '</button><button class="btn small ghost" data-account="1" title="Settings">' + "⚙️" + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + "🚪" + '</button></div></div>';
   var tabs = [["resources", "🌾", "Fields", "fields"], ["buildings", "🏗️", "Colony", "colony"], ["troops", "⚔️", "Army", "army"], ["map", "🗺️", "Map", "map"], ["ranking", "🏆", "Players", "players"], ["reports", "📬", "Inbox", "inbox"]];
   h += '<div class="nav">';
@@ -28315,9 +28478,14 @@ function colonyScene(d) {
     g += "</g>";
   });
   // one level tag per building, on the front rim of its own disc
+  var relicMarked = false;
   cells.forEach(function (c) {
     var b = c.b;
     if (!b) return;
+    if (!relicMarked && b.level > 0 && data && data.relic && b.type === data.relic.building) {
+      relicMarked = true;
+      g += '<g class="cx-relic" data-lot="' + c.slot + '"><circle cx="' + (c.x + c.W * 0.32).toFixed(1) + '" cy="' + (c.y - c.W * 0.34).toFixed(1) + '" r="9" fill="#fff8d6" stroke="#c9a227" stroke-width="1.4"/><text x="' + (c.x + c.W * 0.32).toFixed(1) + '" y="' + (c.y - c.W * 0.34 + 4).toFixed(1) + '" text-anchor="middle" font-size="11">' + data.relic.icon + "</text></g>";
+    }
     var cls = b.level >= b.maxLevel ? "max" : b.pending > 0 ? "bld" : b.canBuild ? "up" : "";
     g += fxTag(c.x, c.y + c.W * 0.27 + 1.5, b.level, cls, 'data-lot="' + c.slot + '"');
   });
@@ -32160,7 +32328,7 @@ function tutWin(d) {
   }
   return "A server is won by the first <b>alliance</b> that lights the <b>🌌 Aurora</b>. The road there:<ul class='tut-list'>" +
     clockLine(d, "landmarks", "Landmarks open", "🗿", "claim them for big bonuses") +
-    clockLine(d, "relic", "Relic Hunt", "🏆", "hold 5 landmarks for a badge") +
+    clockLine(d, "relic", "Relic Hunt", "🏆", "three hunts: hold 5 relics for a badge") +
     clockLine(d, "aurora", "Project Aurora", "🌌", "wins the server") + "</ul>Until then: grow, grab the <b>🚩 Landing Zone</b> and climb the ranking.";
 }
 
@@ -33934,6 +34102,9 @@ function renderSheet() {
   } else if (sheet.kind === "wiki") {
     if (!wiki.data) { closeSheet(); return; }
     h += wikiSheet();
+  } else if (sheet.kind === "relics") {
+    if (!relicsData) { closeSheet(); return; }
+    h += relicsSheet();
   } else if (sheet.kind === "main") {
     var mm = d.mainMove;
     var mainCol = d.colonies.list.filter(function (c) { return c.main; })[0];
@@ -35385,7 +35556,7 @@ function wikiChapter(W, tab) {
     });
     cards.push(wkCard("camps", "⛰️", "Monster camps", kt({ head: ["Camp", "Tier", "Tiles out", "Monsters"].concat(RES_HEAD, ["💎 Σ"]), left: 1, rows: camps, cls: "big" }) + wkNote("Monsters regrow over " + W.campRegrow + " movement-speed hours; treasure refills over " + W.campTreasure + ". Camp defender counts and base loot are fixed across game speeds. Trophies per kill are "+wkN(W.campTrophy)+"× the base amount. Treasure is limited by surviving troops’ carry capacity; trophies are additional and go to the commander stash when it accompanies the army. Scout and simulate first: rewards do not guarantee profit.")));
 
-    cards.push(wkCard("landmarks", "🗿", "Landmarks", kt({ head: ["Landmark", "Where", "Bonus", "Guards"], left: 3, rows: W.landmarks.map(function (l) { return [l.icon + " " + l.name, l.x === null ? "appears later" : l.x + "|" + l.y, l.bonus, l.guards]; }) }) + wkNote(trf("Claim with an army from a colony that has an {0}: level 1 reaches {1} tiles, every further level +{2} (level 15: {3}). Guardians are tough and recover within hours, so bring enough. After the win your survivors stay as guards (+{4}% defense) and must hold the place for the whole claim time before the bonus starts. Until then others can take it, and it does not count for the Relic Hunt. Any colony can <b>attack</b> a landmark, held or free, even without an Expedition Base, out of range or already holding one: the troops fight as usual, but after a win they walk home instead of claiming it. Beating every guard of a held landmark that way still frees it.", wkBName(W, "outpost"), W.landmarkRange, W.landmarkRangePer, W.landmarkRange + 14 * W.landmarkRangePer, W.landmarkDef))));
+    cards.push(wkCard("landmarks", "🗿", "Landmarks", kt({ head: ["Landmark", "Where", "Bonus", "Guards"], left: 3, rows: W.landmarks.map(function (l) { return [l.icon + " " + l.name, l.x === null ? "appears later" : l.x + "|" + l.y, l.bonus, l.guards]; }) }) + wkNote(trf("Capture a relic with an army from a colony that has an {0}: level 1 reaches {1} tiles, every further level +{2} (level 15: {3}). Guardians are tough and recover within hours, so bring enough. After the win the army carries the relic home. It leaves the map and is kept in a building of that colony. The bonus starts after the claim time. To steal it, win an attack on the colony that keeps it, with a colony of your own that has an {0} within range. Relic Hunt II makes every relic stronger and shares its bonus with all colonies of the holder, Hunt III shares it with the whole alliance. Every new hunt sends all relics back to their sites. Open the 🗿 page in the top bar to see where each relic is right now.", wkBName(W, "outpost"), W.landmarkRange, W.landmarkRangePer, W.landmarkRange + 14 * W.landmarkRangePer))));
     cards.push(wkCard("zone", "🚩", "Landing Zone (0|0)", kt({ head: ["", ""], left: 1, rows: [["🤖 Robots at the start", W.zone.robots], ["🌾 Production of the holder colony", "+" + W.zone.prod + "%"], ["🛡️ Guards defend", "+" + W.zone.def + "%"]] }) + wkNote("Only the holder can send more guards there.")));
   } else if (tab === "alliance") {
     var A = W.alliance;
@@ -35502,7 +35673,7 @@ function wikiChapter(W, tab) {
       cards.push(wkCard("clock", "🗓️", "Server clock · today is day " + CK.day, kt({ head: ["Event", "Server day", "Starts", "What"], left: 4, rows: ckRows }) + wkNote("A day lasts " + wkDur(CK.dayMs) + ".") + wkNote("The <b>server is won</b> by the first alliance that lights the Aurora.")));
     }
     cards.push(wkCard("events", "🎉", "Mars events", kt({ head: ["Event", "Effect", "Lasts"], left: 2, rows: W.events.map(function (e) { return [e.icon + " " + e.name, e.text, e.hours + " h"]; }) })));
-    cards.push(wkCard("relic", "🏆", "Relic Hunt", wkP("The first team (alliance or lone player) holding <b>" + W.relic.count + " landmarks</b> at the same time for <b>" + W.relic.hours + " h</b> in a row wins a permanent badge.")));
+    cards.push(wkCard("relic", "🏆", "Relic Hunt", wkP("Three hunts, one after the other. The first team (alliance or lone player) holding <b>" + W.relic.count + " relics</b> at the same time for <b>" + W.relic.hours + " h</b> in a row wins the hunt and a badge. <b>Hunt I</b>: relics help the colony that keeps them. <b>Hunt II</b> (×1.6): they help every colony of the holder. <b>Hunt III</b> (×2.2): they help the whole alliance of the holder. Each hunt starts with every relic back at its site.")));
     var Au = W.aurora;
     cards.push(wkCard("aurora", "🌌", "Project Aurora", kt({
       head: ["Step", "What to do"],
@@ -35610,7 +35781,7 @@ function wikiMore(W, tab, cards) {
       "⚔️ <b>Attack and defense points</b>: it fights itself, with " + He.atkBase + " attack and " + He.defBase + " defense, +" + He.atkLvl + " each per level, plus its gear. Leading an army it adds its attack; at home and healthy it adds its defense. Every skill point in 💪 Strength adds to <b>both</b> its attack and its defense. On faster servers the points are bigger (about " + wkN(Math.round(He.scale * 10) / 10) + "× here), like the armies.",
       "✨ <b>Skill points</b>: four per level, up to level 100. 💪 Strength (attack + defense), ❤️ Vitality (faster healing, less health lost) and 🧭 the tribe path (see Tribe paths) are for every commander. From level " + He.archLevel + " an <b>archetype</b> opens three more skills (see Archetypes); 🎒 Logistics and ⛏️ Foreman belong to the Quartermaster. 🔄 Reset skills gives all points back for some resources (more at a higher level) and lets you choose the archetype again. Older Leadership and Guard points became Strength.",
       "📦 <b>Bounty stash</b>: slide or type how much of each resource to take, or tap 📦 What fits, ½ Half or 0 None. Short of a resource for a build in any of your colonies? Tap the red cost chip with 📦 on it and the missing amount comes straight from the stash.",
-      "🗿 <b>Landmarks</b>: the commander can lead the army that claims a landmark. If they win and the troops stay as guards, the commander walks home by itself.",
+      "🗿 <b>Relics</b>: the commander can lead the army that captures a relic and walks home with it.",
       "🗡️ <b>Going alone</b>: with no troops ticked, the commander can go out by itself on an attack or a raid against a monster camp or an inactive colony. It walks " + He.soloSpeed + " tiles/h, fights with its own attack only, brings back no loot (only the camp’s bounty stash) and risks the same fall as always. Not possible in waves.",
       "🎒 <b>Inventory</b> (" + He.bag + " slots): gear from monster camps and adventures (see Commander gear). Scrap spare gear for xp.",
       "💰 <b>Bounty stash</b>: when it leads troops against a monster camp, the camp’s bounty goes into its stash. Collect any amount into whichever of your colonies you are looking at.",
@@ -36274,10 +36445,47 @@ function landmarkTileInfo(l, dist) {
   var more = [];
   if (!(H && (H.mine || H.ally))) more.push(tipBtn('data-send-spy="' + l.x + "," + l.y + '"', "🔍", "Spy"), tipBtn('data-sim-at="' + l.x + "," + l.y + '"', "🧮", "Simulate"));
   h += tipActions(main, more);
-  h += '<p class="tip-note">' + (heldHere && !(H && H.mine) ? "This colony already holds " + data.relic.icon + ". " : "") + (!near || heldHere ? "This colony can still attack it: troops fight as usual, but walk home after a win. " : "") + "One landmark per colony · win the fight, then hold it for " + l.claimHours + "h before the bonus starts · guards defend +" + l.defBonus + "% · lose all guards, lose the bonus.</p>";
+  h += '<p class="tip-note">' + (heldHere && !(H && H.mine) ? "This colony already holds " + data.relic.icon + ". " : "") + (!near || heldHere ? "This colony can still attack it: troops fight as usual, but walk home after a win. " : "") + "One relic per colony · win the fight and your army carries it home. It leaves the map and sits in your colony. Hold it for " + l.claimHours + "h and the bonus starts. Others must win an attack on your colony to steal it.</p>";
   return h;
 }
 var LM_GUARD = "🗿";
+
+// ---------- the Relics page ----------
+var relicsData = null;
+function openRelics() {
+  fetch("/api/relics").then(function (r) { return r.json(); }).then(function (j) { relicsData = j; openSheet("relics", null); }).catch(function () { toast("⚠️ The server does not answer"); });
+}
+function relicsSheet() {
+  var R = relicsData, t = R.tier, h = "";
+  h += '<div class="sheet-head"><span class="hi">🗿</span><div><h3>Relics of Mars</h3><b>' + esc(t.name) + (t.n > 1 ? " · ×" + t.mult + " stronger" : "") + "</b></div></div>";
+  if (!R.open) return h + '<p class="info">🔒 The relics are still sealed. They open on a fixed server day: see the clock at the top.</p>';
+  h += '<p class="info">Win the fight at a relic site and your army carries it home. It leaves the map and is kept in a building of that colony. After that it can only be taken by winning an attack on that colony. In ' + esc(t.name) + " its bonus reaches <b>" + esc(t.scopeText) + "</b>.</p>";
+  h += '<div class="rl-hunts">';
+  R.tiers.forEach(function (q) {
+    h += '<span class="rl-hunt' + (q.n === t.n ? " now" : q.n < t.n ? " past" : "") + '" title="' + esc(q.name) + ' reaches ' + esc(q.scopeText) + '"><b>' + esc(q.name.replace("Relic Hunt ", "Hunt ")) + "</b> · day " + q.day + "<small>" + (q.scope === "colony" ? "1 colony" : q.scope === "account" ? "your account" : "your alliance") + " · ×" + q.mult + "</small></span>";
+  });
+  h += "</div>";
+  var Hn = R.hunt;
+  if (Hn && Hn.active) {
+    h += '<p class="stat">🏆 Hold <b>' + Hn.count + " relics</b> for <b>" + Hn.hours + " h</b> in a row to win " + esc(t.name) + ".</p>";
+    if (Hn.streak) h += '<p class="stat gold">🔥 ' + esc(Hn.streak.name) + " wins in " + fmt(Math.max(0, Hn.streak.winsAt - serverNow())) + " unless somebody breaks in.</p>";
+    else if (R.standings.length) h += '<p class="stat">' + R.standings.map(function (q) { return esc(q.name) + " " + q.held + "/" + Hn.count; }).join(" · ") + "</p>";
+  } else if (Hn && Hn.winner) h += '<p class="stat">🏆 ' + esc(t.name) + " was won by <b>" + esc(Hn.winner.name) + "</b>. The next hunt resets every relic.</p>";
+  h += '<div class="rl-list">';
+  R.relics.forEach(function (q) {
+    var H = q.holder;
+    h += '<div class="rl-row' + (H && H.mine ? " mine" : "") + '"><span class="rl-i">' + q.icon + '</span><div class="rl-t"><b>' + esc(q.name) + "</b><small>✨ " + esc(q.bonus) + " · kept in the " + esc(q.home) + "</small>";
+    if (H) {
+      h += "<small>📍 " + (H.mine ? "<b>yours</b>" : playerLink(H.player, H.tag)) + " · " + esc(H.colony) + " <button class='golink' data-goto='" + H.x + "," + H.y + "'>(" + H.x + "|" + H.y + ")</button></small>";
+      if (H.claimEnds) h += "<small>⏳ claiming · bonus starts in " + fmt(Math.max(0, H.claimEnds - serverNow())) + "</small>";
+      else if (!H.mine && !H.ally) h += "<small>⚔️ attack that colony to take it</small>";
+    } else {
+      h += "<small>🗺️ at its site <button class='golink' data-goto='" + q.site.x + "," + q.site.y + "'>(" + q.site.x + "|" + q.site.y + ")</button> · " + q.guards + " guardians</small>";
+    }
+    h += "</div></div>";
+  });
+  return h + "</div>";
+}
 
 // ---------- dragging, momentum, wheel and keys ----------
 function setupMapInput() {
@@ -37038,7 +37246,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-relics],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -37452,6 +37660,8 @@ document.addEventListener("click", function (e) {
     post("/api/construct", { type: attr("data-construct") }, function () {
       toast("🏗️ Construction started!", true);
     });
+  } else if (has("data-relics")) {
+    openRelics();
   } else if (has("data-main-info")) {
     openSheet("main", null);
   } else if (has("data-make-main")) {
