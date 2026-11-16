@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.387";
+const GAME_VERSION = "1.0.388";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -16239,6 +16239,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.388",date:"2026-11-16",title:"Troop traffic by kind",groups:[["Troop traffic",["The full list now groups by kind of movement instead of by destination: one row per kind (attacks, raids, support, returning troops and so on) with how many there are, the total troops and the soonest arrival.","Tap a row to unfold every single movement with its own place, troops and timer. Fold all / Unfold all still work, and sorting is unchanged.","Troops stationed abroad stay grouped by place."]]]},
   {v:"1.0.387",date:"2026-11-16",title:"Lookouts and camp art",groups:[["👁️ Sight",["Your Expedition Base (Lookout Perch, Relic Scanner) now shows which unit types are marching at you: an attack made of fewer troops than the building's level lists its units, but never how many. Cloaked alien armies stay hidden."]],["Camps",["The Spore Garden, Kraken Crater and Golem Quarry show their art on the map again."]]]},
   {v:"1.0.386",date:"2026-11-16",title:"A clearer troop traffic card",groups:[["🧭 Troop traffic",["The traffic card now has four fixed tiles: incoming attacks (red swords), outgoing attacks (green swords), incoming support (blue shield) and outgoing support (new green shield with an arrow out). Each shows how many movements there are and when the first one arrives; the incoming attack tile pulses while an attack is on its way.","Spies, merchants, settlers, returning troops and the rest each have their own icon and sit in one quiet line below, and \"All\" opens the full list. The list uses the same icons, so your own attacks and support are green and shielded instead of generic."]]]},
   {v:"1.0.385",date:"2026-11-16",title:"A better Finish button",groups:[["⚡ Queue",["The free Finish button on the last minutes of a job is now a chunky green button with a bolt and a soft pulse, so it is easy to spot. It looks the same in the speed-up sheet."]]]},
@@ -23021,6 +23022,7 @@ const PAGE = `<!DOCTYPE html>
   .mv.danger .mv-bar u { background: #d63c3c; }
   .mvg { display: grid; gap: 3px; }
   .mv-x { font-style: normal; font-size: 11px; font-weight: 800; padding: 0 6px; border-radius: 8px; background: var(--tribe); color: #fff; align-self: center; }
+  .mv-c { display: block; text-align: right; font-size: 10px; opacity: .6; }
   .mvg-t { display: block; width: 100%; padding: 2px 8px; font: inherit; font-size: 11px; font-weight: 700; text-align: left; color: inherit; background: rgba(0,0,0,0.05); border: 0; border-radius: 8px; cursor: pointer; opacity: 0.85; }
   .mvg.open { padding-left: 8px; border-left: 3px solid var(--tribe); }
   .mvsort { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0 2px; font-size: 12px; }
@@ -29253,7 +29255,7 @@ function mvSize(m) {
 function mvGroups(list) {
   var map = {}, order = [];
   list.forEach(function (m) {
-    var k = m.dir + "|" + m.type + "|" + (m.mission || "") + "|" + (m.x !== undefined && m.y !== undefined ? m.x + "," + m.y : "id:" + m.id);
+    var k = m.dir + "|" + m.type + "|" + (m.mission || "") + (m.type === "abroad" ? "|" + (m.x !== undefined && m.y !== undefined ? m.x + "," + m.y : "id:" + m.id) : "");
     if (!map[k]) { map[k] = { key: k, items: [] }; order.push(map[k]); }
     map[k].items.push(m);
   });
@@ -29291,12 +29293,17 @@ function mvGroup(g) {
   if(g.head.type==="abroad" && g.items.length>1)return mvStationedGroup(g);
   var n = g.items.length;
   var open = !!mvOpenG[g.key];
-  var h = '<div class="mvg' + (open ? " open" : "") + '">' + mvRow(g.head, n);
-  if (n > 1) {
-    var last = g.items[n - 1];
-    h += '<button class="mvg-t" data-mvgroup="' + esc(g.key) + '">' + (open ? "▴ Fold " + (n - 1) + " back in" : "▾ " + (n - 1) + " more " + esc(mvTitle(g.head).toLowerCase()) + " folded" + (last.endAt ? " · last in " + mvClock(Math.max(0, last.endAt - serverNow())) : "")) + "</button>";
-    if (open) g.items.slice(1).forEach(function (m) { h += mvRow(m); });
-  }
+  if (n === 1) return '<div class="mvg">' + mvRow(g.head) + "</div>";
+  // one row per kind of movement: total troops, soonest arrival; tap to see each one with its place
+  var sum = {}, all = true, merch = 0;
+  g.items.forEach(function (m) {
+    if (m.units) m.units.forEach(function (u) { var k = (u.key || "") + "|" + u.name + "|" + u.icon; if (!sum[k]) sum[k] = Object.assign({}, u, { count: 0 }); sum[k].count += u.count; }); else all = false;
+    merch += m.merchants || 0;
+  });
+  var head = Object.assign({}, g.head, { name: mvTitle(g.head), units: all ? Object.keys(sum).map(function (k) { return sum[k]; }) : null, merchants: merch || g.head.merchants, seen: null });
+  var last = g.items[n - 1];
+  var h = '<div class="mvg' + (open ? " open" : "") + '">' + mvRow(head, n, g.key, open);
+  if (open) g.items.forEach(function (m) { h += mvRow(m); });
   return h + "</div>";
 }
 function mvSortBar(d) {
@@ -29315,13 +29322,13 @@ function mvUnits(units) {
   var h = list.slice(0, 3).map(function (u) { return u.count + " " + u.icon; }).join(" ");
   return h + (list.length > 3 ? " +" + (list.length - 3) : "");
 }
-function mvRow(m, count) {
+function mvRow(m, count, groupKey, open) {
   var now = serverNow();
   var left = m.endAt ? Math.max(0, m.endAt - now) : 0;
   var pct = m.endAt && m.startAt ? Math.max(0, Math.min(100, Math.round((1 - left / Math.max(1, m.endAt - m.startAt)) * 100))) : 100;
-  var h = '<button class="mv' + (isThreat(m) ? " danger" : m.dir === "in" ? " in" : "") + '" data-move-open="' + m.id + '" title="' + esc(mvTitle(m)) + '">';
-  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, folded into the first to arrive">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.seen ? '<small title="' + esc(seenTitle(m)) + '">👁️ ' + seenIcons(m) + "</small>" : m.merchants ? "<small>" + m.merchants + " 🐪</small>" : "") + "</span>";
-  h += '<span class="mv-t">' + (m.endAt ? mvClock(left) : "📍") + "</span>";
+  var h = '<button class="mv' + (isThreat(m) ? " danger" : m.dir === "in" ? " in" : "") + '" ' + (groupKey ? 'data-mvgroup="' + esc(groupKey) + '" aria-expanded="' + !!open + '"' : 'data-move-open="' + m.id + '"') + ' title="' + esc(mvTitle(m)) + '">';
+  h += '<span class="mv-i">' + mvIcon(m) + '</span><span class="mv-n"><b>' + esc(m.name) + "</b>" + (count > 1 ? '<em class="mv-x" title="' + count + ' of this kind, tap to see each">×' + count + "</em>" : "") + (m.units ? "<small>" + mvUnits(m.units) + "</small>" : m.seen ? '<small title="' + esc(seenTitle(m)) + '">👁️ ' + seenIcons(m) + "</small>" : m.merchants ? "<small>" + m.merchants + " 🐪</small>" : "") + "</span>";
+  h += '<span class="mv-t">' + (m.endAt ? mvClock(left) : "📍") + (groupKey ? '<small class="mv-c">' + (open ? "▴" : "▾") + "</small>" : "") + "</span>";
   if (m.endAt && m.startAt) h += '<i class="mv-bar"><u style="width:' + pct + '%"></u></i>';
   return h + "</button>";
 }
