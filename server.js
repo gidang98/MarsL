@@ -526,7 +526,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.368";
+const GAME_VERSION = "1.0.369";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15652,6 +15652,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.369",date:"2026-11-16",title:"Steady icons and farm lists for every colony",groups:[["Fixes",["The drawn icons no longer flash back to plain emojis once a second on the send screen (distance, travel time, arrival). Icons are now drawn in the same frame as any update, everywhere, and the send screen updates in place."],["Farm lists",["Every colony's lists can now be opened and edited from any colony: rename, targets, troop presets, sorting, delete. Before, other colonies only showed a Start button.","The colony you are in comes first and is marked, with the other colonies below it."]]]]},
   {v:"1.0.368",date:"2026-11-16",title:"A tidier server selection",groups:[["Server selection",["The selection now lists only the servers you have joined, the one you played last first and highlighted, with the hours since your last visit.","A new button, Join a new server, opens the servers you can still join, with the age of each server in days. New players see that list straight away.","The New rounds calendar stays in the header of both views."]]]},
   {v:"1.0.367",date:"2026-11-16",title:"Wall and flak a bit closer",groups:[["Balance",["Shield Trooper is now 86 ground / 42 air (was 96 / 28) and Spore Spitter 50 ground / 104 air (was 36 / 124), so an early air rush or a ground raid no longer wipes a one-sided defense. Humans are still best on the ground and Aliens best in the air, and a wall plus flak mix still holds with far fewer losses than either alone.","Units you already have use the new numbers right away."]]]},
   {v:"1.0.366",date:"2026-11-16",title:"Humans on the ground, Aliens in the air",groups:[["Tribes",["Humans now defend best against ground armies and are weaker in the air: Shield Trooper 96 ground / 28 air, Skyguard 44 / 62. Aliens are the opposite: Goo Blob 76 / 62, Spore Spitter 36 / 124, the best flak in the game."]],["Fast defenders",["Every tribe now has a fast defender to send as reinforcement. The Skyguard moves at speed 14 and the Spore Spitter at 12, next to the Coop Hawk at 20. No new units: both were slow before and cost a little more now.","Units you already have use the new numbers right away."]]]},
@@ -23989,6 +23990,8 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .srv-title { margin: 6px 0 2px; font-size: 15px; }
 .srv-none { margin: 8px 0; font-size: 13px; opacity: 0.7; }
 .srvhead .srv-back { font-weight: 800; opacity: 1; }
+/* 1.0.369 farm lists: the colony you are in is marked */
+.farm-colony-title .farm-here { margin-left: 4px; padding: 1px 7px; border-radius: 99px; font-size: 11px; font-weight: 700; opacity: 1; color: #fff; background: #2e9d57; }
 /* 1.0.364 reports: the result icon (coloured sword or shield) sits left of the title */
 .report.rep2 .report-head, .report.rep2:not(.open) .report-head { position: relative; padding-left: 40px; }
 .report.rep2 .report-head .ri { display: block; position: absolute; grid-column: auto; grid-row: auto; left: 8px; top: 7px; width: 26px; font-size: 20px; line-height: 1; text-align: center; }
@@ -24322,6 +24325,8 @@ function giWalk(root) {
       if (m.type === "characterData") add(m.target.parentNode);
       else m.addedNodes.forEach(function (n) { add(n.nodeType === 1 ? n : n.parentNode); });
     });
+    // draw the icons right away, in the same frame: a later swap showed the plain emoji for a split second on every refresh
+    if (queue.length) { clearTimeout(timer); flush(); }
   });
   if (document.body) { mo.observe(document.body, { childList: true, subtree: true, characterData: true }); add(document.body); }
 })();
@@ -29316,7 +29321,8 @@ function farmOwnedLists(d) {
   return farmLoad().lists.filter(function(l) {
     return colonies.some(function(c) { return c.id === l.colonyId; });
   }).slice().sort(function(a, b) {
-    return colonies.findIndex(function(c) { return c.id === a.colonyId; }) - colonies.findIndex(function(c) { return c.id === b.colonyId; });
+    var ha = a.colonyId === d.colonyId ? 0 : 1, hb = b.colonyId === d.colonyId ? 0 : 1; // the colony you are in comes first
+    return ha - hb || colonies.findIndex(function(c) { return c.id === a.colonyId; }) - colonies.findIndex(function(c) { return c.id === b.colonyId; });
   });
  }
 function farmSheet(d) {
@@ -29334,11 +29340,7 @@ function farmSheet(d) {
       if (groupColony !== null) h += '</section>';
       groupColony = l.colonyId;
       var source = colonies.find(function(c) { return c.id === l.colonyId; });
-      h += '<section class="farm-colony"><h4 class="farm-colony-title">' + esc(source.name || source.colony || 'Colony') + ' <small>(' + source.x + '|' + source.y + ')</small></h4>';
-    }
-    if (l.colonyId !== d.colonyId) {
-      h += '<div class="farmlist"><div class="fl-top"><span class="fl-fold">' + esc(l.name) + farmSummary(l) + '</span><button class="btn small ghost" data-farm-send="' + l.id + '">Start (' + l.entries.length + ')</button></div></div>';
-      return;
+      h += '<section class="farm-colony' + (l.colonyId === d.colonyId ? ' here' : '') + '"><h4 class="farm-colony-title">' + esc(source.name || source.colony || 'Colony') + ' <small>(' + source.x + '|' + source.y + ')</small>' + (l.colonyId === d.colonyId ? ' <small class="farm-here">you are here</small>' : '') + '</h4>';
     }
     var preset=farmDefaultTroops(l);
     var on = l.entries.filter(function (e) { return e.on !== false; }).length;
@@ -29373,7 +29375,7 @@ function farmSheet(d) {
       h += "</div>";
       h += '<details class="fl-editor"><summary>🪖 '+farmTroopCount(e)+' troops · edit</summary><div class="fl-troops">';
       fighters.forEach(function (u) {
-        h += '<label title="' + u.name + " · " + u.home + ' at home">' + u.icon + '<input type="number" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
+        h += '<label title="' + u.name + (l.colonyId === d.colonyId ? " · " + u.home + " at home" : "") + '">' + u.icon + '<input type="number" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
       });
       h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">' + "🗑️" + ' Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">' + "❌" + '</button></div>';
     });
@@ -33705,11 +33707,7 @@ function askVerdict() {
 function updateSendInfo() {
   var box = document.getElementById("sendinfo");
   if (box && data && sendTarget) {
-    var h = sendInfoText(data);
-    if (box._html !== h) {
-      box._html = h;
-      box.innerHTML = h;
-    }
+    setHTML(box, sendInfoText(data)); // morphs in place with the icons already drawn, so the ticking clock never flashes emojis
   }
 }
 
