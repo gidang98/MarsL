@@ -347,14 +347,28 @@ function protectionAuto() {
   const f = Math.sqrt(Math.max(1, PRODUCTION_SPEED));
   return { hours: Math.max(6, Math.round(PROTECTION_BASE_HOURS / f)), points: Math.round(PROTECTION_BASE_POINTS * f) };
 }
+// Later landers start next to far bigger colonies, so protection grows with the
+// age of the server: +1 server day per 30 days of age (at most +3 days) and up to
+// twice the points (reached at server day 100). Counted in server days, so every
+// game speed keeps the same shape. Owner-set numbers are left exactly as set.
+const PROT_LATE_DAYS_PER = 30, PROT_LATE_DAYS_MAX = 3, PROT_LATE_POINTS_DAY = 100;
+function serverAgeDays() { try { return Math.max(0, serverClock().day - 1); } catch (e) { return 0; } }
 function protectionHours() {
   const own = Number(settingOf("protection_hours", "0"));
-  return own > 0 ? own : protectionAuto().hours;
+  if (own > 0) return own;
+  const late = Math.min(PROT_LATE_DAYS_MAX, serverAgeDays() / PROT_LATE_DAYS_PER);
+  return Math.round((protectionAuto().hours + late * serverDayMs() / 3600000) * 10) / 10;
 }
 function protectionPoints() {
   const own = Number(settingOf("protection_points", "0"));
-  return own > 0 ? own : protectionAuto().points;
+  if (own > 0) return own;
+  return Math.round(protectionAuto().points * (1 + Math.min(1, serverAgeDays() / PROT_LATE_POINTS_DAY)));
 }
+// Protection waits for a newcomer who is away: if it would run out while the player
+// has not come back, it holds (for at most 3 server days) and restarts with a short
+// grace the moment they log in. Inactive colonies (bots) don't get this.
+function protHoldMs() { return 3 * serverDayMs(); }
+function protGraceMs() { return Math.max(5 * 60000, Math.round(6 * 3600000 * dayScale())); }
 
 // ---------- In-game messages ----------
 const MESSAGE_MAX = 2000; // characters
@@ -527,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.378";
+const GAME_VERSION = "1.0.379";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1900,6 +1914,7 @@ addColumn("users", "farm_hidden", "INTEGER NOT NULL DEFAULT 0"); // how many rep
 addColumn("camps", "updated_at", "INTEGER NOT NULL DEFAULT 0");
 addColumn("users", "quests", "TEXT NOT NULL DEFAULT '{}'");
 addColumn("users", "protected_until", "INTEGER NOT NULL DEFAULT 0");
+addColumn("users", "prot_grace", "INTEGER NOT NULL DEFAULT 0"); // the protected_until value a returning newcomer got as grace (holds only once)
 addColumn("users", "tutorial", "INTEGER NOT NULL DEFAULT 0");
 addColumn("users", "banned", "INTEGER NOT NULL DEFAULT 0");
 addColumn("news", "until", "INTEGER NOT NULL DEFAULT 0"); // 0 = until the owner removes it
@@ -1969,9 +1984,15 @@ function playerPoints(userId) {
 function protectionOf(userId, now) {
   const vac = vacationOf(userId, now);
   if (vac.on || vac.shield) return { active: true, vacation: true, on: vac.on, until: vac.on ? vac.until : vac.shield };
-  const row = db.prepare("SELECT protected_until FROM users WHERE id = ?").get(userId);
+  const row = db.prepare("SELECT protected_until, prot_grace, last_seen, bot FROM users WHERE id = ?").get(userId);
   const until = row ? row.protected_until : 0;
-  if (!until || until <= (now || Date.now())) return { active: false };
+  const t = now || Date.now();
+  if (!until) return { active: false };
+  if (until <= t) {
+    const held = row && !row.bot && row.prot_grace !== until && row.last_seen < until && t - until < protHoldMs();
+    if (!held || playerPoints(userId) >= protectionPoints()) return { active: false };
+    return { active: true, held: true, until: t + protGraceMs(), points: playerPoints(userId), pointsNeeded: protectionPoints() };
+  }
   const points = playerPoints(userId);
   if (points >= protectionPoints()) {
     endProtection(userId);
@@ -2430,7 +2451,7 @@ function requireLogin(req, res, next) {
   if (!token) return res.status(401).json({ error: "Please log in" });
   const row = db
     .prepare(
-      `SELECT users.id, users.username, users.banned, users.last_seen, sessions.created_at, sessions.last_used, sessions.active_colony, sessions.sit_for
+      `SELECT users.id, users.username, users.banned, users.last_seen, sessions.created_at, sessions.last_used, sessions.active_colony, sessions.sit_for, users.protected_until, users.prot_grace, users.bot
        FROM sessions JOIN users ON users.id = sessions.user_id
        WHERE sessions.token = ?`
     )
@@ -2441,6 +2462,11 @@ function requireLogin(req, res, next) {
   if (Date.now() - (row.last_used || 0) > 600000) db.prepare("UPDATE sessions SET last_used = ? WHERE token = ?").run(Date.now(), token);
   if (maintenanceOn() && !isOwner({ username: row.username })) return res.status(503).json({ error: "🛠️ MarsL is being repaired right now. " + settingOf("maintenance_note", "Back soon!") });
   if(!sitTarget(row)) retentionReturn(row.id,row.last_seen,Date.now());
+  // a newcomer's protection that ran out while they were away restarts with a grace
+  if (row.protected_until > 0 && row.protected_until <= Date.now() && !row.bot && row.prot_grace !== row.protected_until && row.last_seen < row.protected_until && Date.now() - row.protected_until < protHoldMs() && !sitTarget(row)) {
+    const g = Date.now() + protGraceMs();
+    db.prepare("UPDATE users SET protected_until = ?, prot_grace = ? WHERE id = ?").run(g, g, row.id);
+  }
   // remember when the player was last online (at most once a minute)
   if (Date.now() - row.last_seen > 60000) {
     // 🌙 away for a while? remember since when, for the "while you were away" summary
@@ -8231,7 +8257,7 @@ app.get("/api/map", requireLogin, (req, res) => {
 
   // players under beginner protection get a 🛡️ on the map
   const protectedUsers = new Set(
-    db.prepare("SELECT id FROM users WHERE protected_until > ? OR vac LIKE '%\"from\":%' OR vac LIKE '%\"shield\":%'").all(now).map((u) => u.id).filter((id) => protectionOf(id, now).active)
+    db.prepare("SELECT id FROM users WHERE protected_until > ? OR (protected_until > ? AND bot = 0 AND prot_grace != protected_until AND last_seen < protected_until) OR vac LIKE '%\"from\":%' OR vac LIKE '%\"shield\":%'").all(now, now - protHoldMs()).map((u) => u.id).filter((id) => protectionOf(id, now).active)
   );
 
   const diplo = diploRelations(req.user.id, now);
@@ -12054,7 +12080,7 @@ app.get("/api/wiki", requireLogin, (req, res) => {
     terraProjects: Object.keys(TERRA_PROJECTS).map((k) => { const p = TERRA_PROJECTS[k]; return { name: p.name, icon: p.icon, hub: p.hub, terra: p.terra, cost: p.cost }; }),
     perkDefault: PERK_DEFAULT,
     market: { perLevel: MERCHANTS_PER_LEVEL, carry: MERCHANT_CARRY, speed: Math.round(MERCHANT_SPEED * MOVE_SPEED), swapBase: Math.round(SWAP_RATE_BASE * 100), swapPer: Math.round(SWAP_RATE_PER_LEVEL * 100) },
-    protection: { hours: protectionHours(), points: protectionPoints() },
+    protection: { hours: protectionHours(), points: protectionPoints(), dayHours: Math.round(serverDayMs() / 360000) / 10 },
     alliance: {
       maxMembers: ALLIANCE_MAX_MEMBERS, maxLevel: ALLY_MAX_LEVEL, growth: ALLY_LEVEL_GROWTH,
       projects: Object.keys(ALLY_PROJECTS).map((k) => { const p = ALLY_PROJECTS[k]; return { key: k, icon: p.icon, name: p.name, levels: levels(ALLY_MAX_LEVEL, (l) => allyProjText(k, l)), hours: levels(ALLY_MAX_LEVEL, (l) => Math.round(p.costHours * Math.pow(ALLY_LEVEL_GROWTH, l - 1) * 10) / 10) }; }),
@@ -16182,6 +16208,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.379",date:"2026-11-16",title:"Fairer beginner protection",groups:[["🛡️ Protection",["Protection no longer runs out while you are away: if it would end before you come back, it holds (up to 3 server days) and restarts with a short grace when you log in. This works once.","The later you land on a server, the longer protection lasts (up to +3 server days) and the more points it takes to end it (up to twice as many)."]]]},
   {v:"1.0.378",date:"2026-11-16",title:"Every game speed keeps its pace",groups:[["Time",["The Relic Hunt hold time and the gear auction durations now scale with the server's game speed, so a fast server no longer needs a full day of holding or bidding. Everything is shown as real time: minutes below one hour, hours above."]]]},
   {v:"1.0.377",date:"2026-11-16",title:"Gear auction and Star Credits",groups:[["Auction",["New 🏛️ Gear auction (top bar, or the 🏛️ button next to a piece of gear in your commander's bag). Put gear from your bag up for 12, 24 or 48 real hours with a start price.","Players bid with 💠 Star Credits. Each bid is at least 5% higher and is paid up front, so an outbid player gets the credits back at once. A bid in the last 10 minutes adds 10 minutes.","The highest bid wins when time is up. The seller gets the price minus a 5% fee. Gear nobody bids on, or that you take back before the first bid, returns to your bag. If the bag is full, collect it later from My auctions.","You can run 5 auctions at a time. Equipped gear can't be sold."]],["Star Credits",["A new account-wide balance shown in the auction. How to earn Star Credits is still open, so for now the server owner can hand them out."]]]},
   {v:"1.0.376",date:"2026-11-16",title:"Real time instead of server days",groups:[["Time",["Every player-facing text now uses real time: dates and countdowns instead of server days, hours instead of \"per server day\", and the vacation lengths in hours or days.","The clock bar shows when the round started, the acts and events show their real dates, and the wiki's clock table lists dates."]]]},
@@ -35794,6 +35821,8 @@ function wikiChapter(W, tab) {
         "🎯 Opens from the beginner-protection bar, the 🪖 Army tab and the map. It lists the monster camps up to " + Lv.targetRange + " tiles around the colony you are in, and the nearest inactive colonies.",
         "✅ / ❌ guess whether everything at home would win, and how much of it you would lose. It assumes average luck: 🧮 Simulate shows the details, 🔍 Spy shows what is really there.",
         "Attacking, raiding or scouting another colony ends your beginner protection.",
+        "⏳ Protection waits for you: if it would run out while you are away, it holds for up to " + hrTxt(3 * W.protection.dayHours) + " and restarts with " + hrTxt(6 * W.protection.dayHours / 24) + " when you log in, once.",
+        "🌱 The later you land on a server, the longer it lasts and the more points it takes to end it (up to +3 server days and twice the points).",
       ])));
       cards.push(wkCard("training", "🎓", "Combat training", wkP("Four quests right after A Tiny Army teach a fight from start to finish: 🧮 simulate a camp, 🔍 spy on it, ⚔️ beat it, then 🌊 send two waves at once. The 🎯 Targets list shows the step you are on, with its reward ready to claim.")));
       cards.push(wkCard("milestones", "🎉", "Milestones", kt({ head: ["Milestone", "Gift (each resource)", "🎖️ Commander"], rows: [["🏳️ Your second colony", "+" + shortNum(Lv.firstColony) + " into the new colony", "+150 xp"], ["🗿 Your first landmark", "+" + shortNum(Lv.firstLandmark) + " into the claiming colony", "+250 xp"]] }) + wkNote("Once per player. They show up on the 📋 Mission Board. Whatever doesn't fit into the storage is lost.")));
@@ -35807,7 +35836,7 @@ function wikiChapter(W, tab) {
         ["💨 Travel speed", "×" + W.speeds.move],
         ["🌍 Server", W.serverName],
         ["🏷️ Version", W.version + " · " + W.stage],
-        ["🛡️ Beginner protection", W.protection.hours + " h or " + W.protection.points + " points"],
+        ["🛡️ Beginner protection", hrTxt(W.protection.hours) + " or " + W.protection.points + " points"],
         ["🏘️ Colonies per player", "No limit"],
         ["⭐ Field levels (main / other)", W.fields.mainMax + " / " + W.fields.max],
         ["🤝 Alliance members", W.alliance.maxMembers],
@@ -36035,7 +36064,7 @@ function wikiChapter(W, tab) {
       head: ["Phase", "Focus"],
       left: 2,
       rows: [
-        ["First days", "Fields to level 3-4, HQ 3, warehouse, silo, a few defenders. Stay inside your beginner protection (" + W.protection.hours + " h)."],
+        ["First days", "Fields to level 3-4, HQ 3, warehouse, silo, a few defenders. Stay inside your beginner protection (" + hrTxt(W.protection.hours) + ")."],
         ["Week 1-2", "HQ 5, barracks 3, lab, market, bakery (a food field at level 5). Join an alliance. Raid camps for the extra stock."],
         ["Month 1", "Level 10 fields and the other boosters. Terra for colony 2, expedition base for landmarks."],
         ["Mid game", "Second and third colony with a different field mix. Trade routes feed the army colony."],
