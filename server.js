@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.404";
+const GAME_VERSION = "1.0.405";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15124,7 +15124,7 @@ function creatureChance(k) { // percent per opponent
   return Math.round(p * f * 1000000) / 10000;
 }
 function creatureHp(k) { return Math.round(CREATURE_HP[CREATURES[k].rarity] * CREATURES[k].hpf); }
-const CREATURE_SELL = 1800; // a spare creature sells for this many seconds of its own Space-Cash income (half an hour)
+const CREATURE_SELL = 300; // a spare creature sells for this many seconds of its own Space-Cash income (5 minutes)
 function creatureSell(k) { return Math.max(1, Math.round(CREATURES[k].cash * CREATURE_SELL)); }
 const HUNT_BAG = 15; // creatures the inventory holds (creatures in a slot are not in the inventory)
 function creatureSpare(hu, k) { return Math.max(0, (hu.kills[k] || 0) - hu.slots.filter((x) => x === k).length); }
@@ -16988,6 +16988,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.405",date:"2026-11-17",title:"Lower creature sell prices",groups:[["💰 Hunt",["A creature now sells for 5 minutes of its own Space-Cash income, down from 30 minutes. A Rock Crab (2 a second) fetches 600 instead of 3,600, a Thunder Lion 9,300 instead of 55,800, and shiny creatures follow their higher income. Keeping a creature in a slot is now clearly worth more than selling it."]]]},
   {v:"1.0.404",date:"2026-11-17",title:"Shiny creatures and commanders",groups:[["✨ Shiny creatures",["Every opponent now has a small chance to come as Silver (5%), Gold (2%), Diamond (0.8%) or Rainbow (0.3%). They have 1.5×, 2×, 2.5× and 3× the HP and pay the same multiple of Space-Cash, so they need a stronger commander but are worth far more in a slot or at the sell window.","Shiny catches are never auto-sold, the rarity buttons and All in the sell window leave them out, and with a full inventory a shiny is sold on the spot instead of getting away. They glow in the hunt window, and you can slot, sell and auction them like any creature."]],["🎖️ Shiny commanders",["Fusing shards now has a chance to make a commander Silver (8%), Gold (3%), Diamond (1.2%) or Rainbow (0.4%): 1.5× to 3× its effects and helper power. Star Credit income is not multiplied. Fusing a commander you already own can only raise its tier."]],["📖 Creature index",["The index has a section for Silver, Gold, Diamond and Rainbow with every creature in that version. Each stays hidden until you catch it."]]]},
   {v:"1.0.403",date:"2026-11-17",title:"Build costs and times fixed",groups:[["🔧 Fixes",["Upgrading and constructing buildings and fields cost nothing and finished at once since 1.0.401. The tribe bonuses were being overwritten by the commander effects, so costs, build, training, research and upgrade times, storage, wall, bunker and carry bonuses all read zero. Everything is back to normal."]]]},
   {v:"1.0.402",date:"2026-11-17",title:"Shard amounts, new icons, tidier commander bar",groups:[["🛒 Shard shop",["Every offer now holds a different number of shards, rolled for each restock: 1 to 3 for a common commander, 1 to 2 for uncommon and rare, and always 1 for epic, legendary and Mythic. Since 12 shards fuse a commander and a missed offer is gone at the next restock, a common commander takes a good while to complete and the rarer ones take many days of looking in. The same amount is on offer for every player, and the button shows how many are left."]],["🎨 Icons",["27 more things have their own drawn icon: 16 creatures (Dust Beetle, Pond Frog, Gutter Rat, Rock Crab, Spore Moth, Thorn Snake, Mire Lurker, Glacier Wolf, Venom Spider, Tusk Brute, Shade Panther, Iron Rhino, Frost Mammoth, Thunder Lion, Ash Wyrm, Void Leviathan), 9 commanders (couch, burger, sunflower, horse, penguin, peacock, cow, circus tent, black cat), the Strike burst and the shop cart."]],["🎖️ Commander bar",["The Star Credit bar above the commander tabs no longer wraps awkwardly: the balance, income per day and Collect sit in one row, and the commander and Hunt buttons share the row below, with long commander names cut short."]]]},
