@@ -16367,7 +16367,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Troop traffic",["Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -29475,9 +29475,9 @@ function mvSorted(d) {
 }
 // ---- groups: movements of the same kind fold into the one that arrives first ----
 var mvSort = { by: "time", rev: false };
-try { var _ms = JSON.parse(localStorage.getItem("mvsort") || "null"); if (_ms && _ms.by) mvSort = _ms; } catch (e) {}
+try { var _ms = JSON.parse(localStorage.getItem("mvsort") || "null"); if (_ms && _ms.by && _ms.by !== "name") mvSort = _ms; } catch (e) {}
 var mvOpenG = {}; // which groups are unfolded
-var MV_SORTS = [["time", "⏱", "Soonest"], ["sent", "📤", "Sent"], ["type", "🧭", "Type"], ["size", "🪖", "Size"], ["name", "📍", "Place"]];
+var MV_SORTS = [["time", "⏱", "Soonest"], ["sent", "📤", "Sent"], ["type", "🧭", "Type"], ["size", "🪖", "Size"]];
 // 👁️ unit types a lookout recognises in a small incoming army (never the numbers)
 function seenIcons(m) { return m.seen && m.seen.length ? m.seen.map(function (u) { return u.icon; }).join(" ") : ""; }
 function seenTitle(m) { return m.seen && m.seen.length ? "Spotted: " + m.seen.map(function (u) { return u.name; }).join(", ") + " (how many stays hidden)" : ""; }
@@ -29503,7 +29503,6 @@ function mvGroups(list) {
     var r = 0;
     if (mvSort.by === "type") r = mvTitle(a.head).localeCompare(mvTitle(b.head));
     else if (mvSort.by === "size") r = b.size - a.size;
-    else if (mvSort.by === "name") r = String(a.head.name).localeCompare(String(b.head.name));
     else if (mvSort.by === "sent") r = (b.head.startAt || 0) - (a.head.startAt || 0);
     if (!r) r = (a.head.endAt || 9e15) - (b.head.endAt || 9e15);
     return r * dir;
@@ -30137,10 +30136,10 @@ function farmAdd(list, x, y, name, chosen) {
 // The little "add to which list?" row in the map tile info
 function farmPickRow(x, y) {
   if (!farmPick || farmPick.x !== x || farmPick.y !== y) return "";
-  var h = '<div class="farmpick"><b>Add to</b>';
+  var h = '<div class="farmpick"><b>Farm lists</b>';
   myFarmLists().forEach(function (l) {
     var on = l.entries.some(function (e) { return e.x === x && e.y === y; });
-    h += '<button class="btn small' + (on ? " ghost" : "") + '" data-farm-pick="' + l.id + '"' + (on ? " disabled" : "") + ">" + (on ? "✅" + " " : "") + esc(l.name) + "</button>";
+    h += on ? '<button class="btn small ghost" data-farm-unpick="' + l.id + '" title="Remove from this list">✅ ' + esc(l.name) + " ✕</button>" : '<button class="btn small" data-farm-pick="' + l.id + '">' + esc(l.name) + "</button>";
   });
   return h + '<button class="btn small ghost" data-farm-pick="new">＋ New list</button></div>';
 }
@@ -38181,7 +38180,7 @@ document.addEventListener("click", function (e) {
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
-    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
+    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
   if (!el) return;
@@ -38997,6 +38996,14 @@ document.addEventListener("click", function (e) {
     // tap again to close the "add to which list?" chooser
     farmPick = farmPick && farmPick.x === fx && farmPick.y === fy ? null : { x: fx, y: fy, name: attr("data-name") };
     renderTileInfo();
+  } else if (has("data-farm-unpick")) {
+    var ul = farmList(attr("data-farm-unpick"));
+    if (ul && farmPick) {
+      ul.entries = ul.entries.filter(function (e) { return !(e.x === farmPick.x && e.y === farmPick.y); });
+      farmSelection = {}; farmReview = null; farmSave();
+      toast("📋 Removed from " + ul.name, true);
+      renderTileInfo();
+    }
   } else if (has("data-farm-pick")) {
     if (farmPick) {
       var pid = attr("data-farm-pick");
