@@ -14865,6 +14865,112 @@ app.post("/api/commanders", requireLogin, (req, res) => {
   } else return res.status(400).json({ error: "Unknown action" });
   res.json({ ok: true });
 });
+// =====================================================================
+//  THE HUNT
+//  Every HUNT_MS (real time, any game speed) an opponent appears for your
+//  commander. The commander strikes by itself; tapping Strike adds extra
+//  hits. Bring its HP to 0 before the next one appears and the creature
+//  joins your collection; otherwise the fight is skipped. Creatures are
+//  their own collection and cannot be used as commanders. While you are
+//  away, up to HUNT_BACK_SLOTS missed windows are worked out when you come
+//  back: only the automatic strikes count and only half of the opponents
+//  show up. What the creatures are good for is still to be decided.
+// =====================================================================
+const HUNT_MS = 10 * 60000;
+const HUNT_BACK_SLOTS = 24; // 4 hours of windows, like the Star Credit income
+const HUNT_OFFLINE_SPAWN = 0.5;
+const HUNT_AUTO = 5; // damage over a whole window, in multiples of the commander's attack
+const HUNT_TAP = 0.15; // one tapped strike, in multiples of the attack
+const HUNT_TAP_CD = 20000;
+const CREATURE_HP = { common: 150, uncommon: 300, rare: 700, epic: 1600, legendary: 4000 };
+const CREATURE_WEIGHT = { common: 55, uncommon: 28, rare: 12, epic: 4, legendary: 1 };
+const CREATURES = {
+  mossimp: { name: "Moss Imp", icon: "🍄", rarity: "common" },
+  dustbeetle: { name: "Dust Beetle", icon: "🪲", rarity: "common" },
+  gutterrat: { name: "Gutter Rat", icon: "🐀", rarity: "common" },
+  cavebat: { name: "Cave Bat", icon: "🦇", rarity: "uncommon" },
+  mirelurker: { name: "Mire Lurker", icon: "🐊", rarity: "uncommon" },
+  emberscorpion: { name: "Ember Scorpion", icon: "🦂", rarity: "rare" },
+  tuskbrute: { name: "Tusk Brute", icon: "🐗", rarity: "rare" },
+  stormtalon: { name: "Storm Talon", icon: "🦅", rarity: "epic" },
+  deepgrasper: { name: "Deep Grasper", icon: "🐙", rarity: "epic" },
+  ashwyrm: { name: "Ash Wyrm", icon: "🐉", rarity: "legendary" },
+  frostmammoth: { name: "Frost Mammoth", icon: "🦣", rarity: "legendary" },
+};
+function huntRng(userId, slot, salt) {
+  let a = (Math.imul(userId + 1, 2654435761) ^ Math.imul(slot, 40503) ^ Math.imul(salt + 1, 97531)) >>> 0;
+  a = (a + 0x6d2b79f5) >>> 0;
+  let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function huntOpponent(userId, slot) {
+  const keys = Object.keys(CREATURES);
+  const total = keys.reduce((n, k) => n + CREATURE_WEIGHT[CREATURES[k].rarity], 0);
+  let x = huntRng(userId, slot, 7) * total, i = 0;
+  for (; i < keys.length - 1; i++) { x -= CREATURE_WEIGHT[CREATURES[keys[i]].rarity]; if (x < 0) break; }
+  return keys[i];
+}
+// the commander's attack for the hunt does not depend on the game speed
+function huntAtk(h) { return Math.max(1, Math.round((heroPoints(h).atk / speedScale()) * (1 + heroBonus(h).atk / 100))); }
+// works out finished windows and the one in progress; saves when anything changed
+function huntSync(userId, now, hero) {
+  const h = hero || heroOf(userId, now);
+  const r = rosterOf(userId, now);
+  if (!h || !r) return null;
+  const cur = Math.floor(now / HUNT_MS);
+  const hu = r.hunt || (r.hunt = { lastSlot: cur - 1, seenSlot: -1, tapDmg: 0, tapAt: 0, wonSlot: -1, kills: {}, log: [] });
+  const atk = huntAtk(h);
+  let dirty = false;
+  const award = (key, slot) => { hu.kills[key] = (hu.kills[key] || 0) + 1; hu.log.unshift({ key, at: now }); hu.log.length = Math.min(hu.log.length, 8); hu.wonSlot = slot; dirty = true; };
+  for (let slot = Math.max(hu.lastSlot + 1, cur - HUNT_BACK_SLOTS); slot < cur; slot++) {
+    if (hu.wonSlot === slot) continue;
+    const online = slot === hu.seenSlot;
+    if (!online && huntRng(userId, slot, 1) >= HUNT_OFFLINE_SPAWN) continue;
+    const key = huntOpponent(userId, slot);
+    if (atk * HUNT_AUTO + (online ? hu.tapDmg : 0) >= CREATURE_HP[CREATURES[key].rarity]) award(key, slot);
+  }
+  if (hu.lastSlot !== cur - 1) { hu.lastSlot = cur - 1; dirty = true; }
+  if (hu.seenSlot !== cur) { hu.seenSlot = cur; hu.tapDmg = 0; hu.tapAt = 0; dirty = true; }
+  const key = huntOpponent(userId, cur);
+  const hp = CREATURE_HP[CREATURES[key].rarity];
+  const into = now - cur * HUNT_MS;
+  let dmg = Math.min(hp, atk * HUNT_AUTO * (into / HUNT_MS) + hu.tapDmg);
+  if (hu.wonSlot !== cur && dmg >= hp) award(key, cur);
+  if (dirty) db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
+  return { r, hu, atk, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
+}
+function huntView(userId, now) {
+  const S = huntSync(userId, now);
+  if (!S) return null;
+  const c = CREATURES[S.key];
+  return {
+    opponent: { key: S.key, name: c.name, icon: c.icon, rarity: c.rarity, hp: S.hp, dmg: Math.floor(S.dmg), won: S.won },
+    nextMs: S.nextMs, windowMs: HUNT_MS,
+    tap: { cdLeft: Math.max(0, S.hu.tapAt + HUNT_TAP_CD - now), cd: HUNT_TAP_CD, dmg: Math.max(1, Math.round(S.atk * HUNT_TAP)) },
+    auto: Math.round(S.atk * HUNT_AUTO),
+    log: S.hu.log.map((l) => ({ name: CREATURES[l.key].name, icon: CREATURES[l.key].icon, rarity: CREATURES[l.key].rarity, at: l.at })),
+    collection: Object.keys(CREATURES).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, hp: CREATURE_HP[CREATURES[k].rarity], count: S.hu.kills[k] || 0 })),
+    total: Object.keys(S.hu.kills).reduce((n, k) => n + S.hu.kills[k], 0),
+  };
+}
+app.get("/api/hunt", requireLogin, (req, res) => {
+  const v = huntView(req.user.id, Date.now());
+  if (!v) return res.status(400).json({ error: "You need a commander to hunt" });
+  res.json(v);
+});
+app.post("/api/hunt", requireLogin, (req, res) => {
+  const uid = req.user.id, now = Date.now(), b = req.body || {};
+  const S = huntSync(uid, now);
+  if (!S) return res.status(400).json({ error: "You need a commander to hunt" });
+  if (b.action !== "tap") return res.status(400).json({ error: "Unknown action" });
+  if (S.won) return res.status(400).json({ error: "This one is already beaten" });
+  if (now < S.hu.tapAt + HUNT_TAP_CD) return res.status(400).json({ error: "Your commander is catching its breath" });
+  S.hu.tapDmg += Math.max(1, Math.round(S.atk * HUNT_TAP));
+  S.hu.tapAt = now;
+  db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(S.r), uid);
+  huntSync(uid, now); // a finishing blow counts at once
+  res.json({ ok: true });
+});
 function heroView(userId, colonyId, now) {
   const h = heroOf(userId, now);
   if (!h) return null;
@@ -14883,6 +14989,7 @@ function heroView(userId, colonyId, now) {
   }
   const bonus = heroBonus(h);
   const crate = heroCrate(h);
+  huntSync(userId, now, h);
   const inc = commanderIncome(userId, now);
   return {
     commander: inc ? { name: inc.def.name, rarity: inc.def.rarity, rate: inc.rate, pending: inc.pending, cap: inc.cap, capMs: inc.capMs, full: inc.elapsed >= inc.capMs, shop: { nextMs: shopView(now, null).nextMs } } : null,
@@ -16530,7 +16637,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["Your active commander earns Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). The commander button there opens your collection and the shop.","The shop offers 3 commanders and restocks every 5 minutes, at every game speed. Buying one you already own raises its rank (up to 5).","Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Hunt",["Every 10 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Creatures are collected only for now; they cannot be used as commanders."]],["Commanders",["Your active commander earns Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). The commander button there opens your collection and the shop.","The shop offers 3 commanders and restocks every 5 minutes, at every game speed. Buying one you already own raises its rank (up to 5).","Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23353,9 +23460,14 @@ const PAGE = `<!DOCTYPE html>
   .mvtot { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 14px; font-size: 14px; }
   .mvtot-c small { opacity: .7; }
   @media (max-width: 379px) { .fl-pts { display: none; } }
-  .hcred { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: var(--card2, rgba(0,0,0,.06)); }
+  .hcred { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: var(--card2, rgba(0,0,0,.06)); }
   .hcred b { font-size: 15px; } .hcred small { opacity: .7; } .hcred .btn:first-of-type { margin-left: auto; }
   .cmd-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,.08); } .cmd-row > div { flex: 1; min-width: 0; } .cmd-row b, .cmd-row small { display: block; } .cmd-row.on { background: rgba(0,0,0,.05); border-radius: 10px; }
+  .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
+  .hunt-ic { font-size: 44px; line-height: 1; } .hunt-body { flex: 1; min-width: 0; } .hunt-body b, .hunt-body small { display: block; }
+  .hunt-act { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin: 6px 0 10px; }
+  .hunt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; margin: 10px 0; }
+  .hunt-cell { text-align: center; padding: 8px 4px; border-radius: 12px; background: rgba(0,0,0,.05); position: relative; } .hunt-cell span { font-size: 28px; display: block; } .hunt-cell small { display: block; font-size: 11px; } .hunt-cell b { position: absolute; top: 4px; right: 6px; font-size: 11px; } .hunt-cell.none { opacity: .45; }
   .cmd-ic { font-size: 26px; width: 36px; text-align: center; }
   .cmd-rar.r-uncommon { color: #2e8b57; } .cmd-rar.r-rare { color: #2f6fbf; } .cmd-rar.r-epic { color: #8a45c4; } .cmd-rar.r-legendary { color: #d08a12; }
   .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
@@ -33934,7 +34046,7 @@ function heroSheet(d) {
   h += '<div class="hpts"><div title="Its own attack, plus a bonus for the army it leads"><b>⚔️ ' + H.points.atk + "</b><small>attack" + (H.bonus.atk ? " +" + H.bonus.atk + "%" : "") + "</small></div>" + '<div title="Its own defense at home"><b>🛡️ ' + H.points.def + "</b><small>defense" + (H.bonus.def ? " +" + H.bonus.def + "%" : "") + '</small></div><div title="Carry of the army it leads"><b>' + '🎒' + ' +' + H.bonus.carry + '%</b><small>carry</small></div><div title="Own production where it is stationed"><b>⛏️ ' + H.bonus.prod + "</b><small>/h +" + (H.bonus.prodPct || 0) + "%</small></div></div>";
   if (H.commander) {
     var C = H.commander;
-    h += '<div class="hcred" title="Your active commander earns Star Credits while you are away, up to ' + shortTime(C.capMs) + ' of production"><span>🎫</span><b>' + C.pending + " / " + C.cap + "</b><small>+" + C.rate + "/h" + (C.full ? " · full" : "") + '</small><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + '>Collect</button><button class="btn small ghost" type="button" data-cmd-open="1" title="Your commanders and the shop">🎖️ ' + esc(C.name) + "</button></div>";
+    h += '<div class="hcred" title="Your active commander earns Star Credits while you are away, up to ' + shortTime(C.capMs) + ' of production"><span>🎫</span><b>' + C.pending + " / " + C.cap + "</b><small>+" + C.rate + "/h" + (C.full ? " · full" : "") + '</small><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + '>Collect</button><button class="btn small ghost" type="button" data-cmd-open="1" title="Your commanders and the shop">🎖️ ' + esc(C.name) + '</button><button class="btn small ghost" type="button" data-hunt-open="1" title="Fight for creatures">🐾 Hunt</button></div>';
   }
   var used = H.bag.length;
   h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
@@ -35140,6 +35252,9 @@ function renderSheet() {
   } else if (sheet.kind === "wiki") {
     if (!wiki.data) { closeSheet(); return; }
     h += wikiSheet();
+  } else if (sheet.kind === "hunt") {
+    if (!hunt.data) { closeSheet(); return; }
+    h += huntSheet();
   } else if (sheet.kind === "commanders") {
     if (!cmd.data) { closeSheet(); return; }
     h += commanderSheet();
@@ -37550,6 +37665,35 @@ function commanderSheet() {
 }
 function cmdPost(body, msg) { post("/api/commanders", body, function () { if (msg) toast(msg, true); openCommanders(); }); }
 
+// ---------- the hunt ----------
+var hunt = { data: null, at: 0, timer: 0 };
+function openHunt() {
+  fetch("/api/hunt").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    if (!j) { toast("⚠️ You need a commander to hunt"); return; }
+    hunt.data = j; hunt.at = Date.now();
+    if (sheet && sheet.kind === "hunt") renderSheet(); else openSheet("hunt", null);
+    clearInterval(hunt.timer);
+    hunt.timer = setInterval(function () {
+      if (!sheet || sheet.kind !== "hunt") { clearInterval(hunt.timer); return; }
+      openHunt();
+    }, 5000);
+  }).catch(function () { toast("⚠️ The server does not answer"); });
+}
+function huntSheet() {
+  var D = hunt.data, o = D.opponent, left = Math.max(0, D.nextMs - (Date.now() - hunt.at)), h = "";
+  h += '<div class="sheet-head"><span class="hi">🐾</span><div><h3>Hunt</h3><b>' + D.total + (D.total === 1 ? " creature" : " creatures") + " caught</b></div></div>";
+  h += '<div class="hunt-card' + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
+  h += heroBar("hp", o.dmg, o.hp) + "<small>" + (o.won ? "Caught!" : o.dmg + " / " + o.hp + " damage · next opponent in " + shortTime(left)) + "</small></div></div>";
+  var cd = Math.max(0, D.tap.cdLeft - (Date.now() - hunt.at));
+  h += '<div class="hunt-act"><button class="btn" data-hunt-tap="1"' + (o.won || cd > 0 ? " disabled" : "") + ">⚔️ Strike +" + D.tap.dmg + (cd > 0 ? " · " + Math.ceil(cd / 1000) + "s" : "") + "</button><small>Your commander also strikes by itself: about " + D.auto + " damage per opponent.</small></div>";
+  if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + " " + esc(l.name); }).join(" · ") + "</p>";
+  h += '<div class="hunt-grid">' + D.collection.map(function (c) {
+    return '<div class="hunt-cell' + (c.count ? "" : " none") + '" title="' + (c.count ? esc(c.name) + " · " + c.rarity : "Not caught yet") + '"><span>' + (c.count ? c.icon : "❔") + "</span><small>" + (c.count ? esc(c.name) : "???") + "</small>" + (c.count ? "<b>×" + c.count + "</b>" : "") + "</div>";
+  }).join("") + "</div>";
+  h += '<p class="hint left">A new opponent appears every ' + shortTime(D.windowMs) + ". Beat it before the next one comes or it gets away. While you are away, up to 4 hours of fights are worked out when you return: only your commander’s own strikes count, and only half of the opponents show up.</p>";
+  return h;
+}
+
 // ---------- the gear auction ----------
 var auc = { data: null, tab: "browse" };
 function openAuction(tab) {
@@ -38397,7 +38541,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hunt-open],[data-hunt-tap],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -38542,6 +38686,10 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-arch")) {
     var ak = attr("data-hero-arch");
     if (confirm("Choose this archetype? Changing it later means resetting all skill points.")) post("/api/hero", { action: "arch", key: ak }, function (r) { confetti(); toast("🎭 " + (r && r.archPicked || "Archetype") + " it is!", true); });
+  } else if (has("data-hunt-open")) {
+    openHunt();
+  } else if (has("data-hunt-tap")) {
+    post("/api/hunt", { action: "tap" }, function () { openHunt(); });
   } else if (has("data-cmd-open")) {
     openCommanders("mine");
   } else if (has("data-cmd-tab")) {
