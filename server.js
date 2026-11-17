@@ -16367,7 +16367,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Farm lists",["The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -30196,7 +30196,15 @@ document.addEventListener("click", function(event) {
 });
 
 // How the targets of a list can be ordered ("Raid all" sends in this order)
-var FARM_SORTS = [["near", "📍 Nearest"], ["far", "🧭 Farthest"], ["last", "🕐 Last raid"], ["loot", "💰 Loot"], ["name", "🔤 Name"], ["troops", "🪖 Most troops"]];
+// one button per criterion; tapping the active one flips its direction. [label, first sort key + hint, flipped key + hint]
+var FARM_SORTS = [
+  ["📍 Distance", ["near", "Closest first"], ["far", "Farthest first"]],
+  ["🕐 Last raid", ["last", "Raided longest ago first"], ["lastr", "Raided most recently first"]],
+  ["💰 Loot", ["loot", "Most loot first"], ["loots", "Least loot first"]],
+  ["🔤 Name", ["name", "A to Z"], ["namer", "Z to A"]],
+  ["🪖 Troops", ["troops", "Most troops first"], ["troopsr", "Fewest troops first"]]
+];
+var FARM_ARROW = { near: "▲", far: "▼", last: "▲", lastr: "▼", loot: "▼", loots: "▲", name: "▲", namer: "▼", troops: "▼", troopsr: "▲" };
 function farmDist(list, e) {
   var col = data.colonies.list.filter(function (c) { return c.id === list.colonyId; })[0] || data;
   return Math.hypot(e.x - col.x, e.y - col.y);
@@ -30215,7 +30223,11 @@ function farmSorted(list) {
   if (by === "near") out.sort(function (a, b) { return farmDist(list, a) - farmDist(list, b); });
   else if (by === "far") out.sort(function (a, b) { return farmDist(list, b) - farmDist(list, a); });
   else if (by === "name") out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+  else if (by === "namer") out.sort(function (a, b) { return b.name.localeCompare(a.name); });
   else if (by === "troops") out.sort(function (a, b) { return farmTroopCount(b) - farmTroopCount(a); });
+  else if (by === "troopsr") out.sort(function (a, b) { return farmTroopCount(a) - farmTroopCount(b); });
+  else if (by === "lastr") out.sort(function (a, b) { return farmLastAt(b) - farmLastAt(a); });
+  else if (by === "loots") out.sort(function (a, b) { return farmLoot(a, "last") - farmLoot(b, "last") || farmLoot(a, "total") - farmLoot(b, "total"); });
   else if (by === "last") {
     // raided longest ago first (never raided at the very top): those have refilled the most
     out.sort(function (a, b) { return farmLastAt(a) - farmLastAt(b); });
@@ -30379,7 +30391,9 @@ function farmSheet(d) {
     if (l.entries.length > 1) {
       h += '<div class="fl-sort"><span>Order</span>';
       FARM_SORTS.forEach(function (o) {
-        h += '<button class="' + ((l.sort || "manual") === o[0] ? "on" : "") + '" data-farm-sort="' + l.id + ":" + o[0] + '">' + o[1] + "</button>";
+        var cur = l.sort === o[2][0] ? o[2] : l.sort === o[1][0] || (o[1][0] === "near" && (!l.sort || l.sort === "manual")) ? o[1] : null;
+        var nxt = cur === o[1] ? o[2] : o[1];
+        h += '<button class="' + (cur ? "on" : "") + '" data-farm-sort="' + l.id + ":" + nxt[0] + '" title="' + esc(cur ? cur[1] + " · tap to flip" : o[1][1]) + '">' + o[0] + (cur ? " " + FARM_ARROW[cur[0]] : "") + "</button>";
       });
       h += "</div>";
     }
