@@ -14743,7 +14743,7 @@ addColumn("users", "roster", "TEXT NOT NULL DEFAULT ''");
 const COMMANDER_IDLE_HOURS = 4; // production that can pile up before collecting
 const SHOP_RESTOCK_MS = 5 * 60000; // every game speed
 const SHOP_POOL = []; // commanders for sale: { key, price, weight }, to be decided
-const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary"];
+const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
 // Star Credits per real hour at rank 1; a trait is a small bonus while the commander is active
 // (atk/def in %, carry in %, prod = share of the colony's production in %), or none: then it just earns more.
 // Each extra copy bought raises the rank: +50% of the base rate and trait per rank.
@@ -14752,12 +14752,12 @@ const COMMANDER_RANK_STEP = 0.5;
 const SHOP_OFFERS = 3; // commanders on offer at a time
 // The shop sells commander shards for Space-Cash; 12 shards of one commander fuse into it (or raise its rank).
 const SHARDS_PER_COMMANDER = 12;
-const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 0.3 }; // how often a commander of that rarity shows up
-const SHARD_PRICE = { common: 20, uncommon: 60, rare: 180, epic: 500, legendary: 1500 }; // Space-Cash per shard
+const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 0.3, mythic: 0.05 }; // how often a commander of that rarity shows up
+const SHARD_PRICE = { common: 20, uncommon: 60, rare: 180, epic: 500, legendary: 1500, mythic: 5000 }; // Space-Cash per shard
 const SHARD_BUY_LIMIT = 3; // per offer, per player, per round
 // Two inactive commanders can stand beside the active one in the hunt: +% of its attack, by rarity (and rank)
 const HELPER_SLOTS = 2;
-const HELPER_POWER = { common: 0.1, uncommon: 0.15, rare: 0.25, epic: 0.4, legendary: 0.6 };
+const HELPER_POWER = { common: 0.1, uncommon: 0.15, rare: 0.25, epic: 0.4, legendary: 0.6, mythic: 0.9 };
 const COMMANDERS = {
   recruit: { name: "Recruit", icon: "🎖️", rarity: "common", rate: 1, starter: true },
   drillmaster: { name: "Drillmaster", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 1 } },
@@ -14771,6 +14771,7 @@ const COMMANDERS = {
   warlord: { name: "Warlord", icon: "⚔️", rarity: "epic", rate: 2, trait: { atk: 4 } },
   tycoon: { name: "Tycoon", icon: "💎", rarity: "epic", rate: 10 },
   starmarshal: { name: "Star Marshal", icon: "🌟", rarity: "legendary", rate: 4, trait: { atk: 3, def: 3 } },
+  voidsovereign: { name: "Void Sovereign", icon: "🌌", rarity: "mythic", rate: 8, trait: { atk: 5, def: 5, prod: 2 } },
 };
 const TRAIT_TEXT = { atk: "attack", def: "defense", carry: "carry capacity", prod: "colony production" };
 function commanderScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1) * COMMANDER_RANK_STEP; }
@@ -14943,8 +14944,8 @@ const HUNT_OFFLINE_SPAWN = 0.5;
 const HUNT_AUTO = 5; // damage over a whole window, in multiples of the commander's attack
 const HUNT_TAP = 0.15; // one tapped strike, in multiples of the attack
 const HUNT_TAP_CD = 20000;
-const CREATURE_HP = { common: 150, uncommon: 300, rare: 700, epic: 1600, legendary: 4000 };
-const CREATURE_WEIGHT = { common: 55, uncommon: 28, rare: 12, epic: 4, legendary: 1 };
+const CREATURE_HP = { common: 150, uncommon: 300, rare: 700, epic: 1600, legendary: 4000, mythic: 9000 };
+const CREATURE_WEIGHT = { common: 55, uncommon: 28, rare: 12, epic: 4, legendary: 1, mythic: 0.15 };
 const CREATURES = {
   // cash = Space-Cash per real hour while the creature sits in a slot
   mossimp: { name: "Moss Imp", icon: "🍄", rarity: "common", cash: 2 },
@@ -14958,6 +14959,7 @@ const CREATURES = {
   deepgrasper: { name: "Deep Grasper", icon: "🐙", rarity: "epic", cash: 50 },
   ashwyrm: { name: "Ash Wyrm", icon: "🐉", rarity: "legendary", cash: 130 },
   frostmammoth: { name: "Frost Mammoth", icon: "🦣", rarity: "legendary", cash: 150 },
+  voidleviathan: { name: "Void Leviathan", icon: "🐋", rarity: "mythic", cash: 400 },
 };
 function huntRng(userId, slot, salt) {
   let a = (Math.imul(userId + 1, 2654435761) ^ Math.imul(slot, 40503) ^ Math.imul(salt + 1, 97531)) >>> 0;
@@ -16739,7 +16741,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing.","Gear upgrades now cost 💲 Space-Cash instead of resources.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash piles up for up to 4 hours until you collect it. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing.","Gear upgrades now cost 💲 Space-Cash instead of resources.","A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash piles up for up to 4 hours until you collect it. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23574,7 +23576,7 @@ const PAGE = `<!DOCTYPE html>
   .hunt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; margin: 10px 0; }
   .hunt-cell { text-align: center; padding: 8px 4px; border-radius: 12px; background: rgba(0,0,0,.05); position: relative; } .hunt-cell span { font-size: 28px; display: block; } .hunt-cell small { display: block; font-size: 11px; } .hunt-cell b { position: absolute; top: 4px; right: 6px; font-size: 11px; } .hunt-cell.none { opacity: .45; }
   .cmd-ic { font-size: 26px; width: 36px; text-align: center; }
-  .cmd-rar.r-uncommon { color: #2e8b57; } .cmd-rar.r-rare { color: #2f6fbf; } .cmd-rar.r-epic { color: #8a45c4; } .cmd-rar.r-legendary { color: #d08a12; }
+  .cmd-rar.r-uncommon { color: #2e8b57; } .cmd-rar.r-rare { color: #2f6fbf; } .cmd-rar.r-epic { color: #8a45c4; } .cmd-rar.r-legendary { color: #d08a12; } .cmd-rar.r-mythic { color: #d6336c; text-shadow: 0 0 6px rgba(214,51,108,.45); }
   .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
   .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
   .mvsrc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 0; }
