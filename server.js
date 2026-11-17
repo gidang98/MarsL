@@ -14995,22 +14995,41 @@ const HUNT_AUTO = 5; // damage over a whole window, in multiples of the commande
 const HUNT_TAP = 0.06; // one tapped strike, in multiples of the commander's own attack (helpers do not add to it)
 const HUNT_TAP_CD = 20000;
 const CREATURE_HP = { common: 140, uncommon: 320, rare: 720, epic: 3000, legendary: 18000, mythic: 88000 };
-const CREATURE_WEIGHT = { common: 55, uncommon: 28, rare: 12, epic: 4, legendary: 1, mythic: 0.15 };
 const CREATURES = {
-  // cash = Space-Cash per real SECOND while the creature sits in a slot
-  mossimp: { name: "Moss Imp", icon: "🍄", rarity: "common", cash: 1 },
-  dustbeetle: { name: "Dust Beetle", icon: "🪲", rarity: "common", cash: 1 },
-  gutterrat: { name: "Gutter Rat", icon: "🐀", rarity: "common", cash: 2 },
-  cavebat: { name: "Cave Bat", icon: "🦇", rarity: "uncommon", cash: 3 },
-  mirelurker: { name: "Mire Lurker", icon: "🐊", rarity: "uncommon", cash: 4 },
-  emberscorpion: { name: "Ember Scorpion", icon: "🦂", rarity: "rare", cash: 7 },
-  tuskbrute: { name: "Tusk Brute", icon: "🐗", rarity: "rare", cash: 8 },
-  stormtalon: { name: "Storm Talon", icon: "🦅", rarity: "epic", cash: 14 },
-  deepgrasper: { name: "Deep Grasper", icon: "🐙", rarity: "epic", cash: 16 },
-  ashwyrm: { name: "Ash Wyrm", icon: "🐉", rarity: "legendary", cash: 28 },
-  frostmammoth: { name: "Frost Mammoth", icon: "🦣", rarity: "legendary", cash: 32 },
-  voidleviathan: { name: "Void Leviathan", icon: "🐋", rarity: "mythic", cash: 90 },
+  // cash = Space-Cash per real SECOND while the creature sits in a slot.
+  // hpf = its HP compared with the tier's base HP, w = how often it shows up compared with the rest of its tier.
+  // Inside a tier the common ones are weaker and pay less, the rare ones are tougher and pay more.
+  mossimp: { name: "Moss Imp", icon: "🍄", rarity: "common", cash: 1, hpf: 0.8, w: 28 },
+  dustbeetle: { name: "Dust Beetle", icon: "🪲", rarity: "common", cash: 1, hpf: 1.0, w: 24 },
+  pondfrog: { name: "Pond Frog", icon: "🐸", rarity: "common", cash: 1, hpf: 0.9, w: 22 },
+  gutterrat: { name: "Gutter Rat", icon: "🐀", rarity: "common", cash: 2, hpf: 1.25, w: 14 },
+  rockcrab: { name: "Rock Crab", icon: "🦀", rarity: "common", cash: 2, hpf: 1.35, w: 12 },
+  cavebat: { name: "Cave Bat", icon: "🦇", rarity: "uncommon", cash: 3, hpf: 0.85, w: 34 },
+  sporemoth: { name: "Spore Moth", icon: "🦋", rarity: "uncommon", cash: 3, hpf: 0.95, w: 28 },
+  thornsnake: { name: "Thorn Snake", icon: "🐍", rarity: "uncommon", cash: 4, hpf: 1.1, w: 22 },
+  mirelurker: { name: "Mire Lurker", icon: "🐊", rarity: "uncommon", cash: 5, hpf: 1.3, w: 16 },
+  glacierwolf: { name: "Glacier Wolf", icon: "🐺", rarity: "rare", cash: 6, hpf: 0.85, w: 34 },
+  venomspider: { name: "Venom Spider", icon: "🕷️", rarity: "rare", cash: 7, hpf: 0.95, w: 28 },
+  emberscorpion: { name: "Ember Scorpion", icon: "🦂", rarity: "rare", cash: 8, hpf: 1.1, w: 22 },
+  tuskbrute: { name: "Tusk Brute", icon: "🐗", rarity: "rare", cash: 9, hpf: 1.3, w: 16 },
+  stormtalon: { name: "Storm Talon", icon: "🦅", rarity: "epic", cash: 12, hpf: 0.8, w: 34 },
+  shadepanther: { name: "Shade Panther", icon: "🐆", rarity: "epic", cash: 14, hpf: 0.95, w: 28 },
+  deepgrasper: { name: "Deep Grasper", icon: "🐙", rarity: "epic", cash: 17, hpf: 1.1, w: 22 },
+  ironrhino: { name: "Iron Rhino", icon: "🦏", rarity: "epic", cash: 19, hpf: 1.3, w: 16 },
+  frostmammoth: { name: "Frost Mammoth", icon: "🦣", rarity: "legendary", cash: 27, hpf: 0.8, w: 42 },
+  thunderlion: { name: "Thunder Lion", icon: "🦁", rarity: "legendary", cash: 31, hpf: 1.0, w: 33 },
+  ashwyrm: { name: "Ash Wyrm", icon: "🐉", rarity: "legendary", cash: 36, hpf: 1.25, w: 25 },
+  nebulakraken: { name: "Nebula Kraken", icon: "🦑", rarity: "mythic", cash: 80, hpf: 0.85, w: 65 },
+  voidleviathan: { name: "Void Leviathan", icon: "🐋", rarity: "mythic", cash: 100, hpf: 1.0, w: 35 },
 };
+// how often an opponent of a rarity shows up in total (the same odds as before the tiers got more creatures)
+const CREATURE_TIER_WEIGHT = { common: 165, uncommon: 56, rare: 24, epic: 8, legendary: 2, mythic: 0.15 };
+const CREATURE_TIER_SUM = {};
+for (const k of Object.keys(CREATURES)) CREATURE_TIER_SUM[CREATURES[k].rarity] = (CREATURE_TIER_SUM[CREATURES[k].rarity] || 0) + CREATURES[k].w;
+function creatureWeight(k) { const c = CREATURES[k]; return (CREATURE_TIER_WEIGHT[c.rarity] * c.w) / CREATURE_TIER_SUM[c.rarity]; }
+const CREATURE_WEIGHT_TOTAL = Object.keys(CREATURES).reduce((n, k) => n + creatureWeight(k), 0);
+function creatureChance(k) { return Math.round((creatureWeight(k) / CREATURE_WEIGHT_TOTAL) * 10000) / 100; } // percent per opponent
+function creatureHp(k) { return Math.round(CREATURE_HP[CREATURES[k].rarity] * CREATURES[k].hpf); }
 const CREATURE_SELL = 1800; // a spare creature sells for this many seconds of its own Space-Cash income (half an hour)
 function creatureSell(k) { return Math.max(1, Math.round(CREATURES[k].cash * CREATURE_SELL)); }
 function creatureSpare(hu, k) { return Math.max(0, (hu.kills[k] || 0) - Math.max(1, hu.slots.filter((x) => x === k).length)); }
@@ -15022,9 +15041,9 @@ function huntRng(userId, slot, salt) {
 }
 function huntOpponent(userId, slot) {
   const keys = Object.keys(CREATURES);
-  const total = keys.reduce((n, k) => n + CREATURE_WEIGHT[CREATURES[k].rarity], 0);
+  const total = CREATURE_WEIGHT_TOTAL;
   let x = huntRng(userId, slot, 7) * total, i = 0;
-  for (; i < keys.length - 1; i++) { x -= CREATURE_WEIGHT[CREATURES[keys[i]].rarity]; if (x < 0) break; }
+  for (; i < keys.length - 1; i++) { x -= creatureWeight(keys[i]); if (x < 0) break; }
   return keys[i];
 }
 // the commander's attack for the hunt does not depend on the game speed
@@ -15047,12 +15066,12 @@ function huntSync(userId, now, hero) {
     const online = slot === hu.seenSlot;
     if (!online && huntRng(userId, slot, 1) >= HUNT_OFFLINE_SPAWN) continue;
     const key = huntOpponent(userId, slot);
-    if (atk * HUNT_AUTO + (online ? hu.tapDmg : 0) >= CREATURE_HP[CREATURES[key].rarity]) award(key, slot);
+    if (atk * HUNT_AUTO + (online ? hu.tapDmg : 0) >= creatureHp(key)) award(key, slot);
   }
   if (hu.lastSlot !== cur - 1) { hu.lastSlot = cur - 1; dirty = true; }
   if (hu.seenSlot !== cur) { hu.seenSlot = cur; hu.tapDmg = 0; hu.tapAt = 0; dirty = true; }
   const key = huntOpponent(userId, cur);
-  const hp = CREATURE_HP[CREATURES[key].rarity];
+  const hp = creatureHp(key);
   const into = now - cur * HUNT_MS;
   let dmg = Math.min(hp, atk * HUNT_AUTO * (into / HUNT_MS) + hu.tapDmg);
   if (hu.wonSlot !== cur && dmg >= hp) award(key, cur);
@@ -15098,7 +15117,7 @@ function huntView(userId, now) {
     tap: { cdLeft: Math.max(0, S.hu.tapAt + HUNT_TAP_CD - now), cd: HUNT_TAP_CD, dmg: Math.max(1, Math.round(S.base * HUNT_TAP)) },
     auto: Math.round(S.atk * HUNT_AUTO), help: Math.round(helperPower(S.r) * 100),
     log: S.hu.log.map((l) => ({ name: CREATURES[l.key].name, icon: CREATURES[l.key].icon, rarity: CREATURES[l.key].rarity, at: l.at })),
-    collection: Object.keys(CREATURES).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, hp: CREATURE_HP[CREATURES[k].rarity], count: S.hu.kills[k] || 0, cash: CREATURES[k].cash, free: (S.hu.kills[k] || 0) - S.hu.slots.filter((x) => x === k).length, spare: creatureSpare(S.hu, k), sell: creatureSell(k) })),
+    collection: Object.keys(CREATURES).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, hp: creatureHp(k), chance: creatureChance(k), count: S.hu.kills[k] || 0, cash: CREATURES[k].cash, free: (S.hu.kills[k] || 0) - S.hu.slots.filter((x) => x === k).length, spare: creatureSpare(S.hu, k), sell: creatureSell(k) })),
     total: Object.keys(S.hu.kills).reduce((n, k) => n + S.hu.kills[k], 0),
     slots: Array.from({ length: HUNT_SLOTS }, (_, i) => { const k = S.hu.slots[i]; return k ? { key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash } : null; }),
     cash: cashInfo(userId, now),
@@ -16586,7 +16605,7 @@ function wikiExtra() {
     hero: {
       maxLevel: HERO_MAX_LEVEL, speed: Math.round(HERO_SPEED * MOVE_SPEED * 10) / 10, settleMs: heroLockMs(), recoverMs: heroRecoverMs(), reviveMs: heroReviveMs(),
       fallPct: Math.round(HERO_FALL_XP * 100), bag: HERO_BAG,
-      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyLimit: SHARD_BUY_LIMIT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), sell: CREATURE_SELL, killXp: HERO_XP_KILL, hp: CREATURE_HP, creatures: Object.keys(CREATURES).map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k) })) },
+      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyLimit: SHARD_BUY_LIMIT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), sell: CREATURE_SELL, killXp: HERO_XP_KILL, hp: CREATURE_HP, creatures: Object.keys(CREATURES).map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
       orders: HERO_ORDERS, stances: HERO_STANCES, quirks: HERO_QUIRKS, quirkLevel: HERO_QUIRK_LEVEL,
@@ -16819,7 +16838,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.396",date:"2026-11-17",title:"Space-Cash every second",groups:[["💲 Space-Cash",["Space-Cash now arrives every single second: even the weakest creature adds 💲 1 each second, and the strongest ones dozens. Income is shown as +N/s in the wallet at the top, on every slot and in the creature list.","To make that work every Space-Cash amount is 1,200 times larger than before. Your balance, auctions in progress, shard prices, gear upgrades and what spare creatures sell for were all converted, so nothing you own got cheaper or dearer.","Every second shows on screen: the wallet number pulses and a small +N floats up from it, and each slotted creature shows its own +N in the hunt window. Reduced-motion settings turn the animation off.","Star Credits now use the little planet coin, and Space-Cash has a new icon: a bundle of banknotes."]],["🐾 Hunt",["You can now keep 5 creatures in slots instead of 6. A sixth creature that was slotted goes back to your collection."]],["🎖️ Commander",["The ⛏️ Foreman skill no longer produces resources while the commander is recovering from a fall. It still works while the commander is away or on the road."]]]},
+  {v:"1.0.396",date:"2026-11-17",title:"Space-Cash every second",groups:[["💲 Space-Cash",["Space-Cash now arrives every single second: even the weakest creature adds 💲 1 each second, and the strongest ones dozens. Income is shown as +N/s in the wallet at the top, on every slot and in the creature list.","To make that work every Space-Cash amount is 1,200 times larger than before. Your balance, auctions in progress, shard prices, gear upgrades and what spare creatures sell for were all converted, so nothing you own got cheaper or dearer.","Every second shows on screen: the wallet number pulses and a small +N floats up from it, and each slotted creature shows its own +N in the hunt window. Reduced-motion settings turn the animation off.","Star Credits now use the little planet coin, and Space-Cash has a new icon: a bundle of banknotes."]],["🐾 Hunt",["There are now 22 creatures: every rarity has several (5 common, 4 uncommon, 4 rare, 4 epic, 3 legendary, 2 Mythic). Each one has its own colour border by rarity, its own HP, spawn chance and Space-Cash income: the frequent ones of a tier are weaker and pay less, the scarce ones are tougher and pay more. The wiki lists all of them.","The top bar wallet is compact again (1.2M). Tap it to open your wallet with the exact amounts, every digit, counting up live.","You can now keep 5 creatures in slots instead of 6. A sixth creature that was slotted goes back to your collection."]],["🎖️ Commander",["The ⛏️ Foreman skill no longer produces resources while the commander is recovering from a fall. It still works while the commander is away or on the road."]]]},
   {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely, and you can buy at most 3 shards of an offer (2 for legendary, 1 for Mythic). 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing. Helper bonuses grow with rank, most of all at rank 5, and Strike only counts your active commander’s own attack. Epic, legendary and Mythic opponents are much tougher now: the strongest Mythic takes a maxed commander with the best two helpers at top rank. Legendary and Mythic commander shards turn up in the shop more often, and creatures earn less 💲 Space-Cash at the top (about 80–90 an hour for a Legendary, 250 for a Mythic) so that shard supply, not money, is what you wait for.","Gear upgrades now cost 💲 Space-Cash instead of resources.","Spare creatures can be sold for 💲 Space-Cash (half an hour of their own income each) from the hunt screen: one of each stays in your collection and slotted ones stay in their slots. Your commander now also earns xp from every attack and raid it leads, by the enemy units killed (2 xp per unit, only while it leads the army). Commander shards can now go on the 🏛️ auction too (any number of one commander, in the new Sell shards tab), so players can trade them. The shop limit is back to 3 shards per offer for common to epic commanders; legendary offers allow 2 and Mythic ones 1, so only the top tiers got harder. A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash adds to your balance second by second, and time away counts for up to 4 hours. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
@@ -23657,14 +23676,23 @@ const PAGE = `<!DOCTYPE html>
   .hunt-slot { position: relative; } .hunt-slot:not(.empty) > span { animation: slotbob 2.4s ease-in-out infinite; }
   @keyframes slotbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
   @media (prefers-reduced-motion: reduce) { .cash-pop { display: none; } .w-cash.bump b, .hunt-cash.bump b, .hunt-slot:not(.empty) > span { animation: none; } }
-  .hunt-sell { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .hunt-sell small { opacity: .6; margin-right: 2px; }
+  .rc-common { --rc: #7d8590; } .rc-uncommon { --rc: #2e8b57; } .rc-rare { --rc: #2f6fbf; } .rc-epic { --rc: #8a45c4; } .rc-legendary { --rc: #d08a12; } .rc-mythic { --rc: #d6336c; }
+  .hunt-cell[class*="rc-"], .hunt-slot[class*="rc-"], .hunt-card[class*="rc-"] { border: 2px solid var(--rc); background: color-mix(in srgb, var(--rc) 12%, transparent); }
+  .hunt-cell.none[class*="rc-"] { opacity: .55; border-style: dashed; }
+  .hunt-cell.rc-legendary:not(.none), .hunt-slot.rc-legendary { box-shadow: 0 0 8px color-mix(in srgb, var(--rc) 45%, transparent); }
+  .hunt-cell.rc-mythic:not(.none), .hunt-slot.rc-mythic { box-shadow: 0 0 10px color-mix(in srgb, var(--rc) 60%, transparent); }
+  .wallet { border: 0; font-family: inherit; color: inherit; cursor: pointer; }
+  .wal-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: rgba(0,0,0,.05); margin: 8px 0; } .wal-ic { font-size: 30px; } .wal-ic .gi { width: 34px; height: 34px; }
+  .wal-row small { display: block; opacity: .7; } .wal-n { display: block; font-size: 26px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .wal-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .hunt-sell { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .hunt-sell small { opacity: .6; margin-right: 2px; } .hunt-sell .btn[class*="rc-"] { border-color: var(--rc); }
   .hunt-cash { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(0,0,0,.05); } .hunt-cash b { font-size: 15px; } .hunt-cash small { opacity: .7; } .hunt-cash .btn { margin-left: auto; }
   .hunt-slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 8px 0; } .hunt-slot { aspect-ratio: 1; border-radius: 12px; border: 2px solid rgba(0,0,0,.18); background: rgba(0,0,0,.06); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; font: inherit; color: inherit; } .hunt-slot span { font-size: 24px; line-height: 1; } .hunt-slot small { font-size: 10px; } .hunt-slot.empty { border-style: dashed; opacity: .5; }
   .hunt-cell.pick { border: 0; font: inherit; color: inherit; cursor: pointer; outline: 2px solid rgba(80,160,90,.6); }
   .hunt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; margin: 10px 0; }
   .hunt-cell { text-align: center; padding: 8px 4px; border-radius: 12px; background: rgba(0,0,0,.05); position: relative; } .hunt-cell span { font-size: 28px; display: block; } .hunt-cell small { display: block; font-size: 11px; } .hunt-cell b { position: absolute; top: 4px; right: 6px; font-size: 11px; } .hunt-cell.none { opacity: .45; }
   .cmd-ic { font-size: 26px; width: 36px; text-align: center; }
-  .cmd-rar.r-uncommon { color: #2e8b57; } .cmd-rar.r-rare { color: #2f6fbf; } .cmd-rar.r-epic { color: #8a45c4; } .cmd-rar.r-legendary { color: #d08a12; } .cmd-rar.r-mythic { color: #d6336c; text-shadow: 0 0 6px rgba(214,51,108,.45); }
+  .cmd-rar.r-common { color: #5f6670; } .cmd-rar.r-uncommon { color: #2e8b57; } .cmd-rar.r-rare { color: #2f6fbf; } .cmd-rar.r-epic { color: #8a45c4; } .cmd-rar.r-legendary { color: #d08a12; } .cmd-rar.r-mythic { color: #d6336c; text-shadow: 0 0 6px rgba(214,51,108,.45); }
   .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
   .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
   .mvsrc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 0; }
@@ -29203,7 +29231,7 @@ function walletSet(d) {
 }
 function walletNow() { return wallet.cash + (wallet.rate * (Date.now() - wallet.at)) / 1000; }
 var lastCashShown = null;
-// the wallet shows every digit (1,204,517) so each second is visible; only huge sums are shortened
+// the exact amount with every digit (1,204,517), for the wallet window and the hunt window; the top bar chip is shortened (1.2M)
 function cashText(v) { return v < 1e10 ? v.toLocaleString("en-US") : shortNum(v); }
 var calmMotion = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 // a small "+N" that floats up from the element, so you can see the money arrive
@@ -29222,16 +29250,18 @@ function cashBump(el) {
   el.classList.add("bump");
 }
 setInterval(function () {
-  var c = document.getElementById("w-cash"), hs = document.getElementById("hs-cash"), v = Math.floor(walletNow()), txt = cashText(v);
+  var c = document.getElementById("w-cash"), hs = document.getElementById("hs-cash"), v = Math.floor(walletNow()), txt = shortNum(v), full = cashText(v), wl = document.getElementById("wl-cash");
   var gain = lastCashShown === null ? 0 : v - lastCashShown;
   lastCashShown = v;
   if (c && c.textContent !== txt) c.textContent = txt;
-  if (hs && hs.textContent !== txt) hs.textContent = txt;
+  if (hs && hs.textContent !== full) hs.textContent = full;
+  if (wl && wl.textContent !== full) wl.textContent = full;
   // only a normal second of income pops; a refund or a purchase just changes the number
   if (gain > 0 && gain <= wallet.rate * 3 + 2 && !document.hidden) {
     var chip = document.querySelector(".wallet .w-cash");
     cashBump(chip);
     cashPop(chip, "+" + shortNum(gain));
+    cashBump(document.getElementById("wl-cash"));
     cashBump(document.querySelector(".hunt-cash"));
     document.querySelectorAll(".hunt-slot[data-cash]").forEach(function (sl, i) {
       setTimeout(function () { cashPop(sl, "+" + sl.getAttribute("data-cash")); }, i * 110);
@@ -29251,7 +29281,7 @@ function renderTop(d) {
   h += "</small></div>";
   var qready = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
   walletSet(d);
-  h += '<div class="topbtns"><span class="wallet" title="Your money: Space-Cash (tap for the hunt) and Star Credits (tap for commanders)"><span class="w-cash" data-hunt-open="1">💲<b id="w-cash">' + cashText(Math.floor(wallet.cash)) + '</b></span><span class="w-cr" data-cmd-open="1" data-cmd-tab-open="mine">🎫<b id="w-cr">' + shortNum(wallet.credits) + '</b></span></span><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
+  h += '<div class="topbtns"><button class="wallet" data-wallet-open="1" title="Your money: Space-Cash and Star Credits. Tap for the exact amounts"><span class="w-cash">💲<b id="w-cash">' + shortNum(Math.floor(wallet.cash)) + '</b></span><span class="w-cr">🎫<b id="w-cr">' + shortNum(wallet.credits) + '</b></span></button><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
   if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
@@ -35490,6 +35520,8 @@ function renderSheet() {
   } else if (sheet.kind === "wiki") {
     if (!wiki.data) { closeSheet(); return; }
     h += wikiSheet();
+  } else if (sheet.kind === "wallet") {
+    h += walletSheet();
   } else if (sheet.kind === "hunt") {
     if (!hunt.data) { closeSheet(); return; }
     h += huntSheet();
@@ -37214,11 +37246,11 @@ function wikiMore(W, tab, cards) {
     if (Ro) cards.push(wkCard("roster", "🐾", "Commander roster and hunt", wkList([
       "🎫 Your active commander earns a few <b>Star Credits</b> an hour. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
       "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and you can buy at most " + Ro.buyLimit.common + " of an offer (" + Ro.buyLimit.legendary + " for legendary, " + Ro.buyLimit.mythic + " for Mythic). " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
-      "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself, and Strike adds a little extra (only its own attack counts, no helpers). Reduce its HP to 0 before the next one comes and it joins your creature collection. While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
+      "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself, and Strike adds a little extra (only its own attack counts, no helpers). Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the auction.",
       "💰 <b>Spare creatures</b> (one of each stays, slotted ones stay) sell for " + Math.round(Ro.sell / 60) + " minutes of their own income.",
       "🎖️ When your commander leads an attack or raid on a colony it earns <b>xp</b> by the enemy units killed: " + Ro.killXp + " per unit. Staying home earns nothing.",
-    ]) + kt({ head: ["Creature", "Rarity", "HP", "💲/s", "Sells for"], left: 1, rows: Ro.creatures.map(function (c) { return [c.icon + " " + c.name, c.rarity, shortNum(Ro.hp[c.rarity]), c.cash, c.sell]; }) })));
+    ]) + kt({ head: ["Creature", "HP", "Spawn", "💲/s", "Sells for"], left: 1, rows: Ro.creatures.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span>", shortNum(c.hp), c.chance + "%", c.cash, shortNum(c.sell)]; }) })));
     cards.push(wkCard("gags", "🎭", "Tribe quirks", wkP("Every tribe has one silly habit that is also a real tactic.") + kt({ head: ["Tribe", "Quirk", "What it does"], left: 3, rows: [
       ["🧑‍🚀 Humans", "☕ Coffee break", "When a human colony beats an attack or raid, its crew is wide awake for 3 hours: +10% defense against everyone. Don't send a second wave right after a failed one: wait it out or bring more."],
       ["🐔 Chickens", "🐔 Headless panic", "15% of the chickens that fall defending their home only ran in circles. They come back an hour later. Chickens can afford to lose a fight."],
@@ -37922,6 +37954,15 @@ function cmdPost(body, msg) { post("/api/commanders", body, function () { if (ms
 
 // ---------- the hunt ----------
 var hunt = { data: null, at: 0, timer: 0 };
+// the wallet window: the exact amounts, with every digit
+function walletSheet() {
+  var v = Math.floor(walletNow()), r = wallet.rate;
+  var h = '<div class="sheet-head"><span class="hi">💲</span><div><h3>Your wallet</h3><b>Space-Cash and Star Credits</b></div></div>';
+  h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
+  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n">' + wallet.credits.toLocaleString("en-US") + "</b><small>Your active commander earns them. Collect them on the commander screen.</small></div></div>";
+  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button></div>';
+  return h;
+}
 function openHunt() {
   fetch("/api/hunt").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
     if (!j) { toast("⚠️ You need a commander to hunt"); return; }
@@ -37937,23 +37978,24 @@ function openHunt() {
 function huntSheet() {
   var D = hunt.data, o = D.opponent, left = Math.max(0, D.nextMs - (Date.now() - hunt.at)), h = "";
   h += '<div class="sheet-head"><span class="hi">🐾</span><div><h3>Hunt</h3><b>' + D.total + (D.total === 1 ? " creature" : " creatures") + " caught</b></div></div>";
-  h += '<div class="hunt-card' + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
+  h += '<div class="hunt-card rc-' + o.rarity + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
   h += heroBar("hp", o.dmg, o.hp) + "<small>" + (o.won ? "Caught!" : o.dmg + " / " + o.hp + " damage · next opponent in " + shortTime(left)) + "</small></div></div>";
   var cd = Math.max(0, D.tap.cdLeft - (Date.now() - hunt.at));
   h += '<div class="hunt-act"><button class="btn" data-hunt-tap="1"' + (o.won || cd > 0 ? " disabled" : "") + ">⚔️ Strike +" + D.tap.dmg + (cd > 0 ? " · " + Math.ceil(cd / 1000) + "s" : "") + "</button><small>Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
-  if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + " " + esc(l.name); }).join(" · ") + "</p>";
+  if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + ' <span class="cmd-rar r-' + l.rarity + '">' + esc(l.name) + "</span>"; }).join(" · ") + "</p>";
   h += '<div class="hunt-cash"><span>💲</span><b id="hs-cash">' + cashText(Math.floor(D.cash.cash + D.cash.cashFrac)) + "</b><small>+" + shortNum(D.cash.cashRate) + "/s from the slotted creatures</small></div>";
   h += '<div class="hunt-slots">' + D.slots.map(function (sl, i) {
-    return sl ? '<button class="hunt-slot" data-hunt-remove="' + i + '" data-cash="' + sl.cash + '" title="' + esc(sl.name) + " · +" + sl.cash + '/s · tap to take out"><span>' + sl.icon + "</span><small>+" + sl.cash + "/s</small></button>" : '<div class="hunt-slot empty" title="Empty slot"><span>+</span></div>';
+    return sl ? '<button class="hunt-slot rc-' + sl.rarity + '" data-hunt-remove="' + i + '" data-cash="' + sl.cash + '" title="' + esc(sl.name) + " · +" + sl.cash + '/s · tap to take out"><span>' + sl.icon + "</span><small>+" + sl.cash + "/s</small></button>" : '<div class="hunt-slot empty" title="Empty slot"><span>+</span></div>';
   }).join("") + "</div>";
   h += '<div class="hunt-grid">' + D.collection.map(function (c) {
     var can = c.free > 0 && D.slots.some(function (x) { return !x; });
-    return '<' + (can ? "button" : "div") + ' class="hunt-cell' + (c.count ? "" : " none") + (can ? " pick" : "") + '"' + (can ? ' data-hunt-place="' + c.key + '"' : "") + ' title="' + (c.count ? esc(c.name) + " · " + c.rarity + " · +" + c.cash + " Space-Cash/s" + (can ? " · tap to put in a slot" : "") : "Not caught yet") + '"><span>' + (c.count ? c.icon : "❔") + "</span><small>" + (c.count ? esc(c.name) : "???") + "</small>" + (c.count ? "<b>×" + c.count + "</b><small>+" + c.cash + "/s</small>" : "") + "</" + (can ? "button" : "div") + ">";
+    var tip = esc(c.name) + " · " + c.rarity + " · " + shortNum(c.hp) + " HP · " + c.chance + "% of opponents · +" + c.cash + " Space-Cash/s" + (can ? " · tap to put in a slot" : "");
+    return '<' + (can ? "button" : "div") + ' class="hunt-cell rc-' + c.rarity + (c.count ? "" : " none") + (can ? " pick" : "") + '"' + (can ? ' data-hunt-place="' + c.key + '"' : "") + ' title="' + (c.count ? tip : c.rarity + " · " + shortNum(c.hp) + " HP · " + c.chance + "% of opponents · not caught yet") + '"><span>' + (c.count ? c.icon : "❔") + '</span><small class="' + (c.count ? "cmd-rar r-" + c.rarity : "") + '">' + (c.count ? esc(c.name) : "???") + "</small>" + (c.count ? "<b>×" + c.count + "</b><small>+" + c.cash + "/s</small>" : "") + "</" + (can ? "button" : "div") + ">";
   }).join("") + "</div>";
   var spareAll = 0;
   var spareBtns = D.collection.filter(function (c) { return c.spare > 0; }).map(function (c) {
     spareAll += c.spare * c.sell;
-    return '<button class="btn small ghost" data-hunt-sell="' + c.key + '" title="Sell ' + c.spare + " spare " + esc(c.name) + ' for ' + c.spare * c.sell + ' Space-Cash">' + c.icon + " ×" + c.spare + " · 💲" + shortNum(c.spare * c.sell) + "</button>";
+    return '<button class="btn small ghost rc-' + c.rarity + '" data-hunt-sell="' + c.key + '" title="Sell ' + c.spare + " spare " + esc(c.name) + ' for ' + c.spare * c.sell + ' Space-Cash">' + c.icon + " ×" + c.spare + " · 💲" + shortNum(c.spare * c.sell) + "</button>";
   });
   if (spareBtns.length) h += '<div class="hunt-sell"><small>Spare creatures</small>' + spareBtns.join("") + '<button class="btn small" data-hunt-sell="all">Sell all · 💲' + shortNum(spareAll) + "</button></div>";
   h += '<p class="hint left">A new opponent appears every ' + shortTime(D.windowMs) + ". Beat it before the next one comes or it gets away. Put up to 5 caught creatures in slots: each earns Space-Cash every second, the currency of the auction, and your balance climbs while you watch (time away counts for up to 4 hours). While you are away, up to 4 hours of fights are worked out when you return: only your commander’s own strikes count, and only half of the opponents show up.</p>";
@@ -38817,7 +38859,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-sell],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-sell],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -38962,6 +39004,8 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-arch")) {
     var ak = attr("data-hero-arch");
     if (confirm("Choose this archetype? Changing it later means resetting all skill points.")) post("/api/hero", { action: "arch", key: ak }, function (r) { confetti(); toast("🎭 " + (r && r.archPicked || "Archetype") + " it is!", true); });
+  } else if (has("data-wallet-open")) {
+    openSheet("wallet", null);
   } else if (has("data-hunt-open")) {
     openHunt();
   } else if (has("data-hunt-sell")) {
