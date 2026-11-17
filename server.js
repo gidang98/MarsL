@@ -16894,7 +16894,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.400",date:"2026-11-17",title:"Wiki table colours",groups:[["📖 Wiki",["Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
+  {v:"1.0.400",date:"2026-11-17",title:"Window and wiki colours",groups:[["📖 Wiki",["The commander window header uses the same lavender as the hunt, wallet and shop windows instead of a leftover green.","Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
   {v:"1.0.399",date:"2026-11-17",title:"Full shard shop list",groups:[["🎖️ Commanders",["The shard shop now lists every commander in one compact list, rarest last. The ones in stock this round are highlighted and can be bought; the others are dimmed with their price and show \"not in stock\"."]]]},
   {v:"1.0.398",date:"2026-11-17",title:"Stronger creatures, creature auctions",groups:[["🐾 Hunt",["Rarer creatures now need a real commander. Auto strikes do 2.5 times the commander's attack over a window (helpers included) and the HP of the higher rarities was brought in line, so an early commander catches commons and the weakest uncommons, while rare, epic, legendary and Mythic creatures call for levels, 💪 Strength points, better gear and strong helpers. Tapping Strike about every 20 seconds adds roughly half as much again, so active play gets further than idling.","Star Credits now arrive on their own while you are online instead of waiting to be collected. Time away still banks up to the usual limit.","The hunt card shows the attack that catches the current opponent by itself, your own attack, and warns in red when it is out of reach. The wiki table lists the attack needed for every creature."]],["🏛️ Auction",["Creatures can be sold on the auction: the new Sell creatures tab takes any number from your inventory (not those in a slot). The winner needs room in the creature inventory and collects it like gear; creatures nobody bids on come back to you."]]]},
   {v:"1.0.397",date:"2026-11-17",title:"Hunt window fixes",groups:[["💲 Space-Cash",["The hunt window now fits the screen: all five slots show side by side with no sideways scrolling, and the inventory grid adapts to narrow phones.","The Space-Cash number in the hunt window now counts up every second together with the wallet at the top, instead of standing still and jumping every few seconds."]]]},
@@ -34383,7 +34383,7 @@ function heroBar(cls, now, max) {
 function heroSheet(d) {
   var H = d.hero;
   if (!H) return '<p class="empty">No commander yet.</p>';
-  var h = '<div class="sheet-head t-wood"><span class="hi hero-pic">' + heroPic() + "</span><div>";
+  var h = '<div class="sheet-head"><span class="hi hero-pic">' + heroPic() + "</span><div>";
   if (heroNameEdit !== null) h += '<div class="inviterow"><input data-hero-name="1" maxlength="20" value="' + esc(heroNameEdit) + '"><button class="btn small" data-hero-rename="1">' + '💾' + '</button></div>';
   else h += "<h3>" + esc(H.name) + ' <button class="mini" data-hero-edit="1" title="Rename">✏️</button></h3>';
   if (H.title) h += '<span class="ptitle">🎖️ ' + esc(H.title) + "</span>";
