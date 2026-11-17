@@ -14141,6 +14141,7 @@ addColumn("users", "legacy", "TEXT NOT NULL DEFAULT ''"); // 🎖️ medals and 
 addColumn("movements", "hero", "INTEGER NOT NULL DEFAULT 0");
 
 const HERO_MAX_LEVEL = 100;
+const GEAR_UPGRADE_CASH = 60; // Space-Cash for a gear upgrade: this x tier x next rank (cheaper with a duplicate)
 const HERO_XP_DIV = 15; // 1 xp for every 15 points of enemy strength destroyed
 const HERO_SPEED = 8; // tiles per hour when it moves to another colony
 const HERO_BAG = 24; // inventory slots
@@ -14749,8 +14750,14 @@ const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary"];
 const COMMANDER_MAX_RANK = 5;
 const COMMANDER_RANK_STEP = 0.5;
 const SHOP_OFFERS = 3; // commanders on offer at a time
-const COMMANDER_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 1 };
-const COMMANDER_PRICE = { common: 12, uncommon: 40, rare: 120, epic: 400, legendary: 1200 };
+// The shop sells commander shards for Space-Cash; 12 shards of one commander fuse into it (or raise its rank).
+const SHARDS_PER_COMMANDER = 12;
+const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 0.3 }; // how often a commander of that rarity shows up
+const SHARD_PRICE = { common: 20, uncommon: 60, rare: 180, epic: 500, legendary: 1500 }; // Space-Cash per shard
+const SHARD_BUY_LIMIT = 3; // per offer, per player, per round
+// Two inactive commanders can stand beside the active one in the hunt: +% of its attack, by rarity (and rank)
+const HELPER_SLOTS = 2;
+const HELPER_POWER = { common: 0.1, uncommon: 0.15, rare: 0.25, epic: 0.4, legendary: 0.6 };
 const COMMANDERS = {
   recruit: { name: "Recruit", icon: "🎖️", rarity: "common", rate: 1, starter: true },
   drillmaster: { name: "Drillmaster", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 1 } },
@@ -14812,47 +14819,62 @@ function commanderCollect(userId, now) {
   addCredits(userId, inc.pending);
   return inc.pending;
 }
-// the same offers for everyone in a round; every player can buy each offer once per round
+// the same offers for everyone in a round; every player can buy each offer a few times per round
 function shopStock(round) {
   let a = (round * 2654435761) >>> 0;
   const rnd = () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const pool = Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter);
   const out = [];
   while (out.length < SHOP_OFFERS && pool.length) {
-    const total = pool.reduce((n, k) => n + COMMANDER_WEIGHT[COMMANDERS[k].rarity], 0);
+    const total = pool.reduce((n, k) => n + SHARD_WEIGHT[COMMANDERS[k].rarity], 0);
     let x = rnd() * total, i = 0;
-    for (; i < pool.length - 1; i++) { x -= COMMANDER_WEIGHT[COMMANDERS[pool[i]].rarity]; if (x < 0) break; }
+    for (; i < pool.length - 1; i++) { x -= SHARD_WEIGHT[COMMANDERS[pool[i]].rarity]; if (x < 0) break; }
     out.push(pool.splice(i, 1)[0]);
   }
   return out;
 }
 function shopView(now, roster) {
   const round = Math.floor(now / SHOP_RESTOCK_MS);
-  const bought = roster && roster.bought && roster.bought.round === round ? roster.bought.keys : [];
+  const bought = roster && roster.bought && roster.bought.round === round ? roster.bought.n || {} : {};
   return {
     round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now,
     stock: shopStock(round).map((k) => {
       const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, rate: d.rate, trait: commanderTraitText(d, 1), price: COMMANDER_PRICE[d.rarity], rank: own ? own.rank : 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK, sold: bought.includes(k) };
+      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: SHARD_PRICE[d.rarity], shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.max(0, SHARD_BUY_LIMIT - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
     }),
   };
 }
 function commandersView(userId, now) {
   const inc = commanderIncome(userId, now);
   const r = inc.roster;
+  const helpers = (r.helpers || []).filter((id) => id !== r.active && r.cards.some((c) => c.id === id)).slice(0, HELPER_SLOTS);
   return {
-    credits: creditsOf(userId), active: r.active, shop: shopView(now, r),
+    credits: creditsOf(userId), cash: cashOf(userId), active: r.active, shop: shopView(now, r), helpers, helperSlots: HELPER_SLOTS,
     cards: r.cards.map((c) => {
       const d = COMMANDERS[c.key] || COMMANDERS.recruit;
-      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank) };
+      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank), help: Math.round(HELPER_POWER[d.rarity] * commanderScale(c.rank) * 100) };
+    }),
+    shards: Object.keys(r.shards || {}).filter((k) => COMMANDERS[k] && r.shards[k] > 0).map((k) => {
+      const own = r.cards.find((c) => c.key === k);
+      return { key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k], need: SHARDS_PER_COMMANDER, maxed: !!own && own.rank >= COMMANDER_MAX_RANK, owned: !!own };
     }),
   };
+}
+// extra attack of the commanders standing beside the active one (a fraction, 0.1 = +10%)
+function helperPower(r) {
+  let sum = 0;
+  for (const id of (r.helpers || []).slice(0, HELPER_SLOTS)) {
+    const c = r.cards.find((x) => x.id === id);
+    if (c && id !== r.active && COMMANDERS[c.key]) sum += HELPER_POWER[COMMANDERS[c.key].rarity] * commanderScale(c.rank);
+  }
+  return sum;
 }
 app.get("/api/commanders", requireLogin, (req, res) => res.json(commandersView(req.user.id, Date.now())));
 app.post("/api/commanders", requireLogin, (req, res) => {
   const uid = req.user.id, b = req.body || {}, now = Date.now();
   const inc = commanderIncome(uid, now);
   const r = inc.roster;
+  r.shards = r.shards || {};
   const save = () => db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
   if (b.action === "switch") {
     const card = r.cards.find((c) => c.id === Number(b.id));
@@ -14860,23 +14882,43 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     commanderCollect(uid, now); // what the old commander earned is paid out first
     const r2 = rosterOf(uid, now);
     r2.active = card.id;
+    r2.helpers = (r2.helpers || []).filter((id) => id !== card.id); // the active one cannot also be a helper
     db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r2), uid);
     const h = heroOf(uid, now);
     if (h) { h.persona = { key: card.key, rank: card.rank }; heroSave(uid, h); }
+  } else if (b.action === "helper") {
+    const card = r.cards.find((c) => c.id === Number(b.id));
+    if (!card) return res.status(400).json({ error: "You do not own that commander" });
+    if (card.id === r.active) return res.status(400).json({ error: "The active commander cannot be a helper" });
+    r.helpers = (r.helpers || []).filter((id) => r.cards.some((c) => c.id === id) && id !== r.active);
+    if (r.helpers.includes(card.id)) r.helpers = r.helpers.filter((id) => id !== card.id);
+    else if (r.helpers.length >= HELPER_SLOTS) return res.status(400).json({ error: "Both helper slots are in use. Take one out first" });
+    else r.helpers.push(card.id);
+    save();
   } else if (b.action === "buy") {
     const round = Math.floor(now / SHOP_RESTOCK_MS);
     const key = String(b.key || "");
     if (!shopStock(round).includes(key)) return res.status(400).json({ error: "That offer is gone, the shop restocked" });
-    r.bought = r.bought && r.bought.round === round ? r.bought : { round, keys: [] };
-    if (r.bought.keys.includes(key)) return res.status(400).json({ error: "You already bought that this round" });
-    const d = COMMANDERS[key], price = COMMANDER_PRICE[d.rarity];
+    r.bought = r.bought && r.bought.round === round && r.bought.n ? r.bought : { round, n: {} };
+    if ((r.bought.n[key] || 0) >= SHARD_BUY_LIMIT) return res.status(400).json({ error: "You bought all you can of that this round" });
+    const d = COMMANDERS[key], price = SHARD_PRICE[d.rarity];
     const own = r.cards.find((c) => c.key === key);
     if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
-    if (creditsOf(uid) < price) return res.status(400).json({ error: "You need " + price + " " + CREDIT.name });
-    addCredits(uid, -price);
+    if (cashOf(uid) < price) return res.status(400).json({ error: "You need " + price + " " + CASH.name });
+    addCash(uid, -price);
+    r.shards[key] = (r.shards[key] || 0) + 1;
+    r.bought.n[key] = (r.bought.n[key] || 0) + 1;
+    save();
+  } else if (b.action === "fuse") {
+    const key = String(b.key || "");
+    const d = COMMANDERS[key];
+    if (!d || d.starter) return res.status(400).json({ error: "Unknown commander" });
+    if ((r.shards[key] || 0) < SHARDS_PER_COMMANDER) return res.status(400).json({ error: "You need " + SHARDS_PER_COMMANDER + " shards" });
+    const own = r.cards.find((c) => c.key === key);
+    if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
+    r.shards[key] -= SHARDS_PER_COMMANDER;
     if (own) own.rank++;
     else r.cards.push({ id: Math.max.apply(null, r.cards.map((c) => c.id)) + 1, key, rank: 1 });
-    r.bought.keys.push(key);
     save();
     if (own && own.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key, rank: own.rank }; heroSave(uid, h); } }
   } else return res.status(400).json({ error: "Unknown action" });
@@ -14940,7 +14982,7 @@ function huntSync(userId, now, hero) {
   const cur = Math.floor(now / HUNT_MS);
   const hu = r.hunt || (r.hunt = { lastSlot: cur - 1, seenSlot: -1, tapDmg: 0, tapAt: 0, wonSlot: -1, kills: {}, log: [] });
   if (!hu.slots) { hu.slots = []; hu.cashAcc = 0; hu.cashAt = now; }
-  const atk = huntAtk(h);
+  const atk = Math.max(1, Math.round(huntAtk(h) * (1 + helperPower(r))));
   let dirty = false;
   const award = (key, slot) => { hu.kills[key] = (hu.kills[key] || 0) + 1; hu.log.unshift({ key, at: now }); hu.log.length = Math.min(hu.log.length, 8); hu.wonSlot = slot; dirty = true; };
   for (let slot = Math.max(hu.lastSlot + 1, cur - HUNT_BACK_SLOTS); slot < cur; slot++) {
@@ -14978,7 +15020,7 @@ function huntView(userId, now) {
     opponent: { key: S.key, name: c.name, icon: c.icon, rarity: c.rarity, hp: S.hp, dmg: Math.floor(S.dmg), won: S.won },
     nextMs: S.nextMs, windowMs: HUNT_MS,
     tap: { cdLeft: Math.max(0, S.hu.tapAt + HUNT_TAP_CD - now), cd: HUNT_TAP_CD, dmg: Math.max(1, Math.round(S.atk * HUNT_TAP)) },
-    auto: Math.round(S.atk * HUNT_AUTO),
+    auto: Math.round(S.atk * HUNT_AUTO), help: Math.round(helperPower(S.r) * 100),
     log: S.hu.log.map((l) => ({ name: CREATURES[l.key].name, icon: CREATURES[l.key].icon, rarity: CREATURES[l.key].rarity, at: l.at })),
     collection: Object.keys(CREATURES).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, hp: CREATURE_HP[CREATURES[k].rarity], count: S.hu.kills[k] || 0, cash: CREATURES[k].cash, free: (S.hu.kills[k] || 0) - S.hu.slots.filter((x) => x === k).length })),
     total: Object.keys(S.hu.kills).reduce((n, k) => n + S.hu.kills[k], 0),
@@ -15087,7 +15129,7 @@ function heroView(userId, colonyId, now) {
     home: homeCol ? homeCol.name : "",
     moveMs,
     gear: h.gear,
-    upgradeScale:1,
+    upgradeScale:1, upgradeCash: GEAR_UPGRADE_CASH, cash: cashOf(userId),
     bag: h.bag.map((x) => (x.kind === "crate" ? Object.assign({}, x, { total: lootTotal(x.res) }) : Object.assign({ kind: "gear" }, x))),
     consumables: Object.keys(HERO_CONSUMABLES).map(k=>Object.assign({key:k,count:Math.max(0,Math.floor(Number((h.consumables||{})[k])||0))},HERO_CONSUMABLES[k])),
     bagMax: HERO_BAG,
@@ -15237,9 +15279,9 @@ app.post("/api/hero", requireLogin, (req, res) => {
       const material=!!b.material;if(material&&!(h.starMetal>0))return "No Star Metal available";
       const duplicate=b.duplicate&&h.bag.find(x=>x.id!==item.id&&x.slot===item.slot&&x.tier===item.tier&&!(x.rank>0));
       if(b.duplicate&&!duplicate)return "Requires an unupgraded duplicate of the same slot and rarity";
-      const price=Math.round(150*item.tier*(rank+1)*(material?0:duplicate?.35:1)),cost=Object.fromEntries(RESOURCES.map(k=>[k,price]));
-      if(!canAfford(s,cost))return "Needs "+price+" of each resource in this colony";
-      pay(s,cost);if(material)h.starMetal--;if(duplicate)h.bag=h.bag.filter(x=>x!==duplicate);
+      const price=Math.round(GEAR_UPGRADE_CASH*item.tier*(rank+1)*(material?0:duplicate?.35:1));
+      if(cashOf(req.user.id)<price)return "Needs "+price+" "+CASH.name;
+      addCash(req.user.id,-price);if(material)h.starMetal--;if(duplicate)h.bag=h.bag.filter(x=>x!==duplicate);
       item.rank=rank+1;heroFixItem(item);
     } else if (b.action === "scrap") {
       const i = h.bag.findIndex((x) => x.id === b.id && x.kind !== "crate");
@@ -16697,7 +16739,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash piles up for up to 4 hours until you collect it. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Commanders",["Your active commander earns Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). The commander button there opens your collection and the shop.","The shop offers 3 commanders and restocks every 5 minutes, at every game speed. Buying one you already own raises its rank (up to 5).","Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing.","Gear upgrades now cost 💲 Space-Cash instead of resources.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash piles up for up to 4 hours until you collect it. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -34172,7 +34214,7 @@ function heroSheet(d) {
       var equipped=H.gear[it.slot],diffs=Object.keys(it.stats||{}).map(function(k){var delta=it.stats[k]-((equipped&&equipped.stats[k])||0);return delta?((delta>0?'+':'')+Math.round(delta*100)/100+' '+(H.statInfo[k]?trStr(H.statInfo[k].name):k)):'';}).filter(Boolean);
       var down=Object.keys((equipped&&equipped.stats)||{}).filter(function(k){return !it.stats[k];}).map(function(k){return '-'+equipped.stats[k]+' '+trStr(H.statInfo[k].name);});
       h+='<small>'+(!equipped?'Empty slot · upgrade':down.length||diffs.some(function(x){return x[0]==='-';})?'Trade-off':'Upgrade or equal')+' · '+esc(diffs.concat(down).join(' · '))+'</small>';
-      if((it.rank||0)<5)h+='<div><button class="btn small ghost" data-hero-upgrade="'+it.id+'">Upgrade +'+((it.rank||0)+1)+' · '+Math.round(150*it.tier*((it.rank||0)+1)*H.upgradeScale)+' each</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate">Use duplicate · 65% cheaper</button></div>';
+      if((it.rank||0)<5)h+='<div><button class="btn small ghost" data-hero-upgrade="'+it.id+'">Upgrade +'+((it.rank||0)+1)+' · 💲 '+Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate">Use duplicate · 💲 '+Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale*.35)+'</button></div>';
       if(H.starMetal>0&&(it.rank||0)<5)h+='<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">Upgrade with 1 Star Metal</button>';
       var armedScrap = heroScrapArm.id === it.id && Date.now() - heroScrapArm.at < 4000;
       h += '<div class="stayrow"><div><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + "</div>";
@@ -37706,23 +37748,31 @@ function openCommanders(tab) {
 }
 function commanderSheet() {
   var C = cmd.data, h = "";
-  h += '<div class="sheet-head"><span class="hi">🎖️</span><div><h3>Commanders</h3><b>🎫 ' + shortNum(C.credits) + " Star Credits</b></div></div>";
-  h += '<div class="auc-tabs">' + [["mine", "Collection · " + C.cards.length], ["shop", "Shop"]].map(function (t) { return '<button class="btn small ' + (cmd.tab === t[0] ? "" : "ghost") + '" data-cmd-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+  h += '<div class="sheet-head"><span class="hi">🎖️</span><div><h3>Commanders</h3><b>💲 ' + shortNum(C.cash) + " Space-Cash · 🎫 " + shortNum(C.credits) + " Star Credits</b></div></div>";
+  h += '<div class="auc-tabs">' + [["mine", "Collection · " + C.cards.length], ["shop", "Shard shop"]].map(function (t) { return '<button class="btn small ' + (cmd.tab === t[0] ? "" : "ghost") + '" data-cmd-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (cmd.tab === "shop") {
-    h += '<p class="hint left">New offers in ' + shortTime(C.shop.nextMs) + ". Each offer can be bought once per round; a commander you already own gains a rank.</p>";
+    h += '<p class="hint left">New offers in ' + shortTime(C.shop.nextMs) + ". Shards cost Space-Cash. " + C.shop.stock[0].need + " shards of one commander fuse into it, or raise its rank if you already own it.</p>";
     C.shop.stock.forEach(function (o) {
-      h += '<div class="cmd-row"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span>" + (o.rank ? " <small>rank " + o.rank + "</small>" : "") + "</b><small>" + esc(o.trait) + " · 🎫 +" + o.rate + "/h</small></div>";
-      h += o.maxed ? "<small>top rank</small>" : o.sold ? "<small>bought</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.credits < o.price ? " disabled" : "") + ">🎫 " + o.price + (o.rank ? " · rank up" : "") + "</button>";
+      h += '<div class="cmd-row"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " shard</small></b><small>You have " + o.shards + " / " + o.need + (o.left < 3 ? " · " + o.left + " left this round" : "") + "</small></div>";
+      h += o.maxed ? "<small>top rank</small>" : !o.left ? "<small>sold out</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + o.price + "</button>";
       h += "</div>";
     });
   } else {
     C.cards.forEach(function (c) {
-      var on = c.id === C.active;
-      h += '<div class="cmd-row' + (on ? " on" : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + c.rate + "/h</small></div>";
-      h += on ? "<small>Active</small>" : '<button class="btn small ghost" data-cmd-switch="' + c.id + '">Make active</button>';
+      var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0;
+      h += '<div class="cmd-row' + (on ? " on" : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + c.rate + "/h · helper +" + c.help + "% attack</small></div>";
+      h += on ? "<small>Active</small>" : '<button class="btn small ghost" data-cmd-switch="' + c.id + '">Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button>";
       h += "</div>";
     });
-    h += '<p class="hint left">Only the active commander earns Star Credits and gives its bonus. Level, skills and gear stay with your commander whoever is active.</p>';
+    if (C.shards.length) {
+      h += '<p class="hint left"><b>Shards</b></p>';
+      C.shards.forEach(function (sh) {
+        h += '<div class="cmd-row"><span class="cmd-ic">' + sh.icon + '</span><div><b><span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b>" + heroBar("xp", Math.min(sh.count, sh.need), sh.need) + "<small>" + sh.count + " / " + sh.need + " shards</small></div>";
+        h += sh.maxed ? "<small>top rank</small>" : sh.count >= sh.need ? '<button class="btn small" data-cmd-fuse="' + sh.key + '">' + (sh.owned ? "Rank up" : "Fuse") + "</button>" : "";
+        h += "</div>";
+      });
+    }
+    h += '<p class="hint left">Only the active commander earns Star Credits and gives its bonus. Up to ' + C.helperSlots + ' other commanders can be helpers: in the hunt they add to its attack but produce nothing. Level, skills and gear stay with your commander whoever is active.</p>';
   }
   return h;
 }
@@ -37748,7 +37798,7 @@ function huntSheet() {
   h += '<div class="hunt-card' + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
   h += heroBar("hp", o.dmg, o.hp) + "<small>" + (o.won ? "Caught!" : o.dmg + " / " + o.hp + " damage · next opponent in " + shortTime(left)) + "</small></div></div>";
   var cd = Math.max(0, D.tap.cdLeft - (Date.now() - hunt.at));
-  h += '<div class="hunt-act"><button class="btn" data-hunt-tap="1"' + (o.won || cd > 0 ? " disabled" : "") + ">⚔️ Strike +" + D.tap.dmg + (cd > 0 ? " · " + Math.ceil(cd / 1000) + "s" : "") + "</button><small>Your commander also strikes by itself: about " + D.auto + " damage per opponent.</small></div>";
+  h += '<div class="hunt-act"><button class="btn" data-hunt-tap="1"' + (o.won || cd > 0 ? " disabled" : "") + ">⚔️ Strike +" + D.tap.dmg + (cd > 0 ? " · " + Math.ceil(cd / 1000) + "s" : "") + "</button><small>Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
   if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + " " + esc(l.name); }).join(" · ") + "</p>";
   h += '<div class="hunt-cash"><span>💲</span><b>' + shortNum(D.cash.balance) + '</b><small>+' + D.cash.rate + '/h · ' + D.cash.pending + " / " + D.cash.cap + (D.cash.full ? " · full" : "") + '</small><button class="btn small" data-hunt-collect="1"' + (D.cash.pending < 1 ? " disabled" : "") + ">Collect</button></div>";
   h += '<div class="hunt-slots">' + D.slots.map(function (sl, i) {
@@ -38609,7 +38659,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-collect],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-collect],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -38770,7 +38820,11 @@ document.addEventListener("click", function (e) {
     cmd.tab = attr("data-cmd-tab");
     openCommanders();
   } else if (has("data-cmd-buy")) {
-    cmdPost({ action: "buy", key: attr("data-cmd-buy") }, "🎖️ Commander bought");
+    cmdPost({ action: "buy", key: attr("data-cmd-buy") }, "💲 Shard bought");
+  } else if (has("data-cmd-helper")) {
+    cmdPost({ action: "helper", id: attr("data-cmd-helper") }, "");
+  } else if (has("data-cmd-fuse")) {
+    cmdPost({ action: "fuse", key: attr("data-cmd-fuse") }, "🎖️ Commander fused");
   } else if (has("data-cmd-switch")) {
     cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
   } else if (has("data-hero-collect")) {
