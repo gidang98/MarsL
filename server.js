@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.398";
+const GAME_VERSION = "1.0.399";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -14913,6 +14913,14 @@ function shopView(now, roster) {
       const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
       return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: SHARD_PRICE[d.rarity], shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.max(0, SHARD_BUY_LIMIT[d.rarity] - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
     }),
+    // the whole catalogue, rarest last: only the ones in stock can be bought
+    all: (() => {
+      const order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"], stock = shopStock(round);
+      return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter).sort((x, y) => order.indexOf(COMMANDERS[x].rarity) - order.indexOf(COMMANDERS[y].rarity)).map((k) => {
+        const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
+        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: SHARD_PRICE[d.rarity], shards: roster && roster.shards ? roster.shards[k] || 0 : 0, offer: stock.includes(k), left: Math.max(0, SHARD_BUY_LIMIT[d.rarity] - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+      });
+    })(),
   };
 }
 function commandersView(userId, now) {
@@ -16886,6 +16894,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.399",date:"2026-11-17",title:"Full shard shop list",groups:[["🎖️ Commanders",["The shard shop now lists every commander in one compact list, rarest last. The ones in stock this round are highlighted and can be bought; the others are dimmed with their price and show \"not in stock\"."]]]},
   {v:"1.0.398",date:"2026-11-17",title:"Stronger creatures, creature auctions",groups:[["🐾 Hunt",["Rarer creatures now need a real commander. Auto strikes do 2.5 times the commander's attack over a window (helpers included) and the HP of the higher rarities was brought in line, so an early commander catches commons and the weakest uncommons, while rare, epic, legendary and Mythic creatures call for levels, 💪 Strength points, better gear and strong helpers. Tapping Strike about every 20 seconds adds roughly half as much again, so active play gets further than idling.","Star Credits now arrive on their own while you are online instead of waiting to be collected. Time away still banks up to the usual limit.","The hunt card shows the attack that catches the current opponent by itself, your own attack, and warns in red when it is out of reach. The wiki table lists the attack needed for every creature."]],["🏛️ Auction",["Creatures can be sold on the auction: the new Sell creatures tab takes any number from your inventory (not those in a slot). The winner needs room in the creature inventory and collects it like gear; creatures nobody bids on come back to you."]]]},
   {v:"1.0.397",date:"2026-11-17",title:"Hunt window fixes",groups:[["💲 Space-Cash",["The hunt window now fits the screen: all five slots show side by side with no sideways scrolling, and the inventory grid adapts to narrow phones.","The Space-Cash number in the hunt window now counts up every second together with the wallet at the top, instead of standing still and jumping every few seconds."]]]},
   {v:"1.0.396",date:"2026-11-17",title:"Space-Cash every second",groups:[["💲 Space-Cash",["Space-Cash now arrives every single second: even the weakest creature adds 💲 1 each second, and the strongest ones dozens. Income is shown as +N/s in the wallet at the top, on every slot and in the creature list.","To make that work every Space-Cash amount is 1,200 times larger than before. Your balance, auctions in progress, shard prices, gear upgrades and what spare creatures sell for were all converted, so nothing you own got cheaper or dearer.","Every second shows on screen: the wallet number pulses and a small +N floats up from it, and each slotted creature shows its own +N in the hunt window. Reduced-motion settings turn the animation off.","A creature put in a slot leaves the inventory until you take it out again. The creature inventory holds 15 creatures. The old spare-creature sale is gone: the new 💰 Sell button opens a window where you pick exactly which creatures to sell, by creature or a whole rarity. Auto-sell can be switched on for every rarity, and when the inventory is full new catches get away. Creatures in a slot are never sold.","The 5-minute timers now tick live as m:ss: next opponent on the hunt card and new offers in the commander shop. They turn red in the last 30 seconds and refresh the window at zero.","Star Credits now use the little planet coin, and Space-Cash has a new icon: a bundle of banknotes."]],["🐾 Hunt",["There are now 22 creatures: every rarity has several (5 common, 4 uncommon, 4 rare, 4 epic, 3 legendary, 2 Mythic). Each one has its own colour border by rarity, its own HP, spawn chance and Space-Cash income: the frequent ones of a tier are weaker and pay less, the scarce ones are tougher and pay more. The wiki lists all of them.","Under the slots sits your inventory with the creatures you have caught; the small 📖 button opens the index of all 22, where the ones not caught yet show only their rarity, HP and spawn chance. The top bar wallet is compact again (1.2M). Tap it to open your wallet with the exact amounts, every digit, counting up live.","You can now keep 5 creatures in slots instead of 6. A sixth creature that was slotted goes back to your collection."]],["🎖️ Commander",["The ⛏️ Foreman skill no longer produces resources while the commander is recovering from a fall. It still works while the commander is away or on the road."]]]},
@@ -23714,6 +23723,7 @@ const PAGE = `<!DOCTYPE html>
   @media (max-width: 379px) { .fl-pts { display: none; } }
   .hcred { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: var(--card2, rgba(0,0,0,.06)); }
   .hcred b { font-size: 15px; } .hcred small { opacity: .7; } .hcred .btn:first-of-type { margin-left: auto; }
+  .cmd-row.sm { padding: 3px 6px; gap: 8px; } .cmd-row.sm .cmd-ic { font-size: 20px; } .cmd-row.off { opacity: .5; } .cmd-row.in { background: rgba(80,160,90,.12); }
   .cmd-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,.08); } .cmd-row > div { flex: 1; min-width: 0; } .cmd-row b, .cmd-row small { display: block; } .cmd-row.on { background: rgba(0,0,0,.05); border-radius: 10px; }
   .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
   .hunt-ic { font-size: 44px; line-height: 1; } .hunt-body { flex: 1; min-width: 0; } .hunt-body b, .hunt-body small { display: block; }
@@ -37998,9 +38008,10 @@ function commanderSheet() {
   h += '<div class="auc-tabs">' + [["mine", "Collection · " + C.cards.length], ["shop", "Shard shop"]].map(function (t) { return '<button class="btn small ' + (cmd.tab === t[0] ? "" : "ghost") + '" data-cmd-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (cmd.tab === "shop") {
     h += '<p class="hint left">New offers in ⏱ ' + cdSpan(C.shop.nextMs - (Date.now() - cmd.at), "cmd") + ". Shards cost Space-Cash. " + C.shop.stock[0].need + " shards of one commander fuse into it, or raise its rank if you already own it.</p>";
-    C.shop.stock.forEach(function (o) {
-      h += '<div class="cmd-row"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " shard</small></b><small>You have " + o.shards + " / " + o.need + (o.left < 3 ? " · " + o.left + " left this round" : "") + "</small></div>";
-      h += o.maxed ? "<small>top rank</small>" : !o.left ? "<small>sold out</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + o.price + "</button>";
+    C.shop.all.forEach(function (o) {
+      var buy = o.offer && !o.maxed && o.left > 0;
+      h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " · " + o.shards + "/" + C.shop.stock[0].need + "</small></b></div>";
+      h += o.maxed ? "<small>top rank</small>" : !o.offer ? "<small>not in stock · 💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>sold out</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.left < 3 ? " · " + o.left + " left" : "") + "</button>";
       h += "</div>";
     });
   } else {
