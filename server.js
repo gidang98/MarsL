@@ -16367,7 +16367,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Troop traffic",["Open a category to see how many troops of each type it holds. Own troops at home can be opened too."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23187,6 +23187,8 @@ const PAGE = `<!DOCTYPE html>
   .mvcat.danger .mc-c { background: #c4382f; color: #fff; }
   .mvcat.open > .mc-h { border-bottom: 1px solid var(--line, #d8d2c4); }
   .mvcat .mvlist { padding: 6px; margin: 0; }
+  .mvtot { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 14px; font-size: 14px; }
+  .mvtot-c small { opacity: .7; }
   .mvsort button.all.on { background: var(--accent-soft, rgba(60,40,60,.12)); }
   .mvsort { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0 2px; font-size: 12px; }
   .mvsort span { opacity: 0.6; font-weight: 700; }
@@ -29620,23 +29622,40 @@ function mvCatsOf(d) {
   out[out.length - 1].list = d.movements.filter(function (m) { return !used[m.id]; });
   return out;
 }
+// troops of every unit type in a category, added up (so a click on it answers "how many of what")
+function mvTotals(units) {
+  var map = {}, order = [];
+  units.forEach(function (u) {
+    if (!(u.count > 0)) return;
+    var k = u.icon + "|" + (u.name || "");
+    if (!map[k]) { map[k] = { icon: u.icon, name: u.name || "", count: 0 }; order.push(k); }
+    map[k].count += u.count;
+  });
+  var rows = order.map(function (k) { return map[k]; }).sort(function (a, b) { return b.count - a.count; });
+  if (!rows.length) return "";
+  return '<div class="mvtot">' + rows.map(function (r) { return '<span class="mvtot-c" title="' + esc(r.name) + '">' + r.icon + " <b>" + r.count.toLocaleString() + "</b>" + (r.name ? " <small>" + esc(r.name) + "</small>" : "") + "</span>"; }).join("") + "</div>";
+}
 function mvCatRow(e, d) {
   var c = e.c, list = e.list, now = serverNow(), up = d.upkeepSplit || {};
   var home = 0;
   if (c.stat === "home") d.units.forEach(function (u) { if (!u.scout && !u.settler) home += u.home; });
   var n = c.stat ? home : list.length;
-  var next = 0, troops = 0;
+  var next = 0, troops = 0, tot = [];
+  if (c.stat === "home") d.units.forEach(function (u) { if (!u.scout && !u.settler && u.home > 0) tot.push({ icon: u.icon, name: u.name, count: u.home }); });
+  list.forEach(function (m) { if (m.units) m.units.forEach(function (u) { tot.push(u); }); });
   list.forEach(function (m) { if (m.endAt && (!next || m.endAt < next)) next = m.endAt; troops += mvSize(m); });
-  var open = !c.stat && n > 0 && (mvDetail || (mvCatOpen[c.id] === undefined ? c.danger : mvCatOpen[c.id]));
+  var open = n > 0 && (mvDetail || (mvCatOpen[c.id] === undefined ? c.danger : mvCatOpen[c.id]));
   var side = "";
   if (c.food) side = '<small>' + (up[c.food] ? "eat " + shortNum(up[c.food]) + "/h" : "") + "</small>";
   else if (c.stat) side = '<small>' + (up.home ? "eat " + shortNum(up.home) + "/h" : "") + "</small>";
   else if (next) side = '<small>first in</small><b>' + mvClock(Math.max(0, next - now)) + "</b>";
   var h = '<section class="mvcat' + (n ? "" : " off") + (c.danger && n ? " danger" : "") + (open ? " open" : "") + '">';
   var inner = '<span class="mc-i">' + giSvg(c.icon) + '</span><span class="mc-n"><b>' + c.name + "</b>" + (troops && !c.stat ? "<small>" + troops.toLocaleString() + " troops</small>" : "") + '</span><span class="mc-c">' + n.toLocaleString() + '</span><span class="mc-s">' + side + "</span>";
-  h += c.stat || !n ? '<div class="mc-h">' + inner + "</div>" : '<button class="mc-h" data-mvcat="' + c.id + '" aria-expanded="' + !!open + '">' + inner + '<span class="mc-x">' + (open ? "▴" : "▾") + "</span></button>";
+  h += !n ? '<div class="mc-h">' + inner + "</div>" : '<button class="mc-h" data-mvcat="' + c.id + '" aria-expanded="' + !!open + '">' + inner + '<span class="mc-x">' + (open ? "▴" : "▾") + "</span></button>";
   if (open) {
-    if (mvSort.by === "sent") {
+    h += mvTotals(tot);
+    if (c.stat) {
+    } else if (mvSort.by === "sent") {
       h += '<div class="mvlist">' + list.slice().sort(function (a, b) { return (mvSort.rev ? -1 : 1) * ((b.startAt || 0) - (a.startAt || 0)); }).map(function (m) { return '<div class="mvg">' + mvRow(m) + "</div>"; }).join("") + "</div>";
     } else h += '<div class="mvlist">' + mvGroups(list).map(mvGroup).join("") + "</div>";
   }
