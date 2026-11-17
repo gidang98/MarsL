@@ -9940,16 +9940,28 @@ app.get("/api/farm/stats", requireLogin, (req, res) => {
   for (const r of db.prepare("SELECT x, y, raids, total, last FROM farm_stats WHERE user_id = ?").all(req.user.id)) {
     let last = {};
     try { last = JSON.parse(r.last); } catch (e) {}
-    const tc = db.prepare("SELECT user_id FROM colonies WHERE x = ? AND y = ?").get(r.x, r.y);
-    const owner = tc ? (BOT_IDS.has(tc.user_id) ? "inactive" : usernameOf(tc.user_id)) : "";
-    out[r.x + "|" + r.y] = { raids: r.raids, total: r.total, last, owner, readyAt: farmReadyAt(r.x, r.y, last, Date.now()) };
+    out[r.x + "|" + r.y] = { raids: r.raids, total: r.total, last, readyAt: farmReadyAt(r.x, r.y, last, Date.now()) };
   }
+  // who lives at each target of the saved lists, and how many points the colony has
+  const info = {};
+  try {
+    const saved = JSON.parse((db.prepare("SELECT farm FROM users WHERE id = ?").get(req.user.id) || {}).farm || "{}");
+    for (const l of saved.lists || []) for (const e of l.entries || []) {
+      const key = e.x + "|" + e.y;
+      if (info[key]) continue;
+      const tc = db.prepare("SELECT user_id, state FROM colonies WHERE x = ? AND y = ?").get(e.x, e.y);
+      if (!tc) continue;
+      let pts = 0;
+      try { pts = colonyPoints(JSON.parse(tc.state)); } catch (err) {}
+      info[key] = { owner: BOT_IDS.has(tc.user_id) ? "inactive" : usernameOf(tc.user_id), points: pts };
+    }
+  } catch (err) {}
   const q = db.prepare("SELECT farm_quiet FROM users WHERE id = ?").get(req.user.id) || {};
   const outgoing = {};
   for (const m of db.prepare("SELECT m.attacker_id, m.target_x, m.target_y, COUNT(*) AS n FROM movements m JOIN colonies c ON c.id = m.attacker_id WHERE c.user_id = ? AND m.phase = 'out' AND m.mission IN ('raid', 'attack') AND m.arrive_at > ? GROUP BY m.attacker_id, m.target_x, m.target_y").all(req.user.id, Date.now())) {
     outgoing[m.attacker_id + ":" + m.target_x + "|" + m.target_y] = m.n;
   }
-  res.json({ stats: out, outgoing, quiet: !!q.farm_quiet, now: Date.now() });
+  res.json({ stats: out, info, outgoing, quiet: !!q.farm_quiet, now: Date.now() });
 });
 
 // "Only report farm raids with losses" on/off
@@ -16361,7 +16373,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner, when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23183,6 +23195,7 @@ const PAGE = `<!DOCTYPE html>
   .mvcat .mvlist { padding: 6px; margin: 0; }
   .mvtot { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 14px; font-size: 14px; }
   .mvtot-c small { opacity: .7; }
+  @media (max-width: 379px) { .fl-pts { display: none; } }
   .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
   .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
   .mvsrc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 0; }
@@ -30209,6 +30222,7 @@ function farmTroopCount(e) {
   for (var k in e.troops) n += e.troops[k] || 0;
   return n;
 }
+function farmInfo(e) { return (farmStats.info || {})[e.x + "|" + e.y] || null; }
 function farmStat(e) { return farmStats.stats[e.x + "|" + e.y] || null; }
 function farmLastAt(e) { var st = farmStat(e); return st && st.last && st.last.at ? st.last.at : 0; }
 function farmLoot(e, which) { var st = farmStat(e); if (!st) return 0; return which === "total" ? st.total : (st.last && st.last.loot) || 0; }
@@ -30301,13 +30315,13 @@ function farmReviewHtml(d){
 }
 
 // What the farm raids brought home (from the server): per target total + last raid
-var farmStats = { stats: {}, outgoing: {}, quiet: false, at: 0 };
+var farmStats = { stats: {}, info: {}, outgoing: {}, quiet: false, at: 0 };
 function loadFarmStats() {
   var focused=document.activeElement;
   if(pressing || (focused && /^(INPUT|SELECT|TEXTAREA)$/.test(focused.tagName)))return;
   fetch("/api/farm/stats").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
     if (!j) return;
-    farmStats = { stats: j.stats, outgoing: j.outgoing || {}, quiet: j.quiet, at: Date.now() };
+    farmStats = { stats: j.stats, info: j.info || {}, outgoing: j.outgoing || {}, quiet: j.quiet, at: Date.now() };
     if (sheet && sheet.kind === "farm") renderSheet();
   }).catch(function () {});
 }
@@ -30400,7 +30414,7 @@ function farmSheet(d) {
       var busy = farmBusy(l, e);
       var isSel = farmSelection[l.id + ":" + e.id];
       h += '<div class="fl-row' + (e.on ? "" : " off") + (isSel ? " on-row" : "") + '"><button class="fl-on' + (isSel ? " ticked" : "") + '" data-farm-toggle="' + l.id + ":" + e.id + '" title="Select target">' + (isSel ? "☑️" : "⬜") + "</button>";
-      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>' + (farmStat(e) && farmStat(e).owner ? "👤 " + esc(farmStat(e).owner) + " · " : "") + "(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · 🐪 " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /"⚠️"/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
+      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>' + (farmInfo(e) ? "👤 " + esc(farmInfo(e).owner) + ' · <span class="fl-pts" title="Colony points">⭐ ' + farmInfo(e).points.toLocaleString() + " · </span>" : "") + "(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · 🐪 " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /"⚠️"/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
       if (manual && listed.length > 1) {
         h += '<span class="fl-move"><button data-farm-move="' + l.id + ":" + e.id + ':-1"' + (idx === 0 ? " disabled" : "") + ' title="Move up">▲</button><button data-farm-move="' + l.id + ":" + e.id + ':1"' + (idx === listed.length - 1 ? " disabled" : "") + ' title="Move down">▼</button></span>';
       }
