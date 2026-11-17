@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.406";
+const GAME_VERSION = "1.0.407";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -12110,10 +12110,10 @@ function clockDays() {
 const ACTS = [
   { key: "landing", icon: "🛬", name: "Landing", rule: "Beginner protection and the first rich sites." },
   { key: "expansion", icon: "🏗️", name: "Expansion", rule: "Colony specialisations can be chosen." },
-  { key: "discovery", icon: "🗿", name: "Discovery", rule: "Landmarks open. Monster camps level up: +25% monsters and bounty." },
-  { key: "storm", icon: "⚡", name: "Storm Season", rule: "Ion storms join the weather, meteor crates can hold commander gear and a Dust Titan appears now and then. Monster camps: +50%." },
-  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "Three Relic Hunts: each one stronger, the last reaches the whole alliance. Monster camps: +75%." },
-  { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +100%." },
+  { key: "discovery", icon: "🗿", name: "Discovery", rule: "Landmarks open. Monster camps level up: +25% monsters and bounty. Hunt luck ×1.25." },
+  { key: "storm", icon: "⚡", name: "Storm Season", rule: "Ion storms join the weather, meteor crates can hold commander gear and a Dust Titan appears now and then. Monster camps: +50%. Hunt luck ×1.5." },
+  { key: "relic", icon: "🏆", name: "Relic Hunt", rule: "Three Relic Hunts: each one stronger, the last reaches the whole alliance. Monster camps: +75%. Hunt luck ×1.75." },
+  { key: "aurora", icon: "🌌", name: "Aurora", rule: "The race for the Aurora. Monster camps level up again: +100%. Hunt luck ×2." },
 ];
 // the three Relic Hunts: the first on the Relic Hunt day, the others a third and two thirds of the way to the Aurora
 function huntDays() {
@@ -12145,6 +12145,12 @@ function actsView(now) {
 function campActMult() {
   return [1, 1, 1.25, 1.5, 1.75, 2][actNow()] || 1;
 }
+// 🍀 hunt luck grows with every act the way the camps do (×1 to ×2): rarer creatures and shinies show up more often,
+// and more opponents come while you are away (+5 points per act from Discovery on)
+function huntLuck() { return campActMult(); }
+const HUNT_SPAWN_ACT = [0, 0, 0.05, 0.1, 0.15, 0.2];
+function huntSpawnBonus() { return HUNT_SPAWN_ACT[actNow()] || 0; }
+function shinyChances(base) { const l = huntLuck(); return base.map((x) => x * l); }
 
 // what the game (and the guide) shows
 function serverClock() {
@@ -15048,7 +15054,7 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     const own = r.cards.find((c) => c.key === key);
     if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
     r.shards[key] -= SHARDS_PER_COMMANDER;
-    const shiny = rollShiny(SHINY_COMMANDER_CHANCE, Math.random); // a fusing can make it shiny; a better tier replaces a lower one, never the other way
+    const shiny = rollShiny(shinyChances(SHINY_COMMANDER_CHANCE), Math.random); // a fusing can make it shiny; a better tier replaces a lower one, never the other way
     let got = shiny;
     if (own) { own.rank++; if (shiny > (own.tier || 0)) own.tier = shiny; else got = 0; }
     else r.cards.push({ id: Math.max.apply(null, r.cards.map((c) => c.id)) + 1, key, rank: 1, tier: shiny });
@@ -15111,6 +15117,17 @@ const CREATURE_TIER_SUM = {};
 for (const k of Object.keys(CREATURES)) CREATURE_TIER_SUM[CREATURES[k].rarity] = (CREATURE_TIER_SUM[CREATURES[k].rarity] || 0) + CREATURES[k].w;
 function creatureWeight(k) { const c = CREATURES[k]; return (CREATURE_TIER_WEIGHT[c.rarity] * c.w) / CREATURE_TIER_SUM[c.rarity]; }
 const CREATURE_WEIGHT_TOTAL = Object.keys(CREATURES).reduce((n, k) => n + creatureWeight(k), 0);
+// with luck every rarity above common is that many times as likely (worked out once per luck level)
+let luckCache = { luck: 0, w: null, total: 0 };
+function luckWeights() {
+  const l = huntLuck();
+  if (luckCache.luck !== l) {
+    const w = {}; let total = 0;
+    for (const k of CREATURE_BASE) { w[k] = creatureWeight(k) * (CREATURES[k].rarity === "common" ? 1 : l); total += w[k]; }
+    luckCache = { luck: l, w, total };
+  }
+  return luckCache;
+}
 // ✨ shiny variants live next to the plain ones under the key "frog@s" (silver), "@g", "@d", "@r": they have more HP
 // and pay more Space-Cash, everything else (slots, inventory, selling, auction) works as for any creature
 const CREATURE_BASE = Object.keys(CREATURES);
@@ -15119,8 +15136,8 @@ for (const k of CREATURE_BASE) {
   for (let t = 1; t <= 4; t++) CREATURES[k + "@" + SHINY[t].id] = Object.assign({}, b, { name: SHINY[t].name + " " + b.name, cash: Math.round(b.cash * SHINY[t].mult * 10) / 10, hpf: b.hpf * SHINY[t].mult, tier: t, base: k });
 }
 function creatureChance(k) { // percent per opponent
-  const c = CREATURES[k], p = creatureWeight(c.base || k) / CREATURE_WEIGHT_TOTAL;
-  const f = c.tier ? SHINY_CREATURE_CHANCE[c.tier - 1] : 1 - SHINY_CREATURE_CHANCE.reduce((n, x) => n + x, 0);
+  const c = CREATURES[k], lw = luckWeights(), p = lw.w[c.base || k] / lw.total, sc = shinyChances(SHINY_CREATURE_CHANCE);
+  const f = c.tier ? sc[c.tier - 1] : 1 - sc.reduce((n, x) => n + x, 0);
   return Math.round(p * f * 1000000) / 10000;
 }
 function creatureHp(k) { return Math.round(CREATURE_HP[CREATURES[k].rarity] * CREATURES[k].hpf); }
@@ -15138,10 +15155,10 @@ function huntRng(userId, slot, salt) {
 function huntTapDmg(S) { return Math.max(1, Math.round(S.base * HUNT_TAP * (1 + Math.min(100, cmdPerk(S.r, "tap") + (S.h ? heroGearStats(S.h).tap : 0)) / 100))); }
 function huntOpponent(userId, slot) {
   const keys = CREATURE_BASE;
-  const total = CREATURE_WEIGHT_TOTAL;
-  let x = huntRng(userId, slot, 7) * total, i = 0;
-  for (; i < keys.length - 1; i++) { x -= creatureWeight(keys[i]); if (x < 0) break; }
-  const t = rollShiny(SHINY_CREATURE_CHANCE, () => huntRng(userId, slot, 11));
+  const lw = luckWeights();
+  let x = huntRng(userId, slot, 7) * lw.total, i = 0;
+  for (; i < keys.length - 1; i++) { x -= lw.w[keys[i]]; if (x < 0) break; }
+  const t = rollShiny(shinyChances(SHINY_CREATURE_CHANCE), () => huntRng(userId, slot, 11));
   return t ? keys[i] + "@" + SHINY[t].id : keys[i];
 }
 // the commander's attack for the hunt does not depend on the game speed
@@ -15177,7 +15194,7 @@ function huntSync(userId, now, hero) {
   for (let slot = Math.max(hu.lastSlot + 1, cur - HUNT_BACK_SLOTS); slot < cur; slot++) {
     if (hu.wonSlot === slot) continue;
     const online = slot === hu.seenSlot;
-    if (!online && huntRng(userId, slot, 1) >= Math.min(0.9, HUNT_OFFLINE_SPAWN + cmdPerk(r, "spawn") / 100)) continue;
+    if (!online && huntRng(userId, slot, 1) >= Math.min(0.9, HUNT_OFFLINE_SPAWN + huntSpawnBonus() + cmdPerk(r, "spawn") / 100)) continue;
     const key = huntOpponent(userId, slot);
     if (atk * HUNT_AUTO + (online ? hu.tapDmg : 0) >= creatureHp(key)) award(key, slot);
   }
@@ -16754,7 +16771,7 @@ function wikiExtra() {
     hero: {
       maxLevel: HERO_MAX_LEVEL, speed: Math.round(HERO_SPEED * MOVE_SPEED * 10) / 10, settleMs: heroLockMs(), recoverMs: heroRecoverMs(), reviveMs: heroReviveMs(),
       fallPct: Math.round(HERO_FALL_XP * 100), bag: HERO_BAG,
-      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
+      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
       orders: HERO_ORDERS, stances: HERO_STANCES, quirks: HERO_QUIRKS, quirkLevel: HERO_QUIRK_LEVEL,
@@ -16988,6 +17005,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.407",date:"2026-11-17",title:"Hunt luck grows with the acts",groups:[["🍀 Hunt",["Every time a new act starts and the monster camps get stronger, the hunt gets luckier too: ×1.25 from Discovery, ×1.5 in the Storm Season, ×1.75 in the Relic Hunt and ×2 in the Aurora.","Luck gives every rarity above common that much more weight (above-common opponents go from about 35% to about 52% in the Aurora), and multiplies the shiny chances for creatures and for fusing commanders (creatures: 7.1% of opponents at the start, 14.2% in the Aurora).","The share of opponents that show up while you are away also rises by 5 points per act, from 50% to 70%."]]]},
   {v:"1.0.406",date:"2026-11-17",title:"Star Credits ten times faster",groups:[["🎫 Star Credits",["Every commander now earns ten times as many Star Credits (about 40 a day for a common commander up to about 600 for a Mythic one at rank 1), so the balance moves as you play.","Finishing a build job with Star Credits costs ten times as much: 30 minutes 10, an hour 30, 3 hours 140, 12 hours 1010, a day 2750. Relative to income nothing changed.","Credits now pile up for at most 4 hours while you are away (was 6)."]]]},
   {v:"1.0.405",date:"2026-11-17",title:"Lower creature sell prices",groups:[["💰 Hunt",["A creature now sells for 5 minutes of its own Space-Cash income, down from 30 minutes. A Rock Crab (2 a second) fetches 600 instead of 3,600, a Thunder Lion 9,300 instead of 55,800, and shiny creatures follow their higher income. Keeping a creature in a slot is now clearly worth more than selling it."]]]},
   {v:"1.0.404",date:"2026-11-17",title:"Shiny creatures and commanders",groups:[["✨ Shiny creatures",["Every opponent now has a small chance to come as Silver (5%), Gold (2%), Diamond (0.8%) or Rainbow (0.3%). They have 1.5×, 2×, 2.5× and 3× the HP and pay the same multiple of Space-Cash, so they need a stronger commander but are worth far more in a slot or at the sell window.","Shiny catches are never auto-sold, the rarity buttons and All in the sell window leave them out, and with a full inventory a shiny is sold on the spot instead of getting away. They glow in the hunt window, and you can slot, sell and auction them like any creature."]],["🎖️ Shiny commanders",["Fusing shards now has a chance to make a commander Silver (8%), Gold (3%), Diamond (1.2%) or Rainbow (0.4%): 1.5× to 3× its effects and helper power. Star Credit income is not multiplied. Fusing a commander you already own can only raise its tier."]],["📖 Creature index",["The index has a section for Silver, Gold, Diamond and Rainbow with every creature in that version. Each stays hidden until you catch it."]]]},
@@ -37452,6 +37470,7 @@ function wikiMore(W, tab, cards) {
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself for " + Ro.auto + " times its attack over the window (helpers add to that), and Strike adds a little extra (only its own attack counts, no helpers). So rarer creatures need a stronger commander: level up, spend skill points on 💪 Strength, wear better gear and put strong commanders in the helper slots. The table shows the attack that catches each one without striking; striking about every 20 seconds adds roughly half as much again. Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the auction.",
       "✨ <b>Shiny</b> creatures: every opponent has a small chance to come as " + Ro.shiny.map(function (t) { return "<b>" + t.name + "</b> (×" + t.mult + ", " + t.creature + "%)"; }).join(", ") + ". A shiny has " + "that many times the HP and pays that many times the Space-Cash, so it needs a stronger commander but earns far more in a slot. Shiny catches are never auto-sold, and with a full inventory a shiny is sold on the spot instead of getting away. Commanders can turn shiny too: every time shards are fused there is a chance of " + Ro.shiny.map(function (t) { return t.name + " " + t.commander + "%"; }).join(", ") + ". A shiny commander has that many times the effects and helper power (Star Credits stay the same). Fusing a commander you already own can only raise its tier, never lower it.",
+      "🍀 <b>Hunt luck</b> grows with the acts, just like the monster camps do: from Discovery on it is ×" + Ro.luck.slice(2).join(", ×") + " (Discovery, Storm Season, Relic Hunt, Aurora). Every rarity above common gets that much more weight (opponents above common go from about a third of all to about half in the Aurora), the shiny chances above are multiplied the same way (for creatures and for fusing commanders), and while you are away " + Ro.spawnAct.slice(2).map(function (x) { return "+" + x; }).join(", ") + " points more of the opponents come.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
       "🎖️ When your commander leads an attack or raid on a colony it earns <b>xp</b> by the enemy units killed: " + Ro.killXp + " per unit. Staying home earns nothing.",
       "🎖️ Every commander is its own character with one signature effect, and the effect grows by 50% for every rank. Attack bonuses of gear, skills and commanders add up to 30% in fights between players, and to 45% in the hunt. Strike damage can also come from gear (up to +40%), and together with the commander it never passes +100%. The ones you do not lead can still stand beside the active one as <b>helpers</b> (rarer ones add more attack in the hunt).",
