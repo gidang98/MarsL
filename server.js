@@ -14461,11 +14461,11 @@ function heroBonus(h) {
     atk: Math.min(30, heroGearStats(h).atkPct + (h.pts.spear || 0) * HERO_SKILLS.spear.per + (h.tribe === "chicken" ? (h.pts.path || 0) * HERO_PATHS.chicken.per * (1+heroGearStats(h).identity/100) : 0)),
     def: Math.min(30, heroGearStats(h).defPct + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0)),
     mend: heroMend(h) * 100,
-    atk: Math.min(30, heroGearStats(h).atkPct + (h.pts.spear || 0) * HERO_SKILLS.spear.per + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "chicken" ? (h.pts.path || 0) * HERO_PATHS.chicken.per * (1+heroGearStats(h).identity/100) : 0)),
-    def: Math.min(30, heroGearStats(h).defPct + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0)),
-    carry: heroGearStats(h).carry,
+    atk: Math.min(30, heroGearStats(h).atkPct + (h.pts.spear || 0) * HERO_SKILLS.spear.per + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "chicken" ? (h.pts.path || 0) * HERO_PATHS.chicken.per * (1+heroGearStats(h).identity/100) : 0) + personaBonus(h).atk),
+    def: Math.min(30, heroGearStats(h).defPct + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0) + personaBonus(h).def),
+    carry: heroGearStats(h).carry + personaBonus(h).carry,
     prod: Math.round(h.pts.prod * HERO_SKILLS.prod.per * PRODUCTION_SPEED * 10) / 10, // real per hour, like the fields
-    prodPct: Math.min(25, h.pts.prod * HERO_SKILLS.prod.pct + heroGearStats(h).prod), // and a share of the colony's own production
+    prodPct: Math.min(25, h.pts.prod * HERO_SKILLS.prod.pct + heroGearStats(h).prod + personaBonus(h).prod), // and a share of the colony's own production
   };
 }
 function heroHome(h, colonyId, now) {
@@ -14726,9 +14726,42 @@ const COMMANDER_IDLE_HOURS = 4; // production that can pile up before collecting
 const SHOP_RESTOCK_MS = 5 * 60000; // every game speed
 const SHOP_POOL = []; // commanders for sale: { key, price, weight }, to be decided
 const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary"];
+// Star Credits per real hour at rank 1; a trait is a small bonus while the commander is active
+// (atk/def in %, carry in %, prod = share of the colony's production in %), or none: then it just earns more.
+// Each extra copy bought raises the rank: +50% of the base rate and trait per rank.
+const COMMANDER_MAX_RANK = 5;
+const COMMANDER_RANK_STEP = 0.5;
+const SHOP_OFFERS = 3; // commanders on offer at a time
+const COMMANDER_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 1 };
+const COMMANDER_PRICE = { common: 12, uncommon: 40, rare: 120, epic: 400, legendary: 1200 };
 const COMMANDERS = {
-  recruit: { name: "Recruit", rarity: "common", rate: 1 }, // Star Credits per real hour
+  recruit: { name: "Recruit", icon: "🎖️", rarity: "common", rate: 1, starter: true },
+  drillmaster: { name: "Drillmaster", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 1 } },
+  warden: { name: "Warden", icon: "🛡️", rarity: "common", rate: 1, trait: { def: 1 } },
+  courier: { name: "Courier", icon: "🎒", rarity: "common", rate: 1, trait: { carry: 2 } },
+  forager: { name: "Forager", icon: "🌾", rarity: "uncommon", rate: 1, trait: { prod: 1 } },
+  vanguard: { name: "Vanguard", icon: "🚩", rarity: "uncommon", rate: 1, trait: { atk: 2 } },
+  steward: { name: "Steward", icon: "📒", rarity: "uncommon", rate: 3 },
+  bulwark: { name: "Bulwark", icon: "🏰", rarity: "rare", rate: 1, trait: { def: 3 } },
+  banker: { name: "Banker", icon: "💼", rarity: "rare", rate: 5 },
+  warlord: { name: "Warlord", icon: "⚔️", rarity: "epic", rate: 2, trait: { atk: 4 } },
+  tycoon: { name: "Tycoon", icon: "💎", rarity: "epic", rate: 10 },
+  starmarshal: { name: "Star Marshal", icon: "🌟", rarity: "legendary", rate: 4, trait: { atk: 3, def: 3 } },
 };
+const TRAIT_TEXT = { atk: "attack", def: "defense", carry: "carry capacity", prod: "colony production" };
+function commanderScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1) * COMMANDER_RANK_STEP; }
+function commanderTraitText(def, rank) {
+  const t = def.trait;
+  if (!t) return "More Star Credits";
+  return Object.keys(t).map((k) => "+" + Math.round(t[k] * commanderScale(rank) * 10) / 10 + "% " + TRAIT_TEXT[k]).join(", ");
+}
+// bonus of the commander the hero currently stands in for
+function personaBonus(h) {
+  const out = { atk: 0, def: 0, carry: 0, prod: 0 };
+  const def = h && h.persona && COMMANDERS[h.persona.key];
+  if (def && def.trait) for (const k of Object.keys(def.trait)) out[k] = Math.round(def.trait[k] * commanderScale(h.persona.rank) * 10) / 10;
+  return out;
+}
 function rosterOf(userId, now) {
   now = now || Date.now();
   const row = db.prepare("SELECT roster FROM users WHERE id = ?").get(userId);
@@ -14745,7 +14778,8 @@ function commanderIncome(userId, now) {
   const r = rosterOf(userId, now);
   if (!r) return null;
   const card = r.cards.find((c) => c.id === r.active) || r.cards[0];
-  const def = COMMANDERS[card.key] || COMMANDERS.recruit;
+  const base = COMMANDERS[card.key] || COMMANDERS.recruit;
+  const def = Object.assign({}, base, { rate: Math.round(base.rate * commanderScale(card.rank) * 10) / 10 });
   const capMs = COMMANDER_IDLE_HOURS * 3600000;
   const elapsed = Math.max(0, Math.min(capMs, now - (r.collectAt || now)));
   const pending = Math.floor((elapsed / 3600000) * def.rate + 1e-9);
@@ -14761,10 +14795,76 @@ function commanderCollect(userId, now) {
   addCredits(userId, inc.pending);
   return inc.pending;
 }
-function shopView(now) {
-  const round = Math.floor(now / SHOP_RESTOCK_MS);
-  return { round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now, stock: [] }; // what it sells is still to be decided (SHOP_POOL)
+// the same offers for everyone in a round; every player can buy each offer once per round
+function shopStock(round) {
+  let a = (round * 2654435761) >>> 0;
+  const rnd = () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const pool = Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter);
+  const out = [];
+  while (out.length < SHOP_OFFERS && pool.length) {
+    const total = pool.reduce((n, k) => n + COMMANDER_WEIGHT[COMMANDERS[k].rarity], 0);
+    let x = rnd() * total, i = 0;
+    for (; i < pool.length - 1; i++) { x -= COMMANDER_WEIGHT[COMMANDERS[pool[i]].rarity]; if (x < 0) break; }
+    out.push(pool.splice(i, 1)[0]);
+  }
+  return out;
 }
+function shopView(now, roster) {
+  const round = Math.floor(now / SHOP_RESTOCK_MS);
+  const bought = roster && roster.bought && roster.bought.round === round ? roster.bought.keys : [];
+  return {
+    round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now,
+    stock: shopStock(round).map((k) => {
+      const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
+      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, rate: d.rate, trait: commanderTraitText(d, 1), price: COMMANDER_PRICE[d.rarity], rank: own ? own.rank : 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK, sold: bought.includes(k) };
+    }),
+  };
+}
+function commandersView(userId, now) {
+  const inc = commanderIncome(userId, now);
+  const r = inc.roster;
+  return {
+    credits: creditsOf(userId), active: r.active, shop: shopView(now, r),
+    cards: r.cards.map((c) => {
+      const d = COMMANDERS[c.key] || COMMANDERS.recruit;
+      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank) };
+    }),
+  };
+}
+app.get("/api/commanders", requireLogin, (req, res) => res.json(commandersView(req.user.id, Date.now())));
+app.post("/api/commanders", requireLogin, (req, res) => {
+  const uid = req.user.id, b = req.body || {}, now = Date.now();
+  const inc = commanderIncome(uid, now);
+  const r = inc.roster;
+  const save = () => db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
+  if (b.action === "switch") {
+    const card = r.cards.find((c) => c.id === Number(b.id));
+    if (!card) return res.status(400).json({ error: "You do not own that commander" });
+    commanderCollect(uid, now); // what the old commander earned is paid out first
+    const r2 = rosterOf(uid, now);
+    r2.active = card.id;
+    db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r2), uid);
+    const h = heroOf(uid, now);
+    if (h) { h.persona = { key: card.key, rank: card.rank }; heroSave(uid, h); }
+  } else if (b.action === "buy") {
+    const round = Math.floor(now / SHOP_RESTOCK_MS);
+    const key = String(b.key || "");
+    if (!shopStock(round).includes(key)) return res.status(400).json({ error: "That offer is gone, the shop restocked" });
+    r.bought = r.bought && r.bought.round === round ? r.bought : { round, keys: [] };
+    if (r.bought.keys.includes(key)) return res.status(400).json({ error: "You already bought that this round" });
+    const d = COMMANDERS[key], price = COMMANDER_PRICE[d.rarity];
+    const own = r.cards.find((c) => c.key === key);
+    if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
+    if (creditsOf(uid) < price) return res.status(400).json({ error: "You need " + price + " " + CREDIT.name });
+    addCredits(uid, -price);
+    if (own) own.rank++;
+    else r.cards.push({ id: Math.max.apply(null, r.cards.map((c) => c.id)) + 1, key, rank: 1 });
+    r.bought.keys.push(key);
+    save();
+    if (own && own.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key, rank: own.rank }; heroSave(uid, h); } }
+  } else return res.status(400).json({ error: "Unknown action" });
+  res.json({ ok: true });
+});
 function heroView(userId, colonyId, now) {
   const h = heroOf(userId, now);
   if (!h) return null;
@@ -14785,7 +14885,7 @@ function heroView(userId, colonyId, now) {
   const crate = heroCrate(h);
   const inc = commanderIncome(userId, now);
   return {
-    commander: inc ? { name: inc.def.name, rarity: inc.def.rarity, rate: inc.rate, pending: inc.pending, cap: inc.cap, capMs: inc.capMs, full: inc.elapsed >= inc.capMs, shop: shopView(now) } : null,
+    commander: inc ? { name: inc.def.name, rarity: inc.def.rarity, rate: inc.rate, pending: inc.pending, cap: inc.cap, capMs: inc.capMs, full: inc.elapsed >= inc.capMs, shop: { nextMs: shopView(now, null).nextMs } } : null,
     name: h.name,
     level: h.level,
     maxLevel: HERO_MAX_LEVEL,
@@ -16430,7 +16530,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["Your active commander earns Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). The commander button there opens your collection and the shop.","The shop offers 3 commanders and restocks every 5 minutes, at every game speed. Buying one you already own raises its rank (up to 5).","Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23254,7 +23354,10 @@ const PAGE = `<!DOCTYPE html>
   .mvtot-c small { opacity: .7; }
   @media (max-width: 379px) { .fl-pts { display: none; } }
   .hcred { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: var(--card2, rgba(0,0,0,.06)); }
-  .hcred b { font-size: 15px; } .hcred small { opacity: .7; } .hcred .btn { margin-left: auto; }
+  .hcred b { font-size: 15px; } .hcred small { opacity: .7; } .hcred .btn:first-of-type { margin-left: auto; }
+  .cmd-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,.08); } .cmd-row > div { flex: 1; min-width: 0; } .cmd-row b, .cmd-row small { display: block; } .cmd-row.on { background: rgba(0,0,0,.05); border-radius: 10px; }
+  .cmd-ic { font-size: 26px; width: 36px; text-align: center; }
+  .cmd-rar.r-uncommon { color: #2e8b57; } .cmd-rar.r-rare { color: #2f6fbf; } .cmd-rar.r-epic { color: #8a45c4; } .cmd-rar.r-legendary { color: #d08a12; }
   .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
   .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
   .mvsrc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 0; }
@@ -33831,7 +33934,7 @@ function heroSheet(d) {
   h += '<div class="hpts"><div title="Its own attack, plus a bonus for the army it leads"><b>⚔️ ' + H.points.atk + "</b><small>attack" + (H.bonus.atk ? " +" + H.bonus.atk + "%" : "") + "</small></div>" + '<div title="Its own defense at home"><b>🛡️ ' + H.points.def + "</b><small>defense" + (H.bonus.def ? " +" + H.bonus.def + "%" : "") + '</small></div><div title="Carry of the army it leads"><b>' + '🎒' + ' +' + H.bonus.carry + '%</b><small>carry</small></div><div title="Own production where it is stationed"><b>⛏️ ' + H.bonus.prod + "</b><small>/h +" + (H.bonus.prodPct || 0) + "%</small></div></div>";
   if (H.commander) {
     var C = H.commander;
-    h += '<div class="hcred" title="Your active commander earns Star Credits while you are away, up to ' + shortTime(C.capMs) + ' of production"><span>🎫</span><b>' + C.pending + " / " + C.cap + "</b><small>+" + C.rate + "/h" + (C.full ? " · full" : "") + '</small><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + ">Collect</button></div>";
+    h += '<div class="hcred" title="Your active commander earns Star Credits while you are away, up to ' + shortTime(C.capMs) + ' of production"><span>🎫</span><b>' + C.pending + " / " + C.cap + "</b><small>+" + C.rate + "/h" + (C.full ? " · full" : "") + '</small><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + '>Collect</button><button class="btn small ghost" type="button" data-cmd-open="1" title="Your commanders and the shop">🎖️ ' + esc(C.name) + "</button></div>";
   }
   var used = H.bag.length;
   h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
@@ -35037,6 +35140,9 @@ function renderSheet() {
   } else if (sheet.kind === "wiki") {
     if (!wiki.data) { closeSheet(); return; }
     h += wikiSheet();
+  } else if (sheet.kind === "commanders") {
+    if (!cmd.data) { closeSheet(); return; }
+    h += commanderSheet();
   } else if (sheet.kind === "auction") {
     if (!auc.data) { closeSheet(); return; }
     h += auctionSheet();
@@ -37411,6 +37517,39 @@ function landmarkTileInfo(l, dist) {
 var LM_GUARD = "🗿";
 
 
+// ---------- commanders: collection and shop ----------
+var cmd = { data: null, tab: "mine" };
+function openCommanders(tab) {
+  fetch("/api/commanders").then(function (r) { return r.json(); }).then(function (j) {
+    cmd.data = j;
+    if (tab) cmd.tab = tab;
+    if (sheet && sheet.kind === "commanders") renderSheet(); else openSheet("commanders", null);
+  }).catch(function () { toast("⚠️ The server does not answer"); });
+}
+function commanderSheet() {
+  var C = cmd.data, h = "";
+  h += '<div class="sheet-head"><span class="hi">🎖️</span><div><h3>Commanders</h3><b>🎫 ' + shortNum(C.credits) + " Star Credits</b></div></div>";
+  h += '<div class="auc-tabs">' + [["mine", "Collection · " + C.cards.length], ["shop", "Shop"]].map(function (t) { return '<button class="btn small ' + (cmd.tab === t[0] ? "" : "ghost") + '" data-cmd-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+  if (cmd.tab === "shop") {
+    h += '<p class="hint left">New offers in ' + shortTime(C.shop.nextMs) + ". Each offer can be bought once per round; a commander you already own gains a rank.</p>";
+    C.shop.stock.forEach(function (o) {
+      h += '<div class="cmd-row"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span>" + (o.rank ? " <small>rank " + o.rank + "</small>" : "") + "</b><small>" + esc(o.trait) + " · 🎫 +" + o.rate + "/h</small></div>";
+      h += o.maxed ? "<small>top rank</small>" : o.sold ? "<small>bought</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.credits < o.price ? " disabled" : "") + ">🎫 " + o.price + (o.rank ? " · rank up" : "") + "</button>";
+      h += "</div>";
+    });
+  } else {
+    C.cards.forEach(function (c) {
+      var on = c.id === C.active;
+      h += '<div class="cmd-row' + (on ? " on" : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + c.rate + "/h</small></div>";
+      h += on ? "<small>Active</small>" : '<button class="btn small ghost" data-cmd-switch="' + c.id + '">Make active</button>';
+      h += "</div>";
+    });
+    h += '<p class="hint left">Only the active commander earns Star Credits and gives its bonus. Level, skills and gear stay with your commander whoever is active.</p>';
+  }
+  return h;
+}
+function cmdPost(body, msg) { post("/api/commanders", body, function () { if (msg) toast(msg, true); openCommanders(); }); }
+
 // ---------- the gear auction ----------
 var auc = { data: null, tab: "browse" };
 function openAuction(tab) {
@@ -38258,7 +38397,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -38403,6 +38542,15 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-arch")) {
     var ak = attr("data-hero-arch");
     if (confirm("Choose this archetype? Changing it later means resetting all skill points.")) post("/api/hero", { action: "arch", key: ak }, function (r) { confetti(); toast("🎭 " + (r && r.archPicked || "Archetype") + " it is!", true); });
+  } else if (has("data-cmd-open")) {
+    openCommanders("mine");
+  } else if (has("data-cmd-tab")) {
+    cmd.tab = attr("data-cmd-tab");
+    openCommanders();
+  } else if (has("data-cmd-buy")) {
+    cmdPost({ action: "buy", key: attr("data-cmd-buy") }, "🎖️ Commander bought");
+  } else if (has("data-cmd-switch")) {
+    cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
   } else if (has("data-hero-collect")) {
     post("/api/hero", { action: "collect" }, function () { toast("🎫 Star Credits collected"); });
   } else if (has("data-hero-stance")) {
