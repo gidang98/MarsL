@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.392";
+const GAME_VERSION = "1.0.393";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -16360,6 +16360,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
   {v:"1.0.391",date:"2026-11-16",title:"Auction for everyone, tidier server cards",groups:[["Gear auction",["The 🏛️ button at the top is always there now, also without a commander or gear. Everybody can browse the auctions; bidding and selling still need a commander.","The tabs show how many auctions are running and how many of yours need attention, and the empty tabs point you to what to do next."]],["Start screen",["The server cards on the start screen are tidier: the newcomer tag no longer breaks the name, servers are listed from calm to fast, and the bottom Play button steps aside at the end of the page."]]]},
   {v:"1.0.390",date:"2026-11-16",title:"A better start screen",groups:[["Start screen",["Pick a name, choose a tribe, crash-land: the three steps are shown right under the Play button.","The tribes come first now, each with its difficulty and suggested daily time, and a tap on one starts your account with that tribe already chosen. Humans are marked as the best first pick.","How you play is a swipeable row on phones, the six acts of a round are folded away, and the server list tags the calmest server for newcomers.","A Play button stays at the bottom of the screen on phones while you scroll, and the sign-up shows where you are in the three steps."]]]},
@@ -24579,8 +24580,12 @@ const PAGE = `<!DOCTYPE html>
   .report-body .rbanner small { font-size:11px; line-height:1.3; margin:0; }
   .report-body .rwhy { font-size:11px; line-height:1.35; margin:4px 0 7px; }
   @media(max-width:559px) {
-    body.in .topbar .topbtns { max-width:74px; flex-shrink:0; }
-    body.in .topbar .build-badge { flex-basis:100%; text-align:right; }
+    /* one slim row: name and details on the left, four icon buttons on the right; the version lives in the footer and under Settings */
+    body.in .topbar { padding:6px 8px 6px 12px; margin-bottom:6px; align-items:center; }
+    body.in .topbar .topbtns { flex-wrap:nowrap; max-width:none; flex-shrink:0; gap:2px; }
+    body.in .topbar .topbtns .btn { width:32px; height:32px; min-height:32px; font-size:15px; background:transparent; border-color:transparent; }
+    body.in .topbar .build-badge { display:none; }
+    body.in .topbar small { line-height:1.3; }
   }
 
 .report.rep2 { border-radius:12px; margin:6px 0; }
@@ -34804,7 +34809,7 @@ function renderSheet() {
     }
     h += card("👤 Account &amp; devices", ac);
     if (accountInfo && accountInfo.owner) h += card("🛠️ Server owner", '<div class="setgrid"><a class="btn" href="/admin" target="_blank" rel="noopener">🛠️ Admin page</a><a class="btn ghost" href="/admin/journey" target="_blank" rel="noopener">' + '🧭' + ' Quest progression</a></div>');
-    h += card("📜 About", '<div class="setgrid"><a class="btn ghost" href="/patch-notes" target="_blank" rel="noopener">' + '📜' + ' Patch notes</a><a class="btn ghost" href="' + '/legal?lang=' + curLang() + '" target="_blank" rel="noopener">⚖️ Legal and privacy</a></div>');
+    h += card("📜 About", '<div class="setgrid"><a class="btn ghost" href="/patch-notes" target="_blank" rel="noopener">' + '📜' + ' Patch notes · v__VER__</a><a class="btn ghost" href="' + '/legal?lang=' + curLang() + '" target="_blank" rel="noopener">⚖️ Legal and privacy</a></div>');
     // "⚠️" danger zone
     var dz = '<details class="deldetails"><summary>🗑️ Delete colonies on this server</summary><p>All your colonies, troops and server progress will be removed after 48 hours. Your login account and other servers remain. You may cancel before the countdown ends.</p>';
     if (accountInfo && accountInfo.deletion) dz += '<p>Deletion scheduled: ' + new Date(accountInfo.deletion.due_at).toLocaleString() + " · " + shortTime(Math.max(0, accountInfo.deletion.due_at - serverNow())) + ' remaining</p><button class="btn ghost" data-colony-delete="cancel">Cancel deletion</button>';
