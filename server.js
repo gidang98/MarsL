@@ -14758,7 +14758,11 @@ const SHARD_PRICE = { common: 15, uncommon: 45, rare: 140, epic: 420, legendary:
 const SHARD_BUY_LIMIT = 3; // per offer, per player, per round
 // Two inactive commanders can stand beside the active one in the hunt: +% of its attack, by rarity (and rank)
 const HELPER_SLOTS = 2;
-const HELPER_POWER = { common: 0.1, uncommon: 0.15, rare: 0.25, epic: 0.4, legendary: 0.6, mythic: 0.9 };
+// Helpers add to the active commander's attack in the hunt. The top rank pays extra, so the strongest Mythic
+// (88,000 HP) only falls to a maxed commander with Void Sovereign and Star Marshal, both at rank 5, as helpers.
+const HELPER_POWER = { common: 0.08, uncommon: 0.15, rare: 0.3, epic: 0.55, legendary: 0.9, mythic: 1.5 };
+const HELPER_RANK = [1, 1.5, 2, 2.5, 3.5];
+function helperScale(rank) { return HELPER_RANK[Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1]; }
 const COMMANDERS = {
   recruit: { name: "Recruit", icon: "🎖️", rarity: "common", rate: 1, starter: true },
   drillmaster: { name: "Drillmaster", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 1 } },
@@ -14854,7 +14858,7 @@ function commandersView(userId, now) {
     credits: creditsOf(userId), cash: cashOf(userId), active: r.active, shop: shopView(now, r), helpers, helperSlots: HELPER_SLOTS,
     cards: r.cards.map((c) => {
       const d = COMMANDERS[c.key] || COMMANDERS.recruit;
-      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank), help: Math.round(HELPER_POWER[d.rarity] * commanderScale(c.rank) * 100) };
+      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank), help: Math.round(HELPER_POWER[d.rarity] * helperScale(c.rank) * 100) };
     }),
     shards: Object.keys(r.shards || {}).filter((k) => COMMANDERS[k] && r.shards[k] > 0).map((k) => {
       const own = r.cards.find((c) => c.key === k);
@@ -14867,7 +14871,7 @@ function helperPower(r) {
   let sum = 0;
   for (const id of (r.helpers || []).slice(0, HELPER_SLOTS)) {
     const c = r.cards.find((x) => x.id === id);
-    if (c && id !== r.active && COMMANDERS[c.key]) sum += HELPER_POWER[COMMANDERS[c.key].rarity] * commanderScale(c.rank);
+    if (c && id !== r.active && COMMANDERS[c.key]) sum += HELPER_POWER[COMMANDERS[c.key].rarity] * helperScale(c.rank);
   }
   return sum;
 }
@@ -14943,9 +14947,9 @@ const HUNT_SLOTS = 6; // creatures that can earn Space-Cash at once
 const HUNT_CASH_HOURS = 4; // time away that still counts for the Space-Cash income
 const HUNT_OFFLINE_SPAWN = 0.5;
 const HUNT_AUTO = 5; // damage over a whole window, in multiples of the commander's attack
-const HUNT_TAP = 0.15; // one tapped strike, in multiples of the attack
+const HUNT_TAP = 0.06; // one tapped strike, in multiples of the commander's own attack (helpers do not add to it)
 const HUNT_TAP_CD = 20000;
-const CREATURE_HP = { common: 140, uncommon: 320, rare: 720, epic: 1700, legendary: 4200, mythic: 9500 };
+const CREATURE_HP = { common: 140, uncommon: 320, rare: 720, epic: 3000, legendary: 18000, mythic: 88000 };
 const CREATURE_WEIGHT = { common: 55, uncommon: 28, rare: 12, epic: 4, legendary: 1, mythic: 0.15 };
 const CREATURES = {
   // cash = Space-Cash per real hour while the creature sits in a slot
@@ -14985,7 +14989,8 @@ function huntSync(userId, now, hero) {
   const cur = Math.floor(now / HUNT_MS);
   const hu = r.hunt || (r.hunt = { lastSlot: cur - 1, seenSlot: -1, tapDmg: 0, tapAt: 0, wonSlot: -1, kills: {}, log: [] });
   if (!hu.slots) { hu.slots = []; hu.cashAcc = 0; hu.cashAt = now; }
-  const atk = Math.max(1, Math.round(huntAtk(h) * (1 + helperPower(r))));
+  const base = huntAtk(h);
+  const atk = Math.max(1, Math.round(base * (1 + helperPower(r))));
   let dirty = false;
   const award = (key, slot) => { hu.kills[key] = (hu.kills[key] || 0) + 1; hu.log.unshift({ key, at: now }); hu.log.length = Math.min(hu.log.length, 8); hu.wonSlot = slot; dirty = true; };
   for (let slot = Math.max(hu.lastSlot + 1, cur - HUNT_BACK_SLOTS); slot < cur; slot++) {
@@ -15003,7 +15008,7 @@ function huntSync(userId, now, hero) {
   let dmg = Math.min(hp, atk * HUNT_AUTO * (into / HUNT_MS) + hu.tapDmg);
   if (hu.wonSlot !== cur && dmg >= hp) award(key, cur);
   if (dirty) db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
-  return { r, hu, atk, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
+  return { r, hu, atk, base, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
 }
 // Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
 // it is looked at). Time away counts for at most HUNT_CASH_HOURS. The part of a unit that has not
@@ -15041,7 +15046,7 @@ function huntView(userId, now) {
   return {
     opponent: { key: S.key, name: c.name, icon: c.icon, rarity: c.rarity, hp: S.hp, dmg: Math.floor(S.dmg), won: S.won },
     nextMs: S.nextMs, windowMs: HUNT_MS,
-    tap: { cdLeft: Math.max(0, S.hu.tapAt + HUNT_TAP_CD - now), cd: HUNT_TAP_CD, dmg: Math.max(1, Math.round(S.atk * HUNT_TAP)) },
+    tap: { cdLeft: Math.max(0, S.hu.tapAt + HUNT_TAP_CD - now), cd: HUNT_TAP_CD, dmg: Math.max(1, Math.round(S.base * HUNT_TAP)) },
     auto: Math.round(S.atk * HUNT_AUTO), help: Math.round(helperPower(S.r) * 100),
     log: S.hu.log.map((l) => ({ name: CREATURES[l.key].name, icon: CREATURES[l.key].icon, rarity: CREATURES[l.key].rarity, at: l.at })),
     collection: Object.keys(CREATURES).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, hp: CREATURE_HP[CREATURES[k].rarity], count: S.hu.kills[k] || 0, cash: CREATURES[k].cash, free: (S.hu.kills[k] || 0) - S.hu.slots.filter((x) => x === k).length })),
@@ -15079,7 +15084,7 @@ app.post("/api/hunt", requireLogin, (req, res) => {
   if (b.action !== "tap") return res.status(400).json({ error: "Unknown action" });
   if (S.won) return res.status(400).json({ error: "This one is already beaten" });
   if (now < S.hu.tapAt + HUNT_TAP_CD) return res.status(400).json({ error: "Your commander is catching its breath" });
-  S.hu.tapDmg += Math.max(1, Math.round(S.atk * HUNT_TAP));
+  S.hu.tapDmg += Math.max(1, Math.round(S.base * HUNT_TAP));
   S.hu.tapAt = now;
   db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(S.r), uid);
   huntSync(uid, now); // a finishing blow counts at once
@@ -16751,7 +16756,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing.","Gear upgrades now cost 💲 Space-Cash instead of resources.","A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash adds to your balance second by second, and time away counts for up to 4 hours. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing. Helper bonuses grow with rank, most of all at rank 5, and Strike only counts your active commander’s own attack. Epic, legendary and Mythic opponents are much tougher now: the strongest Mythic takes a maxed commander with the best two helpers at top rank.","Gear upgrades now cost 💲 Space-Cash instead of resources.","A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash adds to your balance second by second, and time away counts for up to 4 hours. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
