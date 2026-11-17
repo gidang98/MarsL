@@ -9509,7 +9509,7 @@ app.get("/api/profile", requireLogin, (req, res) => {
     vacation: vacationOf(u.id).on,
     sat: !!(me && sittersOf(u.id).length),
     lfa: (() => { const r = db.prepare("SELECT lfa, lfa_note FROM users WHERE id = ?").get(u.id); return r && r.lfa && !a ? { note: r.lfa_note || "" } : null; })(),
-    commander: (() => { const h = heroReady && !BOT_IDS.has(u.id) ? heroOf(u.id) : null; if (!h) return null; const pth = HERO_PATHS[h.tribe]; return { name: h.name, level: h.level, path: pth && h.pts.path ? pth.icon + " " + pth.name + " " + h.pts.path : null, wins: (h.stats && h.stats.wins) || 0 }; })(),
+    commander: (() => { const h = heroReady && !BOT_IDS.has(u.id) ? heroOf(u.id) : null; if (!h) return null; const pth = HERO_PATHS[h.tribe]; return { name: h.name, level: h.level, path: pth && h.pts.path ? pth.icon + " " + pth.name + " " + h.pts.path : null, wins: (h.stats && h.stats.wins) || 0, card: (() => { const r = rosterOf(u.id, Date.now()); const c = r && r.cards.find((x) => x.id === r.active); const d = c && COMMANDERS[c.key]; return d ? { name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank } : null; })() }; })(),
   });
 });
 
@@ -14322,6 +14322,7 @@ const HERO_STATS = {
   trip: { icon: "🧭", name: "shorter adventures", unit: "%" },
   identity: { icon: "🧬", name: "tribe path effectiveness", unit: "%" },
   frontier: { icon: "🌋", name: "hard-content experience", unit: "%" },
+  tap: { icon: "👆", name: "Strike damage in the hunt", unit: "%" },
   move: { icon: "🚶", name: "walking speed", unit: "%" },
 };
 const HERO_SLOTS = ["weapon", "armor", "helmet", "boots", "trinket"];
@@ -14333,9 +14334,9 @@ const HERO_GEAR = {
   trinket: { name: "Trinket", tiers: [["Moss Charm", "🍀"], ["Pulse Locket", "📿"], ["Core Shard", "💠"], ["Heart of Olympus", "💗"]], main: { regen: [4, 8, 13, 20], xp: [3, 6, 10, 15] } },
 };
 // bonus stats: the base value (x1 Common ... x4 Legendary)
-const HERO_AFFIX = { atkPct: 1, defPct: 1, ward: 2, regen: 2, xp: 2, carry: 2, bounty: 4, prod: 1, trip: 2, identity: 2, frontier: 3 };
+const HERO_AFFIX = { atkPct: 1, defPct: 1, ward: 2, regen: 2, xp: 2, carry: 2, bounty: 4, prod: 1, trip: 2, identity: 2, frontier: 3, tap: 2 };
 const HERO_AFFIX_N = [0, 1, 2, 3];
-const HERO_CAPS = { ward: 40, trip: 40, atkPct: 20, defPct: 20, carry: 30, prod: 15, bounty: 40, xp: 40, regen: 40, identity: 20, frontier: 30 }; // never more than this in total
+const HERO_CAPS = { ward: 40, trip: 40, atkPct: 20, defPct: 20, carry: 30, prod: 15, bounty: 40, xp: 40, regen: 40, identity: 20, frontier: 30, tap: 40 }; // never more than this in total
 const HERO_SCRAP_XP = [30, 70, 160, 350];
 // chance per rarity (common, rare, epic, legendary) in %, by source
 const HERO_DROPS = {
@@ -14520,12 +14521,12 @@ function heroFree(h) {
   return (h.level - 1) * 4 - Object.keys(HERO_SKILLS).reduce((n, k) => n + (h.pts[k] || 0), 0);
 }
 // Bonuses in percent
+function heroAtkRaw(h) { return heroGearStats(h).atkPct + (h.pts.spear || 0) * HERO_SKILLS.spear.per + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "chicken" ? (h.pts.path || 0) * HERO_PATHS.chicken.per * (1+heroGearStats(h).identity/100) : 0) + personaBonus(h).atk; }
 function heroBonus(h) {
   return {
-    atk: Math.min(30, heroGearStats(h).atkPct + (h.pts.spear || 0) * HERO_SKILLS.spear.per + (h.tribe === "chicken" ? (h.pts.path || 0) * HERO_PATHS.chicken.per * (1+heroGearStats(h).identity/100) : 0)),
     def: Math.min(30, heroGearStats(h).defPct + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0)),
     mend: heroMend(h) * 100,
-    atk: Math.min(30, heroGearStats(h).atkPct + (h.pts.spear || 0) * HERO_SKILLS.spear.per + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "chicken" ? (h.pts.path || 0) * HERO_PATHS.chicken.per * (1+heroGearStats(h).identity/100) : 0) + personaBonus(h).atk),
+    atk: Math.min(30, heroAtkRaw(h)),
     def: Math.min(30, heroGearStats(h).defPct + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0) + personaBonus(h).def),
     carry: heroGearStats(h).carry + personaBonus(h).carry,
     prod: Math.round(h.pts.prod * HERO_SKILLS.prod.per * PRODUCTION_SPEED * 10) / 10, // real per hour, like the fields
@@ -14832,25 +14833,25 @@ const HELPER_RANK = [1, 1.5, 2, 2.5, 3.5];
 function helperScale(rank) { return HELPER_RANK[Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1]; }
 const COMMANDERS = {
   recruit: { name: "Private Pip", icon: "🎖️", rarity: "common", rate: 1, starter: true, quip: "Eager, enthusiastic and wearing a helmet three sizes too big." },
-  drillmaster: { name: "Sergeant Stompy", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 2 }, quip: "Marches so loudly the enemy has time to panic." },
-  warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1, trait: { def: 2 }, quip: "Pads every wall with pillows, for safety." },
+  drillmaster: { name: "Sergeant Stompy", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 1 }, quip: "Marches so loudly the enemy has time to panic." },
+  warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1, trait: { def: 1 }, quip: "Pads every wall with pillows, for safety." },
   courier: { name: "Pocket Pete", icon: "🧦", rarity: "common", rate: 1, trait: { carry: 4 }, quip: "Has pockets inside his pockets and won't say what is in them." },
-  chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1, trait: { cash: 6 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
+  chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1, trait: { cash: 5 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
   forager: { name: "Granny Greenthumb", icon: "🌻", rarity: "uncommon", rate: 1, trait: { prod: 2 }, quip: "Shouts at the fields until they grow out of embarrassment." },
-  vanguard: { name: "Sir Charge-a-Lot", icon: "🐴", rarity: "uncommon", rate: 1, trait: { atk: 3 }, quip: "Rides a hobby horse and always charges first, usually the wrong way." },
+  vanguard: { name: "Sir Charge-a-Lot", icon: "🐴", rarity: "uncommon", rate: 1, trait: { atk: 2 }, quip: "Rides a hobby horse and always charges first, usually the wrong way." },
   steward: { name: "Penny the Tally-Penguin", icon: "🐧", rarity: "uncommon", rate: 3, quip: "Counts everything twice, just to be sure." },
-  nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 1, trait: { spawn: 6 }, quip: "Keeps strange hours, and so do the monsters around her." },
-  bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 1, trait: { def: 5 }, quip: "Stands very still until the problem goes away." },
-  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 3, trait: { shop: 8 }, quip: "Haggles with her own reflection and still gets a discount." },
-  tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 1, trait: { tap: 12 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
-  professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 2, trait: { xp: 6 }, quip: "Teaches rocks to read. The commander learns faster too." },
-  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 2, trait: { atk: 7 }, quip: "Every plan ends in an explosion, usually a planned one." },
+  nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 1, trait: { spawn: 5 }, quip: "Keeps strange hours, and so do the monsters around her." },
+  bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 1, trait: { def: 3 }, quip: "Stands very still until the problem goes away." },
+  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 3, trait: { shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
+  tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 1, trait: { tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
+  professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 2, trait: { xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
+  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 2, trait: { atk: 5 }, quip: "Every plan ends in an explosion, usually a planned one." },
   tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 6, trait: { fee: 1.5 }, quip: "Bids on things he is already holding." },
-  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 2, trait: { cash: 12 }, quip: "Her cow gives milk, money and the occasional opinion." },
-  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 4, trait: { atk: 5, def: 5, cash: 6 }, quip: "Glitter in the beard, and nobody dares mention it." },
-  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 4, trait: { tap: 18, xp: 7, spawn: 6 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
-  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 8, trait: { atk: 9, def: 9, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
-  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 8, trait: { cash: 12, shop: 8, xp: 7, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
+  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 2, trait: { cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
+  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 4, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
+  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 4, trait: { tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
+  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 8, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
+  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 8, trait: { cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
 };
 // what each effect does; the value is per rank 1 and grows with the rank
 const TRAIT_TEXT = {
@@ -14876,6 +14877,13 @@ function personaBonus(h) {
   const def = h && h.persona && COMMANDERS[h.persona.key];
   if (def && def.trait) for (const k of Object.keys(def.trait)) out[k] = Math.round(def.trait[k] * commanderScale(h.persona.rank) * 10) / 10;
   return out;
+}
+// commanders can only be swapped while the commander is at home
+function heroAwayWhy(h, now) {
+  if (!h) return "";
+  if (h.hurtUntil > now) return "Your commander is recovering. Swap commanders once it is back and at home.";
+  if (h.adv || h.move || h.away) return "Your commander is away. Swap commanders once it is back home.";
+  return "";
 }
 function rosterOf(userId, now) {
   now = now || Date.now();
@@ -14952,7 +14960,7 @@ function commandersView(userId, now) {
   const r = inc.roster;
   const helpers = (r.helpers || []).filter((id) => id !== r.active && r.cards.some((c) => c.id === id)).slice(0, HELPER_SLOTS);
   return {
-    credits: creditsOf(userId), cash: cashOf(userId), active: r.active, shop: shopView(now, r), helpers, helperSlots: HELPER_SLOTS,
+    credits: creditsOf(userId), cash: cashOf(userId), active: r.active, swapBlock: heroAwayWhy(heroOf(userId, now), now), shop: shopView(now, r), helpers, helperSlots: HELPER_SLOTS,
     cards: r.cards.map((c) => {
       const d = COMMANDERS[c.key] || COMMANDERS.recruit;
       return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank), quip: d.quip || "", help: Math.round(HELPER_POWER[d.rarity] * helperScale(c.rank) * 100) };
@@ -14982,6 +14990,8 @@ app.post("/api/commanders", requireLogin, (req, res) => {
   if (b.action === "switch") {
     const card = r.cards.find((c) => c.id === Number(b.id));
     if (!card) return res.status(400).json({ error: "You do not own that commander" });
+    const away = heroAwayWhy(heroOf(uid, now), now);
+    if (away) return res.status(400).json({ error: away });
     commanderCollect(uid, now); // what the old commander earned is paid out first
     const r2 = rosterOf(uid, now);
     r2.active = card.id;
@@ -15093,7 +15103,7 @@ function huntRng(userId, slot, salt) {
   let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
-function huntTapDmg(S) { return Math.max(1, Math.round(S.base * HUNT_TAP * (1 + perk(S.r, "tap") / 100))); }
+function huntTapDmg(S) { return Math.max(1, Math.round(S.base * HUNT_TAP * (1 + Math.min(100, perk(S.r, "tap") + (S.h ? heroGearStats(S.h).tap : 0)) / 100))); }
 function huntOpponent(userId, slot) {
   const keys = Object.keys(CREATURES);
   const total = CREATURE_WEIGHT_TOTAL;
@@ -15102,7 +15112,8 @@ function huntOpponent(userId, slot) {
   return keys[i];
 }
 // the commander's attack for the hunt does not depend on the game speed
-function huntAtk(h) { return Math.max(1, Math.round((heroPoints(h).atk / speedScale()) * (1 + heroBonus(h).atk / 100))); }
+const HUNT_ATK_CAP = 45; // in fights the attack bonus stops at 30%; the hunt lets gear, skills and commanders add up to 45%
+function huntAtk(h) { return Math.max(1, Math.round((heroPoints(h).atk / speedScale()) * (1 + Math.min(HUNT_ATK_CAP, heroAtkRaw(h)) / 100))); }
 // works out finished windows and the one in progress; saves when anything changed
 function huntSync(userId, now, hero) {
   const h = hero || heroOf(userId, now);
@@ -15145,7 +15156,7 @@ function huntSync(userId, now, hero) {
   if (hu.wonSlot !== cur && dmg >= hp) award(key, cur);
   if (dirty) db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
   if (earned) addCash(userId, earned);
-  return { r, hu, atk, base, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
+  return { r, h, hu, atk, base, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
 }
 // Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
 // it is looked at). Time away counts for at most HUNT_CASH_HOURS. The part of a unit that has not
@@ -16919,7 +16930,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank, and they are strong enough to be worth the shards: a top-rank epic commander is worth about two tiers of gear.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders."]]]},
+  {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects. Commanders can only be swapped while your commander is at home, and the active commander now shows in your profile.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank, and they are strong enough to be worth the shards: the effects are sized so that a higher rarity is clearly better without making gear and skills pointless. Strike bonuses are measured against the damage they add: Strike is about a quarter of a hunt\'s damage, so +24% Strike is about +6% damage. In the hunt the attack bonuses of gear, skills and commanders now add up to 45% instead of 30%, so commanders keep paying off when your gear is already good (fights between players still stop at 30%). Gear can now roll a Strike damage bonus.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders."]]]},
   {v:"1.0.400",date:"2026-11-17",title:"Window and wiki colours",groups:[["📖 Wiki",["The commander window header uses the same lavender as the hunt, wallet and shop windows instead of a leftover green.","Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
   {v:"1.0.399",date:"2026-11-17",title:"Full shard shop list",groups:[["🎖️ Commanders",["The shard shop now lists every commander in one compact list, rarest last. The ones in stock this round are highlighted and can be bought; the others are dimmed with their price and show \"not in stock\"."]]]},
   {v:"1.0.398",date:"2026-11-17",title:"Stronger creatures, creature auctions",groups:[["🐾 Hunt",["Rarer creatures now need a real commander. Auto strikes do 2.5 times the commander's attack over a window (helpers included) and the HP of the higher rarities was brought in line, so an early commander catches commons and the weakest uncommons, while rare, epic, legendary and Mythic creatures call for levels, 💪 Strength points, better gear and strong helpers. Tapping Strike about every 20 seconds adds roughly half as much again, so active play gets further than idling.","Star Credits now arrive on their own while you are online instead of waiting to be collected. Time away still banks up to the usual limit.","The hunt card shows the attack that catches the current opponent by itself, your own attack, and warns in red when it is out of reach. The wiki table lists the attack needed for every creature."]],["🏛️ Auction",["Creatures can be sold on the auction: the new Sell creatures tab takes any number from your inventory (not those in a slot). The winner needs room in the creature inventory and collects it like gear; creatures nobody bids on come back to you."]]]},
@@ -32127,6 +32138,7 @@ function profileHtml(p) {
   if (p.alliance) tags.push("🤝 " + esc(p.alliance.name) + (p.alliance.role === "leader" ? " (leader)" : p.alliance.role === "officer" ? " (officer)" : ""));
   if (p.lfa) tags.push("🙋 Looking for an alliance" + (p.lfa.note ? ": “" + esc(p.lfa.note) + "”" : ""));
   if (p.commander) tags.push("🎖️ " + esc(p.commander.name) + " · Lv " + p.commander.level + (p.commander.path ? " · " + p.commander.path : ""));
+  if (p.commander && p.commander.card) tags.push(p.commander.card.icon + ' <span class="cmd-rar r-' + p.commander.card.rarity + '">' + esc(p.commander.card.name) + "</span> · rank " + p.commander.card.rank);
   if (p.vacation) tags.push("🏖️ On vacation");
   else if (p.protected) tags.push("🛡️ Protected");
   if (tags.length) h += '<div class="prof-tags">' + tags.map(function (t) { return "<span>" + t + "</span>"; }).join("") + "</div>";
@@ -37361,7 +37373,7 @@ function wikiMore(W, tab, cards) {
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the auction.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
       "🎖️ When your commander leads an attack or raid on a colony it earns <b>xp</b> by the enemy units killed: " + Ro.killXp + " per unit. Staying home earns nothing.",
-      "🎖️ Every commander is its own character with one signature effect, and the effect grows by 50% for every rank. The ones you do not lead can still stand beside the active one as <b>helpers</b> (rarer ones add more attack in the hunt).",
+      "🎖️ Every commander is its own character with one signature effect, and the effect grows by 50% for every rank. Attack bonuses of gear, skills and commanders add up to 30% in fights between players, and to 45% in the hunt. Strike damage can also come from gear (up to +40%), and together with the commander it never passes +100%. The ones you do not lead can still stand beside the active one as <b>helpers</b> (rarer ones add more attack in the hunt).",
     ]) + kt({ head: ["Commander", "Effect (rank 1)", "🎫/h", "Helper"], left: 1, rows: Ro.commanders.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span><small>" + esc(c.quip) + "</small>", esc(c.effect), c.rate, "+" + c.help + "%"]; }) }) + kt({ head: ["Creature", "HP", "Attack needed", "Spawn", "💲/s", "Sells for"], left: 1, rows: Ro.creatures.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span>", shortNum(c.hp), shortNum(Math.ceil(c.hp / Ro.auto)), c.chance + "%", c.cash, shortNum(c.sell)]; }) })));
     cards.push(wkCard("gags", "🎭", "Tribe quirks", wkP("Every tribe has one silly habit that is also a real tactic.") + kt({ head: ["Tribe", "Quirk", "What it does"], left: 3, rows: [
       ["🧑‍🚀 Humans", "☕ Coffee break", "When a human colony beats an attack or raid, its crew is wide awake for 3 hours: +10% defense against everyone. Don't send a second wave right after a failed one: wait it out or bring more."],
@@ -38045,10 +38057,11 @@ function commanderSheet() {
       h += "</div>";
     });
   } else {
+    if (C.swapBlock) h += '<p class="hint left">' + esc(C.swapBlock) + "</p>";
     C.cards.forEach(function (c) {
       var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0;
       h += '<div class="cmd-row card' + (on ? " on" : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + c.rate + "/h · helper +" + c.help + "% attack</small>" + (c.quip ? '<small class="quip">“' + esc(c.quip) + "”</small>" : "") + "</div>";
-      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '">Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button></div>";
+      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '"' + (C.swapBlock ? ' disabled title="' + esc(C.swapBlock) + '"' : "") + '>Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button></div>";
       h += "</div>";
     });
     if (C.shards.length) {
