@@ -11071,6 +11071,15 @@ function auctionView(a, uid) {
 // the item goes into the commander's bag: to the winner, or back to the seller
 function auctionDeliver(a, now) {
   const uid = a.outcome === "sold" ? a.bidder_id : a.seller_id;
+  const lot = JSON.parse(a.item);
+  if (lot.kind === "shard") { // commander shards go straight into the roster, no bag needed
+    const r = rosterOf(uid, now);
+    if (!r || !COMMANDERS[lot.key]) return false;
+    r.shards[lot.key] = (r.shards[lot.key] || 0) + lot.n;
+    db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
+    db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
+    return true;
+  }
   const h = heroOf(uid, now);
   if (!h || h.bag.length >= HERO_BAG) return false;
   h.bag.push(heroFixItem(JSON.parse(a.item)));
@@ -11116,6 +11125,7 @@ app.get("/api/auction", requireLogin, (req, res) => {
     rules: { fee: Math.round(AUCTION_FEE * 100), hours: auctionHours(), maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMs: auctionSnipeMs(), priceMax: AUCTION_PRICE_MAX },
     active, mine,
     items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
+    shards: (() => { const r = rosterOf(uid, now); return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter && r && (r.shards[k] || 0) > 0).map((k) => ({ key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k] })); })(),
   });
 });
 app.post("/api/auction/list", requireLogin, (req, res) => {
@@ -11123,16 +11133,27 @@ app.post("/api/auction/list", requireLogin, (req, res) => {
   const b = req.body || {};
   const now = Date.now();
   const h = heroOf(uid, now);
-  if (!h) return res.status(400).json({ error: "You need a commander first" });
+  if (!h && !b.shard) return res.status(400).json({ error: "You need a commander first" });
   const price = Math.floor(Number(b.price));
   const hours = Number(b.hours);
   if (!(price >= 1 && price <= AUCTION_PRICE_MAX)) return res.status(400).json({ error: "Start price: 1 to " + AUCTION_PRICE_MAX + " " + CASH.name });
   if (!auctionHours().includes(hours)) return res.status(400).json({ error: "Choose " + auctionHours().map(hrTxt).join(", ") });
   if (db.prepare("SELECT COUNT(*) AS n FROM auctions WHERE seller_id = ? AND status = 'active'").get(uid).n >= AUCTION_MAX_ACTIVE) return res.status(400).json({ error: "You can run " + AUCTION_MAX_ACTIVE + " auctions at a time" });
-  const i = h.bag.findIndex((x) => x.id === String(b.id || "") && x.kind !== "crate");
-  if (i < 0) return res.status(400).json({ error: "That item is not in your bag (equipped gear can't be sold)" });
-  const item = h.bag.splice(i, 1)[0];
-  heroSave(uid, h);
+  let item;
+  if (b.shard) { // a stack of commander shards
+    const key = String(b.shard), d = COMMANDERS[key], n = Math.floor(Number(b.count));
+    const r = rosterOf(uid, now);
+    if (!d || d.starter || !r) return res.status(400).json({ error: "Unknown shards" });
+    if (!(n >= 1 && n <= (r.shards[key] || 0))) return res.status(400).json({ error: "You have " + (r.shards[key] || 0) + " " + d.name + " shards" });
+    r.shards[key] -= n;
+    db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
+    item = { kind: "shard", id: crypto.randomBytes(4).toString("hex"), key, n, icon: d.icon, name: n + " × " + d.name + " shards", rarity: d.rarity };
+  } else {
+    const i = h.bag.findIndex((x) => x.id === String(b.id || "") && x.kind !== "crate");
+    if (i < 0) return res.status(400).json({ error: "That item is not in your bag (equipped gear can't be sold)" });
+    item = h.bag.splice(i, 1)[0];
+    heroSave(uid, h);
+  }
   db.prepare("INSERT INTO auctions (seller_id, item, start_price, created_at, ends_at, cash) VALUES (?, ?, ?, ?, ?, 1)").run(uid, JSON.stringify(item), price, now, now + hours * 3600000);
   res.json({ ok: true });
 });
@@ -11144,7 +11165,7 @@ app.post("/api/auction/bid", requireLogin, (req, res) => {
   if (!a || a.ends_at <= now) return res.status(400).json({ error: "This auction is over" });
   if (a.seller_id === uid) return res.status(400).json({ error: "That is your own auction" });
   if (accountsLinked(a.seller_id, uid)) return res.status(400).json({ error: LINKED_MSG });
-  if (!heroOf(uid, now)) return res.status(400).json({ error: "You need a commander to receive the gear" });
+  if (JSON.parse(a.item).kind !== "shard" && !heroOf(uid, now)) return res.status(400).json({ error: "You need a commander to receive the gear" });
   const amount = Math.floor(Number(b.amount));
   const min = auctionMinBid(a);
   if (!(amount >= min)) return res.status(400).json({ error: "The lowest bid is " + min + " " + CASH.name });
@@ -14758,7 +14779,7 @@ const SHOP_OFFERS = 3; // commanders on offer at a time
 const SHARDS_PER_COMMANDER = 12;
 const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 5, legendary: 1.6, mythic: 0.55 }; // how often a commander of that rarity shows up
 const SHARD_PRICE = { common: 15, uncommon: 45, rare: 140, epic: 420, legendary: 1400, mythic: 5000 }; // Space-Cash per shard
-const SHARD_BUY_LIMIT = 2; // per offer, per player, per round
+const SHARD_BUY_LIMIT = { common: 3, uncommon: 3, rare: 3, epic: 3, legendary: 2, mythic: 1 }; // per offer, per player, per round: only the top tiers are held back
 // Two inactive commanders can stand beside the active one in the hunt: +% of its attack, by rarity (and rank)
 const HELPER_SLOTS = 2;
 // Helpers add to the active commander's attack in the hunt. The top rank pays extra, so the strongest Mythic
@@ -14805,6 +14826,7 @@ function rosterOf(userId, now) {
     r = { cards: [{ id: 1, key: "recruit", rank: 1 }], active: 1, collectAt: now };
     db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
   }
+  if (!r.shards) r.shards = {};
   return r;
 }
 function commanderIncome(userId, now) {
@@ -14849,7 +14871,7 @@ function shopView(now, roster) {
     round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now,
     stock: shopStock(round).map((k) => {
       const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: SHARD_PRICE[d.rarity], shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.max(0, SHARD_BUY_LIMIT - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: SHARD_PRICE[d.rarity], shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.max(0, SHARD_BUY_LIMIT[d.rarity] - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
     }),
   };
 }
@@ -14909,7 +14931,7 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     const key = String(b.key || "");
     if (!shopStock(round).includes(key)) return res.status(400).json({ error: "That offer is gone, the shop restocked" });
     r.bought = r.bought && r.bought.round === round && r.bought.n ? r.bought : { round, n: {} };
-    if ((r.bought.n[key] || 0) >= SHARD_BUY_LIMIT) return res.status(400).json({ error: "You bought all you can of that this round" });
+    if ((r.bought.n[key] || 0) >= SHARD_BUY_LIMIT[COMMANDERS[key].rarity]) return res.status(400).json({ error: "You bought all you can of that this round" });
     const d = COMMANDERS[key], price = SHARD_PRICE[d.rarity];
     const own = r.cards.find((c) => c.key === key);
     if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
@@ -16776,7 +16798,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely, and you can buy at most 2 shards of each offer. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing. Helper bonuses grow with rank, most of all at rank 5, and Strike only counts your active commander’s own attack. Epic, legendary and Mythic opponents are much tougher now: the strongest Mythic takes a maxed commander with the best two helpers at top rank. Legendary and Mythic commander shards turn up in the shop more often, and creatures earn less 💲 Space-Cash at the top (about 80–90 an hour for a Legendary, 250 for a Mythic) so that shard supply, not money, is what you wait for.","Gear upgrades now cost 💲 Space-Cash instead of resources.","Spare creatures can be sold for 💲 Space-Cash (half an hour of their own income each) from the hunt screen: one of each stays in your collection and slotted ones stay in their slots. Your commander now also earns xp from every attack and raid it leads, by the enemy units killed (2 xp per unit, only while it leads the army). A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash adds to your balance second by second, and time away counts for up to 4 hours. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely, and you can buy at most 3 shards of an offer (2 for legendary, 1 for Mythic). 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing. Helper bonuses grow with rank, most of all at rank 5, and Strike only counts your active commander’s own attack. Epic, legendary and Mythic opponents are much tougher now: the strongest Mythic takes a maxed commander with the best two helpers at top rank. Legendary and Mythic commander shards turn up in the shop more often, and creatures earn less 💲 Space-Cash at the top (about 80–90 an hour for a Legendary, 250 for a Mythic) so that shard supply, not money, is what you wait for.","Gear upgrades now cost 💲 Space-Cash instead of resources.","Spare creatures can be sold for 💲 Space-Cash (half an hour of their own income each) from the hunt screen: one of each stays in your collection and slotted ones stay in their slots. Your commander now also earns xp from every attack and raid it leads, by the enemy units killed (2 xp per unit, only while it leads the army). Commander shards can now go on the 🏛️ auction too (any number of one commander, in the new Sell shards tab), so players can trade them. The shop limit is back to 3 shards per offer for common to epic commanders; legendary offers allow 2 and Mythic ones 1, so only the top tiers got harder. A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash adds to your balance second by second, and time away counts for up to 4 hours. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -29173,7 +29195,7 @@ function renderTop(d) {
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
   if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
-  h += '<button class="btn small ghost" data-auction="1" title="Gear auction · ' + esc(String(d.cash || 0)) + ' Space-Cash">' + "🏛️" + '</button>';
+  h += '<button class="btn small ghost" data-auction="1" title="Auction · ' + esc(String(d.cash || 0)) + ' Space-Cash">' + "🏛️" + '</button>';
   h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + "📖" + '</button><button class="btn small ghost" data-account="1" title="Settings">' + "⚙️" + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + "🚪" + '</button></div></div>';
   var tabs = [["resources", "🌾", "Fields", "fields"], ["buildings", "🏗️", "Colony", "colony"], ["troops", "⚔️", "Army", "army"], ["map", "🗺️", "Map", "map"], ["ranking", "🏆", "Players", "players"], ["reports", "📬", "Inbox", "inbox"]];
   h += '<div class="nav">';
@@ -37108,7 +37130,7 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
-    if (W.auction) cards.push(wkCard("auction", "🏛️", "Gear auction", wkP("Sell commander gear to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
+    if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear and commander shards to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
       left: 1,
@@ -37131,7 +37153,7 @@ function wikiMore(W, tab, cards) {
     var Ro = He.roster;
     if (Ro) cards.push(wkCard("roster", "🐾", "Commander roster and hunt", wkList([
       "🎫 Your active commander earns a few <b>Star Credits</b> an hour. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
-      "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and you can buy at most " + Ro.buyLimit + " of each offer. " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
+      "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and you can buy at most " + Ro.buyLimit.common + " of an offer (" + Ro.buyLimit.legendary + " for legendary, " + Ro.buyLimit.mythic + " for Mythic). " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself, and Strike adds a little extra (only its own attack counts, no helpers). Reduce its HP to 0 before the next one comes and it joins your creature collection. While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every hour, added to your balance second by second (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the gear auction.",
       "💰 <b>Spare creatures</b> (one of each stays, slotted ones stay) sell for " + Math.round(Ro.sell * 60) + " minutes of their own hourly income.",
@@ -37890,36 +37912,46 @@ function openAuction(tab) {
 function aucPost(path, body, msg) {
   post(path, body, function () { if (msg) toast(msg, true); openAuction(); });
 }
+function aucName(it) {
+  return it.kind === "shard" ? it.icon + ' <span class="cmd-rar r-' + it.rarity + '">' + esc(it.name) + "</span>" : it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span>";
+}
 function aucRow(a, A) {
-  var it = a.item;
-  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + "</div>";
+  var it = a.item, shard = it.kind === "shard";
+  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + "</div>";
   h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>" + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids yet") + "</small><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + esc(a.seller) + "</small>";
   if (a.mine) h += a.bids ? '<small class="ok">Your item, bids are in</small>' : '<button class="btn small ghost" data-auc-cancel="' + a.id + '">Take it back</button>';
   else {
     if (a.leading) h += '<small class="ok">You lead</small>';
-    h += '<div class="auc-bid"><input type="number" min="' + a.minBid + '" value="' + a.minBid + '" id="auc-b-' + a.id + '" aria-label="Your bid"><button class="btn small" data-auc-bid="' + a.id + '"' + (A.hasHero ? "" : ' disabled title="You need a commander to receive the gear"') + ">Bid</button></div>";
+    h += '<div class="auc-bid"><input type="number" min="' + a.minBid + '" value="' + a.minBid + '" id="auc-b-' + a.id + '" aria-label="Your bid"><button class="btn small" data-auc-bid="' + a.id + '"' + (A.hasHero || shard ? "" : ' disabled title="You need a commander to receive the gear"') + ">Bid</button></div>";
   }
   return h + "</div></div>";
 }
 function aucMine(a, A) {
-  var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + '</span></b></div><div class="auc-side">';
+  var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + aucName(it) + '</b></div><div class="auc-side">';
   if (a.status === "active") h += "<small>" + (a.mine ? "Your auction" : "You lead") + " · " + A.currency.icon + " " + shortNum(a.price) + " · ⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + "</small>";
   else if (a.outcome === "sold") h += "<small>" + (a.mine ? "Sold for " + A.currency.icon + " " + shortNum(a.sold) + " (fee " + shortNum(a.fee) + ")" : "You won it for " + A.currency.icon + " " + shortNum(a.sold)) + "</small>";
   else h += "<small>" + (a.outcome === "cancelled" ? "Taken back" : "Nobody bid") + "</small>";
-  if (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))) h += '<button class="btn small" data-auc-claim="' + a.id + '">Collect ' + (A.bagFull ? "(bag full)" : "") + "</button>";
+  if (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))) h += '<button class="btn small" data-auc-claim="' + a.id + '">Collect ' + (A.bagFull && a.item.kind !== "shard" ? "(bag full)" : "") + "</button>";
   return h + "</div></div>";
 }
 function auctionSheet() {
   var A = auc.data, h = "";
-  h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Gear auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
+  h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
   var open = A.mine.filter(function (a) { return a.status === "active" || (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))); }).length;
-  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["mine", "My auctions" + (open ? " · " + open : "")]];
+  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["shards", "Sell shards"], ["mine", "My auctions" + (open ? " · " + open : "")]];
   h += '<div class="auc-tabs">' + tabs.map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (!A.hasHero) h += '<p class="hint left">🎖️ Browsing is open to everyone. To bid on or sell gear you need a commander to carry it.</p>';
   if (auc.tab === "browse") {
     if (!A.active.length) h += '<p class="empty">No auctions right now. Be the first: sell a piece of gear from your commander’s bag.</p>';
     A.active.forEach(function (a) { h += aucRow(a, A); });
     h += '<p class="hint left">Bids are paid up front and returned if somebody outbids you. A bid in the last ' + hrTxt(A.rules.snipeMs / 3600000) + " adds " + hrTxt(A.rules.snipeMs / 3600000) + ". Each bid is at least " + A.rules.step + "% higher.</p>";
+  } else if (auc.tab === "shards") {
+    if (!A.shards.length) h += '<p class="empty">You have no commander shards to sell. Shards come from the commander shop.</p><p class="hint left"><button class="btn small ghost" data-cmd-open="1">🎫 Open commanders</button></p>';
+    A.shards.forEach(function (sh) {
+      h += '<div class="auc-row"><div class="auc-item"><b>' + sh.icon + ' <span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b><small>" + sh.count + " shards</small></div>" +
+        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + sh.count + '" value="' + sh.count + '" id="auc-n-' + sh.key + '" aria-label="How many shards"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100" id="auc-p-' + sh.key + '" aria-label="Start price"><select id="auc-h-' + sh.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-lot="' + sh.key + '">Sell</button></div></div></div>';
+    });
+    h += '<p class="hint left">Pick how many shards go into the lot (the number field first), the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. Shards nobody bids on come back to you.</p>";
   } else if (auc.tab === "sell") {
     if (!A.hasHero) h += '<p class="empty">Gear comes from your commander’s bag. Get a commander first.</p>';
     else if (!A.items.length) h += '<p class="empty">Your bag has no gear to sell yet. Gear drops when your commander leads attacks on monster camps; equipped gear can’t be sold, take it off first.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
@@ -38730,7 +38762,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -39192,10 +39224,13 @@ document.addEventListener("click", function (e) {
   } else if (has("data-auc-list")) {
     var alid = attr("data-auc-list"), apr = document.getElementById("auc-p-" + alid), ahr = document.getElementById("auc-h-" + alid);
     aucPost("/api/auction/list", { id: alid, price: apr ? apr.value : 0, hours: ahr ? ahr.value : 24 }, "🏛️ Auction started");
+  } else if (has("data-auc-lot")) {
+    var slk = attr("data-auc-lot"), sln = document.getElementById("auc-n-" + slk), slp = document.getElementById("auc-p-" + slk), slh = document.getElementById("auc-h-" + slk);
+    aucPost("/api/auction/list", { shard: slk, count: sln ? sln.value : 0, price: slp ? slp.value : 0, hours: slh ? slh.value : 24 }, "🏛️ Auction started");
   } else if (has("data-auc-cancel")) {
-    aucPost("/api/auction/cancel", { id: attr("data-auc-cancel") }, "Gear is back in your bag");
+    aucPost("/api/auction/cancel", { id: attr("data-auc-cancel") }, "Taken back");
   } else if (has("data-auc-claim")) {
-    aucPost("/api/auction/claim", { id: attr("data-auc-claim") }, "🎒 Gear is in your bag");
+    aucPost("/api/auction/claim", { id: attr("data-auc-claim") }, "🎒 Collected");
   } else if (has("data-main-info")) {
     openSheet("main", null);
   } else if (has("data-make-main")) {
