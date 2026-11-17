@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.402";
+const GAME_VERSION = "1.0.403";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -11016,7 +11016,7 @@ function addCash(userId, n) {
   if (userId && n) db.prepare("UPDATE users SET cash = MAX(0, cash + ?) WHERE id = ?").run(Math.round(n), userId);
 }
 const AUCTION_FEE = 0.05; // of the final price
-function auctionFee(uid) { return Math.max(0.01, AUCTION_FEE - perk(rosterOf(uid, Date.now()), "fee") / 100); } // some commanders cut it
+function auctionFee(uid) { return Math.max(0.01, AUCTION_FEE - cmdPerk(rosterOf(uid, Date.now()), "fee") / 100); } // some commanders cut it
 const AUCTION_HOURS = [12, 24, 48]; // real hours on Classic; other game speeds scale them (auctionHours)
 function auctionHours() { return AUCTION_HOURS.map((h) => scaleHours(h, 0.1)); }
 function auctionSnipeMs() { return Math.max(60000, Math.round(AUCTION_SNIPE_MS * dayScale())); }
@@ -14821,7 +14821,7 @@ const SHOP_OFFERS = 3; // commanders on offer at a time
 // The shop sells commander shards for Space-Cash; 12 shards of one commander fuse into it (or raise its rank).
 const SHARDS_PER_COMMANDER = 12;
 const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 5, legendary: 1.6, mythic: 0.55 }; // how often a commander of that rarity shows up
-function shardPrice(d, r) { return Math.round(SHARD_PRICE[d.rarity] * (1 - Math.min(0.5, perk(r, "shop") / 100))); }
+function shardPrice(d, r) { return Math.round(SHARD_PRICE[d.rarity] * (1 - Math.min(0.5, cmdPerk(r, "shop") / 100))); }
 const SHARD_PRICE = { common: 18000, uncommon: 54000, rare: 168000, epic: 504000, legendary: 1680000, mythic: 6000000 }; // Space-Cash per shard
 // how many shards an offer holds, rolled per offer and round (the same for everyone; every player can buy that many): the rarer, the fewer
 const SHARD_AMOUNT = { common: [1, 3], uncommon: [1, 2], rare: [1, 2], epic: [1, 1], legendary: [1, 1], mythic: [1, 1] };
@@ -14869,7 +14869,7 @@ function commanderTraitText(def, rank) {
   return Object.keys(t).map((k) => TRAIT_TEXT[k](Math.round(t[k] * commanderScale(rank) * 10) / 10)).join(", ");
 }
 // the effect of the active commander from the roster (shop, auction, hunt)
-function perk(r, kind) {
+function cmdPerk(r, kind) {
   const card = r && r.cards && (r.cards.find((c) => c.id === r.active) || r.cards[0]);
   const d = card && COMMANDERS[card.key];
   return d && d.trait && d.trait[kind] ? Math.round(d.trait[kind] * commanderScale(card.rank) * 10) / 10 : 0;
@@ -15109,7 +15109,7 @@ function huntRng(userId, slot, salt) {
   let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
-function huntTapDmg(S) { return Math.max(1, Math.round(S.base * HUNT_TAP * (1 + Math.min(100, perk(S.r, "tap") + (S.h ? heroGearStats(S.h).tap : 0)) / 100))); }
+function huntTapDmg(S) { return Math.max(1, Math.round(S.base * HUNT_TAP * (1 + Math.min(100, cmdPerk(S.r, "tap") + (S.h ? heroGearStats(S.h).tap : 0)) / 100))); }
 function huntOpponent(userId, slot) {
   const keys = Object.keys(CREATURES);
   const total = CREATURE_WEIGHT_TOTAL;
@@ -15149,7 +15149,7 @@ function huntSync(userId, now, hero) {
   for (let slot = Math.max(hu.lastSlot + 1, cur - HUNT_BACK_SLOTS); slot < cur; slot++) {
     if (hu.wonSlot === slot) continue;
     const online = slot === hu.seenSlot;
-    if (!online && huntRng(userId, slot, 1) >= Math.min(0.9, HUNT_OFFLINE_SPAWN + perk(r, "spawn") / 100)) continue;
+    if (!online && huntRng(userId, slot, 1) >= Math.min(0.9, HUNT_OFFLINE_SPAWN + cmdPerk(r, "spawn") / 100)) continue;
     const key = huntOpponent(userId, slot);
     if (atk * HUNT_AUTO + (online ? hu.tapDmg : 0) >= creatureHp(key)) award(key, slot);
   }
@@ -15167,7 +15167,7 @@ function huntSync(userId, now, hero) {
 // Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
 // it is looked at). Time away counts for at most HUNT_CASH_HOURS. The part of a unit that has not
 // become a whole one yet is kept in hunt.cashFrac.
-function huntCashRate(hu, r) { return Math.round((hu.slots || []).slice(0, HUNT_SLOTS).reduce((n, k) => n + (CREATURES[k] ? CREATURES[k].cash : 0), 0) * (1 + perk(r, "cash") / 100) * 10) / 10; }
+function huntCashRate(hu, r) { return Math.round((hu.slots || []).slice(0, HUNT_SLOTS).reduce((n, k) => n + (CREATURES[k] ? CREATURES[k].cash : 0), 0) * (1 + cmdPerk(r, "cash") / 100) * 10) / 10; }
 function cashSettle(userId, now, force) {
   const row = db.prepare("SELECT roster FROM users WHERE id = ?").get(userId);
   if (!row || !row.roster) return;
@@ -16955,6 +16955,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.403",date:"2026-11-17",title:"Build costs and times fixed",groups:[["🔧 Fixes",["Upgrading and constructing buildings and fields cost nothing and finished at once since 1.0.401. The tribe bonuses were being overwritten by the commander effects, so costs, build, training, research and upgrade times, storage, wall, bunker and carry bonuses all read zero. Everything is back to normal."]]]},
   {v:"1.0.402",date:"2026-11-17",title:"Shard amounts, new icons, tidier commander bar",groups:[["🛒 Shard shop",["Every offer now holds a different number of shards, rolled for each restock: 1 to 3 for a common commander, 1 to 2 for uncommon and rare, and always 1 for epic, legendary and Mythic. Since 12 shards fuse a commander and a missed offer is gone at the next restock, a common commander takes a good while to complete and the rarer ones take many days of looking in. The same amount is on offer for every player, and the button shows how many are left."]],["🎨 Icons",["27 more things have their own drawn icon: 16 creatures (Dust Beetle, Pond Frog, Gutter Rat, Rock Crab, Spore Moth, Thorn Snake, Mire Lurker, Glacier Wolf, Venom Spider, Tusk Brute, Shade Panther, Iron Rhino, Frost Mammoth, Thunder Lion, Ash Wyrm, Void Leviathan), 9 commanders (couch, burger, sunflower, horse, penguin, peacock, cow, circus tent, black cat), the Strike burst and the shop cart."]],["🎖️ Commander bar",["The Star Credit bar above the commander tabs no longer wraps awkwardly: the balance, income per day and Collect sit in one row, and the commander and Hunt buttons share the row below, with long commander names cut short."]]]},
   {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects. Commanders can only be swapped while your commander is at home, and the active commander now shows in your profile.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank, and they are strong enough to be worth the shards: the effects are sized so that a higher rarity is clearly better without making gear and skills pointless. Strike bonuses are measured against the damage they add: Strike is about a quarter of a hunt\'s damage, so +24% Strike is about +6% damage. In the hunt the attack bonuses of gear, skills and commanders now add up to 45% instead of 30%, so commanders keep paying off when your gear is already good (fights between players still stop at 30%). Gear can now roll a Strike damage bonus.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders.","Star Credits are now a slow, precious income: about 4 a day for common commanders up to about 60 a day for Mythic ones, growing by 25% per rank. Fighters earn a little less than average and money-minded commanders more. Credits show per day, and they can pile up for 6 hours while you are away."]],["🎫 Star Credits",["New use: finish a building job at once. Open ⚡ next to a job in the build queue (or the crew's job) and tap 🎫 Finish now. The price grows faster than the time left: 30 minutes cost 1, an hour 3, 3 hours 14, 12 hours 101, a day 275 and two days 749. Star Credits are meant to be a luxury: they come slowly, so spend them on the jobs that matter. Long jobs are not skipped cheaply, but waiting until little is left is cheap. It works on top of the free help and the free last minutes, and it does not count against their limit."]],["✨ Tribe powers",["Lockdown (humans) now lasts 30 minutes instead of 6 hours.","Home powers can be used once per account, in the colony you choose, and then recharge for 24 hours from the moment of use (instead of once a day in every colony)."]]]},
   {v:"1.0.400",date:"2026-11-17",title:"Window and wiki colours",groups:[["📖 Wiki",["The commander window header uses the same lavender as the hunt, wallet and shop windows instead of a leftover green.","Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
