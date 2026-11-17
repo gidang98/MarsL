@@ -14808,7 +14808,7 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key = 'cash_x1200'").get()) {
     db.exec("COMMIT");
   } catch (e) { db.exec("ROLLBACK"); console.error("cash migration:", e.message); }
 }
-const COMMANDER_IDLE_HOURS = 24; // production that can pile up before collecting
+const COMMANDER_IDLE_HOURS = 6; // production that can pile up before collecting
 const SHOP_RESTOCK_MS = 5 * 60000; // every game speed
 const SHOP_POOL = []; // commanders for sale: { key, price, weight }, to be decided
 const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
@@ -14909,7 +14909,7 @@ function commanderIncome(userId, now) {
   const capMs = COMMANDER_IDLE_HOURS * 3600000;
   const elapsed = Math.max(0, Math.min(capMs, now - (r.collectAt || now)));
   const pending = Math.floor((elapsed / 3600000) * def.rate + 1e-9);
-  return { roster: r, def, rate: def.rate, capMs, elapsed, pending, cap: Math.floor(COMMANDER_IDLE_HOURS * def.rate) };
+  return { roster: r, def, rate: def.rate, capMs, elapsed, pending, cap: Math.max(1, Math.floor(COMMANDER_IDLE_HOURS * def.rate)) };
 }
 function commanderCollect(userId, now) {
   const inc = commanderIncome(userId, now);
@@ -16307,6 +16307,14 @@ function askDone(colonyId) {
   if (colonyId) db.prepare("DELETE FROM build_asks WHERE colony_id = ?").run(colonyId);
 }
 
+// 🎫 finishing a job at once with Star Credits: the price grows faster than the time
+// left (30 minutes 1, 1 hour 3, 3 hours 11, 12 hours 63, a day 154), so a long job
+// is never skipped cheaply: wait until little is left, or pay a lot
+const CREDIT_FINISH_UNIT = 30 * 60000;
+const CREDIT_FINISH_EXP = 1.3;
+function creditFinishCost(leftMs) {
+  return Math.max(1, Math.ceil(Math.pow(Math.max(0, leftMs) / CREDIT_FINISH_UNIT, CREDIT_FINISH_EXP) - 1e-9));
+}
 // What the client needs for one job
 function jobBoostView(s, q, now) {
   const base = jobBase(q);
@@ -16325,6 +16333,7 @@ function jobBoostView(s, q, now) {
     helpers: (q.helpers || []).length,
     asked: s.askJob === q.id,
     freeNow: !!q.finishAt && left <= freeFinishMs(),
+    creditCost: q.finishAt && left > 0 ? creditFinishCost(left) : 0,
   };
 }
 function boostView(s, userId, colonyId, now) {
@@ -16348,6 +16357,7 @@ function boostView(s, userId, colonyId, now) {
     pct: { overtime: Math.round(OVERTIME_CUT * 100), hands: Math.round(HANDS_CUT * 100), ally: Math.round(ALLY_HELP_CUT * 100), allyMax: Math.round(ALLY_HELP_MAX * 100), free: Math.round(BOOST_FREE_MAX * 100) },
     overtimeMaxMs: Math.round((OVERTIME_MAX_MIN * 60000) / BUILD_SPEED),
     freeFinishMs: freeFinishMs(),
+    credits: creditsOf(userId),
   };
 }
 
@@ -16595,6 +16605,14 @@ app.post("/api/boost", requireLogin, (req, res) => {
       const left = jobLeft(job, now);
       if (left > freeFinishMs()) return "Free in the last " + fmtMs(freeFinishMs());
       cutJob(job, left, now);
+    } else if (how === "credits") {
+      if (!job.finishAt) return "Only a job that is being built can be finished with Star Credits";
+      const left = jobLeft(job, now);
+      if (left <= 0) return "This job is already done";
+      const cost = creditFinishCost(left);
+      if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
+      addCredits(req.user.id, -cost);
+      cutJob(job, left, now);
     } else if (how === "unask") {
       s.askJob = null;
       askDone(colony.id);
@@ -16713,6 +16731,7 @@ function wikiExtra() {
       atkBase: Math.round(HERO_ATK_BASE * speedScale()), atkLvl: Math.round(HERO_ATK_LVL * speedScale()), defBase: Math.round(HERO_DEF_BASE * speedScale()), defLvl: Math.round(HERO_DEF_LVL * speedScale()), soloSpeed: HERO_SOLO_SPEED, scale: speedScale(),
     },
     freeFinishMs: freeFinishMs(),
+    creditFinish: [0.5, 1, 3, 6, 12, 24, 48].map((h) => [h, creditFinishCost(h * 3600000)]),
     vac: wikiVacation(),
     adv: wikiAdventures(),
     conquest: wikiConquest(),
@@ -16932,7 +16951,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects. Commanders can only be swapped while your commander is at home, and the active commander now shows in your profile.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank, and they are strong enough to be worth the shards: the effects are sized so that a higher rarity is clearly better without making gear and skills pointless. Strike bonuses are measured against the damage they add: Strike is about a quarter of a hunt\'s damage, so +24% Strike is about +6% damage. In the hunt the attack bonuses of gear, skills and commanders now add up to 45% instead of 30%, so commanders keep paying off when your gear is already good (fights between players still stop at 30%). Gear can now roll a Strike damage bonus.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders.","Star Credits are now a slow, precious income: about 6 a day for common commanders up to about 60 a day for Mythic ones, growing by 25% per rank. Fighters earn a little less than average and money-minded commanders more. Credits show per day."]],["✨ Tribe powers",["Lockdown (humans) now lasts 30 minutes instead of 6 hours.","Home powers can be used once per account, in the colony you choose, and then recharge for 24 hours from the moment of use (instead of once a day in every colony)."]]]},
+  {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects. Commanders can only be swapped while your commander is at home, and the active commander now shows in your profile.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank, and they are strong enough to be worth the shards: the effects are sized so that a higher rarity is clearly better without making gear and skills pointless. Strike bonuses are measured against the damage they add: Strike is about a quarter of a hunt\'s damage, so +24% Strike is about +6% damage. In the hunt the attack bonuses of gear, skills and commanders now add up to 45% instead of 30%, so commanders keep paying off when your gear is already good (fights between players still stop at 30%). Gear can now roll a Strike damage bonus.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders.","Star Credits are now a slow, precious income: about 6 a day for common commanders up to about 60 a day for Mythic ones, growing by 25% per rank. Fighters earn a little less than average and money-minded commanders more. Credits show per day, and they can pile up for 6 hours while you are away."]],["🎫 Star Credits",["New use: finish a building job at once. Open ⚡ next to a job in the build queue (or the crew's job) and tap 🎫 Finish now. The price grows faster than the time left: 30 minutes cost 1, an hour 3, 3 hours 11, 12 hours 63, a day 154 and two days 378. Long jobs are not skipped cheaply, but waiting until little is left is cheap. It works on top of the free help and the free last minutes, and it does not count against their limit."]],["✨ Tribe powers",["Lockdown (humans) now lasts 30 minutes instead of 6 hours.","Home powers can be used once per account, in the colony you choose, and then recharge for 24 hours from the moment of use (instead of once a day in every colony)."]]]},
   {v:"1.0.400",date:"2026-11-17",title:"Window and wiki colours",groups:[["📖 Wiki",["The commander window header uses the same lavender as the hunt, wallet and shop windows instead of a leftover green.","Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
   {v:"1.0.399",date:"2026-11-17",title:"Full shard shop list",groups:[["🎖️ Commanders",["The shard shop now lists every commander in one compact list, rarest last. The ones in stock this round are highlighted and can be bought; the others are dimmed with their price and show \"not in stock\"."]]]},
   {v:"1.0.398",date:"2026-11-17",title:"Stronger creatures, creature auctions",groups:[["🐾 Hunt",["Rarer creatures now need a real commander. Auto strikes do 2.5 times the commander's attack over a window (helpers included) and the HP of the higher rarities was brought in line, so an early commander catches commons and the weakest uncommons, while rare, epic, legendary and Mythic creatures call for levels, 💪 Strength points, better gear and strong helpers. Tapping Strike about every 20 seconds adds roughly half as much again, so active play gets further than idling.","Star Credits now arrive on their own while you are online instead of waiting to be collected. Time away still banks up to the usual limit.","The hunt card shows the attack that catches the current opponent by itself, your own attack, and warns in red when it is out of reach. The wiki table lists the attack needed for every creature."]],["🏛️ Auction",["Creatures can be sold on the auction: the new Sell creatures tab takes any number from your inventory (not those in a slot). The winner needs room in the creature inventory and collects it like gear; creatures nobody bids on come back to you."]]]},
@@ -29671,6 +29690,7 @@ function boostSheet(d) {
   else at = "−" + B.pct.ally + "% per ally, up to " + B.pct.allyMax + "%" + (B.askJob ? " · moves your request here" : "");
   h += boostRow("🤝", "Ask your alliance", at, q.asked ? boostBtn("unask", "Stop", true) : boostBtn("ask", "Ask", B.ally && room && q.allyMs < q.allyMaxMs));
   if (q.freeNow) { h += boostRow("⚡", "Finish for free", "Its last " + fmt(B.freeFinishMs) + " are free", boostBtn("free", "Finish", true)); }
+  else if (q.active && q.creditCost) { h += boostRow("🎫", "Finish now", "Costs " + q.creditCost + " Star Credits (you have " + B.credits + "). The less time is left, the cheaper it gets.", boostBtn("credits", "🎫 " + q.creditCost, B.credits >= q.creditCost)); }
   return h;
 }
 
@@ -37323,6 +37343,7 @@ function wikiMore(W, tab, cards) {
         ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (5 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
+        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price grows faster than the time left: " + X.creditFinish.map(function (c) { return (c[0] < 1 ? "30 min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Waiting until little is left is far cheaper. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
     }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job.")));
@@ -37373,7 +37394,7 @@ function wikiMore(W, tab, cards) {
     ])));
     var Ro = He.roster;
     if (Ro) cards.push(wkCard("roster", "🐾", "Commander roster and hunt", wkList([
-      "🎫 Your active commander earns <b>Star Credits</b> slowly, a few to a few dozen a day (more for rarer commanders, and +25% for every rank). Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
+      "🎫 Your active commander earns <b>Star Credits</b> slowly, a few to a few dozen a day (more for rarer commanders, and +25% for every rank). Credits pile up for at most 6 hours while you are away, so look in now and then. They finish a build job at once, see Build speed-ups. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
       "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and you can buy at most " + Ro.buyLimit.common + " of an offer (" + Ro.buyLimit.legendary + " for legendary, " + Ro.buyLimit.mythic + " for Mythic). " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself for " + Ro.auto + " times its attack over the window (helpers add to that), and Strike adds a little extra (only its own attack counts, no helpers). So rarer creatures need a stronger commander: level up, spend skill points on 💪 Strength, wear better gear and put strong commanders in the helper slots. The table shows the attack that catches each one without striking; striking about every 20 seconds adds roughly half as much again. Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the auction.",
@@ -39513,10 +39534,10 @@ document.addEventListener("click", function (e) {
     renderSheet();
   } else if (has("data-boost-do")) {
     var bhow = attr("data-boost-do");
-    var BOOST_OK = { overtime: "🕐 Overtime!", hands: "🏘️ Your colonies lent a hand", free: "⚡ Done!", ask: "🤝 Your alliance can help now", unask: "Request taken back" };
+    var BOOST_OK = { overtime: "🕐 Overtime!", hands: "🏘️ Your colonies lent a hand", free: "⚡ Done!", credits: "🎫 Finished!", ask: "🤝 Your alliance can help now", unask: "Request taken back" };
     var bbody = { job: sheet && sheet.slot, how: bhow };
     if (bhow === "hands") bbody.from = handsPick[sheet.slot] || [];
-    post("/api/boost", bbody, function () { if (bhow === "hands") delete handsPick[sheet.slot]; toast(BOOST_OK[bhow] || "⚡ Faster!", true); if (bhow === "free") closeSheet(); });
+    post("/api/boost", bbody, function () { if (bhow === "hands") delete handsPick[sheet.slot]; toast(BOOST_OK[bhow] || "⚡ Faster!", true); if (bhow === "free" || bhow === "credits") closeSheet(); });
   } else if (has("data-build-help")) {
     allyPost("/api/build-help", { colony: parseInt(attr("data-build-help"), 10) }, "🤝 Thanks for helping!");
   } else if (has("data-up-field")) {
