@@ -14712,6 +14712,59 @@ function heroAfterFight(userId, h, o) {
   return note;
 }
 
+// =====================================================================
+//  COMMANDER ROSTER and STAR CREDIT INCOME
+//  A player owns a roster of commanders; one is active (its state is the
+//  hero above). Only the active commander earns Star Credits, a little
+//  every real hour, and they pile up for at most COMMANDER_IDLE_HOURS
+//  until the player collects them. Benched commanders do nothing yet.
+//  The shop restocks on a real-time clock that ignores game speed; what it
+//  sells is still to be decided (SHOP_POOL is empty).
+// =====================================================================
+addColumn("users", "roster", "TEXT NOT NULL DEFAULT ''");
+const COMMANDER_IDLE_HOURS = 4; // production that can pile up before collecting
+const SHOP_RESTOCK_MS = 5 * 60000; // every game speed
+const SHOP_POOL = []; // commanders for sale: { key, price, weight }, to be decided
+const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary"];
+const COMMANDERS = {
+  recruit: { name: "Recruit", rarity: "common", rate: 1 }, // Star Credits per real hour
+};
+function rosterOf(userId, now) {
+  now = now || Date.now();
+  const row = db.prepare("SELECT roster FROM users WHERE id = ?").get(userId);
+  if (!row) return null;
+  let r = null;
+  try { r = row.roster ? JSON.parse(row.roster) : null; } catch (e) {}
+  if (!r || !Array.isArray(r.cards) || !r.cards.length) {
+    r = { cards: [{ id: 1, key: "recruit", rank: 1 }], active: 1, collectAt: now };
+    db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
+  }
+  return r;
+}
+function commanderIncome(userId, now) {
+  const r = rosterOf(userId, now);
+  if (!r) return null;
+  const card = r.cards.find((c) => c.id === r.active) || r.cards[0];
+  const def = COMMANDERS[card.key] || COMMANDERS.recruit;
+  const capMs = COMMANDER_IDLE_HOURS * 3600000;
+  const elapsed = Math.max(0, Math.min(capMs, now - (r.collectAt || now)));
+  const pending = Math.floor((elapsed / 3600000) * def.rate + 1e-9);
+  return { roster: r, def, rate: def.rate, capMs, elapsed, pending, cap: COMMANDER_IDLE_HOURS * def.rate };
+}
+function commanderCollect(userId, now) {
+  const inc = commanderIncome(userId, now);
+  if (!inc || inc.pending < 1) return 0;
+  const r = inc.roster;
+  // keep the part of an hour that did not make a whole credit
+  r.collectAt = inc.elapsed >= inc.capMs ? now : (r.collectAt || now) + Math.round((inc.pending / inc.rate) * 3600000);
+  db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
+  addCredits(userId, inc.pending);
+  return inc.pending;
+}
+function shopView(now) {
+  const round = Math.floor(now / SHOP_RESTOCK_MS);
+  return { round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now, stock: [] }; // what it sells is still to be decided (SHOP_POOL)
+}
 function heroView(userId, colonyId, now) {
   const h = heroOf(userId, now);
   if (!h) return null;
@@ -14730,7 +14783,9 @@ function heroView(userId, colonyId, now) {
   }
   const bonus = heroBonus(h);
   const crate = heroCrate(h);
+  const inc = commanderIncome(userId, now);
   return {
+    commander: inc ? { name: inc.def.name, rarity: inc.def.rarity, rate: inc.rate, pending: inc.pending, cap: inc.cap, capMs: inc.capMs, full: inc.elapsed >= inc.capMs, shop: shopView(now) } : null,
     name: h.name,
     level: h.level,
     maxLevel: HERO_MAX_LEVEL,
@@ -14856,6 +14911,8 @@ app.post("/api/hero", requireLogin, (req, res) => {
       h.quirk = others[Math.floor(Math.random() * others.length)];
       h.quirkRound = roundNumber();
       req.extra = { quirk: HERO_QUIRKS[h.quirk].name };
+    } else if (b.action === "collect") {
+      if (!commanderCollect(req.user.id, now)) return "No Star Credits to collect yet";
     } else if (b.action === "quirk-seen") {
       h.quirkNew = 0;
     } else if (b.action === "event") {
@@ -23196,6 +23253,8 @@ const PAGE = `<!DOCTYPE html>
   .mvtot { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 14px; font-size: 14px; }
   .mvtot-c small { opacity: .7; }
   @media (max-width: 379px) { .fl-pts { display: none; } }
+  .hcred { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: var(--card2, rgba(0,0,0,.06)); }
+  .hcred b { font-size: 15px; } .hcred small { opacity: .7; } .hcred .btn { margin-left: auto; }
   .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
   .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
   .mvsrc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 0; }
@@ -30414,7 +30473,7 @@ function farmSheet(d) {
       var busy = farmBusy(l, e);
       var isSel = farmSelection[l.id + ":" + e.id];
       h += '<div class="fl-row' + (e.on ? "" : " off") + (isSel ? " on-row" : "") + '"><button class="fl-on' + (isSel ? " ticked" : "") + '" data-farm-toggle="' + l.id + ":" + e.id + '" title="Select target">' + (isSel ? "☑️" : "⬜") + "</button>";
-      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>' + (farmInfo(e) ? "👤 " + esc(farmInfo(e).owner) + ' · <span class="fl-pts" title="Colony points">⭐ ' + farmInfo(e).points.toLocaleString() + " · </span>" : "") + "(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · 🐪 " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /"⚠️"/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
+      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>" + (farmInfo(e) ? "👤 " + esc(farmInfo(e).owner) + ' · <span class="fl-pts" title="Colony points">⭐ ' + farmInfo(e).points.toLocaleString() + " · </span>" : "") + "(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · 🐪 " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /"⚠️"/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
       if (manual && listed.length > 1) {
         h += '<span class="fl-move"><button data-farm-move="' + l.id + ":" + e.id + ':-1"' + (idx === 0 ? " disabled" : "") + ' title="Move up">▲</button><button data-farm-move="' + l.id + ":" + e.id + ':1"' + (idx === listed.length - 1 ? " disabled" : "") + ' title="Move down">▼</button></span>';
       }
@@ -33770,6 +33829,10 @@ function heroSheet(d) {
   h += '<div class="hvit"><div class="hvit-row" title="Health"><span>❤️</span>' + heroBar("hp" + (H.hp >= H.hpMax * 0.5 ? " ok" : ""), H.hp, H.hpMax) + "<b>" + H.hp + " / " + H.hpMax + "</b>" + "<small>+" + H.regen + " per " + dayLenText() + "" + (H.hpFullIn ? " · full in " + shortTime(H.hpFullIn) : "") + "</small></div>";
   h += '<div class="hvit-row" title="Experience"><span>⭐</span>' + heroBar("xp", H.need ? H.xp : 1, H.need || 1) + "<b>" + (H.need ? H.xp + " / " + H.need + " xp" : "max") + "</b></div></div>";
   h += '<div class="hpts"><div title="Its own attack, plus a bonus for the army it leads"><b>⚔️ ' + H.points.atk + "</b><small>attack" + (H.bonus.atk ? " +" + H.bonus.atk + "%" : "") + "</small></div>" + '<div title="Its own defense at home"><b>🛡️ ' + H.points.def + "</b><small>defense" + (H.bonus.def ? " +" + H.bonus.def + "%" : "") + '</small></div><div title="Carry of the army it leads"><b>' + '🎒' + ' +' + H.bonus.carry + '%</b><small>carry</small></div><div title="Own production where it is stationed"><b>⛏️ ' + H.bonus.prod + "</b><small>/h +" + (H.bonus.prodPct || 0) + "%</small></div></div>";
+  if (H.commander) {
+    var C = H.commander;
+    h += '<div class="hcred" title="Your active commander earns Star Credits while you are away, up to ' + shortTime(C.capMs) + ' of production"><span>🎫</span><b>' + C.pending + " / " + C.cap + "</b><small>+" + C.rate + "/h" + (C.full ? " · full" : "") + '</small><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + ">Collect</button></div>";
+  }
   var used = H.bag.length;
   h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
   if (heroTab === "adv") {
@@ -38195,7 +38258,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -38340,6 +38403,8 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-arch")) {
     var ak = attr("data-hero-arch");
     if (confirm("Choose this archetype? Changing it later means resetting all skill points.")) post("/api/hero", { action: "arch", key: ak }, function (r) { confetti(); toast("🎭 " + (r && r.archPicked || "Archetype") + " it is!", true); });
+  } else if (has("data-hero-collect")) {
+    post("/api/hero", { action: "collect" }, function () { toast("🎫 Star Credits collected"); });
   } else if (has("data-hero-stance")) {
     post("/api/hero", { action: "stance", key: attr("data-hero-stance") }, function () { toast("🛡️ Stance set"); });
   } else if (has("data-hero-quirk")) {
