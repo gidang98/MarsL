@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.394";
+const GAME_VERSION = "1.0.395";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6087,9 +6087,10 @@ function snapshot(user, colony) {
     upkeep: realPerHour(eat),
     // where the food goes: own troops at home, foreign guests here, own troops stationed in other colonies
     upkeepSplit: {
-      home: realPerHour(Object.keys(tribe.units).reduce((n, k) => n + (s.troops[k] || 0) * tribe.units[k].upkeep, 0)),
-      guests: realPerHour(reinforcingInUpkeep(colony.id)),
-      abroad: realPerHour(reinforcingOutUpkeep(colony.id, tribe)),
+      // upkeep() is already food per real hour (upkeepGame divides it by the speed), so no speed factor here
+      home: Math.round(Object.keys(tribe.units).reduce((n, k) => n + (s.troops[k] || 0) * tribe.units[k].upkeep, 0)),
+      guests: Math.round(reinforcingInUpkeep(colony.id)),
+      abroad: Math.round(reinforcingOutUpkeep(colony.id, tribe)),
     },
     capacity: capacities(s),
     typicalRaid: typicalRaidAttack(),
@@ -16366,6 +16367,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
