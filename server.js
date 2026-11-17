@@ -6187,7 +6187,7 @@ function snapshot(user, colony) {
     zone: zoneInfo(user.id, now),
     relic: s.relic && landmarkByKey(s.relic) ? { icon: landmarkByKey(s.relic).icon, name: landmarkByKey(s.relic).name, bonus: relicText(landmarkByKey(s.relic)), ready: s.relicReady || 0, x: landmarkByKey(s.relic).x, y: landmarkByKey(s.relic).y, building: relicHomeOf(landmarkByKey(s.relic)), scope: relicTierDef().scope, scopeText: relicTierDef().scopeText, tier: relicTierDef().n } : null,
     credits: creditsOf(user.id),
-    cash: cashOf(user.id),
+    cash: cashOf(user.id), cashRate: cashInfo(user.id, now).cashRate, cashFrac: cashInfo(user.id, now).cashFrac,
     relicShared: (function () { const t = relicTierDef(); if (t.scope === "colony") return []; return relicHoldings(user.id).filter((h) => h.key !== s.relic).map((h) => { const l = landmarkByKey(h.key); return l ? { icon: l.icon, name: l.name, bonus: relicText(l), ready: h.ready } : null; }).filter(Boolean); })(),
     alliance: (function () {
       const a = allianceOf(user.id);
@@ -11006,6 +11006,7 @@ const CREDIT = { icon: "🎫", name: "Star Credits" };
 addColumn("users", "cash", "INTEGER NOT NULL DEFAULT 0");
 const CASH = { icon: "💲", name: "Space-Cash" };
 function cashOf(userId) {
+  cashSettle(userId, Date.now());
   const r = db.prepare("SELECT cash FROM users WHERE id = ?").get(userId);
   return r ? r.cash : 0;
 }
@@ -14141,7 +14142,7 @@ addColumn("users", "legacy", "TEXT NOT NULL DEFAULT ''"); // 🎖️ medals and 
 addColumn("movements", "hero", "INTEGER NOT NULL DEFAULT 0");
 
 const HERO_MAX_LEVEL = 100;
-const GEAR_UPGRADE_CASH = 60; // Space-Cash for a gear upgrade: this x tier x next rank (cheaper with a duplicate)
+const GEAR_UPGRADE_CASH = 80; // Space-Cash for a gear upgrade: this x tier x next rank (cheaper with a duplicate)
 const HERO_XP_DIV = 15; // 1 xp for every 15 points of enemy strength destroyed
 const HERO_SPEED = 8; // tiles per hour when it moves to another colony
 const HERO_BAG = 24; // inventory slots
@@ -14753,7 +14754,7 @@ const SHOP_OFFERS = 3; // commanders on offer at a time
 // The shop sells commander shards for Space-Cash; 12 shards of one commander fuse into it (or raise its rank).
 const SHARDS_PER_COMMANDER = 12;
 const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 4, legendary: 0.3, mythic: 0.05 }; // how often a commander of that rarity shows up
-const SHARD_PRICE = { common: 20, uncommon: 60, rare: 180, epic: 500, legendary: 1500, mythic: 5000 }; // Space-Cash per shard
+const SHARD_PRICE = { common: 15, uncommon: 45, rare: 140, epic: 420, legendary: 1400, mythic: 5000 }; // Space-Cash per shard
 const SHARD_BUY_LIMIT = 3; // per offer, per player, per round
 // Two inactive commanders can stand beside the active one in the hunt: +% of its attack, by rarity (and rank)
 const HELPER_SLOTS = 2;
@@ -14939,27 +14940,27 @@ app.post("/api/commanders", requireLogin, (req, res) => {
 const HUNT_MS = 5 * 60000;
 const HUNT_BACK_SLOTS = 48; // 4 hours of windows, like the Star Credit income
 const HUNT_SLOTS = 6; // creatures that can earn Space-Cash at once
-const HUNT_CASH_HOURS = 4; // Space-Cash piles up for this long before it is collected
+const HUNT_CASH_HOURS = 4; // time away that still counts for the Space-Cash income
 const HUNT_OFFLINE_SPAWN = 0.5;
 const HUNT_AUTO = 5; // damage over a whole window, in multiples of the commander's attack
 const HUNT_TAP = 0.15; // one tapped strike, in multiples of the attack
 const HUNT_TAP_CD = 20000;
-const CREATURE_HP = { common: 150, uncommon: 300, rare: 700, epic: 1600, legendary: 4000, mythic: 9000 };
+const CREATURE_HP = { common: 140, uncommon: 320, rare: 720, epic: 1700, legendary: 4200, mythic: 9500 };
 const CREATURE_WEIGHT = { common: 55, uncommon: 28, rare: 12, epic: 4, legendary: 1, mythic: 0.15 };
 const CREATURES = {
   // cash = Space-Cash per real hour while the creature sits in a slot
-  mossimp: { name: "Moss Imp", icon: "🍄", rarity: "common", cash: 2 },
-  dustbeetle: { name: "Dust Beetle", icon: "🪲", rarity: "common", cash: 2 },
-  gutterrat: { name: "Gutter Rat", icon: "🐀", rarity: "common", cash: 3 },
-  cavebat: { name: "Cave Bat", icon: "🦇", rarity: "uncommon", cash: 6 },
-  mirelurker: { name: "Mire Lurker", icon: "🐊", rarity: "uncommon", cash: 7 },
-  emberscorpion: { name: "Ember Scorpion", icon: "🦂", rarity: "rare", cash: 16 },
-  tuskbrute: { name: "Tusk Brute", icon: "🐗", rarity: "rare", cash: 18 },
-  stormtalon: { name: "Storm Talon", icon: "🦅", rarity: "epic", cash: 45 },
-  deepgrasper: { name: "Deep Grasper", icon: "🐙", rarity: "epic", cash: 50 },
-  ashwyrm: { name: "Ash Wyrm", icon: "🐉", rarity: "legendary", cash: 130 },
-  frostmammoth: { name: "Frost Mammoth", icon: "🦣", rarity: "legendary", cash: 150 },
-  voidleviathan: { name: "Void Leviathan", icon: "🐋", rarity: "mythic", cash: 400 },
+  mossimp: { name: "Moss Imp", icon: "🍄", rarity: "common", cash: 3 },
+  dustbeetle: { name: "Dust Beetle", icon: "🪲", rarity: "common", cash: 3 },
+  gutterrat: { name: "Gutter Rat", icon: "🐀", rarity: "common", cash: 4 },
+  cavebat: { name: "Cave Bat", icon: "🦇", rarity: "uncommon", cash: 9 },
+  mirelurker: { name: "Mire Lurker", icon: "🐊", rarity: "uncommon", cash: 10 },
+  emberscorpion: { name: "Ember Scorpion", icon: "🦂", rarity: "rare", cash: 24 },
+  tuskbrute: { name: "Tusk Brute", icon: "🐗", rarity: "rare", cash: 27 },
+  stormtalon: { name: "Storm Talon", icon: "🦅", rarity: "epic", cash: 70 },
+  deepgrasper: { name: "Deep Grasper", icon: "🐙", rarity: "epic", cash: 78 },
+  ashwyrm: { name: "Ash Wyrm", icon: "🐉", rarity: "legendary", cash: 210 },
+  frostmammoth: { name: "Frost Mammoth", icon: "🦣", rarity: "legendary", cash: 240 },
+  voidleviathan: { name: "Void Leviathan", icon: "🐋", rarity: "mythic", cash: 700 },
 };
 function huntRng(userId, slot, salt) {
   let a = (Math.imul(userId + 1, 2654435761) ^ Math.imul(slot, 40503) ^ Math.imul(salt + 1, 97531)) >>> 0;
@@ -15004,20 +15005,39 @@ function huntSync(userId, now, hero) {
   if (dirty) db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
   return { r, hu, atk, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
 }
-// Space-Cash from the slotted creatures piles up (at most HUNT_CASH_HOURS of it) until it is collected
+// Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
+// it is looked at). Time away counts for at most HUNT_CASH_HOURS. The part of a unit that has not
+// become a whole one yet is kept in hunt.cashFrac.
 function huntCashRate(hu) { return (hu.slots || []).reduce((n, k) => n + (CREATURES[k] ? CREATURES[k].cash : 0), 0); }
-function huntCashSettle(hu, now) {
+function cashSettle(userId, now, force) {
+  const row = db.prepare("SELECT roster FROM users WHERE id = ?").get(userId);
+  if (!row || !row.roster) return;
+  let r = null;
+  try { r = JSON.parse(row.roster); } catch (e) { return; }
+  const hu = r && r.hunt;
+  if (!hu || !hu.slots) return;
   const rate = huntCashRate(hu);
-  hu.cashAcc = Math.min(rate * HUNT_CASH_HOURS, (hu.cashAcc || 0) + (rate * Math.max(0, now - (hu.cashAt || now))) / 3600000);
+  if (!rate) { if (force && hu.cashAt !== now) { hu.cashAt = now; db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId); } return; }
+  const elapsed = Math.min(HUNT_CASH_HOURS * 3600000, Math.max(0, now - (hu.cashAt || now)));
+  const gain = (hu.cashFrac || 0) + (rate * elapsed) / 3600000;
+  const whole = Math.floor(gain);
+  if (whole < 1 && !force) return;
+  hu.cashFrac = gain - whole;
   hu.cashAt = now;
-  return rate;
+  db.prepare("UPDATE users SET cash = cash + ?, roster = ? WHERE id = ?").run(whole, JSON.stringify(r), userId);
+}
+// for the wallet on the screen: balance, income per hour and the fraction, so it can tick every second
+function cashInfo(userId, now) {
+  const bal = cashOf(userId);
+  const row = db.prepare("SELECT roster FROM users WHERE id = ?").get(userId);
+  let hu = null;
+  try { hu = row && row.roster ? JSON.parse(row.roster).hunt : null; } catch (e) {}
+  return { cash: bal, cashRate: hu ? huntCashRate(hu) : 0, cashFrac: hu ? Math.round((hu.cashFrac || 0) * 1000) / 1000 : 0 };
 }
 function huntView(userId, now) {
   const S = huntSync(userId, now);
   if (!S) return null;
   const c = CREATURES[S.key];
-  const cashRate = huntCashSettle(S.hu, now), cashAcc = S.hu.cashAcc;
-  db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(S.r), userId);
   return {
     opponent: { key: S.key, name: c.name, icon: c.icon, rarity: c.rarity, hp: S.hp, dmg: Math.floor(S.dmg), won: S.won },
     nextMs: S.nextMs, windowMs: HUNT_MS,
@@ -15027,7 +15047,7 @@ function huntView(userId, now) {
     collection: Object.keys(CREATURES).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, hp: CREATURE_HP[CREATURES[k].rarity], count: S.hu.kills[k] || 0, cash: CREATURES[k].cash, free: (S.hu.kills[k] || 0) - S.hu.slots.filter((x) => x === k).length })),
     total: Object.keys(S.hu.kills).reduce((n, k) => n + S.hu.kills[k], 0),
     slots: Array.from({ length: HUNT_SLOTS }, (_, i) => { const k = S.hu.slots[i]; return k ? { key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash } : null; }),
-    cash: { balance: cashOf(userId), pending: Math.floor(cashAcc + 1e-9), rate: cashRate, cap: Math.floor(cashRate * HUNT_CASH_HOURS), full: cashRate > 0 && cashAcc >= cashRate * HUNT_CASH_HOURS - 1e-9 },
+    cash: cashInfo(userId, now),
   };
 }
 app.get("/api/hunt", requireLogin, (req, res) => {
@@ -15037,6 +15057,7 @@ app.get("/api/hunt", requireLogin, (req, res) => {
 });
 app.post("/api/hunt", requireLogin, (req, res) => {
   const uid = req.user.id, now = Date.now(), b = req.body || {};
+  if (b.action === "place" || b.action === "remove") cashSettle(uid, now, true); // the old line-up is paid up to now
   const S = huntSync(uid, now);
   if (!S) return res.status(400).json({ error: "You need a commander to hunt" });
   if (b.action === "place") {
@@ -15044,7 +15065,6 @@ app.post("/api/hunt", requireLogin, (req, res) => {
     if (!CREATURES[k]) return res.status(400).json({ error: "Unknown creature" });
     if (S.hu.slots.length >= HUNT_SLOTS) return res.status(400).json({ error: "All " + HUNT_SLOTS + " slots are in use. Take one out first" });
     if ((S.hu.kills[k] || 0) <= S.hu.slots.filter((x) => x === k).length) return res.status(400).json({ error: "You have no free " + CREATURES[k].name });
-    huntCashSettle(S.hu, now); // what the old line-up earned stays
     S.hu.slots.push(k);
     db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(S.r), uid);
     return res.json({ ok: true });
@@ -15052,18 +15072,8 @@ app.post("/api/hunt", requireLogin, (req, res) => {
   if (b.action === "remove") {
     const i = Math.floor(Number(b.index));
     if (!(i >= 0 && i < S.hu.slots.length)) return res.status(400).json({ error: "That slot is empty" });
-    huntCashSettle(S.hu, now);
     S.hu.slots.splice(i, 1);
     db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(S.r), uid);
-    return res.json({ ok: true });
-  }
-  if (b.action === "collect") {
-    huntCashSettle(S.hu, now);
-    const n = Math.floor(S.hu.cashAcc + 1e-9);
-    if (n < 1) return res.status(400).json({ error: "No Space-Cash to collect yet" });
-    S.hu.cashAcc -= n;
-    db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(S.r), uid);
-    addCash(uid, n);
     return res.json({ ok: true });
   }
   if (b.action !== "tap") return res.status(400).json({ error: "Unknown action" });
@@ -16741,7 +16751,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing.","Gear upgrades now cost 💲 Space-Cash instead of resources.","A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash piles up for up to 4 hours until you collect it. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Commanders",["The commander shop now sells commander shards for 💲 Space-Cash, 3 offers every 5 minutes. Rarer commanders show up less often, legendary ones very rarely. 12 shards of one commander fuse into it, or raise its rank if you already own it. Commanders are no longer bought with Star Credits.","Up to 2 other commanders can be helpers: in the hunt they add to your active commander’s attack (more for rarer ones) but produce nothing.","Gear upgrades now cost 💲 Space-Cash instead of resources.","A new rarity above legendary: Mythic. It applies to commanders (shards, shop, helpers) and to hunt creatures, and it is the rarest and strongest tier. Gear keeps its four tiers.","Your active commander earns a few Star Credits every hour (they pile up for up to 4 hours; tap Collect on the commander screen). Every commander has a rarity and either a small bonus (attack, defense, carry or colony production) or extra Star Credit income. Only the active commander counts; your level, skills and gear stay the same whoever is active."]],["Hunt",["Every 5 minutes an opponent appears for your commander (🐾 Hunt button on the commander screen). Your commander strikes by itself, and Strike adds extra hits. Bring its HP to 0 before the next opponent appears and it joins your creature collection; otherwise it gets away. While you are away, up to 4 hours of fights are worked out when you return: only the commander’s own strikes count and only half of the opponents show up. Put up to 6 caught creatures in slots on the hunt screen: each earns Space-Cash (💲), which is now the currency of the gear auction instead of Star Credits. Space-Cash adds to your balance second by second, and time away counts for up to 4 hours. Creatures cannot be used as commanders. Auctions that were running had their bids returned in Star Credits and restarted in Space-Cash."]],["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner and colony points (points hide on very narrow screens), when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23570,6 +23580,7 @@ const PAGE = `<!DOCTYPE html>
   .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
   .hunt-ic { font-size: 44px; line-height: 1; } .hunt-body { flex: 1; min-width: 0; } .hunt-body b, .hunt-body small { display: block; }
   .hunt-act { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin: 6px 0 10px; }
+  .wallet { display: inline-flex; align-items: center; gap: 8px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2, rgba(0,0,0,.06)); font-size: 12px; font-weight: 700; white-space: nowrap; } .wallet > span { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; } .wallet .gi { width: 15px; height: 15px; }
   .hunt-cash { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(0,0,0,.05); } .hunt-cash b { font-size: 15px; } .hunt-cash small { opacity: .7; } .hunt-cash .btn { margin-left: auto; }
   .hunt-slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 8px 0; } .hunt-slot { aspect-ratio: 1; border-radius: 12px; border: 2px solid rgba(0,0,0,.18); background: rgba(0,0,0,.06); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0; font: inherit; color: inherit; } .hunt-slot span { font-size: 24px; line-height: 1; } .hunt-slot small { font-size: 10px; } .hunt-slot.empty { border-style: dashed; opacity: .5; }
   .hunt-cell.pick { border: 0; font: inherit; color: inherit; cursor: pointer; outline: 2px solid rgba(80,160,90,.6); }
@@ -29108,6 +29119,17 @@ function submitAuth() {
 // =====================================================================
 //  Shared parts
 // =====================================================================
+// compact wallet in the top bar: Space-Cash ticks up every second from the slotted creatures
+var wallet = { cash: 0, rate: 0, credits: 0, at: Date.now() };
+function walletSet(d) {
+  wallet = { cash: (d.cash || 0) + (d.cashFrac || 0), rate: d.cashRate || 0, credits: d.credits || 0, at: Date.now() };
+}
+function walletNow() { return wallet.cash + (wallet.rate * (Date.now() - wallet.at)) / 3600000; }
+setInterval(function () {
+  var c = document.getElementById("w-cash"), hs = document.getElementById("hs-cash"), v = Math.floor(walletNow());
+  if (c && c.textContent !== shortNum(v)) c.textContent = shortNum(v);
+  if (hs && hs.textContent !== shortNum(v)) hs.textContent = shortNum(v);
+}, 1000);
 function renderTop(d) {
   setTribeColor(d.tribe.color);
   var h = '<div class="topbar"><div><b>' + d.tribe.home + " " + esc(d.colony) + "</b>";
@@ -29120,7 +29142,8 @@ function renderTop(d) {
   if (d.relicShared && d.relicShared.length) h += ' <button class="crown-badge relic-badge" data-relics="1" title="Relics held elsewhere that reach this colony">' + d.relicShared.map(function (r) { return r.icon; }).join("") + " shared</button>";
   h += "</small></div>";
   var qready = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
-  h += '<div class="topbtns"><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
+  walletSet(d);
+  h += '<div class="topbtns"><span class="wallet" title="Your money: Space-Cash (tap for the hunt) and Star Credits (tap for commanders)"><span class="w-cash" data-hunt-open="1">💲<b id="w-cash">' + shortNum(Math.floor(wallet.cash)) + '</b></span><span class="w-cr" data-cmd-open="1" data-cmd-tab-open="mine">🎫<b id="w-cr">' + shortNum(wallet.credits) + '</b></span></span><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
   if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
@@ -37802,7 +37825,7 @@ function huntSheet() {
   var cd = Math.max(0, D.tap.cdLeft - (Date.now() - hunt.at));
   h += '<div class="hunt-act"><button class="btn" data-hunt-tap="1"' + (o.won || cd > 0 ? " disabled" : "") + ">⚔️ Strike +" + D.tap.dmg + (cd > 0 ? " · " + Math.ceil(cd / 1000) + "s" : "") + "</button><small>Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
   if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + " " + esc(l.name); }).join(" · ") + "</p>";
-  h += '<div class="hunt-cash"><span>💲</span><b>' + shortNum(D.cash.balance) + '</b><small>+' + D.cash.rate + '/h · ' + D.cash.pending + " / " + D.cash.cap + (D.cash.full ? " · full" : "") + '</small><button class="btn small" data-hunt-collect="1"' + (D.cash.pending < 1 ? " disabled" : "") + ">Collect</button></div>";
+  h += '<div class="hunt-cash"><span>💲</span><b id="hs-cash">' + shortNum(Math.floor(D.cash.cash + D.cash.cashFrac)) + "</b><small>+" + D.cash.cashRate + "/h from the slotted creatures</small></div>";
   h += '<div class="hunt-slots">' + D.slots.map(function (sl, i) {
     return sl ? '<button class="hunt-slot" data-hunt-remove="' + i + '" title="' + esc(sl.name) + " · +" + sl.cash + '/h · tap to take out"><span>' + sl.icon + "</span><small>+" + sl.cash + "</small></button>" : '<div class="hunt-slot empty" title="Empty slot"><span>+</span></div>';
   }).join("") + "</div>";
@@ -37810,7 +37833,7 @@ function huntSheet() {
     var can = c.free > 0 && D.slots.some(function (x) { return !x; });
     return '<' + (can ? "button" : "div") + ' class="hunt-cell' + (c.count ? "" : " none") + (can ? " pick" : "") + '"' + (can ? ' data-hunt-place="' + c.key + '"' : "") + ' title="' + (c.count ? esc(c.name) + " · " + c.rarity + " · +" + c.cash + " Space-Cash/h" + (can ? " · tap to put in a slot" : "") : "Not caught yet") + '"><span>' + (c.count ? c.icon : "❔") + "</span><small>" + (c.count ? esc(c.name) : "???") + "</small>" + (c.count ? "<b>×" + c.count + "</b><small>+" + c.cash + "/h</small>" : "") + "</" + (can ? "button" : "div") + ">";
   }).join("") + "</div>";
-  h += '<p class="hint left">A new opponent appears every ' + shortTime(D.windowMs) + ". Beat it before the next one comes or it gets away. Put up to 6 caught creatures in slots: each earns Space-Cash every hour (up to 4 hours pile up until you collect), the currency of the gear auction. While you are away, up to 4 hours of fights are worked out when you return: only your commander’s own strikes count, and only half of the opponents show up.</p>";
+  h += '<p class="hint left">A new opponent appears every ' + shortTime(D.windowMs) + ". Beat it before the next one comes or it gets away. Put up to 6 caught creatures in slots: each earns Space-Cash every hour, the currency of the gear auction. It adds to your balance second by second (time away counts for up to 4 hours). While you are away, up to 4 hours of fights are worked out when you return: only your commander’s own strikes count, and only half of the opponents show up.</p>";
   return h;
 }
 
@@ -38661,7 +38684,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-collect],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -38812,8 +38835,6 @@ document.addEventListener("click", function (e) {
     post("/api/hunt", { action: "place", key: attr("data-hunt-place") }, function () { openHunt(); });
   } else if (has("data-hunt-remove")) {
     post("/api/hunt", { action: "remove", index: attr("data-hunt-remove") }, function () { openHunt(); });
-  } else if (has("data-hunt-collect")) {
-    post("/api/hunt", { action: "collect" }, function () { toast("💲 Space-Cash collected"); openHunt(); });
   } else if (has("data-hunt-tap")) {
     post("/api/hunt", { action: "tap" }, function () { openHunt(); });
   } else if (has("data-cmd-open")) {
