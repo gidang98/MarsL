@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.408";
+const GAME_VERSION = "1.0.409";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6189,6 +6189,7 @@ function snapshot(user, colony) {
     zone: zoneInfo(user.id, now),
     relic: s.relic && landmarkByKey(s.relic) ? { icon: landmarkByKey(s.relic).icon, name: landmarkByKey(s.relic).name, bonus: relicText(landmarkByKey(s.relic)), ready: s.relicReady || 0, x: landmarkByKey(s.relic).x, y: landmarkByKey(s.relic).y, building: relicHomeOf(landmarkByKey(s.relic)), scope: relicTierDef().scope, scopeText: relicTierDef().scopeText, tier: relicTierDef().n } : null,
     credits: (commanderCollect(user.id, now), creditsOf(user.id)), // earned credits arrive while you play
+    creditRate: creditFlow(user.id, now).rate, creditFrac: creditFlow(user.id, now).frac, // so the wallet can tick them up live
     cash: cashOf(user.id), cashRate: cashInfo(user.id, now).cashRate, cashFrac: cashInfo(user.id, now).cashFrac,
     relicShared: (function () { const t = relicTierDef(); if (t.scope === "colony") return []; return relicHoldings(user.id).filter((h) => h.key !== s.relic).map((h) => { const l = landmarkByKey(h.key); return l ? { icon: l.icon, name: l.name, bonus: relicText(l), ready: h.ready } : null; }).filter(Boolean); })(),
     alliance: (function () {
@@ -14939,6 +14940,13 @@ function commanderCollect(userId, now) {
   addCredits(userId, inc.pending);
   return inc.pending;
 }
+// for the wallet on the screen: Star Credits per hour and how far the next whole credit has come (0 to 1), so it can tick up live
+function creditFlow(userId, now) {
+  const inc = commanderIncome(userId, now);
+  if (!inc) return { rate: 0, frac: 0 };
+  const frac = Math.max(0, (inc.elapsed / 3600000) * inc.rate - inc.pending);
+  return { rate: inc.rate, frac: Math.min(0.999, Math.round(frac * 1000) / 1000) };
+}
 // the same offers for everyone in a round; every player can buy each offer a few times per round
 function shopStock(round) {
   let a = (round * 2654435761) >>> 0;
@@ -16423,7 +16431,7 @@ function boostView(s, userId, colonyId, now) {
     pct: { overtime: Math.round(OVERTIME_CUT * 100), hands: Math.round(HANDS_CUT * 100), ally: Math.round(ALLY_HELP_CUT * 100), allyMax: Math.round(ALLY_HELP_MAX * 100), free: Math.round(BOOST_FREE_MAX * 100) },
     overtimeMaxMs: Math.round((OVERTIME_MAX_MIN * 60000) / BUILD_SPEED),
     freeFinishMs: freeFinishMs(),
-    credits: creditsOf(userId),
+    credits: (commanderCollect(userId, now), creditsOf(userId)),
   };
 }
 
@@ -16676,6 +16684,7 @@ app.post("/api/boost", requireLogin, (req, res) => {
       const left = jobLeft(job, now);
       if (left <= 0) return "This job is already done";
       const cost = creditFinishCost(left);
+      commanderCollect(req.user.id, now); // credits just earned count, as the wallet shows them
       if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
       addCredits(req.user.id, -cost);
       cutJob(job, left, now);
@@ -17017,6 +17026,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
   {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 30 Star Credits an hour for the first hour, 45 up to 4 hours, 80 up to 12 hours and 160 beyond. Every use costs at least 30, so quick jobs are not cheap to skip: 5 minutes to 1 hour cost 30, 2 hours 75, 4 hours 165, 12 hours 805 and a day 2,725.","That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits, while mid-length jobs cost about a fifth less than before (12 hours 805 instead of 1,010).","On faster servers the 30 Star Credit minimum shrinks (10 on a ×10 server, 2 on the fastest), because jobs are much shorter there. The wiki now also says correctly that the free finish covers the last 3 minutes on a ×1 server."]]]},
   {v:"1.0.407",date:"2026-11-17",title:"Hunt luck grows with the acts",groups:[["🍀 Hunt",["Every time a new act starts and the monster camps get stronger, the hunt gets luckier too: ×1.25 from Discovery, ×1.5 in the Storm Season, ×1.75 in the Relic Hunt and ×2 in the Aurora.","Luck gives every rarity above common that much more weight (above-common opponents go from about 35% to about 52% in the Aurora), and multiplies the shiny chances for creatures and for fusing commanders (creatures: 7.1% of opponents at the start, 14.2% in the Aurora).","The share of opponents that show up while you are away also rises by 5 points per act, from 50% to 70%."]],["🎓 Graduation",["The one-time graduation gift is now 100 Star Credits (was 500), in line with the faster Star Credit income."]]]},
   {v:"1.0.406",date:"2026-11-17",title:"Star Credits ten times faster",groups:[["🎫 Star Credits",["Every commander now earns ten times as many Star Credits (about 40 a day for a common commander up to about 600 for a Mythic one at rank 1), so the balance moves as you play.","Finishing a build job with Star Credits costs ten times as much: 30 minutes 10, an hour 30, 3 hours 140, 12 hours 1010, a day 2750. Relative to income nothing changed.","Credits now pile up for at most 4 hours while you are away (was 6)."]]]},
@@ -23880,6 +23890,11 @@ const PAGE = `<!DOCTYPE html>
   .wallet { display: inline-flex; align-items: center; gap: 8px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2, rgba(0,0,0,.06)); font-size: 12px; font-weight: 700; white-space: nowrap; } .wallet > span { position: relative; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; } .w-cash b { display: inline-block; } .wallet .gi { width: 15px; height: 15px; }
   .cash-pop { position: absolute; left: 50%; top: -2px; transform: translateX(-50%); font-style: normal; font-size: 11px; font-weight: 800; color: #d99a00; text-shadow: 0 1px 0 rgba(255,255,255,.7); pointer-events: none; white-space: nowrap; z-index: 6; animation: cashpop 1s ease-out forwards; }
   @keyframes cashpop { 0% { opacity: 0; transform: translate(-50%, 6px); } 18% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -18px); } }
+  .w-cr b { display: inline-block; } .w-cr.bump b, .wal-n.bump { animation: cashbump .4s ease-out; }
+  .wallet .w-cr::before, .wallet .w-cr::after { content: ""; position: absolute; left: 0; bottom: -3px; height: 2px; border-radius: 2px; }
+  .wallet .w-cr::before { width: 100%; background: rgba(120,130,255,.22); }
+  .wallet .w-cr::after { width: calc(var(--p, 0) * 1%); background: #6a7dff; transition: width 1s linear; }
+  .wal-bar { height: 5px; border-radius: 3px; background: rgba(120,130,255,.22); margin: 5px 0 4px; overflow: hidden; } .wal-bar i { display: block; height: 100%; width: 0; background: #6a7dff; transition: width 1s linear; }
   .w-cash.bump b, .hunt-cash.bump b { animation: cashbump .4s ease-out; }
   @keyframes cashbump { 0% { transform: scale(1); } 35% { transform: scale(1.18); color: #c98a00; } 100% { transform: scale(1); } }
   .hunt-slot { position: relative; } .hunt-slot:not(.empty) > span { animation: slotbob 2.4s ease-in-out infinite; }
@@ -29443,21 +29458,25 @@ function submitAuth() {
 //  Shared parts
 // =====================================================================
 // compact wallet in the top bar: Space-Cash ticks up every second from the slotted creatures
-var wallet = { cash: 0, rate: 0, credits: 0, at: Date.now() };
+var wallet = { cash: 0, rate: 0, credits: 0, crRate: 0, at: Date.now() };
 function walletSet(d) {
-  wallet = { cash: (d.cash || 0) + (d.cashFrac || 0), rate: d.cashRate || 0, credits: d.credits || 0, at: Date.now() };
+  wallet = { cash: (d.cash || 0) + (d.cashFrac || 0), rate: d.cashRate || 0, credits: (d.credits || 0) + (d.creditFrac || 0), crRate: d.creditRate || 0, at: Date.now() };
 }
+// Star Credits tick up too: the commander earns a little all the time, the bar under the 🎫 shows the way to the next whole one
+function walletCr() { return wallet.credits + (wallet.crRate * Math.min(Date.now() - wallet.at, 4 * 3600000)) / 3600000; }
+function crPct() { var v = walletCr(); return wallet.crRate ? Math.round((v - Math.floor(v)) * 100) : 0; }
 function walletNow() { return wallet.cash + (wallet.rate * (Date.now() - wallet.at)) / 1000; }
-var lastCashShown = null;
+var lastCashShown = null, lastCrShown = null;
 // the exact amount with every digit (1,204,517), for the wallet window and the hunt window; the top bar chip is shortened (1.2M)
 function cashText(v) { return v < 1e10 ? v.toLocaleString("en-US") : shortNum(v); }
 var calmMotion = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 // a small "+N" that floats up from the element, so you can see the money arrive
-function cashPop(host, text) {
+function cashPop(host, text, color) {
   if (!host || calmMotion) return;
   var e = document.createElement("i");
   e.className = "cash-pop";
   e.textContent = text;
+  if (color) e.style.color = color;
   host.appendChild(e);
   setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 1000);
 }
@@ -29487,6 +29506,21 @@ setInterval(function () {
   if (c && c.textContent !== txt) c.textContent = txt;
   if (hs && hs.textContent !== full) hs.textContent = full;
   if (wl && wl.textContent !== full) wl.textContent = full;
+  // Star Credits: whole credits arrive one by one, the bar fills toward the next
+  var cv = walletCr(), cw = Math.floor(cv), cf = cv - cw, cel = document.getElementById("w-cr"), cn = document.getElementById("wl-cr");
+  if (cel && cel.textContent !== shortNum(cw)) cel.textContent = shortNum(cw);
+  if (cn && cn.textContent !== cw.toLocaleString("en-US")) cn.textContent = cw.toLocaleString("en-US");
+  var cchip = document.querySelector(".wallet .w-cr");
+  if (cchip) cchip.style.setProperty("--p", wallet.crRate ? Math.round(cf * 100) : 0);
+  var cbar = document.getElementById("wl-crbar"), cnext = document.getElementById("wl-crnext");
+  if (cbar) cbar.style.width = Math.round(cf * 100) + "%";
+  if (cnext && wallet.crRate) cnext.textContent = cdText((1 - cf) * 3600000 / wallet.crRate);
+  if (lastCrShown !== null && cw > lastCrShown && cw - lastCrShown <= 3 && !document.hidden) {
+    cashBump(cchip);
+    cashPop(cchip, "+" + (cw - lastCrShown), "#6a7dff");
+    cashBump(cn);
+  }
+  lastCrShown = cw;
   // only a normal second of income pops; a refund or a purchase just changes the number
   if (gain > 0 && gain <= wallet.rate * 3 + 2 && !document.hidden) {
     var chip = document.querySelector(".wallet .w-cash");
@@ -29512,7 +29546,7 @@ function renderTop(d) {
   h += "</small></div>";
   var qready = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
   walletSet(d);
-  h += '<div class="topbtns"><button class="wallet" data-wallet-open="1" title="Your money: Space-Cash and Star Credits. Tap for the exact amounts"><span class="w-cash">💲<b id="w-cash">' + shortNum(Math.floor(wallet.cash)) + '</b></span><span class="w-cr">🎫<b id="w-cr">' + shortNum(wallet.credits) + '</b></span></button><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
+  h += '<div class="topbtns"><button class="wallet" data-wallet-open="1" title="Your money: Space-Cash and Star Credits. Tap for the exact amounts"><span class="w-cash">💲<b id="w-cash">' + shortNum(Math.floor(wallet.cash)) + '</b></span><span class="w-cr" style="--p:' + crPct() + '">🎫<b id="w-cr">' + shortNum(Math.floor(walletCr())) + '</b></span></button><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
   if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
@@ -38199,7 +38233,8 @@ function walletSheet() {
   var v = Math.floor(walletNow()), r = wallet.rate;
   var h = '<div class="sheet-head"><span class="hi">💲</span><div><h3>Your wallet</h3><b>Space-Cash and Star Credits</b></div></div>';
   h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
-  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n">' + wallet.credits.toLocaleString("en-US") + "</b><small>Your active commander earns them all the time, online or away.</small></div></div>";
+  var cr = wallet.crRate, cfr = walletCr() % 1;
+  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + Math.floor(walletCr()).toLocaleString("en-US") + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
   h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button></div>';
   return h;
 }
