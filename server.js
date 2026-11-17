@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.400";
+const GAME_VERSION = "1.0.401";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -11016,6 +11016,7 @@ function addCash(userId, n) {
   if (userId && n) db.prepare("UPDATE users SET cash = MAX(0, cash + ?) WHERE id = ?").run(Math.round(n), userId);
 }
 const AUCTION_FEE = 0.05; // of the final price
+function auctionFee(uid) { return Math.max(0.01, AUCTION_FEE - perk(rosterOf(uid, Date.now()), "fee") / 100); } // some commanders cut it
 const AUCTION_HOURS = [12, 24, 48]; // real hours on Classic; other game speeds scale them (auctionHours)
 function auctionHours() { return AUCTION_HOURS.map((h) => scaleHours(h, 0.1)); }
 function auctionSnipeMs() { return Math.max(60000, Math.round(AUCTION_SNIPE_MS * dayScale())); }
@@ -11065,7 +11066,7 @@ function auctionView(a, uid) {
     price: a.bidder_id ? a.bid : a.start_price, bids: a.bids, leading: a.bidder_id === uid,
     leader: a.bidder_id ? usernameOf(a.bidder_id) : null, endsAt: a.ends_at, minBid: auctionMinBid(a),
     status: a.status, outcome: a.outcome, claimed: !!a.claimed, won: a.outcome === "sold" && a.bidder_id === uid,
-    fee: a.outcome === "sold" ? Math.floor(a.bid * AUCTION_FEE) : 0, sold: a.outcome === "sold" ? a.bid : 0,
+    fee: a.outcome === "sold" ? Math.floor(a.bid * auctionFee(a.seller_id)) : 0, sold: a.outcome === "sold" ? a.bid : 0,
   };
 }
 // the item goes into the commander's bag: to the winner, or back to the seller
@@ -11102,7 +11103,7 @@ function auctionSettle(id, now) {
   let outcome = "unsold";
   if (a.bidder_id) {
     outcome = "sold";
-    addCash(a.seller_id, a.bid - Math.floor(a.bid * AUCTION_FEE));
+    addCash(a.seller_id, a.bid - Math.floor(a.bid * auctionFee(a.seller_id)));
   }
   db.prepare("UPDATE auctions SET status = 'done', outcome = ?, settled_at = ? WHERE id = ?").run(outcome, now, a.id);
   auctionDeliver(Object.assign({}, a, { outcome }), now);
@@ -11131,7 +11132,7 @@ app.get("/api/auction", requireLogin, (req, res) => {
   ).all(uid, uid, now - 7 * 86400000).filter((a) => a.status === "active" ? a.seller_id === uid || a.bidder_id === uid : true).map((a) => auctionView(a, uid));
   res.json({
     credits: cashOf(uid), currency: CASH, hasHero: !!h, bagFull: !!h && h.bag.length >= HERO_BAG,
-    rules: { fee: Math.round(AUCTION_FEE * 100), hours: auctionHours(), maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMs: auctionSnipeMs(), priceMax: AUCTION_PRICE_MAX },
+    rules: { fee: Math.round(auctionFee(uid) * 1000) / 10, hours: auctionHours(), maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMs: auctionSnipeMs(), priceMax: AUCTION_PRICE_MAX },
     active, mine,
     items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
     creatures: (() => { const S = huntSync(uid, now); return S ? Object.keys(CREATURES).filter((k) => creatureSpare(S.hu, k) > 0).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, count: creatureSpare(S.hu, k) })) : []; })(),
@@ -14718,6 +14719,7 @@ function heroAfterFight(userId, h, o) {
     if (o.won || (o.won === undefined && !o.beaten)) h.stats.wins++;
   }
   if(o.campTier===2)note.xp=Math.round(note.xp*(1+heroGearStats(h).frontier/100));
+  note.xp = Math.round(note.xp * (1 + personaBonus(h).xp / 100));
   h.stats.xp += note.xp;
   // ❤️ what the fight or the trip cost
   if (o.dmg > 0) {
@@ -14818,6 +14820,7 @@ const SHOP_OFFERS = 3; // commanders on offer at a time
 // The shop sells commander shards for Space-Cash; 12 shards of one commander fuse into it (or raise its rank).
 const SHARDS_PER_COMMANDER = 12;
 const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 5, legendary: 1.6, mythic: 0.55 }; // how often a commander of that rarity shows up
+function shardPrice(d, r) { return Math.round(SHARD_PRICE[d.rarity] * (1 - Math.min(0.5, perk(r, "shop") / 100))); }
 const SHARD_PRICE = { common: 18000, uncommon: 54000, rare: 168000, epic: 504000, legendary: 1680000, mythic: 6000000 }; // Space-Cash per shard
 const SHARD_BUY_LIMIT = { common: 3, uncommon: 3, rare: 3, epic: 3, legendary: 2, mythic: 1 }; // per offer, per player, per round: only the top tiers are held back
 // Two inactive commanders can stand beside the active one in the hunt: +% of its attack, by rarity (and rank)
@@ -14828,30 +14831,48 @@ const HELPER_POWER = { common: 0.08, uncommon: 0.15, rare: 0.3, epic: 0.55, lege
 const HELPER_RANK = [1, 1.5, 2, 2.5, 3.5];
 function helperScale(rank) { return HELPER_RANK[Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1]; }
 const COMMANDERS = {
-  recruit: { name: "Recruit", icon: "🎖️", rarity: "common", rate: 1, starter: true },
-  drillmaster: { name: "Drillmaster", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 1 } },
-  warden: { name: "Warden", icon: "🛡️", rarity: "common", rate: 1, trait: { def: 1 } },
-  courier: { name: "Courier", icon: "🎒", rarity: "common", rate: 1, trait: { carry: 2 } },
-  forager: { name: "Forager", icon: "🌾", rarity: "uncommon", rate: 1, trait: { prod: 1 } },
-  vanguard: { name: "Vanguard", icon: "🚩", rarity: "uncommon", rate: 1, trait: { atk: 2 } },
-  steward: { name: "Steward", icon: "📒", rarity: "uncommon", rate: 3 },
-  bulwark: { name: "Bulwark", icon: "🏰", rarity: "rare", rate: 1, trait: { def: 3 } },
-  banker: { name: "Banker", icon: "💼", rarity: "rare", rate: 5 },
-  warlord: { name: "Warlord", icon: "⚔️", rarity: "epic", rate: 2, trait: { atk: 4 } },
-  tycoon: { name: "Tycoon", icon: "💎", rarity: "epic", rate: 10 },
-  starmarshal: { name: "Star Marshal", icon: "🌟", rarity: "legendary", rate: 4, trait: { atk: 3, def: 3 } },
-  voidsovereign: { name: "Void Sovereign", icon: "🌌", rarity: "mythic", rate: 8, trait: { atk: 5, def: 5, prod: 2 } },
+  recruit: { name: "Private Pip", icon: "🎖️", rarity: "common", rate: 1, starter: true, quip: "Eager, enthusiastic and wearing a helmet three sizes too big." },
+  drillmaster: { name: "Sergeant Stompy", icon: "🥁", rarity: "common", rate: 1, trait: { atk: 1 }, quip: "Marches so loudly the enemy has time to panic." },
+  warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1, trait: { def: 1 }, quip: "Pads every wall with pillows, for safety." },
+  courier: { name: "Pocket Pete", icon: "🧦", rarity: "common", rate: 1, trait: { carry: 2 }, quip: "Has pockets inside his pockets and won't say what is in them." },
+  chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1, trait: { cash: 3 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
+  forager: { name: "Granny Greenthumb", icon: "🌻", rarity: "uncommon", rate: 1, trait: { prod: 1 }, quip: "Shouts at the fields until they grow out of embarrassment." },
+  vanguard: { name: "Sir Charge-a-Lot", icon: "🐴", rarity: "uncommon", rate: 1, trait: { atk: 2 }, quip: "Rides a hobby horse and always charges first, usually the wrong way." },
+  steward: { name: "Penny the Tally-Penguin", icon: "🐧", rarity: "uncommon", rate: 3, quip: "Counts everything twice, just to be sure." },
+  nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 1, trait: { spawn: 4 }, quip: "Keeps strange hours, and so do the monsters around her." },
+  bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 1, trait: { def: 3 }, quip: "Stands very still until the problem goes away." },
+  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 3, trait: { shop: 5 }, quip: "Haggles with her own reflection and still gets a discount." },
+  tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 1, trait: { tap: 8 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
+  professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 2, trait: { xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
+  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 2, trait: { atk: 4 }, quip: "Every plan ends in an explosion, usually a planned one." },
+  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 6, trait: { fee: 1 }, quip: "Bids on things he is already holding." },
+  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 2, trait: { cash: 6 }, quip: "Her cow gives milk, money and the occasional opinion." },
+  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 4, trait: { atk: 3, def: 3, cash: 3 }, quip: "Glitter in the beard, and nobody dares mention it." },
+  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 4, trait: { tap: 12, xp: 5, spawn: 4 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
+  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 8, trait: { atk: 5, def: 5, prod: 2 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
+  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 8, trait: { cash: 6, shop: 5, xp: 5, fee: 1 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
 };
-const TRAIT_TEXT = { atk: "attack", def: "defense", carry: "carry capacity", prod: "colony production" };
+// what each effect does; the value is per rank 1 and grows with the rank
+const TRAIT_TEXT = {
+  atk: (v) => "+" + v + "% attack", def: (v) => "+" + v + "% defense", carry: (v) => "+" + v + "% carry capacity", prod: (v) => "+" + v + "% colony production",
+  cash: (v) => "+" + v + "% Space-Cash from hunt slots", tap: (v) => "+" + v + "% Strike damage", xp: (v) => "+" + v + "% commander xp",
+  shop: (v) => "shards " + v + "% cheaper", fee: (v) => "auction fee −" + v + " points", spawn: (v) => "+" + v + " points more opponents while you are away",
+};
 function commanderScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1) * COMMANDER_RANK_STEP; }
 function commanderTraitText(def, rank) {
   const t = def.trait;
   if (!t) return "More Star Credits";
-  return Object.keys(t).map((k) => "+" + Math.round(t[k] * commanderScale(rank) * 10) / 10 + "% " + TRAIT_TEXT[k]).join(", ");
+  return Object.keys(t).map((k) => TRAIT_TEXT[k](Math.round(t[k] * commanderScale(rank) * 10) / 10)).join(", ");
+}
+// the effect of the active commander from the roster (shop, auction, hunt)
+function perk(r, kind) {
+  const card = r && r.cards && (r.cards.find((c) => c.id === r.active) || r.cards[0]);
+  const d = card && COMMANDERS[card.key];
+  return d && d.trait && d.trait[kind] ? Math.round(d.trait[kind] * commanderScale(card.rank) * 10) / 10 : 0;
 }
 // bonus of the commander the hero currently stands in for
 function personaBonus(h) {
-  const out = { atk: 0, def: 0, carry: 0, prod: 0 };
+  const out = { atk: 0, def: 0, carry: 0, prod: 0, cash: 0, tap: 0, xp: 0, shop: 0, fee: 0, spawn: 0 };
   const def = h && h.persona && COMMANDERS[h.persona.key];
   if (def && def.trait) for (const k of Object.keys(def.trait)) out[k] = Math.round(def.trait[k] * commanderScale(h.persona.rank) * 10) / 10;
   return out;
@@ -14895,11 +14916,14 @@ function shopStock(round) {
   let a = (round * 2654435761) >>> 0;
   const rnd = () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const pool = Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter);
+  const per = {};
+  pool.forEach((k) => { per[COMMANDERS[k].rarity] = (per[COMMANDERS[k].rarity] || 0) + 1; });
+  const wt = (k) => SHARD_WEIGHT[COMMANDERS[k].rarity] / per[COMMANDERS[k].rarity]; // a rarity shows up as often as before, shared by its commanders
   const out = [];
   while (out.length < SHOP_OFFERS && pool.length) {
-    const total = pool.reduce((n, k) => n + SHARD_WEIGHT[COMMANDERS[k].rarity], 0);
+    const total = pool.reduce((n, k) => n + wt(k), 0);
     let x = rnd() * total, i = 0;
-    for (; i < pool.length - 1; i++) { x -= SHARD_WEIGHT[COMMANDERS[pool[i]].rarity]; if (x < 0) break; }
+    for (; i < pool.length - 1; i++) { x -= wt(pool[i]); if (x < 0) break; }
     out.push(pool.splice(i, 1)[0]);
   }
   return out;
@@ -14911,14 +14935,14 @@ function shopView(now, roster) {
     round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now,
     stock: shopStock(round).map((k) => {
       const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: SHARD_PRICE[d.rarity], shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.max(0, SHARD_BUY_LIMIT[d.rarity] - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.max(0, SHARD_BUY_LIMIT[d.rarity] - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
     }),
     // the whole catalogue, rarest last: only the ones in stock can be bought
     all: (() => {
       const order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"], stock = shopStock(round);
       return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter).sort((x, y) => order.indexOf(COMMANDERS[x].rarity) - order.indexOf(COMMANDERS[y].rarity)).map((k) => {
         const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: SHARD_PRICE[d.rarity], shards: roster && roster.shards ? roster.shards[k] || 0 : 0, offer: stock.includes(k), left: Math.max(0, SHARD_BUY_LIMIT[d.rarity] - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, effect: commanderTraitText(d, 1), quip: d.quip || "", offer: stock.includes(k), left: Math.max(0, SHARD_BUY_LIMIT[d.rarity] - (bought[k] || 0)), maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
       });
     })(),
   };
@@ -14931,7 +14955,7 @@ function commandersView(userId, now) {
     credits: creditsOf(userId), cash: cashOf(userId), active: r.active, shop: shopView(now, r), helpers, helperSlots: HELPER_SLOTS,
     cards: r.cards.map((c) => {
       const d = COMMANDERS[c.key] || COMMANDERS.recruit;
-      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank), help: Math.round(HELPER_POWER[d.rarity] * helperScale(c.rank) * 100) };
+      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * commanderScale(c.rank) * 10) / 10, trait: commanderTraitText(d, c.rank), quip: d.quip || "", help: Math.round(HELPER_POWER[d.rarity] * helperScale(c.rank) * 100) };
     }),
     shards: Object.keys(r.shards || {}).filter((k) => COMMANDERS[k] && r.shards[k] > 0).map((k) => {
       const own = r.cards.find((c) => c.key === k);
@@ -14980,7 +15004,7 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     if (!shopStock(round).includes(key)) return res.status(400).json({ error: "That offer is gone, the shop restocked" });
     r.bought = r.bought && r.bought.round === round && r.bought.n ? r.bought : { round, n: {} };
     if ((r.bought.n[key] || 0) >= SHARD_BUY_LIMIT[COMMANDERS[key].rarity]) return res.status(400).json({ error: "You bought all you can of that this round" });
-    const d = COMMANDERS[key], price = SHARD_PRICE[d.rarity];
+    const d = COMMANDERS[key], price = shardPrice(d, r);
     const own = r.cards.find((c) => c.key === key);
     if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
     if (cashOf(uid) < price) return res.status(400).json({ error: "You need " + price + " " + CASH.name });
@@ -15069,6 +15093,7 @@ function huntRng(userId, slot, salt) {
   let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
+function huntTapDmg(S) { return Math.max(1, Math.round(S.base * HUNT_TAP * (1 + perk(S.r, "tap") / 100))); }
 function huntOpponent(userId, slot) {
   const keys = Object.keys(CREATURES);
   const total = CREATURE_WEIGHT_TOTAL;
@@ -15107,7 +15132,7 @@ function huntSync(userId, now, hero) {
   for (let slot = Math.max(hu.lastSlot + 1, cur - HUNT_BACK_SLOTS); slot < cur; slot++) {
     if (hu.wonSlot === slot) continue;
     const online = slot === hu.seenSlot;
-    if (!online && huntRng(userId, slot, 1) >= HUNT_OFFLINE_SPAWN) continue;
+    if (!online && huntRng(userId, slot, 1) >= Math.min(0.9, HUNT_OFFLINE_SPAWN + perk(r, "spawn") / 100)) continue;
     const key = huntOpponent(userId, slot);
     if (atk * HUNT_AUTO + (online ? hu.tapDmg : 0) >= creatureHp(key)) award(key, slot);
   }
@@ -15125,7 +15150,7 @@ function huntSync(userId, now, hero) {
 // Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
 // it is looked at). Time away counts for at most HUNT_CASH_HOURS. The part of a unit that has not
 // become a whole one yet is kept in hunt.cashFrac.
-function huntCashRate(hu) { return (hu.slots || []).slice(0, HUNT_SLOTS).reduce((n, k) => n + (CREATURES[k] ? CREATURES[k].cash : 0), 0); }
+function huntCashRate(hu, r) { return Math.round((hu.slots || []).slice(0, HUNT_SLOTS).reduce((n, k) => n + (CREATURES[k] ? CREATURES[k].cash : 0), 0) * (1 + perk(r, "cash") / 100) * 10) / 10; }
 function cashSettle(userId, now, force) {
   const row = db.prepare("SELECT roster FROM users WHERE id = ?").get(userId);
   if (!row || !row.roster) return;
@@ -15133,7 +15158,7 @@ function cashSettle(userId, now, force) {
   try { r = JSON.parse(row.roster); } catch (e) { return; }
   const hu = r && r.hunt;
   if (!hu || !hu.slots) return;
-  const rate = huntCashRate(hu);
+  const rate = huntCashRate(hu, r);
   if (!rate) { if (force && hu.cashAt !== now) { hu.cashAt = now; db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId); } return; }
   const elapsed = Math.min(HUNT_CASH_HOURS * 3600000, Math.max(0, now - (hu.cashAt || now)));
   const gain = (hu.cashFrac || 0) + (rate * elapsed) / 1000;
@@ -15147,19 +15172,19 @@ function cashSettle(userId, now, force) {
 function cashInfo(userId, now) {
   const bal = cashOf(userId);
   const row = db.prepare("SELECT roster FROM users WHERE id = ?").get(userId);
-  let hu = null;
-  try { hu = row && row.roster ? JSON.parse(row.roster).hunt : null; } catch (e) {}
-  return { cash: bal, cashRate: hu ? huntCashRate(hu) : 0, cashFrac: hu ? Math.round((hu.cashFrac || 0) * 1000) / 1000 : 0 };
+  let hu = null, rr = null;
+  try { rr = row && row.roster ? JSON.parse(row.roster) : null; hu = rr ? rr.hunt : null; } catch (e) {}
+  return { cash: bal, cashRate: hu ? huntCashRate(hu, rr) : 0, cashFrac: hu ? Math.round((hu.cashFrac || 0) * 1000) / 1000 : 0 };
 }
 function huntView(userId, now) {
   const S = huntSync(userId, now);
   if (!S) return null;
   const c = CREATURES[S.key];
   return {
-    opponent: { key: S.key, name: c.name, icon: c.icon, rarity: c.rarity, hp: S.hp, dmg: Math.floor(S.dmg), won: S.won, need: Math.ceil(S.hp / HUNT_AUTO), reach: S.atk * HUNT_AUTO + Math.floor(HUNT_MS / HUNT_TAP_CD) * Math.max(1, Math.round(S.base * HUNT_TAP)) >= S.hp },
+    opponent: { key: S.key, name: c.name, icon: c.icon, rarity: c.rarity, hp: S.hp, dmg: Math.floor(S.dmg), won: S.won, need: Math.ceil(S.hp / HUNT_AUTO), reach: S.atk * HUNT_AUTO + Math.floor(HUNT_MS / HUNT_TAP_CD) * huntTapDmg(S) >= S.hp },
     atk: S.atk,
     nextMs: S.nextMs, windowMs: HUNT_MS,
-    tap: { cdLeft: Math.max(0, S.hu.tapAt + HUNT_TAP_CD - now), cd: HUNT_TAP_CD, dmg: Math.max(1, Math.round(S.base * HUNT_TAP)) },
+    tap: { cdLeft: Math.max(0, S.hu.tapAt + HUNT_TAP_CD - now), cd: HUNT_TAP_CD, dmg: huntTapDmg(S) },
     auto: Math.round(S.atk * HUNT_AUTO), help: Math.round(helperPower(S.r) * 100),
     log: S.hu.log.map((l) => ({ name: CREATURES[l.key].name, icon: CREATURES[l.key].icon, rarity: CREATURES[l.key].rarity, at: l.at, sold: l.sold || 0, lost: !!l.lost })),
     bag: { used: huntBagUsed(S.hu), cap: HUNT_BAG }, autoSell: S.hu.auto || {},
@@ -15221,7 +15246,7 @@ app.post("/api/hunt", requireLogin, (req, res) => {
   if (b.action !== "tap") return res.status(400).json({ error: "Unknown action" });
   if (S.won) return res.status(400).json({ error: "This one is already beaten" });
   if (now < S.hu.tapAt + HUNT_TAP_CD) return res.status(400).json({ error: "Your commander is catching its breath" });
-  S.hu.tapDmg += Math.max(1, Math.round(S.base * HUNT_TAP));
+  S.hu.tapDmg += huntTapDmg(S);
   S.hu.tapAt = now;
   db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(S.r), uid);
   huntSync(uid, now); // a finishing blow counts at once
@@ -16661,7 +16686,7 @@ function wikiExtra() {
     hero: {
       maxLevel: HERO_MAX_LEVEL, speed: Math.round(HERO_SPEED * MOVE_SPEED * 10) / 10, settleMs: heroLockMs(), recoverMs: heroRecoverMs(), reviveMs: heroReviveMs(),
       fallPct: Math.round(HERO_FALL_XP * 100), bag: HERO_BAG,
-      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyLimit: SHARD_BUY_LIMIT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, creatures: Object.keys(CREATURES).map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
+      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyLimit: SHARD_BUY_LIMIT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, creatures: Object.keys(CREATURES).map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
       orders: HERO_ORDERS, stances: HERO_STANCES, quirks: HERO_QUIRKS, quirkLevel: HERO_QUIRK_LEVEL,
@@ -16894,6 +16919,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank and is kept small: Strike bonuses stay modest because tapping is only part of the damage.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders."]]]},
   {v:"1.0.400",date:"2026-11-17",title:"Window and wiki colours",groups:[["📖 Wiki",["The commander window header uses the same lavender as the hunt, wallet and shop windows instead of a leftover green.","Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
   {v:"1.0.399",date:"2026-11-17",title:"Full shard shop list",groups:[["🎖️ Commanders",["The shard shop now lists every commander in one compact list, rarest last. The ones in stock this round are highlighted and can be bought; the others are dimmed with their price and show \"not in stock\"."]]]},
   {v:"1.0.398",date:"2026-11-17",title:"Stronger creatures, creature auctions",groups:[["🐾 Hunt",["Rarer creatures now need a real commander. Auto strikes do 2.5 times the commander's attack over a window (helpers included) and the HP of the higher rarities was brought in line, so an early commander catches commons and the weakest uncommons, while rare, epic, legendary and Mythic creatures call for levels, 💪 Strength points, better gear and strong helpers. Tapping Strike about every 20 seconds adds roughly half as much again, so active play gets further than idling.","Star Credits now arrive on their own while you are online instead of waiting to be collected. Time away still banks up to the usual limit.","The hunt card shows the attack that catches the current opponent by itself, your own attack, and warns in red when it is out of reach. The wiki table lists the attack needed for every creature."]],["🏛️ Auction",["Creatures can be sold on the auction: the new Sell creatures tab takes any number from your inventory (not those in a slot). The winner needs room in the creature inventory and collects it like gear; creatures nobody bids on come back to you."]]]},
@@ -23724,6 +23750,8 @@ const PAGE = `<!DOCTYPE html>
   @media (max-width: 379px) { .fl-pts { display: none; } }
   .hcred { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0; padding: 6px 10px; border-radius: 10px; background: var(--card2, rgba(0,0,0,.06)); }
   .hcred b { font-size: 15px; } .hcred small { opacity: .7; } .hcred .btn:first-of-type { margin-left: auto; }
+  .cmd-row.card { flex-wrap: wrap; } .cmd-row.card > div:not(.cmd-btns) { flex: 1 1 0; } .cmd-row .cmd-btns { flex: 1 0 100%; display: flex; gap: 8px; justify-content: flex-end; align-items: center; } .cmd-row .cmd-btns small { display: block; font-weight: 700; }
+  .cmd-row .quip { font-style: italic; opacity: .6; font-size: 11.5px; }
   .cmd-row.sm { padding: 3px 6px; gap: 8px; } .cmd-row.sm .cmd-ic { font-size: 20px; } .cmd-row.off { opacity: .5; } .cmd-row.in { background: rgba(80,160,90,.12); }
   .cmd-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,.08); } .cmd-row > div { flex: 1; min-width: 0; } .cmd-row b, .cmd-row small { display: block; } .cmd-row.on { background: rgba(0,0,0,.05); border-radius: 10px; }
   .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
@@ -37333,7 +37361,8 @@ function wikiMore(W, tab, cards) {
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the auction.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
       "🎖️ When your commander leads an attack or raid on a colony it earns <b>xp</b> by the enemy units killed: " + Ro.killXp + " per unit. Staying home earns nothing.",
-    ]) + kt({ head: ["Creature", "HP", "Attack needed", "Spawn", "💲/s", "Sells for"], left: 1, rows: Ro.creatures.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span>", shortNum(c.hp), shortNum(Math.ceil(c.hp / Ro.auto)), c.chance + "%", c.cash, shortNum(c.sell)]; }) })));
+      "🎖️ Every commander is its own character with one signature effect, and the effect grows by 50% for every rank. The ones you do not lead can still stand beside the active one as <b>helpers</b> (rarer ones add more attack in the hunt).",
+    ]) + kt({ head: ["Commander", "Effect (rank 1)", "🎫/h", "Helper"], left: 1, rows: Ro.commanders.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span><small>" + esc(c.quip) + "</small>", esc(c.effect), c.rate, "+" + c.help + "%"]; }) }) + kt({ head: ["Creature", "HP", "Attack needed", "Spawn", "💲/s", "Sells for"], left: 1, rows: Ro.creatures.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span>", shortNum(c.hp), shortNum(Math.ceil(c.hp / Ro.auto)), c.chance + "%", c.cash, shortNum(c.sell)]; }) })));
     cards.push(wkCard("gags", "🎭", "Tribe quirks", wkP("Every tribe has one silly habit that is also a real tactic.") + kt({ head: ["Tribe", "Quirk", "What it does"], left: 3, rows: [
       ["🧑‍🚀 Humans", "☕ Coffee break", "When a human colony beats an attack or raid, its crew is wide awake for 3 hours: +10% defense against everyone. Don't send a second wave right after a failed one: wait it out or bring more."],
       ["🐔 Chickens", "🐔 Headless panic", "15% of the chickens that fall defending their home only ran in circles. They come back an hour later. Chickens can afford to lose a fight."],
@@ -38011,15 +38040,15 @@ function commanderSheet() {
     h += '<p class="hint left">New offers in ⏱ ' + cdSpan(C.shop.nextMs - (Date.now() - cmd.at), "cmd") + ". Shards cost Space-Cash. " + C.shop.stock[0].need + " shards of one commander fuse into it, or raise its rank if you already own it.</p>";
     C.shop.all.forEach(function (o) {
       var buy = o.offer && !o.maxed && o.left > 0;
-      h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " · " + o.shards + "/" + C.shop.stock[0].need + "</small></b></div>";
+      h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " · " + o.shards + "/" + C.shop.stock[0].need + "</small></b><small title='" + esc(o.quip) + "'>" + esc(o.effect) + "</small></div>";
       h += o.maxed ? "<small>top rank</small>" : !o.offer ? "<small>not in stock · 💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>sold out</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.left < 3 ? " · " + o.left + " left" : "") + "</button>";
       h += "</div>";
     });
   } else {
     C.cards.forEach(function (c) {
       var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0;
-      h += '<div class="cmd-row' + (on ? " on" : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + c.rate + "/h · helper +" + c.help + "% attack</small></div>";
-      h += on ? "<small>Active</small>" : '<button class="btn small ghost" data-cmd-switch="' + c.id + '">Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button>";
+      h += '<div class="cmd-row card' + (on ? " on" : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + c.rate + "/h · helper +" + c.help + "% attack</small>" + (c.quip ? '<small class="quip">“' + esc(c.quip) + "”</small>" : "") + "</div>";
+      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '">Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button></div>";
       h += "</div>";
     });
     if (C.shards.length) {
