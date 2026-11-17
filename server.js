@@ -16365,6 +16365,9 @@ function askDone(colonyId) {
 // is cheap, a few hours cost real money and a long job is never skipped: 20 an hour for the first hour left, 40 up to
 // 4 hours, 80 up to 12 hours, 160 beyond (30 minutes 10, 1 hour 20, 4 hours 140, 12 hours 780, a day 2700)
 const CREDIT_FINISH_STEPS = [[1, 20], [4, 40], [12, 80], [Infinity, 160]]; // [up to this many hours left, credits per hour]
+// only a real wait can be bought: with less than an hour left a job cannot be finished with credits, so the early,
+// quick levels (the first ten field levels take about 2 hours in all) cannot be rushed with a pile of credits
+const CREDIT_FINISH_MIN_MS = 3600000;
 function creditFinishCost(leftMs) {
   const hours = Math.max(0, leftMs) / 3600000;
   let cost = 0, from = 0;
@@ -16393,7 +16396,7 @@ function jobBoostView(s, q, now) {
     helpers: (q.helpers || []).length,
     asked: s.askJob === q.id,
     freeNow: !!q.finishAt && left <= freeFinishMs(),
-    creditCost: q.finishAt && left > 0 ? creditFinishCost(left) : 0,
+    creditCost: q.finishAt && left >= CREDIT_FINISH_MIN_MS ? creditFinishCost(left) : 0,
   };
 }
 function boostView(s, userId, colonyId, now) {
@@ -16669,6 +16672,7 @@ app.post("/api/boost", requireLogin, (req, res) => {
       if (!job.finishAt) return "Only a job that is being built can be finished with Star Credits";
       const left = jobLeft(job, now);
       if (left <= 0) return "This job is already done";
+      if (left < CREDIT_FINISH_MIN_MS) return "Star Credits finish jobs with at least an hour left";
       const cost = creditFinishCost(left);
       if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
       addCredits(req.user.id, -cost);
@@ -16791,7 +16795,7 @@ function wikiExtra() {
       atkBase: Math.round(HERO_ATK_BASE * speedScale()), atkLvl: Math.round(HERO_ATK_LVL * speedScale()), defBase: Math.round(HERO_DEF_BASE * speedScale()), defLvl: Math.round(HERO_DEF_LVL * speedScale()), soloSpeed: HERO_SOLO_SPEED, scale: speedScale(),
     },
     freeFinishMs: freeFinishMs(),
-    creditFinish: [0.25, 0.5, 1, 2, 4, 8, 12, 24, 48].map((h) => [h, creditFinishCost(h * 3600000)]), creditSteps: CREDIT_FINISH_STEPS.map((x) => [x[0] === Infinity ? 0 : x[0], x[1]]),
+    creditFinish: [1, 2, 4, 8, 12, 24, 48].map((h) => [h, creditFinishCost(h * 3600000)]), creditSteps: CREDIT_FINISH_STEPS.map((x) => [x[0] === Infinity ? 0 : x[0], x[1]]),
     vac: wikiVacation(),
     adv: wikiAdventures(),
     conquest: wikiConquest(),
@@ -17011,7 +17015,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 20 Star Credits an hour for the first hour, 40 up to 4 hours, 80 up to 12 hours and 160 beyond. That makes 30 minutes cost 10, an hour 20, 4 hours 140, 12 hours 780 and a day 2700.","Short waits are much cheaper than before (5 minutes cost 2 instead of 10), mid-length jobs cost about a quarter less (12 hours 780 instead of 1,010), and a full day stays out of reach for most players (2700, about 4 days of a Mythic commander's income). Whatever is left of a job in the last free minutes is still free."]]]},
+  {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 20 Star Credits an hour for the first hour, 40 up to 4 hours, 80 up to 12 hours and 160 beyond. That makes 1 hour cost 20, 4 hours 140, 12 hours 780 and a day 2,700.","A job can only be finished with Star Credits while it has at least an hour left. That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits: instant finish is for real waits. Mid-length jobs cost about a quarter less than before (12 hours 780 instead of 1,010)."]]]},
   {v:"1.0.407",date:"2026-11-17",title:"Hunt luck grows with the acts",groups:[["🍀 Hunt",["Every time a new act starts and the monster camps get stronger, the hunt gets luckier too: ×1.25 from Discovery, ×1.5 in the Storm Season, ×1.75 in the Relic Hunt and ×2 in the Aurora.","Luck gives every rarity above common that much more weight (above-common opponents go from about 35% to about 52% in the Aurora), and multiplies the shiny chances for creatures and for fusing commanders (creatures: 7.1% of opponents at the start, 14.2% in the Aurora).","The share of opponents that show up while you are away also rises by 5 points per act, from 50% to 70%."]],["🎓 Graduation",["The one-time graduation gift is now 100 Star Credits (was 500), in line with the faster Star Credit income."]]]},
   {v:"1.0.406",date:"2026-11-17",title:"Star Credits ten times faster",groups:[["🎫 Star Credits",["Every commander now earns ten times as many Star Credits (about 40 a day for a common commander up to about 600 for a Mythic one at rank 1), so the balance moves as you play.","Finishing a build job with Star Credits costs ten times as much: 30 minutes 10, an hour 30, 3 hours 140, 12 hours 1010, a day 2750. Relative to income nothing changed.","Credits now pile up for at most 4 hours while you are away (was 6)."]]]},
   {v:"1.0.405",date:"2026-11-17",title:"Lower creature sell prices",groups:[["💰 Hunt",["A creature now sells for 5 minutes of its own Space-Cash income, down from 30 minutes. A Rock Crab (2 a second) fetches 600 instead of 3,600, a Thunder Lion 9,300 instead of 55,800, and shiny creatures follow their higher income. Keeping a creature in a slot is now clearly worth more than selling it."]]]},
@@ -37421,7 +37425,7 @@ function wikiMore(W, tab, cards) {
         ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (5 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
-        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Waiting until little is left is far cheaper. It is not limited like the free help", "Finishes it at once"],
+        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return c[0] + " h" + " " + c[1] + " 🎫"; }).join(", ") + ". It only works while at least an hour is left, so quick early jobs cannot be rushed; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
     }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job.")));
