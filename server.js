@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.399";
+const GAME_VERSION = "1.0.400";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -16894,6 +16894,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.400",date:"2026-11-17",title:"Wiki table colours",groups:[["📖 Wiki",["Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
   {v:"1.0.399",date:"2026-11-17",title:"Full shard shop list",groups:[["🎖️ Commanders",["The shard shop now lists every commander in one compact list, rarest last. The ones in stock this round are highlighted and can be bought; the others are dimmed with their price and show \"not in stock\"."]]]},
   {v:"1.0.398",date:"2026-11-17",title:"Stronger creatures, creature auctions",groups:[["🐾 Hunt",["Rarer creatures now need a real commander. Auto strikes do 2.5 times the commander's attack over a window (helpers included) and the HP of the higher rarities was brought in line, so an early commander catches commons and the weakest uncommons, while rare, epic, legendary and Mythic creatures call for levels, 💪 Strength points, better gear and strong helpers. Tapping Strike about every 20 seconds adds roughly half as much again, so active play gets further than idling.","Star Credits now arrive on their own while you are online instead of waiting to be collected. Time away still banks up to the usual limit.","The hunt card shows the attack that catches the current opponent by itself, your own attack, and warns in red when it is out of reach. The wiki table lists the attack needed for every creature."]],["🏛️ Auction",["Creatures can be sold on the auction: the new Sell creatures tab takes any number from your inventory (not those in a slot). The winner needs room in the creature inventory and collects it like gear; creatures nobody bids on come back to you."]]]},
   {v:"1.0.397",date:"2026-11-17",title:"Hunt window fixes",groups:[["💲 Space-Cash",["The hunt window now fits the screen: all five slots show side by side with no sideways scrolling, and the inventory grid adapts to narrow phones.","The Space-Cash number in the hunt window now counts up every second together with the wallet at the top, instead of standing still and jumping every few seconds."]]]},
@@ -23465,23 +23466,23 @@ const PAGE = `<!DOCTYPE html>
   /* compact level tables */
   .kt-w { display: block; width: fit-content; max-width: 100%; overflow-x: auto; margin: 6px 0; border: 1px solid var(--line); border-radius: var(--radius-sm); -webkit-overflow-scrolling: touch; }
   .kt { width: auto; border-collapse: separate; border-spacing: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
-  .kt th { position: sticky; top: 0; padding: 6px 8px; font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap; color: var(--ink); background: #efe6d6; border-bottom: 1px solid var(--line); }
+  .kt th { position: sticky; top: 0; padding: 6px 8px; font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap; color: var(--ink); background: color-mix(in srgb, var(--card) 88%, #000); border-bottom: 1px solid var(--line); }
   .kt td { padding: 5px 8px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); vertical-align: middle; }
   .kt tbody tr:nth-child(even) td { background: rgba(0, 0, 0, 0.025); }
   .kt tbody tr:last-child td { border-bottom: 0; }
   .kt .n { text-align: right; white-space: nowrap; }
   .kt td small { display: block; font-size: 11px; color: var(--muted); }
-  .kt tfoot td { font-weight: 700; background: #f6efe3; border-top: 1px solid var(--line); white-space: nowrap; }
+  .kt tfoot td { font-weight: 700; background: color-mix(in srgb, var(--card) 94%, #000); border-top: 1px solid var(--line); white-space: nowrap; }
   .kt th:first-child, .kt td:first-child { position: sticky; left: 0; z-index: 1; background: var(--card); }
-  .kt tbody tr:nth-child(even) td:first-child { background: #faf8f5; }
-  .kt th:first-child { z-index: 2; background: #efe6d6; }
-  .kt tfoot td:first-child { background: #f6efe3; }
+  .kt tbody tr:nth-child(even) td:first-child { background: color-mix(in srgb, var(--card) 97.5%, #000); }
+  .kt th:first-child { z-index: 2; background: color-mix(in srgb, var(--card) 88%, #000); }
+  .kt tfoot td:first-child { background: color-mix(in srgb, var(--card) 94%, #000); }
   .kt th.srt { cursor: pointer; user-select: none; }
-  .kt th.srt.on { background: #e2d3b6; }
+  .kt th.srt.on { background: color-mix(in srgb, var(--card) 80%, #000); }
   .kt tr.kt-click { cursor: pointer; }
-  .kt tr.kt-click:hover td { background: #fbf1dc; }
-  .kt tr.sel td { background: #f3e2bb !important; }
-  .kt tr.kt-full > td { padding: 0; background: #fbf3e2 !important; position: static; }
+  .kt tr.kt-click:hover td { background: color-mix(in srgb, var(--card) 94%, #fff); }
+  .kt tr.sel td { background: color-mix(in srgb, var(--card) 86%, #000) !important; }
+  .kt tr.kt-full > td { padding: 0; background: color-mix(in srgb, var(--card) 96%, #fff) !important; position: static; }
   .kt tr.kt-full .kt td { background: transparent; }
   .kt tr.kt-full .kt td:first-child, .kt tr.kt-full .kt th:first-child { position: static; }
   .kt tr.kt-full .kt-w { margin: 6px 0; background: var(--card); }
