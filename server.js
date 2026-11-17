@@ -16367,7 +16367,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Troop traffic",["Open a category to see how many troops of each type it holds. Own troops at home can be opened too."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Troop traffic",["Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23189,6 +23189,11 @@ const PAGE = `<!DOCTYPE html>
   .mvcat .mvlist { padding: 6px; margin: 0; }
   .mvtot { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 14px; font-size: 14px; }
   .mvtot-c small { opacity: .7; }
+  .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
+  .mvsrc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 0; }
+  .mvsrc-h span, .mvsrc-h em { opacity: .7; font-size: 13px; font-style: normal; }
+  .mvsrc-h em { margin-left: auto; }
+  .mvsrc .mvtot { padding: 4px 8px; }
   .mvsort button.all.on { background: var(--accent-soft, rgba(60,40,60,.12)); }
   .mvsort { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 8px 0 2px; font-size: 12px; }
   .mvsort span { opacity: 0.6; font-weight: 700; }
@@ -29635,6 +29640,25 @@ function mvTotals(units) {
   if (!rows.length) return "";
   return '<div class="mvtot">' + rows.map(function (r) { return '<span class="mvtot-c" title="' + esc(r.name) + '">' + r.icon + " <b>" + r.count.toLocaleString() + "</b>" + (r.name ? " <small>" + esc(r.name) + "</small>" : "") + "</span>"; }).join("") + "</div>";
 }
+// foreign troops stationed here, one block per colony that sent them (biggest first)
+function mvGuestBlocks(list) {
+  var map = {}, order = [];
+  list.forEach(function (m) {
+    var k = (m.owner || "") + "|" + m.name + "|" + m.x + "," + m.y;
+    if (!map[k]) { map[k] = { m: m, items: [], units: [], size: 0 }; order.push(map[k]); }
+    var g = map[k];
+    g.items.push(m); g.size += mvSize(m);
+    if (m.units) m.units.forEach(function (u) { g.units.push(u); });
+  });
+  order.sort(function (a, b) { return b.size - a.size || a.m.name.localeCompare(b.m.name); });
+  return order.map(function (g) {
+    var m = g.m;
+    var h = '<div class="mvsrc"><div class="mvsrc-h"><b>' + esc(m.name) + "</b><span>" + esc(m.owner || "") + (m.x != null ? " · " + m.x + "|" + m.y : "") + "</span><em>" + g.size.toLocaleString() + " troops</em></div>";
+    h += mvTotals(g.units);
+    g.items.forEach(function (x) { h += '<div class="mvg">' + mvRow(x) + "</div>"; });
+    return h + "</div>";
+  }).join("");
+}
 function mvCatRow(e, d) {
   var c = e.c, list = e.list, now = serverNow(), up = d.upkeepSplit || {};
   var home = 0;
@@ -29655,6 +29679,8 @@ function mvCatRow(e, d) {
   if (open) {
     h += mvTotals(tot);
     if (c.stat) {
+    } else if (c.id === "guests") {
+      h += '<div class="mvlist">' + mvGuestBlocks(list) + "</div>";
     } else if (mvSort.by === "sent") {
       h += '<div class="mvlist">' + list.slice().sort(function (a, b) { return (mvSort.rev ? -1 : 1) * ((b.startAt || 0) - (a.startAt || 0)); }).map(function (m) { return '<div class="mvg">' + mvRow(m) + "</div>"; }).join("") + "</div>";
     } else h += '<div class="mvlist">' + mvGroups(list).map(mvGroup).join("") + "</div>";
