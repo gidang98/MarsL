@@ -7889,12 +7889,9 @@ app.post("/api/terraform", requireLogin, (req, res) => {
 //  settlers) a free tile.
 // =====================================================================
 // ---------- send rules ----------
-// Attacks are unlimited: any size, any number at once. Raids on players
-// still need a handful of units (farm lists send raids).
-const RAID_MIN_UNITS = 5;
+// Attacks and raids are unlimited: any size, any number at once.
 function attackRules(colony) {
-  const home = countUnits(colony.state.troops);
-  return { waveLuck: WAVE_LUCK, raidMin: Math.min(RAID_MIN_UNITS, home) };
+  return { waveLuck: WAVE_LUCK };
 }
 
 // Everything that has to be right before troops can leave. Returns an error
@@ -7986,10 +7983,6 @@ function checkSend(req, s, tribe, colony, body, avail) {
   const solo = total === 0 && !!body.hero && !body.farm && (mission === "attack" || mission === "raid");
   if (total === 0 && !solo) return "Pick at least one unit to send";
   if (solo && kind !== "camp") return "A commander needs troops when attacking a colony. Send troops with it.";
-  if (kind === "colony" && mission === "raid" && target.user_id !== req.user.id) {
-    const R = attackRules(colony);
-    if (total < R.raidMin) return "A raid on a player needs at least " + R.raidMin + " units";
-  }
   if (mission === "settle" && total !== SETTLERS_NEEDED) return "Send exactly " + SETTLERS_NEEDED + " settlers to found a colony";
 
   // 🎖️ the commander may lead the army
@@ -9947,7 +9940,9 @@ app.get("/api/farm/stats", requireLogin, (req, res) => {
   for (const r of db.prepare("SELECT x, y, raids, total, last FROM farm_stats WHERE user_id = ?").all(req.user.id)) {
     let last = {};
     try { last = JSON.parse(r.last); } catch (e) {}
-    out[r.x + "|" + r.y] = { raids: r.raids, total: r.total, last, readyAt: farmReadyAt(r.x, r.y, last, Date.now()) };
+    const tc = db.prepare("SELECT user_id FROM colonies WHERE x = ? AND y = ?").get(r.x, r.y);
+    const owner = tc ? (BOT_IDS.has(tc.user_id) ? "inactive" : usernameOf(tc.user_id)) : "";
+    out[r.x + "|" + r.y] = { raids: r.raids, total: r.total, last, owner, readyAt: farmReadyAt(r.x, r.y, last, Date.now()) };
   }
   const q = db.prepare("SELECT farm_quiet FROM users WHERE id = ?").get(req.user.id) || {};
   const outgoing = {};
@@ -16153,7 +16148,6 @@ function wikiExtra() {
     onb: wikiOnboarding(),
     market: { offers: OFFER_MAX, min: OFFER_MIN, ratioMin: OFFER_RATIO_MIN, ratioMax: OFFER_RATIO_MAX, lastsMs: offerMs() },
     ally: { officers: ALLY_OFFICERS_MAX, shared: SHARED_MAX },
-    rules: { raidMin: RAID_MIN_UNITS },
     longterm: { acts: actsView(Date.now()), leagues: LEAGUES, contests: LEAGUE_CONTESTS, late: { day: LATE_DAY, days: LATE_DAYS, per: Math.round(LATE_PER_DAY * 1000) / 10, max: Math.round(LATE_MAX * 100) }, titles: LEGACY_TITLES.map((t) => ({ name: t.name, how: t.how })) },
     econ: { specs: COLONY_SPECS, specHq: SPEC_HQ, change: SPEC_CHANGE_COST, forecasts: FORECASTS.map((f) => ({ icon: f.icon, name: f.name, text: f.text, w: f.w })), rich: { pct: Math.round(RICH_BONUS * 100), per: RICH_PER_QUARTER, waves: RICH_WAVES.map((w, i) => ({ n: w.n, day: richWaveDay(i) })), ring: RICH_RING } },
     newp: { gradGift: GRAD_GIFT, gradH: GRAD_WINDOW_MS / 3600000, raid: typicalRaidAttack(), insPct: Math.round(INS_SHARE * 100), insClaims: INS_CLAIMS, insHeavy: Math.round(INS_HEAVY * 100), insHour: INS_MORNING_UTC, scorp: SCORP_PACK, scorpS: SCORP_MS / 1000, planSlots: PLAN_SLOTS, allyGift: BOARD_ALLY_GIFT, badges: BOARD_BADGES.map((b) => [b.n, b.icon, b.title]) },
@@ -16367,7 +16361,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Farm lists",["Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
+  {v:"1.0.395",date:"2026-11-17",title:"Troop food fix",groups:[["Farm lists",["Raids on players no longer need a minimum of 5 units.","Each target in a farm list shows its owner, when it was last raided (time and how long ago) and a coloured sword: green for a win without losses, yellow for a win with losses, red for a failed raid.","Tap a target name in a farm list to close the list and open that colony or camp on the map, with its details and actions.","The order buttons are one per criterion (Distance, Last raid, Loot, Name, Troops). Tap the active one to flip its direction; the arrow shows which way it is sorted."]],["Map",["Tap a colony or camp on the map, then the farm list button: lists that already hold the target show a ✕ to remove it."]],["Troop traffic",["The Place sort is gone; Soonest, Sent, Type and Size remain. Open a category to see how many troops of each type it holds. Own troops at home can be opened too.","Foreign troops here are listed per sending colony, with the troops each one has stationed."]],["Fixes",["The food eaten by troops at home, foreign troops here and troops in other colonies (Troop Traffic) was shown too high on servers with a game speed above 1. It now shows the real amount per hour."]]]},
   {v:"1.0.394",date:"2026-11-17",title:"Troop traffic by category",groups:[["Troop traffic",["The Troop Traffic window is now an army overview with nine categories: incoming attacks and raids, outgoing attacks and raids, returning troops, own troops at home, foreign troops here, own troops in other colonies, incoming support, outgoing support, and trade, scouts and more. Each shows its count and the soonest arrival; the stationed categories show how much food they eat per hour.","Tap a category to open its movements. Incoming attacks open by themselves; Detail view opens everything.","New sort: Sent. It lists movements by when they left, newest first, one by one, so you can see which attack went out first. Tap it again to reverse.","New icon for your own troops at home."]]]},
   {v:"1.0.393",date:"2026-11-17",title:"Slimmer colony header",groups:[["Colony header",["On phones the header is one slim row: the colony name and details on the left, the four buttons (relics, auction, guide, settings) in one line on the right. The version number moved out of the header; you still find it at the bottom of the page and in Settings under About."]]]},
   {v:"1.0.392",date:"2026-11-16",title:"Fresh start-screen pictures",groups:[["Start screen",["The preview pictures on the start screen show the current game: fields, colony, army, map and missions."]]]},
@@ -23189,6 +23183,7 @@ const PAGE = `<!DOCTYPE html>
   .mvcat .mvlist { padding: 6px; margin: 0; }
   .mvtot { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 14px; font-size: 14px; }
   .mvtot-c small { opacity: .7; }
+  .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
   .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
   .mvsrc-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 4px 8px 0; }
   .mvsrc-h span, .mvsrc-h em { opacity: .7; font-size: 13px; font-style: normal; }
@@ -30322,7 +30317,9 @@ setInterval(function () { if (sheet && sheet.kind === "farm" && !document.hidden
 function farmLastLine(st) {
   if (!st || !st.last || !st.last.at) return "";
   var L = st.last;
-  var parts = ["🕐 " + clockText(L.at).slice(0, 5)];
+  var icon = !L.win || (L.lost && L.lost >= L.sent) ? "swordR" : L.lost ? "swordY" : "swordG";
+  var iconTip = icon === "swordR" ? "Last raid failed" : icon === "swordY" ? "Last raid won, with losses" : "Last raid won, no losses";
+  var parts = ['<span class="fls-sw" title="' + iconTip + '">' + giSvg(icon) + "</span> " + clockText(L.at).slice(0, 5) + " (" + shortTime(Math.max(0, serverNow() - L.at)) + " ago)"];
   if (L.lost && L.lost >= L.sent) parts.push('<b class="fls-dead">☠️ all lost</b>');
   else {
     if (!L.win) parts.push('<b class="fls-dead">💀 lost</b>');
@@ -30403,7 +30400,7 @@ function farmSheet(d) {
       var busy = farmBusy(l, e);
       var isSel = farmSelection[l.id + ":" + e.id];
       h += '<div class="fl-row' + (e.on ? "" : " off") + (isSel ? " on-row" : "") + '"><button class="fl-on' + (isSel ? " ticked" : "") + '" data-farm-toggle="' + l.id + ":" + e.id + '" title="Select target">' + (isSel ? "☑️" : "⬜") + "</button>";
-      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · 🐪 " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /"⚠️"/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
+      h += '<div class="fl-target"><button class="golink" data-goto="' + e.x + "," + e.y + '">' + esc(e.name) + "</button><small>' + (farmStat(e) && farmStat(e).owner ? "👤 " + esc(farmStat(e).owner) + " · " : "") + "(" + e.x + "|" + e.y + ") · " + farmDist(l, e).toFixed(1) + " tiles" + (busy ? " · 🐪 " + (busy > 1 ? busy + " raids" : "1 raid") + " on the way" : e.last && (!farmStat(e) || /"⚠️"/.test(e.last)) ? " · " + esc(e.last) : "") + "</small>";
       if (manual && listed.length > 1) {
         h += '<span class="fl-move"><button data-farm-move="' + l.id + ":" + e.id + ':-1"' + (idx === 0 ? " disabled" : "") + ' title="Move up">▲</button><button data-farm-move="' + l.id + ":" + e.id + ':1"' + (idx === listed.length - 1 ? " disabled" : "") + ' title="Move down">▼</button></span>';
       }
@@ -36745,7 +36742,7 @@ function wikiMore(W, tab, cards) {
       "Both are slow and expensive, and both only work in a won <b>attack</b> (not a raid) if they survive the fight.",
     ])));
   } else if (tab === "combat") {
-    var Ru = X.rules;
+
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
       "Every level of the trap building holds " + Cq.trapPer + " attacking <b>ground</b> troops. Flyers pass over. They are caught before the fight, so they don’t fight.",
@@ -36771,8 +36768,7 @@ function wikiMore(W, tab, cards) {
       head: ["Rule", "Limit"],
       left: 2,
       rows: [
-        ["💰 Raid on a player", "At least " + Ru.raidMin + " units"],
-        ["⚔️ Attack on a player", "No limits: any size, as many as you like"],
+        ["💰 Raid or ⚔️ attack on a player", "No limits: any size, as many as you like"],
         ["🤖 Bots and 👾 monster camps", "No limits"],
       ],
     })));
