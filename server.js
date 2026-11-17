@@ -16930,7 +16930,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects. Commanders can only be swapped while your commander is at home, and the active commander now shows in your profile.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank, and they are strong enough to be worth the shards: the effects are sized so that a higher rarity is clearly better without making gear and skills pointless. Strike bonuses are measured against the damage they add: Strike is about a quarter of a hunt\'s damage, so +24% Strike is about +6% damage. In the hunt the attack bonuses of gear, skills and commanders now add up to 45% instead of 30%, so commanders keep paying off when your gear is already good (fights between players still stop at 30%). Gear can now roll a Strike damage bonus.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders."]]]},
+  {v:"1.0.401",date:"2026-11-17",title:"Commanders with character",groups:[["🎖️ Commanders",["Every commander is now a character of its own, with a funny name, a one-liner and one signature effect. There are 20 now: 4 common, 4 uncommon, 4 rare, 3 epic, 2 legendary and 2 Mythic, plus the starter. Your commanders and shards keep their place, they just got new names and effects. Commanders can only be swapped while your commander is at home, and the active commander now shows in your profile.","New effects beyond attack and defense: more Space-Cash from hunt slots, stronger Strike, more commander xp, cheaper shards in the shop, a lower auction fee and more opponents showing up while you are away. Each grows by 50% with every rank, and they are strong enough to be worth the shards: the effects are sized so that a higher rarity is clearly better without making gear and skills pointless. Strike bonuses are measured against the damage they add: Strike is about a quarter of a hunt\'s damage, so +24% Strike is about +6% damage. In the hunt the attack bonuses of gear, skills and commanders now add up to 45% instead of 30%, so commanders keep paying off when your gear is already good (fights between players still stop at 30%). Gear can now roll a Strike damage bonus.","Each rarity still shows up in the shard shop as often as before, shared between its commanders. The shop list shows each commander's effect, and the collection shows their one-liners. The wiki has a table of all commanders."]],["✨ Tribe powers",["Lockdown (humans) now lasts 30 minutes instead of 6 hours.","Home powers can be used once per account every day, in the colony you choose, instead of once in every colony."]]]},
   {v:"1.0.400",date:"2026-11-17",title:"Window and wiki colours",groups:[["📖 Wiki",["The commander window header uses the same lavender as the hunt, wallet and shop windows instead of a leftover green.","Wiki tables no longer show off-colour boxes: the header, footer and the first column now take their shade from the page theme instead of fixed light colours, so they match in every theme and in dark mode."]]]},
   {v:"1.0.399",date:"2026-11-17",title:"Full shard shop list",groups:[["🎖️ Commanders",["The shard shop now lists every commander in one compact list, rarest last. The ones in stock this round are highlighted and can be bought; the others are dimmed with their price and show \"not in stock\"."]]]},
   {v:"1.0.398",date:"2026-11-17",title:"Stronger creatures, creature auctions",groups:[["🐾 Hunt",["Rarer creatures now need a real commander. Auto strikes do 2.5 times the commander's attack over a window (helpers included) and the HP of the higher rarities was brought in line, so an early commander catches commons and the weakest uncommons, while rare, epic, legendary and Mythic creatures call for levels, 💪 Strength points, better gear and strong helpers. Tapping Strike about every 20 seconds adds roughly half as much again, so active play gets further than idling.","Star Credits now arrive on their own while you are online instead of waiting to be collected. Time away still banks up to the usual limit.","The hunt card shows the attack that catches the current opponent by itself, your own attack, and warns in red when it is out of reach. The wiki table lists the attack needed for every creature."]],["🏛️ Auction",["Creatures can be sold on the auction: the new Sell creatures tab takes any number from your inventory (not those in a slot). The winner needs room in the creature inventory and collects it like gear; creatures nobody bids on come back to you."]]]},
@@ -20435,7 +20435,7 @@ app.post("/api/daily", requireLogin, (req, res) => {
 //  "⚔️" the war power: once per server day for the player (twice with a
 //     level-15 commander), ticked in the send window for one attack or raid
 const TRIBE_POWERS = {
-  human: { icon: "🚨", name: "Lockdown", text: "For 6 hours this colony either fights back harder (+15% defense) or locks the stores (bunkers hide 50% more). Pick one.", pick: "lock" },
+  human: { icon: "🚨", name: "Lockdown", text: "For 30 minutes this colony either fights back harder (+15% defense) or locks the stores (bunkers hide 50% more). Pick one.", pick: "lock" },
   chicken: { icon: "📣", name: "Rally Cry", text: "The next attack or raid from this colony that lands within 8 hours gets +12% attack for its ground or its air troops. Pick one.", pick: "rally" },
   alien: { icon: "🧠", name: "Mind Link", text: "Shorten research and armory work, or construction, by up to 25%. Two base-speed hours total; respects the 50% free-help limit.", pick: "job" },
 };
@@ -20444,7 +20444,7 @@ const WAR_POWERS = {
   chicken: { icon: "🐔", name: "Stampede", text: "This army carries 35% more loot home, stacking with commander logistics." },
   alien: { icon: "🌀", name: "Cloak", text: "The defender sees the army coming, but can't read its pace or tell an attack from a raid.", colonyOnly: true },
 };
-const POWER_LOCK = { def: 0.15, hide: 0.5, ms: 6 * 3600000 };
+const POWER_LOCK = { def: 0.15, hide: 0.5, ms: 30 * 60000 }; // lockdown lasts half an hour
 const POWER_RALLY = { atk: 0.12, ms: 8 * 3600000 };
 const POWER_HATCH = 0.2;
 const POWER_MIND = 0.25;
@@ -20453,6 +20453,7 @@ function powerTimeBudget() { return Math.max(1, Math.round(POWER_TIME_H * 360000
 const WAR_LOOT = 0.35;
 const WAR_TWICE_LEVEL = 15;
 addColumn("users", "war_power", "TEXT NOT NULL DEFAULT ''");
+addColumn("users", "power_day", "INTEGER NOT NULL DEFAULT -1"); // the server day the home power was last used: one per account
 addColumn("movements", "power", "TEXT");
 // 🛰️ the satellite view right after the fight: like the best spy report
 function orbitalRecon(att, def, defTribe, attacker, defender, supports, T) {
@@ -20515,7 +20516,9 @@ function mindJobs(s, now) {
 function tribePowerView(s, tribeKey, now) {
   const p = TRIBE_POWERS[tribeKey];
   if (!p) return null;
-  const used = s.powerDay === serverDayNo(now);
+  const day = serverDayNo(now);
+  const prow = s._uid ? db.prepare("SELECT power_day FROM users WHERE id = ?").get(s._uid) : null;
+  const used = s.powerDay === day || (!!prow && prow.power_day === day);
   let why = null, options = null;
   let active = null;
   if (tribeKey === "human") {
@@ -20557,7 +20560,7 @@ app.post("/api/tribe-power", requireLogin, (req, res) => {
     const now = Date.now();
     const v = tribePowerView(s, colony.tribe, now);
     if (!v) return "Your tribe has no power";
-    if (v.used) return "Already used in this colony today";
+    if (v.used) return "Your home power is used up for today. It works once per account";
     if (v.why) return v.why;
     const pick = String((req.body || {}).pick || "");
     if (!v.options.some((o) => o.key === pick)) return "Pick what the power should do";
@@ -20583,6 +20586,7 @@ app.post("/api/tribe-power", requireLogin, (req, res) => {
       out = { cut: Math.round(POWER_MIND * 100), job: pick, savedMs: powerTimeBudget() - budget };
     }
     s.powerDay = serverDayNo(now);
+    db.prepare("UPDATE users SET power_day = ? WHERE id = ?").run(serverDayNo(now), req.user.id);
     req.extra = { power: Object.assign({ name: v.name, icon: v.icon }, out) };
     return null;
   });
@@ -31714,12 +31718,12 @@ function powersSheet(d) {
   var h = '<div class="sheet-head"><span class="hi">✨</span><div><h3>Tribe powers</h3><b>' + esc(d.colony) + "</b></div></div>";
   h += '<h4 class="sidesub">⚙️ ' + P.icon + " " + esc(P.name) + "</h4>" + '<p class="stat">' + esc(P.text) + "</p>";
   if (P.active) h += '<p class="hint">' + P.icon + " Active: " + powerActive(P) + ".</p>";
-  if (P.used) h += '<p class="hint">Used in this colony today. Ready again at ' + clockText(P.nextAt).slice(0, 5) + ".</p>";
+  if (P.used) h += '<p class="hint">Used on your account today. Ready again at ' + clockText(P.nextAt).slice(0, 5) + ".</p>";
   else if (P.why) h += '<p class="hint">' + esc(P.why) + ".</p>";
   else {
     h += '<div class="pw-picks">';
     P.options.forEach(function (o) {
-      var label = P.pick === "lock" ? (o.key === "def" ? "🛡️ +15% defense for 6 h" : "🔒 Bunkers hide 50% more for 6 h") :
+      var label = P.pick === "lock" ? (o.key === "def" ? "🛡️ +15% defense for 30 min" : "🔒 Bunkers hide 50% more for 30 min") :
         P.pick === "rally" ? (o.key === "air" ? "✈️ Air troops +12% attack" : "🪖 Ground troops +12% attack") :
         (POWER_PICK[o.key] || "") + " " + (o.key === "lab" ? "Research and upgrade" : "Construction");
       h += '<button class="btn ghost" data-tpower-pick="' + o.key + '">' + label + "</button>";
@@ -36940,7 +36944,7 @@ function wikiChapter(W, tab) {
       cards.push(wkCard("daily", "🎁", "Daily supply", wkP("Once every " + dayLenText() + " you can collect a free crate of every resource on the 📋 Mission Board. Every day in a row it grows, up to day " + Lv.dailyMax + "; miss a day and it starts over at day 1. It goes into the colony you are in (up to its storage).") + kt({ head: ["Day"].concat(Lv.daily.map(function (_, i) { return String(i + 1); })), rows: [["Each"].concat(Lv.daily.map(function (n) { return shortNum(n); }))] })));
       var tName = function (k) { var t = (W.tribes || []).filter(function (x) { return x.key === k; })[0]; return t ? t.icon + " " + t.name : k; };
       cards.push(wkCard("powers", "✨", "Tribe powers", wkP("Every tribe has two powers of its own. Tap the power button at the top of your colony.") + kt({ head: ["Tribe", "⚙️ Home power", "⚔️ War power"], left: 3, rows: Object.keys(Lv.powers).map(function (k) { var p = Lv.powers[k], w = Lv.war[k]; return [tName(k), "<b>" + p.icon + " " + p.name + "</b><br>" + p.text, "<b>" + w.icon + " " + w.name + "</b><br>" + w.text]; }) }) + wkList([
-        "⚙️ <b>Home power</b>: once every " + dayLenText() + " in every colony. You choose what it works on: 🚨 Lockdown (humans) defends harder or hides more for 6 hours, 📣 Rally Cry (chickens) boosts the ground or air troops of the next attack or raid from this colony that lands within 8 hours, 🧠 Mind Link (aliens) speeds up one job. Lockdown and Rally Cry show in the battle report when they worked.",
+        "⚙️ <b>Home power</b>: once every " + dayLenText() + " per account, in the colony of your choice. You choose what it works on: 🚨 Lockdown (humans) defends harder or hides more for 30 minutes, 📣 Rally Cry (chickens) boosts the ground or air troops of the next attack or raid from this colony that lands within 8 hours, 🧠 Mind Link (aliens) speeds up one job. Lockdown and Rally Cry show in the battle report when they worked.",
         "⚔️ <b>War power</b>: once every " + dayLenText() + " for you (twice with a commander at level " + Lv.warTwice + "). Tick it in the send window for one attack or raid; it isn’t used if you don’t tick it. 🛰️ Orbital Recon and 🌀 Cloak only work against other colonies, 🐔 Stampede against colonies and monster camps. Not in waves or farm lists.",
         "🛰️ The recon report arrives next to the fight report, even if your whole army falls. It shows what is left right after the fight, so a single cheap unit with the power ticked works as a scout that can’t be caught.",
         "🌀 A cloaked army shows up as an attack with no pace to read: the defender can’t tell a raid from an attack or a fake from a real one.",
