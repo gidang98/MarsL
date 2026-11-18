@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.413";
+const GAME_VERSION = "1.0.414";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17114,6 +17114,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.414",date:"2026-11-18",title:"Tidier commander inventory",groups:[["🎖️ Commander",["Inventory: each piece of gear in the bag is now a card of its own, with Equip on top, the comparison with what you wear underneath and the upgrade, spare, XP and auction buttons in one row. Before, the comparison and upgrade buttons were printed above the item they belonged to. Consumables and gear have their own headings, and the upgrade rules sit in one small note below."]]]},
   {v:"1.0.413",date:"2026-11-18",title:"Commander copies and commander auctions",groups:[["🎖️ Commanders",["Fusing shards now always makes a new commander, also when you already own that one. Copies of the same commander can be merged: their ranks add up (up to 5) and the better shiny tier stays. Shards no longer raise a rank by themselves, and the shop no longer stops at the top rank. Commanders you already have keep their rank."]],["🏛️ Auction",["Spare commanders can be sold in the auction (the active one cannot). The winner gets a commander of its own with the same rank and shiny tier. The auction tabs are now Browse, Sell and My auctions, with Gear, Commanders, Shards, Creatures and Supplies inside Sell."]]]},
   {v:"1.0.412",date:"2026-11-18",title:"Tidier auction rows",groups:[["🏛️ Auction",["Each auction row now puts the name, rarity, production and seller on separate lines instead of running them together, and the right side shows the price with one line for time left and bids."]]]},
   {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]],["🏛️ Auction",["Creatures in the auction now show how much Space-Cash a second each one earns.", "Your commander’s supplies (field dressings, medkits, field journals, recovery kits and Insight tokens) can now go to auction too, in a new Sell supplies tab. The winner gets them straight into their commander’s supplies; supplies nobody bids on come back to you."]],["🛒 Shard shop",["Legendary and Mythic commanders are much rarer in the shop: a legendary one turns up in about 1 in 60 restocks (it was about 1 in 20) and a Mythic one in about 1 in 180 (it was about 1 in 55). Rare and epic commanders show up more often instead (rare in 40% of restocks, epic in 23%). Offers now hold 1 to 3 shards for common and uncommon commanders and 1 to 2 for rare, epic, legendary and Mythic ones (epic offers held 1 before).","Legendary shards can now be bought 6 times and Mythic shards 3 times per day and player. Checking the shop every 5 minutes no longer gets you the rarest commanders in a few weeks. Once the limit is reached, the offer says so; the next day it opens again."]],["🏢 Expansion buildings",["The expansion building (the hub, for example the Nest Bureau) can no longer be sped up: no overtime, helping hands, alliance help, tribe power, free finish or Star Credits. It always takes its full time. The permanent build-speed bonuses such as the HQ still apply."]]]},
@@ -23586,6 +23587,13 @@ const PAGE = `<!DOCTYPE html>
   .demolish { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
   body.noscroll .sidebtn, body.noscroll .herobtn { display: none !important; } /* no compass on top of popups */
   .demolish small { flex: 1; min-width: 140px; color: var(--muted); font-size: 12px; }
+  .bagsub { margin: 14px 0 4px; font-size: 14px; }
+  .bagcard { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 6px 0; display: grid; gap: 6px; background: rgba(255,255,255,.35); }
+  .bc-name > b { display: block; margin-bottom: 2px; }
+  .bc-top { display: flex; align-items: flex-start; gap: 10px; } .bc-name { flex: 1; min-width: 0; }
+  .bc-cmp { margin: 0; font-size: 12px; color: var(--muted); } .bc-cmp.warn { color: #b0562b; }
+  .bc-acts { display: flex; gap: 6px; flex-wrap: wrap; } .bc-acts .btn { flex: 0 1 auto; }
+  .bagnote { font-size: 11px; opacity: .8; }
   .stayrow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
   .stayrow > div { flex: 1; min-width: 0; }
   .stayrow small { display: block; color: var(--muted); font-size: 12px; }
@@ -34732,22 +34740,27 @@ function heroSheet(d) {
       h += '</div><div class="mkquick"><button type="button" class="chipbtn" data-stash-q="fit">' + '📦' + ' What fits</button><button type="button" class="chipbtn" data-stash-q="half">½ Half</button><button type="button" class="chipbtn" data-stash-q="none">0 None</button></div>';
       h += '<button class="btn" data-hero-open-crate="1">Collect</button></div>';
     }
-    h+='<p class="hint">Gear upgrades: +8% base stats per rank, maximum +5. Duplicate upgrades consume an unupgraded item of the same slot and rarity. Cosmetic finds: '+esc((H.cosmetics||[]).join(', ')||'none')+' · Star Metal: '+(H.starMetal||0)+'</p>';
-    h+='<h4>Consumables</h4>';
     var supplies=(H.consumables||[]).filter(function(x){return x.count>0;});
-    if(!supplies.length)h+='<p class="hint left">Find healing supplies, field journals and recovery kits on adventures.</p>';
-    supplies.forEach(function(x){h+='<div class="stayrow"><div><b>'+esc(x.icon)+' '+esc(x.name)+' ×'+x.count+'</b><small style="display:block">'+esc(x.text)+'</small></div>'+(x.key==='respec'?'<span class="tag">Used for reset</span>':'<button class="btn small ghost" data-hero-consume="'+esc(x.key)+'">Use</button>')+'</div>';});
     var gear = H.bag.filter(function (x) { return x.kind !== "crate"; });
+    if (supplies.length) {
+      h += '<h4 class="bagsub">Consumables</h4>';
+      supplies.forEach(function(x){h+='<div class="stayrow"><div><b>'+esc(x.icon)+' '+esc(x.name)+' ×'+x.count+'</b><small>'+esc(x.text)+'</small></div>'+(x.key==='respec'?'<span class="tag">Used for reset</span>':'<button class="btn small ghost" data-hero-consume="'+esc(x.key)+'">Use</button>')+'</div>';});
+    }
+    if (gear.length) h += '<h4 class="bagsub">Gear in your bag · ' + gear.length + "</h4>";
     gear.forEach(function (it) {
       var equipped=H.gear[it.slot],diffs=Object.keys(it.stats||{}).map(function(k){var delta=it.stats[k]-((equipped&&equipped.stats[k])||0);return delta?((delta>0?'+':'')+Math.round(delta*100)/100+' '+(H.statInfo[k]?trStr(H.statInfo[k].name):k)):'';}).filter(Boolean);
       var down=Object.keys((equipped&&equipped.stats)||{}).filter(function(k){return !it.stats[k];}).map(function(k){return '-'+equipped.stats[k]+' '+trStr(H.statInfo[k].name);});
-      h+='<small>'+(!equipped?'Empty slot · upgrade':down.length||diffs.some(function(x){return x[0]==='-';})?'Trade-off':'Upgrade or equal')+' · '+esc(diffs.concat(down).join(' · '))+'</small>';
-      if((it.rank||0)<5)h+='<div><button class="btn small ghost" data-hero-upgrade="'+it.id+'">Upgrade +'+((it.rank||0)+1)+' · 💲 '+Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate">Use duplicate · 💲 '+Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale*.35)+'</button></div>';
-      if(H.starMetal>0&&(it.rank||0)<5)h+='<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">Upgrade with 1 Star Metal</button>';
+      var worse = down.length || diffs.some(function(x){return x[0]==='-';});
       var armedScrap = heroScrapArm.id === it.id && Date.now() - heroScrapArm.at < 4000;
-      h += '<div class="stayrow"><div><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + "</div>";
-      h += '<button class="btn small" data-hero-equip="' + it.id + '">Equip</button><button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + '</button><button class="btn small ghost" data-auction="sell" title="Sell at auction">🏛️</button></div>';
+      var cost = Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale);
+      h += '<div class="bagcard"><div class="bc-top"><div class="bc-name"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><button class="btn small" data-hero-equip="' + it.id + '">Equip</button></div>';
+      h += '<p class="bc-cmp' + (worse ? " warn" : "") + '">' + (!equipped ? "Empty slot" : worse ? "Trade-off" : "Better or equal") + (diffs.length || down.length ? " · " + esc(diffs.concat(down).join(" · ")) : "") + "</p>";
+      h += '<div class="bc-acts">';
+      if ((it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+'">⬆️ +'+((it.rank||0)+1)+' · 💲 '+shortNum(cost)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate" title="Consumes an unupgraded item of the same slot and rarity">⬆️ With a spare · 💲 '+shortNum(Math.round(cost*.35))+'</button>';
+      if (H.starMetal > 0 && (it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">⬆️ 1 Star Metal</button>';
+      h += '<button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + '</button><button class="btn small ghost" data-auction="sell" title="Sell at auction">🏛️</button></div></div>';
     });
+    if (gear.length || (H.cosmetics || []).length || H.starMetal) h += '<p class="hint left bagnote">Upgrades: +8% base stats per rank, up to +5. Cosmetic finds: ' + esc((H.cosmetics||[]).join(', ')||'none') + ' · Star Metal: ' + (H.starMetal||0) + "</p>";
     if (!H.bag.length) h += '<p class="empty">Empty. Lead an attack on a monster camp: its bounty and gear end up here.</p>';
     else if (H.level < 4) h += '<p class="hint left">Collect puts the bounty into ' + esc(H.stashTo || H.home) + ", the colony you are looking at. Whatever doesn’t fit stays here.</p>";
   }
