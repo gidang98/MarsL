@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.414";
+const GAME_VERSION = "1.0.415";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -14932,8 +14932,9 @@ function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1
 // ✨ shiny tiers for creatures and commanders: plain, silver, gold, diamond, rainbow. A tier multiplies strength
 // (a creature's HP and Space-Cash, a commander's effects and helper power). Star Credits are not multiplied.
 const SHINY = [{ id: "", name: "", mult: 1 }, { id: "s", name: "Silver", mult: 1.5 }, { id: "g", name: "Gold", mult: 2 }, { id: "d", name: "Diamond", mult: 2.5 }, { id: "r", name: "Rainbow", mult: 3 }];
+const TIER_MERGE_COPIES = 2; // copies of the same commander and tier that make one of the next tier
 const SHINY_CREATURE_CHANCE = [0.05, 0.02, 0.008, 0.003]; // per opponent: silver, gold, diamond, rainbow (7.1% in all)
-const SHINY_COMMANDER_CHANCE = [0.08, 0.03, 0.012, 0.004]; // per fusing of shards (12.6% in all)
+const SHINY_COMMANDER_CHANCE = [0.06, 0.02, 0.007, 0.0025]; // per fusing of shards (9.1% in all); two copies of one tier also merge up (TIER_MERGE_COPIES), so a lucky roll saves copies
 function rollShiny(chances, rnd) {
   let x = rnd(), acc = 0;
   for (let t = 4; t >= 1; t--) { acc += chances[t - 1]; if (x < acc) return t; }
@@ -15147,6 +15148,19 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     r.helpers = (r.helpers || []).filter((id) => id !== from.id);
     save();
     if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier || 0 }; heroSave(uid, h); } }
+  } else if (b.action === "upgrade") { // two copies of one commander with the same shiny tier become one of the next tier (rank: the higher of the two)
+    const from = r.cards.find((c) => c.id === Number(b.id)), into = r.cards.find((c) => c.id === Number(b.into));
+    if (!from || !into || from.id === into.id || from.key !== into.key) return res.status(400).json({ error: "Pick two copies of the same commander" });
+    if ((from.tier || 0) !== (into.tier || 0)) return res.status(400).json({ error: "Both copies need the same shiny tier" });
+    if ((into.tier || 0) >= SHINY.length - 1) return res.status(400).json({ error: "Rainbow is the top tier" });
+    if (from.id === r.active) return res.status(400).json({ error: "The active commander cannot be used up. Make another copy active first" });
+    into.tier = (into.tier || 0) + 1;
+    into.rank = Math.max(into.rank, from.rank);
+    shinyGot = into.tier;
+    r.cards = r.cards.filter((c) => c.id !== from.id);
+    r.helpers = (r.helpers || []).filter((id) => id !== from.id);
+    save();
+    if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier }; heroSave(uid, h); } }
   } else return res.status(400).json({ error: "Unknown action" });
   res.json({ ok: true, shiny: shinyGot });
 });
@@ -17114,6 +17128,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.415",date:"2026-11-18",title:"Shiny tiers by merging",groups:[["🎖️ Commanders",["Two copies of the same commander with the same shiny tier can be made into one copy of the next tier (normal to Silver to Gold to Diamond to Rainbow). The new copy keeps the higher rank. A Rainbow commander therefore takes 16 plain copies, fewer with lucky shiny fusings.","Because merging now gives a sure way up, the shiny chance when fusing shards is lower: Silver 6% (was 8%), Gold 2% (was 3%), Diamond 0.7% (was 1.2%), Rainbow 0.25% (was 0.4%)."]]]},
   {v:"1.0.414",date:"2026-11-18",title:"Tidier commander inventory",groups:[["🎖️ Commander",["Inventory: each piece of gear in the bag is now a card of its own, with Equip on top, the comparison with what you wear underneath and the upgrade, spare, XP and auction buttons in one row. Before, the comparison and upgrade buttons were printed above the item they belonged to. Consumables and gear have their own headings, and the upgrade rules sit in one small note below."]]]},
   {v:"1.0.413",date:"2026-11-18",title:"Commander copies and commander auctions",groups:[["🎖️ Commanders",["Fusing shards now always makes a new commander, also when you already own that one. Copies of the same commander can be merged: their ranks add up (up to 5) and the better shiny tier stays. Shards no longer raise a rank by themselves, and the shop no longer stops at the top rank. Commanders you already have keep their rank."]],["🏛️ Auction",["Spare commanders can be sold in the auction (the active one cannot). The winner gets a commander of its own with the same rank and shiny tier. The auction tabs are now Browse, Sell and My auctions, with Gear, Commanders, Shards, Creatures and Supplies inside Sell."]]]},
   {v:"1.0.412",date:"2026-11-18",title:"Tidier auction rows",groups:[["🏛️ Auction",["Each auction row now puts the name, rarity, production and seller on separate lines instead of running them together, and the right side shows the price with one line for time left and bids."]]]},
@@ -37628,7 +37643,7 @@ function wikiMore(W, tab, cards) {
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself for " + Ro.auto + " times its attack over the window (helpers add to that), and Strike adds a little extra (only its own attack counts, no helpers). So rarer creatures need a stronger commander: level up, spend skill points on 💪 Strength, wear better gear and put strong commanders in the helper slots. The table shows the attack that catches each one without striking; striking about every 20 seconds adds roughly half as much again. Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts in full for the first hour and at half speed for the next 6). Space-Cash pays for shards, gear upgrades and the auction.",
       "✨ <b>Shiny</b> creatures: every opponent has a small chance to come as " + Ro.shiny.map(function (t) { return "<b>" + t.name + "</b> (×" + t.mult + ", " + t.creature + "%)"; }).join(", ") + ". A shiny has " + "that many times the HP and pays that many times the Space-Cash, so it needs a stronger commander but earns far more in a slot. Shiny catches are never auto-sold, and with a full inventory a shiny is sold on the spot instead of getting away. Commanders can turn shiny too: every time shards are fused there is a chance of " + Ro.shiny.map(function (t) { return t.name + " " + t.commander + "%"; }).join(", ") + ". A shiny commander has that many times the effects and helper power (Star Credits stay the same). ",
-      "🎖️ Every fusing makes a <b>new commander</b>, also when you already own that one, so you can hold several copies. A spare copy can be <b>merged</b> into another copy of the same commander: their ranks add up (top rank " + Ro.maxRank + ") and the better shiny tier stays. The active commander cannot be merged away. Spare commanders can also be sold in the 🏛️ Auction; the winner gets one with its rank and shiny tier.",
+      "🎖️ Every fusing makes a <b>new commander</b>, also when you already own that one, so you can hold several copies. A spare copy can be <b>merged</b> into another copy of the same commander: their ranks add up (top rank " + Ro.maxRank + ") and the better shiny tier stays. Two copies of the same commander with the same shiny tier can also be made into <b>one copy of the next tier</b> (normal → Silver → Gold → Diamond → Rainbow, so 16 plain copies make a Rainbow one; the new copy keeps the higher rank). The active commander cannot be used up. Spare commanders can also be sold in the 🏛️ Auction; the winner gets one with its rank and shiny tier.",
       "🍀 <b>Hunt luck</b> grows with the acts, just like the monster camps do: from Discovery on it is ×" + Ro.luck.slice(2).join(", ×") + " (Discovery, Storm Season, Relic Hunt, Aurora). Every rarity above common gets that much more weight (opponents above common go from about a third of all to about half in the Aurora), the shiny chances above are multiplied the same way (for creatures and for fusing commanders), and while you are away " + Ro.spawnAct.slice(2).map(function (x) { return "+" + x; }).join(", ") + " points more of the opponents come.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
       "🎖️ When your commander leads an attack or raid on a colony it earns <b>xp</b> by the enemy units killed: " + Ro.killXp + " per unit. Staying home earns nothing.",
@@ -38322,10 +38337,12 @@ function commanderSheet() {
     var sorted = C.cards.slice().sort(function (a, b) { return firstAt[a.key] - firstAt[b.key] || b.rank - a.rank || (b.tier || 0) - (a.tier || 0); });
     sorted.forEach(function (c) {
       var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0;
+      var up = null; // a copy of the same shiny tier: together they become one of the next tier
+      C.cards.forEach(function (o) { if (o.id !== c.id && o.key === c.key && (o.tier || 0) === (c.tier || 0) && (c.tier || 0) < SHINY_NAMES.length - 1 && (!up || o.rank > up.rank)) up = o; });
       var into = null; // the copy this one can join without passing the top rank
       C.cards.forEach(function (o) { if (o.id !== c.id && o.key === c.key && o.rank + c.rank <= c.maxRank && (!into || o.rank > into.rank)) into = o; });
       h += '<div class="cmd-row card' + (on ? " on" : "") + (c.tier ? " sh-" + c.tier : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + (c.tier ? '<i class="sh-t' + c.tier + '">' + c.tierName + "</i> " : "") + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + Math.round(c.rate * 24 * 10) / 10 + "/day · helper +" + c.help + "% attack</small>" + (c.quip ? '<small class="quip">“' + esc(c.quip) + "”</small>" : "") + "</div>";
-      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '"' + (C.swapBlock ? ' disabled title="' + esc(C.swapBlock) + '"' : "") + '>Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button>" + (into ? '<button class="btn small ghost" data-cmd-merge="' + c.id + "," + into.id + '" title="This copy joins the other one: ranks add up, the better shiny tier stays">Merge into rank ' + into.rank + "</button>" : "") + "</div>";
+      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '"' + (C.swapBlock ? ' disabled title="' + esc(C.swapBlock) + '"' : "") + '>Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button>" + (into ? '<button class="btn small ghost" data-cmd-merge="' + c.id + "," + into.id + '" title="This copy joins the other one: ranks add up, the better shiny tier stays">Merge into rank ' + into.rank + "</button>" : "") + (up ? '<button class="btn small ghost" data-cmd-upgrade="' + c.id + "," + up.id + '" title="Both copies become one ' + SHINY_NAMES[(c.tier || 0) + 1] + ' copy, with the higher rank of the two">✨ Make ' + SHINY_NAMES[(c.tier || 0) + 1] + "</button>" : "") + "</div>";
       h += "</div>";
     });
     if (C.shards.length) {
@@ -39332,7 +39349,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-cmd-upgrade],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -39527,6 +39544,9 @@ document.addEventListener("click", function (e) {
     cmdPost({ action: "helper", id: attr("data-cmd-helper") }, "");
   } else if (has("data-cmd-fuse")) {
     post("/api/commanders", { action: "fuse", key: attr("data-cmd-fuse") }, function (j) { toast(j && j.shiny ? "✨ " + SHINY_NAMES[j.shiny] + "! The commander came out shiny" : "🎖️ Commander fused", true); openCommanders(); });
+  } else if (has("data-cmd-upgrade")) {
+    var ug = attr("data-cmd-upgrade").split(",");
+    cmdPost({ action: "upgrade", id: ug[0], into: ug[1] }, "✨ Next shiny tier made");
   } else if (has("data-cmd-merge")) {
     var mg = attr("data-cmd-merge").split(",");
     cmdPost({ action: "merge", id: mg[0], into: mg[1] }, "🎖️ Copies merged");
