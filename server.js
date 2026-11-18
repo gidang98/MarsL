@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.431";
+const GAME_VERSION = "1.0.432";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15012,16 +15012,16 @@ const COMMANDERS = {
   steward: { name: "Penny the Tally-Penguin", icon: "🐧", rarity: "uncommon", rate: 4.9, trait: { atk: 1, def: 1 }, quip: "Counts everything twice, just to be sure." },
   nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 4.1, trait: { atk: 1, def: 1, spawn: 5 }, quip: "Keeps strange hours, and so do the monsters around her." },
   bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 4.2, trait: { atk: 1.5, def: 4.5 }, quip: "Stands very still until the problem goes away." },
-  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 7.7, trait: { atk: 1.5, def: 1.5, shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
+  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 6.8, trait: { atk: 1.5, def: 1.5, shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
   tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.9, trait: { atk: 1.5, def: 1.5, tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
   professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 5.6, trait: { atk: 1.5, def: 1.5, xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
-  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 5.4, trait: { atk: 7, def: 2 }, quip: "Every plan ends in an explosion, usually a planned one." },
-  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 8.2, trait: { atk: 2, def: 2, fee: 1.5 }, quip: "Bids on things he is already holding." },
-  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 7.4, trait: { atk: 2, def: 2, cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
-  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 10.0, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
-  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 9.9, trait: { atk: 4, def: 4, tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
-  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 11.0, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
-  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 13.9, trait: { atk: 5, def: 5, cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
+  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 4.8, trait: { atk: 7, def: 2 }, quip: "Every plan ends in an explosion, usually a planned one." },
+  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 7.2, trait: { atk: 2, def: 2, fee: 1.5 }, quip: "Bids on things he is already holding." },
+  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 6.5, trait: { atk: 2, def: 2, cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
+  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 8.8, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
+  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 8.7, trait: { atk: 4, def: 4, tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
+  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 9.7, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
+  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 12.2, trait: { atk: 5, def: 5, cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
 };
 // what each effect does; the value is per rank 1 and grows with the rank
 const TRAIT_TEXT = {
@@ -17262,6 +17262,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.432",date:"2026-11-18",title:"Slightly fewer Star Credits from top commanders",groups:[["🎫 Star Credits",["The Banker, the epic, legendary and mythic commanders now earn about 12% fewer Star Credits per hour (for example Meowthulhu 12.2 instead of 13.9, Admiral Sparkle-Pants 8.8 instead of 10). Common and uncommon commanders are unchanged, and every commander still earns a different amount."]]]},
   {v:"1.0.431",date:"2026-11-18",title:"Research takes longer",groups:[["🔬 Research",["Research now takes 60 times the unit\u2019s training time (was 3). A Human raider and all air units take about 4.9 hours at lab level 5 instead of 15 minutes. Each lab level still makes research 10% faster, and the price in resources stays the same.","Finishing a research with Star Credits follows the same price per hour left as before, so it now costs more for the longer jobs. Research already running keeps its old end time."]]]},
   {v:"1.0.430",date:"2026-11-18",title:"Cheaper quick finishes",groups:[["🎫 Star Credits",["Finishing a job at once now costs at least 10 Star Credits on a \u00d71 server (was 45), so short jobs of up to about 13 minutes cost 10 and longer ones follow the same price per hour as before. Faster servers pay less, like before."]]]},
   {v:"1.0.429",date:"2026-11-18",title:"Star Credits: quirks, skills, research and alliances",groups:[["🎫 Star Credits",["Quirks: when a quirk\u2019s free reroll of the round is used, you can reroll it again for Star Credits (150, then 300, 600, 1200 for each further one in the same round).","Skills: reset them for Star Credits (150 plus 4 per point spent, up to 1000) instead of an Insight token. The token still works.","Research: a \u26a1 button on the running research finishes it now, at the same price per hour left as finishing a build.","Alliance projects: members can give Star Credits to a project. One credit fills about 2% of a typical player\u2019s hourly production of every resource, and credits cover at most 30% of a level, so the pot still needs real resources."]]]},
