@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.417";
+const GAME_VERSION = "1.0.418";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17128,6 +17128,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.418",date:"2026-11-18",title:"Compact inventory",groups:[["🎖️ Commander",["Inventory: supplies are now small chips with their count (tap one to read what it does and use it). Gear in the bag is one line each, best first, showing what changes against what you wear; tap a line for its full stats and the upgrade, XP and auction buttons. With gear in more than one slot, filter chips by slot appear above the list."]]]},
   {v:"1.0.417",date:"2026-11-18",title:"Equipped gear in the inventory",groups:[["🎖️ Commander",["The equipped gear and the stats it adds now sit at the top of the Inventory tab, right above the supplies and the gear in your bag, so you can compare and swap in one place. The Skills tab keeps only skills, quirk and stance."]]]},
   {v:"1.0.416",date:"2026-11-18",title:"Adventure count on the tab",groups:[["🎖️ Commander",["The Adventures tab shows a small number in its left corner with how many adventures are on the board."]]]},
   {v:"1.0.415",date:"2026-11-18",title:"Shiny tiers by merging",groups:[["🎖️ Commanders",["Two copies of the same commander with the same shiny tier can be made into one copy of the next tier (normal to Silver to Gold to Diamond to Rainbow). The new copy keeps the higher rank. A Rainbow commander therefore takes 16 plain copies, fewer with lucky shiny fusings.","Because merging now gives a sure way up, the shiny chance when fusing shards is lower: Silver 6% (was 8%), Gold 2% (was 3%), Diamond 0.7% (was 1.2%), Rainbow 0.25% (was 0.4%)."]]]},
@@ -23606,9 +23607,16 @@ const PAGE = `<!DOCTYPE html>
   .demolish small { flex: 1; min-width: 140px; color: var(--muted); font-size: 12px; }
   .bagsub { margin: 14px 0 4px; font-size: 14px; }
   .bagsub.first { margin-top: 4px; }
-  .bagcard { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 6px 0; display: grid; gap: 6px; background: rgba(255,255,255,.35); }
+  .bagcard { border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; margin: 5px 0; display: grid; gap: 6px; background: rgba(255,255,255,.35); }
   .bc-name > b { display: block; margin-bottom: 2px; }
-  .bc-top { display: flex; align-items: flex-start; gap: 10px; } .bc-name { flex: 1; min-width: 0; }
+  .bc-top { display: flex; align-items: center; gap: 10px; }
+  .bc-name { flex: 1; min-width: 0; display: grid; gap: 1px; text-align: left; background: none; border: 0; padding: 2px 0; font: inherit; color: inherit; cursor: pointer; }
+  .bc-name b { display: block; margin: 0; } .bc-name .bc-cmp { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bagcard.open .bc-name .bc-cmp { white-space: normal; }
+  .cchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+  .cchip { border: 1px solid var(--line); background: rgba(255,255,255,.45); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
+  .cchip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cpick { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.35); margin-bottom: 6px; } .cpick small { flex: 1; color: var(--muted); }
   .bc-cmp { margin: 0; font-size: 12px; color: var(--muted); } .bc-cmp.warn { color: #b0562b; }
   .bc-acts { display: flex; gap: 6px; flex-wrap: wrap; } .bc-acts .btn { flex: 0 1 auto; }
   .bagnote { font-size: 11px; opacity: .8; }
@@ -34631,6 +34639,7 @@ function loadSitting(after) {
   fetch("/api/sitting").then(function (r) { return r.json(); }).then(function (a) { sittingInfo = a.error ? null : a; if (after) after(); });
 }
 var heroScrapArm = { id: "", at: 0 };
+var heroBagOpen = 0, heroBagFilter = "", heroConsPick = ""; // inventory: the gear line that is open, the slot filter, the supply picked
 var heroNameEdit = null;
 var heroTab = "skills";
 var heroTake = {}, heroNeed = {};
@@ -34762,23 +34771,37 @@ function heroSheet(d) {
     if (gs.length) h += '<p class="hint left gsum">From gear: ' + gs.join(" · ") + "</p>";
     var supplies=(H.consumables||[]).filter(function(x){return x.count>0;});
     var gear = H.bag.filter(function (x) { return x.kind !== "crate"; });
-    if (supplies.length) {
-      h += '<h4 class="bagsub">Consumables</h4>';
-      supplies.forEach(function(x){h+='<div class="stayrow"><div><b>'+esc(x.icon)+' '+esc(x.name)+' ×'+x.count+'</b><small>'+esc(x.text)+'</small></div>'+(x.key==='respec'?'<span class="tag">Used for reset</span>':'<button class="btn small ghost" data-hero-consume="'+esc(x.key)+'">Use</button>')+'</div>';});
+    if (supplies.length) { // supplies as small chips: tap one to see what it does and use it
+      var pickC = supplies.filter(function (x) { return x.key === heroConsPick; })[0] || null;
+      h += '<h4 class="bagsub">Consumables · ' + supplies.reduce(function (n, x) { return n + x.count; }, 0) + '</h4><div class="cchips">' + supplies.map(function (x) {
+        return '<button type="button" class="cchip' + (pickC && pickC.key === x.key ? " on" : "") + '" data-cons-pick="' + esc(x.key) + '" title="' + esc(x.text) + '">' + esc(x.icon) + " " + esc(x.name) + " <b>×" + x.count + "</b></button>";
+      }).join("") + "</div>";
+      if (pickC) h += '<div class="cpick"><small>' + esc(pickC.text) + "</small>" + (pickC.key === "respec" ? '<span class="tag">Used for reset</span>' : '<button class="btn small" data-hero-consume="' + esc(pickC.key) + '">Use</button>') + "</div>";
     }
-    if (gear.length) h += '<h4 class="bagsub">Gear in your bag · ' + gear.length + "</h4>";
-    gear.forEach(function (it) {
+    if (gear.length) { // gear: one line each, sorted best first; tap a line for the full stats and the upgrade options
+      var slotsIn = H.slots.filter(function (sl) { return gear.some(function (g) { return g.slot === sl.key; }); });
+      if (heroBagFilter && !slotsIn.some(function (sl) { return sl.key === heroBagFilter; })) heroBagFilter = "";
+      h += '<h4 class="bagsub">Gear in your bag · ' + gear.length + "</h4>";
+      if (slotsIn.length > 1) h += '<div class="cchips">' + [{ key: "", name: "All" }].concat(slotsIn).map(function (sl) {
+        var n = sl.key ? gear.filter(function (g) { return g.slot === sl.key; }).length : gear.length;
+        return '<button type="button" class="cchip' + (heroBagFilter === sl.key ? " on" : "") + '" data-bag-filter="' + sl.key + '">' + esc(sl.name) + " <b>" + n + "</b></button>";
+      }).join("") + "</div>";
+    }
+    gear.slice().sort(function (a, b) { return b.tier - a.tier || (b.rank || 0) - (a.rank || 0); }).filter(function (g) { return !heroBagFilter || g.slot === heroBagFilter; }).forEach(function (it) {
       var equipped=H.gear[it.slot],diffs=Object.keys(it.stats||{}).map(function(k){var delta=it.stats[k]-((equipped&&equipped.stats[k])||0);return delta?((delta>0?'+':'')+Math.round(delta*100)/100+' '+(H.statInfo[k]?trStr(H.statInfo[k].name):k)):'';}).filter(Boolean);
       var down=Object.keys((equipped&&equipped.stats)||{}).filter(function(k){return !it.stats[k];}).map(function(k){return '-'+equipped.stats[k]+' '+trStr(H.statInfo[k].name);});
       var worse = down.length || diffs.some(function(x){return x[0]==='-';});
+      var open = String(heroBagOpen) === String(it.id);
       var armedScrap = heroScrapArm.id === it.id && Date.now() - heroScrapArm.at < 4000;
       var cost = Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale);
-      h += '<div class="bagcard"><div class="bc-top"><div class="bc-name"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><button class="btn small" data-hero-equip="' + it.id + '">Equip</button></div>';
-      h += '<p class="bc-cmp' + (worse ? " warn" : "") + '">' + (!equipped ? "Empty slot" : worse ? "Trade-off" : "Better or equal") + (diffs.length || down.length ? " · " + esc(diffs.concat(down).join(" · ")) : "") + "</p>";
-      h += '<div class="bc-acts">';
-      if ((it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+'">⬆️ +'+((it.rank||0)+1)+' · 💲 '+shortNum(cost)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate" title="Consumes an unupgraded item of the same slot and rarity">⬆️ With a spare · 💲 '+shortNum(Math.round(cost*.35))+'</button>';
-      if (H.starMetal > 0 && (it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">⬆️ 1 Star Metal</button>';
-      h += '<button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + '</button><button class="btn small ghost" data-auction="sell" title="Sell at auction">🏛️</button></div></div>';
+      h += '<div class="bagcard' + (open ? " open" : "") + '"><div class="bc-top"><button type="button" class="bc-name" data-bag-open="' + it.id + '"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + '</span></b><small class="bc-cmp' + (worse ? " warn" : "") + '">' + (!equipped ? "Empty slot" : worse ? "Trade-off" : "Better or equal") + (diffs.length || down.length ? " · " + esc(diffs.concat(down).join(" · ")) : "") + '</small></button><button class="btn small" data-hero-equip="' + it.id + '">Equip</button></div>';
+      if (open) {
+        h += heroGearLine(it, true) + '<div class="bc-acts">';
+        if ((it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+'">⬆️ +'+((it.rank||0)+1)+' · 💲 '+shortNum(cost)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate" title="Consumes an unupgraded item of the same slot and rarity">⬆️ With a spare · 💲 '+shortNum(Math.round(cost*.35))+'</button>';
+        if (H.starMetal > 0 && (it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">⬆️ 1 Star Metal</button>';
+        h += '<button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + '</button><button class="btn small ghost" data-auction="sell" title="Sell at auction">🏛️</button></div>';
+      }
+      h += "</div>";
     });
     if (gear.length || (H.cosmetics || []).length || H.starMetal) h += '<p class="hint left bagnote">Upgrades: +8% base stats per rank, up to +5. Cosmetic finds: ' + esc((H.cosmetics||[]).join(', ')||'none') + ' · Star Metal: ' + (H.starMetal||0) + "</p>";
     if (!H.bag.length) h += '<p class="empty">Empty. Lead an attack on a monster camp: its bounty and gear end up here.</p>';
@@ -39358,7 +39381,7 @@ document.addEventListener("click", function (e) {
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
-    "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
+    "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
     "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
@@ -39459,6 +39482,16 @@ document.addEventListener("click", function (e) {
     post("/api/adventure", { id: attr("data-adv-go").split(":")[0],route:attr("data-adv-go").split(":")[1]||"safe" }, function () { toast("🧭 Off it goes!"); });
   } else if (has("data-adv-cancel")) {
     post("/api/adventure", { cancel: true }, function () { toast("Your commander is coming back"); });
+  } else if (has("data-bag-open")) {
+    var bo = attr("data-bag-open");
+    heroBagOpen = String(heroBagOpen) === bo ? 0 : bo;
+    renderSheet();
+  } else if (has("data-bag-filter")) {
+    heroBagFilter = attr("data-bag-filter");
+    renderSheet();
+  } else if (has("data-cons-pick")) {
+    heroConsPick = heroConsPick === attr("data-cons-pick") ? "" : attr("data-cons-pick");
+    renderSheet();
   } else if (has("data-hero-tab")) {
     heroTab = attr("data-hero-tab");
     renderSheet();
