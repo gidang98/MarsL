@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.410";
+const GAME_VERSION = "1.0.411";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -14861,13 +14861,13 @@ const COMMANDERS = {
   banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 7.7, trait: { shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
   tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.2, trait: { tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
   professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 5.6, trait: { xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
-  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 6.3, trait: { atk: 5 }, quip: "Every plan ends in an explosion, usually a planned one." },
-  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 11.9, trait: { fee: 1.5 }, quip: "Bids on things he is already holding." },
-  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 10.5, trait: { cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
-  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 10.5, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
-  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 12.6, trait: { tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
-  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 14.7, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
-  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 25.2, trait: { cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
+  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 5.4, trait: { atk: 5 }, quip: "Every plan ends in an explosion, usually a planned one." },
+  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 10.1, trait: { fee: 1.5 }, quip: "Bids on things he is already holding." },
+  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 8.9, trait: { cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
+  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 8.9, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
+  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 8.8, trait: { tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
+  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 8.1, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
+  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 13.9, trait: { cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
 };
 // what each effect does; the value is per rank 1 and grows with the rank
 const TRAIT_TEXT = {
@@ -14875,8 +14875,8 @@ const TRAIT_TEXT = {
   cash: (v) => "+" + v + "% Space-Cash from hunt slots", tap: (v) => "+" + v + "% Strike damage", xp: (v) => "+" + v + "% commander xp",
   shop: (v) => "shards " + v + "% cheaper", fee: (v) => "auction fee −" + v + " points", spawn: (v) => "+" + v + " points more opponents while you are away",
 };
-// Star Credits grow slower with the rank than the other effects: +25% per rank, twice at the top
-function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1) * 0.25; }
+// Star Credits grow slower with the rank than the other effects: +15% per rank, 1.6 times at the top
+function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1) * 0.15; }
 // ✨ shiny tiers for creatures and commanders: plain, silver, gold, diamond, rainbow. A tier multiplies strength
 // (a creature's HP and Space-Cash, a commander's effects and helper power). Star Credits are not multiplied.
 const SHINY = [{ id: "", name: "", mult: 1 }, { id: "s", name: "Silver", mult: 1.5 }, { id: "g", name: "Gold", mult: 2 }, { id: "d", name: "Diamond", mult: 2.5 }, { id: "r", name: "Rainbow", mult: 3 }];
@@ -16387,13 +16387,13 @@ function askDone(colonyId) {
   if (colonyId) db.prepare("DELETE FROM build_asks WHERE colony_id = ?").run(colonyId);
 }
 
-// 🎫 finishing a job at once with Star Credits. The price is per hour left and gets dearer in steps (30 an hour for the
-// first hour left, 45 up to 4 hours, 80 up to 12 hours, 160 beyond), and every use costs at least creditFinishMin() (30 on a x1 server, less on faster ones),
+// 🎫 finishing a job at once with Star Credits. The price is per hour left and gets dearer in steps (45 an hour for the
+// first hour left, 60 up to 4 hours, 100 up to 12 hours, 200 beyond), and every use costs at least creditFinishMin() (45 on a x1 server, less on faster ones),
 // so quick jobs cannot be rushed in bulk (the first ten levels of a field take about 2 hours in all):
-// 5 minutes 30, 1 hour 30, 4 hours 165, 12 hours 805, a day 2725
-const CREDIT_FINISH_STEPS = [[1, 30], [4, 45], [12, 80], [Infinity, 160]]; // [up to this many hours left, credits per hour]
-const CREDIT_FINISH_MIN = 30; // on a x1 server
-// the minimum shrinks on faster servers like the free-finish window does (x10: 10, x500: 2), because jobs are much shorter there
+// 5 minutes 45, 1 hour 45, 4 hours 225, 12 hours 1025, a day 3425
+const CREDIT_FINISH_STEPS = [[1, 45], [4, 60], [12, 100], [Infinity, 200]]; // [up to this many hours left, credits per hour]
+const CREDIT_FINISH_MIN = 45; // on a x1 server
+// the minimum shrinks on faster servers like the free-finish window does (x10: 15, x500: 2), because jobs are much shorter there
 function creditFinishMin() {
   return Math.max(2, Math.round(CREDIT_FINISH_MIN / Math.pow(Math.max(1, BUILD_SPEED || 1), Math.log10(3))));
 }
@@ -17044,6 +17044,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before, the rarer the more: epic about 15% less, legendary about 30% less and Mythic about 45% less. A Mythic commander now earns about 190 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]]]},
   {v:"1.0.410",date:"2026-11-18",title:"Time away, in two steps",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first hour, then half speed for the next 6 hours, nothing after 7 hours. At most 4 hours of income pile up, as before; it just takes 7 hours away to get there.","After a longer time away, your Star Credits wait in the commander pile instead of being paid out in the background. Open the commander page, see the pile filled and tap Collect (the toast shows how many you got). While you play they still flow in on their own.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
   {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
   {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 30 Star Credits an hour for the first hour, 45 up to 4 hours, 80 up to 12 hours and 160 beyond. Every use costs at least 30, so quick jobs are not cheap to skip: 5 minutes to 1 hour cost 30, 2 hours 75, 4 hours 165, 12 hours 805 and a day 2,725.","That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits, while mid-length jobs cost about a fifth less than before (12 hours 805 instead of 1,010).","On faster servers the 30 Star Credit minimum shrinks (10 on a ×10 server, 2 on the fastest), because jobs are much shorter there. The wiki now also says correctly that the free finish covers the last 3 minutes on a ×1 server."]]]},
@@ -37480,7 +37481,7 @@ function wikiMore(W, tab, cards) {
         ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (3 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
-        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (30 on a ×1 server, less on faster ones), so quick early jobs cannot be rushed in bulk; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
+        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (45 on a ×1 server, less on faster ones), so quick early jobs cannot be rushed in bulk; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
     }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job.")));
@@ -37531,7 +37532,7 @@ function wikiMore(W, tab, cards) {
     ])));
     var Ro = He.roster;
     if (Ro) cards.push(wkCard("roster", "🐾", "Commander roster and hunt", wkList([
-      "🎫 Your active commander earns <b>Star Credits</b> steadily, from about 40 a day for a common commander up to about 600 for a Mythic one (more for rarer commanders, and +25% for every rank). While you are away the first hour counts in full and the next 6 hours at half speed; after 7 hours nothing more piles up (4 hours of income at most), so look in now and then. They finish a build job at once, see Build speed-ups. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
+      "🎫 Your active commander earns <b>Star Credits</b> steadily, from about 40 a day for a common commander up to about 330 for a Mythic one (more for rarer commanders, and +15% for every rank). While you are away the first hour counts in full and the next 6 hours at half speed; after 7 hours nothing more piles up (4 hours of income at most), so look in now and then. They finish a build job at once, see Build speed-ups. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
       "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and every offer holds a different number of shards: " + Ro.buyAmount.common[0] + " to " + Ro.buyAmount.common[1] + " for a common commander, " + Ro.buyAmount.uncommon[0] + " to " + Ro.buyAmount.uncommon[1] + " for an uncommon or rare one and just " + Ro.buyAmount.epic[1] + " for epic, legendary and Mythic ones (each player can buy that many per offer, and an offer is gone at the next restock). " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself for " + Ro.auto + " times its attack over the window (helpers add to that), and Strike adds a little extra (only its own attack counts, no helpers). So rarer creatures need a stronger commander: level up, spend skill points on 💪 Strength, wear better gear and put strong commanders in the helper slots. The table shows the attack that catches each one without striking; striking about every 20 seconds adds roughly half as much again. Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts in full for the first hour and at half speed for the next 6). Space-Cash pays for shards, gear upgrades and the auction.",
