@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.425";
+const GAME_VERSION = "1.0.426";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17141,6 +17141,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.426",date:"2026-11-18",title:"Readable archetypes in the wiki",groups:[["📖 Wiki",["The Archetypes and Quirks cards now show one block per entry (skills and rules as short lists) instead of a squeezed table, so they read well on a phone."]]]},
   {v:"1.0.425",date:"2026-11-18",title:"Hunt health bar",groups:[["🐾 Hunt",["The opponent now has a health bar that empties (❤️ 581 / 680 HP, green, then yellow, then red) instead of a damage bar that fills. The Strike button shows how much health a hit takes away."]]]},
   {v:"1.0.424",date:"2026-11-18",title:"Faster hunt",groups:[["🐾 Hunt",["Strike as fast as you can tap, up to 6 times a second (it used to be once every 20 seconds). Every strike lands on the opponent's health bar at once, with a little hit effect, and a fast tapper deals up to about twice the damage of the commander alone in the same time.","The opponent's health bar now moves smoothly all the time instead of jumping every few seconds, also when only the commander is fighting."]]]},
   {v:"1.0.423",date:"2026-11-18",title:"Every production is different",groups:[["🎖️ Commanders",["No two commanders of the same rarity earn the same Star Credits any more: common 1.4 to 1.8, uncommon 2.8 to 4.9 and rare 4.2 to 7.7 per hour, each one different."]],["🐾 Hunt",["No two creatures of the same rarity earn the same Space-Cash per second any more (common 1 to 2, uncommon 3 to 5)."]]]},
@@ -23756,6 +23757,12 @@ const PAGE = `<!DOCTYPE html>
   .wk-q { font-style: italic; color: var(--muted); }
   /* compact level tables */
   .kt-w { display: block; width: fit-content; max-width: 100%; overflow-x: auto; margin: 6px 0; border: 1px solid var(--line); border-radius: var(--radius-sm); -webkit-overflow-scrolling: touch; }
+  .wk-arch { margin: 10px 0; padding: 10px 12px; border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.035); }
+  .wk-arch h4 { margin: 0 0 2px; font-size: 15px; }
+  .wk-arch h5 { margin: 8px 0 2px; font-size: 12px; color: var(--muted); }
+  .wk-arch p { margin: 0; font-size: 13px; }
+  .wk-arch ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  .wk-arch li { margin: 2px 0; }
   .kt { width: auto; border-collapse: separate; border-spacing: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
   .kt th { position: sticky; top: 0; padding: 6px 8px; font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap; color: var(--ink); background: color-mix(in srgb, var(--card) 88%, #000); border-bottom: 1px solid var(--line); }
   .kt td { padding: 5px 8px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); vertical-align: middle; }
@@ -37721,11 +37728,12 @@ function wikiMore(W, tab, cards) {
       ]) + kt({ head: ["Order", "Good", "Bad", "Beats", "Loses to"], left: 3, rows: Object.keys(OR).map(function (k) { var o = OR[k]; return [o.icon + " " + o.name, o.up, o.down, ST[o.beats].icon + " " + ST[o.beats].name, ST[o.loses].icon + " " + ST[o.loses].name]; }) })
         + kt({ head: ["Stance", "Good", "Weak spot"], left: 3, rows: Object.keys(ST).map(function (k) { var o = ST[k]; return [o.icon + " " + o.name, o.up, o.down]; }) })
         + wkNote("In detail: Charge against Fortify meets +15% defense. Pillage against Ambush meets +20% defense; against Fortify the bunkers hide 30% less. Precision against Ambush meets 10% less defense; against Evacuate the bombards hit at random. Evacuate always costs 10% defense and hides 30% more.")));
-      cards.push(wkCard("archetypes", "🎭", "Archetypes", wkP("At level " + He.archLevel + " the commander picks one archetype, once. Its three skills open, and the points in them together unlock rules at 25, 50, 75 and 100. 🔄 Reset skills lets you choose again.") + kt({ head: ["Archetype", "Skills", "Rules (archetype points)"], left: 3, rows: He.arches.map(function (a) {
-        var sk = He.skills.filter(function (x) { return x.arch === a.key; }).map(function (x) { return x.icon + " <b>" + x.name + "</b>: +" + x.per + (x.unit.charAt(0) === "%" ? "" : " ") + x.unit + " per point " + x.text; }).join("<br>");
-        return [a.icon + " <b>" + a.name + "</b><br>" + a.text, sk, a.rules.map(function (r) { return "<b>" + r.at + "</b> " + r.text; }).join("<br>")];
-      }) }) + wkNote("Commanders from before the archetypes keep their Logistics and Foreman points until they choose. Choosing another archetype gives those points back as free points.")));
-      cards.push(wkCard("quirks", "🎲", "Quirks", wkP("At level " + He.quirkLevel + " every commander rolls one quirk: an upside with a downside. It can be rerolled once per round (into one of the other two).") + kt({ head: ["Quirk", "👍", "👎"], left: 3, rows: Object.keys(He.quirks).map(function (k) { var q = He.quirks[k]; return [q.icon + " " + q.name, q.up, q.down]; }) })));
+      cards.push(wkCard("archetypes", "🎭", "Archetypes", wkP("At level " + He.archLevel + " the commander picks one archetype, once. Its three skills open, and the points in them together unlock rules at 25, 50, 75 and 100. 🔄 Reset skills lets you choose again.") + He.arches.map(function (a) {
+        var sk = He.skills.filter(function (x) { return x.arch === a.key; }).map(function (x) { return "<li><b>" + x.icon + " " + esc(x.name) + "</b> +" + x.per + (x.unit.charAt(0) === "%" ? "" : " ") + esc(x.unit) + " per point " + esc(x.text) + "</li>"; }).join("");
+        var ru = a.rules.map(function (r) { return "<li><b>" + r.at + " pts</b> " + esc(r.text) + "</li>"; }).join("");
+        return '<div class="wk-arch"><h4>' + a.icon + " " + esc(a.name) + "</h4><p>" + esc(a.text) + "</p><h5>Skills</h5><ul>" + sk + "</ul><h5>Rules</h5><ul>" + ru + "</ul></div>";
+      }).join("") + wkNote("Commanders from before the archetypes keep their Logistics and Foreman points until they choose. Choosing another archetype gives those points back as free points.")));
+      cards.push(wkCard("quirks", "🎲", "Quirks", wkP("At level " + He.quirkLevel + " every commander rolls one quirk: an upside with a downside. It can be rerolled once per round (into one of the other two).") + Object.keys(He.quirks).map(function (k) { var q = He.quirks[k]; return '<div class="wk-arch"><h4>' + q.icon + " " + esc(q.name) + "</h4><ul><li>👍 " + esc(q.up) + "</li><li>👎 " + esc(q.down) + "</li></ul></div>"; }).join("")));
     }
     var LvP = W.extra && W.extra.living;
     if (LvP) {
