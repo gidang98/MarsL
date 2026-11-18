@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.422";
+const GAME_VERSION = "1.0.423";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -14902,18 +14902,18 @@ const HELPER_POWER = { common: 0.08, uncommon: 0.15, rare: 0.3, epic: 0.55, lege
 const HELPER_RANK = [1, 1.5, 2, 2.5, 3.5];
 function helperScale(rank, tier) { return HELPER_RANK[Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1] * shinyMult(tier); }
 const COMMANDERS = {
-  recruit: { name: "Private Pip", icon: "🎖️", rarity: "common", rate: 1.7, trait: { atk: 0.5, def: 0.5 }, starter: true, quip: "Eager, enthusiastic and wearing a helmet three sizes too big." },
+  recruit: { name: "Private Pip", icon: "🎖️", rarity: "common", rate: 1.6, trait: { atk: 0.5, def: 0.5 }, starter: true, quip: "Eager, enthusiastic and wearing a helmet three sizes too big." },
   drillmaster: { name: "Sergeant Stompy", icon: "🥁", rarity: "common", rate: 1.4, trait: { atk: 1.5, def: 0.5 }, quip: "Marches so loudly the enemy has time to panic." },
-  warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1.4, trait: { atk: 0.5, def: 1.5 }, quip: "Pads every wall with pillows, for safety." },
+  warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1.5, trait: { atk: 0.5, def: 1.5 }, quip: "Pads every wall with pillows, for safety." },
   courier: { name: "Pocket Pete", icon: "🧦", rarity: "common", rate: 1.7, trait: { atk: 0.5, def: 0.5, carry: 4 }, quip: "Has pockets inside his pockets and won't say what is in them." },
-  chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1.7, trait: { atk: 0.5, def: 0.5, cash: 5 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
+  chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1.8, trait: { atk: 0.5, def: 0.5, cash: 5 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
   forager: { name: "Granny Greenthumb", icon: "🌻", rarity: "uncommon", rate: 3.5, trait: { atk: 1, def: 1, prod: 2 }, quip: "Shouts at the fields until they grow out of embarrassment." },
   vanguard: { name: "Sir Charge-a-Lot", icon: "🐴", rarity: "uncommon", rate: 2.8, trait: { atk: 3, def: 1 }, quip: "Rides a hobby horse and always charges first, usually the wrong way." },
   steward: { name: "Penny the Tally-Penguin", icon: "🐧", rarity: "uncommon", rate: 4.9, trait: { atk: 1, def: 1 }, quip: "Counts everything twice, just to be sure." },
-  nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 3.5, trait: { atk: 1, def: 1, spawn: 5 }, quip: "Keeps strange hours, and so do the monsters around her." },
+  nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 4.1, trait: { atk: 1, def: 1, spawn: 5 }, quip: "Keeps strange hours, and so do the monsters around her." },
   bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 4.2, trait: { atk: 1.5, def: 4.5 }, quip: "Stands very still until the problem goes away." },
   banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 7.7, trait: { atk: 1.5, def: 1.5, shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
-  tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.2, trait: { atk: 1.5, def: 1.5, tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
+  tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.9, trait: { atk: 1.5, def: 1.5, tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
   professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 5.6, trait: { atk: 1.5, def: 1.5, xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
   warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 5.4, trait: { atk: 7, def: 2 }, quip: "Every plan ends in an explosion, usually a planned one." },
   tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 8.2, trait: { atk: 2, def: 2, fee: 1.5 }, quip: "Bids on things he is already holding." },
@@ -15190,12 +15190,12 @@ const CREATURES = {
   // hpf = its HP compared with the tier's base HP, w = how often it shows up compared with the rest of its tier.
   // Inside a tier the common ones are weaker and pay less, the rare ones are tougher and pay more.
   mossimp: { name: "Moss Imp", icon: "🍄", rarity: "common", cash: 1, hpf: 0.8, w: 28 },
-  dustbeetle: { name: "Dust Beetle", icon: "🪲", rarity: "common", cash: 1, hpf: 1.0, w: 24 },
-  pondfrog: { name: "Pond Frog", icon: "🐸", rarity: "common", cash: 1, hpf: 0.9, w: 22 },
-  gutterrat: { name: "Gutter Rat", icon: "🐀", rarity: "common", cash: 2, hpf: 1.25, w: 14 },
+  dustbeetle: { name: "Dust Beetle", icon: "🪲", rarity: "common", cash: 1.2, hpf: 1.0, w: 24 },
+  pondfrog: { name: "Pond Frog", icon: "🐸", rarity: "common", cash: 1.4, hpf: 0.9, w: 22 },
+  gutterrat: { name: "Gutter Rat", icon: "🐀", rarity: "common", cash: 1.7, hpf: 1.25, w: 14 },
   rockcrab: { name: "Rock Crab", icon: "🦀", rarity: "common", cash: 2, hpf: 1.35, w: 12 },
   cavebat: { name: "Cave Bat", icon: "🦇", rarity: "uncommon", cash: 3, hpf: 0.85, w: 34 },
-  sporemoth: { name: "Spore Moth", icon: "🦋", rarity: "uncommon", cash: 3, hpf: 0.95, w: 28 },
+  sporemoth: { name: "Spore Moth", icon: "🦋", rarity: "uncommon", cash: 3.5, hpf: 0.95, w: 28 },
   thornsnake: { name: "Thorn Snake", icon: "🐍", rarity: "uncommon", cash: 4, hpf: 1.1, w: 22 },
   mirelurker: { name: "Mire Lurker", icon: "🐊", rarity: "uncommon", cash: 5, hpf: 1.3, w: 16 },
   glacierwolf: { name: "Glacier Wolf", icon: "🐺", rarity: "rare", cash: 6, hpf: 0.85, w: 34 },
@@ -17132,6 +17132,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.423",date:"2026-11-18",title:"Every production is different",groups:[["🎖️ Commanders",["No two commanders of the same rarity earn the same Star Credits any more: common 1.4 to 1.8, uncommon 2.8 to 4.9 and rare 4.2 to 7.7 per hour, each one different."]],["🐾 Hunt",["No two creatures of the same rarity earn the same Space-Cash per second any more (common 1 to 2, uncommon 3 to 5)."]]]},
   {v:"1.0.422",date:"2026-11-18",title:"Gear cap 35%",groups:[["🎖️ Commander",["The cap on attack and defense from gear and skills is 35% in fights between players and 50% in the hunt. With the commander's own bonus on top (up to 25%), the most a fully built army gets is about +69%."]]]},
   {v:"1.0.421",date:"2026-11-18",title:"Commander bonus on top of gear and skills",groups:[["🎖️ Commander",["The active commander's attack and defense are no longer squeezed into the same cap as gear and skills: they come on top as a separate bonus of up to 25%. Upgrading a commander, raising its rank or making it shiny now always adds army strength, also when gear and skills are already at 45%. Gear and skills keep their 35% cap (50% in the hunt)."]]]},
   {v:"1.0.420",date:"2026-11-18",title:"Higher attack and defense cap",groups:[["🎖️ Commander",["The cap on the attack and defense bonus from gear, skills and the commander is now 35% in fights between players (was 30%) and 50% in the hunt (was 45%)."]]]},
