@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.408";
+const GAME_VERSION = "1.0.411";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6188,7 +6188,8 @@ function snapshot(user, colony) {
     crown: s.crown,
     zone: zoneInfo(user.id, now),
     relic: s.relic && landmarkByKey(s.relic) ? { icon: landmarkByKey(s.relic).icon, name: landmarkByKey(s.relic).name, bonus: relicText(landmarkByKey(s.relic)), ready: s.relicReady || 0, x: landmarkByKey(s.relic).x, y: landmarkByKey(s.relic).y, building: relicHomeOf(landmarkByKey(s.relic)), scope: relicTierDef().scope, scopeText: relicTierDef().scopeText, tier: relicTierDef().n } : null,
-    credits: (commanderCollect(user.id, now), creditsOf(user.id)), // earned credits arrive while you play
+    credits: (commanderFlow(user.id, now), creditsOf(user.id)), // earned credits arrive while you play; after a long absence they wait in the pile
+    creditRate: creditFlow(user.id, now).rate, creditFrac: creditFlow(user.id, now).frac, // so the wallet can tick them up live
     cash: cashOf(user.id), cashRate: cashInfo(user.id, now).cashRate, cashFrac: cashInfo(user.id, now).cashFrac,
     relicShared: (function () { const t = relicTierDef(); if (t.scope === "colony") return []; return relicHoldings(user.id).filter((h) => h.key !== s.relic).map((h) => { const l = landmarkByKey(h.key); return l ? { icon: l.icon, name: l.name, bonus: relicText(l), ready: h.ready } : null; }).filter(Boolean); })(),
     alliance: (function () {
@@ -11061,8 +11062,10 @@ function auctionItem(a) {
   return heroFixItem(JSON.parse(a.item));
 }
 function auctionView(a, uid) {
+  const item = auctionItem(a);
+  if (item && item.kind === "creature" && CREATURES[item.key]) item.cash = CREATURES[item.key].cash; // what one of them earns in a hunt slot, per second
   return {
-    id: a.id, item: auctionItem(a), seller: usernameOf(a.seller_id), mine: a.seller_id === uid,
+    id: a.id, item, seller: usernameOf(a.seller_id), mine: a.seller_id === uid,
     price: a.bidder_id ? a.bid : a.start_price, bids: a.bids, leading: a.bidder_id === uid,
     leader: a.bidder_id ? usernameOf(a.bidder_id) : null, endsAt: a.ends_at, minBid: auctionMinBid(a),
     status: a.status, outcome: a.outcome, claimed: !!a.claimed, won: a.outcome === "sold" && a.bidder_id === uid,
@@ -11078,6 +11081,15 @@ function auctionDeliver(a, now) {
     if (!r || !COMMANDERS[lot.key]) return false;
     r.shards[lot.key] = (r.shards[lot.key] || 0) + lot.n;
     db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
+    db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
+    return true;
+  }
+  if (lot.kind === "consumable") { // field dressings, medkits and so on go straight into the commander's supplies, no bag needed
+    const h = heroOf(uid, now);
+    if (!h || !HERO_CONSUMABLES[lot.key]) return false;
+    h.consumables = h.consumables || {};
+    h.consumables[lot.key] = Math.max(0, Math.floor(Number(h.consumables[lot.key]) || 0)) + lot.n;
+    heroSave(uid, h);
     db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
     return true;
   }
@@ -11135,11 +11147,17 @@ app.get("/api/auction", requireLogin, (req, res) => {
     rules: { fee: Math.round(auctionFee(uid) * 1000) / 10, hours: auctionHours(), maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMs: auctionSnipeMs(), priceMax: AUCTION_PRICE_MAX },
     active, mine,
     items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
-    creatures: (() => { const S = huntSync(uid, now); return S ? Object.keys(CREATURES).filter((k) => creatureSpare(S.hu, k) > 0).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, count: creatureSpare(S.hu, k) })) : []; })(),
+    creatures: (() => { const S = huntSync(uid, now); return S ? Object.keys(CREATURES).filter((k) => creatureSpare(S.hu, k) > 0).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, count: creatureSpare(S.hu, k) })) : []; })(),
+    consumables: h ? Object.keys(HERO_CONSUMABLES).filter((k) => Math.floor(Number((h.consumables || {})[k]) || 0) > 0).map((k) => ({ key: k, name: HERO_CONSUMABLES[k].name, icon: HERO_CONSUMABLES[k].icon, text: HERO_CONSUMABLES[k].text, rarity: consumableRarity(k), count: Math.floor(Number(h.consumables[k]) || 0) })) : [],
     huntFull: (() => { const S = huntSync(uid, now); return !!S && huntBagUsed(S.hu) >= HUNT_BAG; })(),
     shards: (() => { const r = rosterOf(uid, now); return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter && r && (r.shards[k] || 0) > 0).map((k) => ({ key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k] })); })(),
   });
 });
+// how rare a consumable is, from how often it drops
+function consumableRarity(key) {
+  const w = (HERO_CONSUMABLES[key] || {}).weight || 0;
+  return w >= 40 ? "common" : w >= 20 ? "uncommon" : "rare";
+}
 app.post("/api/auction/list", requireLogin, (req, res) => {
   const uid = req.user.id;
   const b = req.body || {};
@@ -11152,7 +11170,15 @@ app.post("/api/auction/list", requireLogin, (req, res) => {
   if (!auctionHours().includes(hours)) return res.status(400).json({ error: "Choose " + auctionHours().map(hrTxt).join(", ") });
   if (db.prepare("SELECT COUNT(*) AS n FROM auctions WHERE seller_id = ? AND status = 'active'").get(uid).n >= AUCTION_MAX_ACTIVE) return res.status(400).json({ error: "You can run " + AUCTION_MAX_ACTIVE + " auctions at a time" });
   let item;
-  if (b.creature) { // creatures from the hunt inventory
+  if (b.consumable) { // supplies the commander carries: dressings, medkits, journals, recovery kits, Insight tokens
+    const key = String(b.consumable), n = Math.floor(Number(b.count)), def = HERO_CONSUMABLES[key];
+    if (!def || !h) return res.status(400).json({ error: "Unknown supplies" });
+    const have = Math.max(0, Math.floor(Number((h.consumables || {})[key]) || 0));
+    if (!(n >= 1 && n <= have)) return res.status(400).json({ error: "You have " + have + " " + def.name });
+    h.consumables[key] = have - n;
+    heroSave(uid, h);
+    item = { kind: "consumable", id: crypto.randomBytes(4).toString("hex"), key, n, icon: def.icon, name: (n > 1 ? n + " × " : "") + def.name, rarity: consumableRarity(key) };
+  } else if (b.creature) { // creatures from the hunt inventory
     const key = String(b.creature), n = Math.floor(Number(b.count));
     const S = huntSync(uid, now);
     if (!CREATURES[key] || !S) return res.status(400).json({ error: "Unknown creature" });
@@ -14788,7 +14814,7 @@ function heroAfterFight(userId, h, o) {
 //  COMMANDER ROSTER and STAR CREDIT INCOME
 //  A player owns a roster of commanders; one is active (its state is the
 //  hero above). Only the active commander earns Star Credits, a little
-//  every real hour, and they pile up for at most COMMANDER_IDLE_HOURS
+//  every real hour, and they pile up for at most AWAY_MAX_EQ_H hours of income (see awayMs)
 //  until the player collects them. Benched commanders do nothing yet.
 //  The shop restocks on a real-time clock that ignores game speed; what it
 //  sells is still to be decided (SHOP_POOL is empty).
@@ -14814,7 +14840,15 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key = 'cash_x1200'").get()) {
     db.exec("COMMIT");
   } catch (e) { db.exec("ROLLBACK"); console.error("cash migration:", e.message); }
 }
-const COMMANDER_IDLE_HOURS = 4; // production that can pile up before collecting
+// Time away counts in two steps, for Star Credits and Space-Cash alike: full speed for the first AWAY_FULL_H hours, half speed for the
+// next AWAY_TAIL_H hours, nothing after that. 4 h away therefore pays 2.5 hours of income, 7 h or more pays 4.
+const AWAY_FULL_H = 1, AWAY_TAIL_H = 6, AWAY_TAIL = 0.5;
+const AWAY_MAX_EQ_H = AWAY_FULL_H + AWAY_TAIL_H * AWAY_TAIL; // income hours the longest absence pays
+function awayMs(ms) {
+  const full = AWAY_FULL_H * 3600000;
+  ms = Math.max(0, ms);
+  return Math.min(ms, full) + AWAY_TAIL * Math.min(Math.max(0, ms - full), AWAY_TAIL_H * 3600000);
+}
 const SHOP_RESTOCK_MS = 5 * 60000; // every game speed
 const SHOP_POOL = []; // commanders for sale: { key, price, weight }, to be decided
 const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
@@ -14826,11 +14860,19 @@ const COMMANDER_RANK_STEP = 0.5;
 const SHOP_OFFERS = 3; // commanders on offer at a time
 // The shop sells commander shards for Space-Cash; 12 shards of one commander fuse into it (or raise its rank).
 const SHARDS_PER_COMMANDER = 12;
-const SHARD_WEIGHT = { common: 60, uncommon: 25, rare: 10, epic: 5, legendary: 1.6, mythic: 0.55 }; // how often a commander of that rarity shows up
+const SHARD_WEIGHT = { common: 54, uncommon: 24, rare: 13.8, epic: 7.5, legendary: 0.49, mythic: 0.17 }; // how often a commander of that rarity shows up
+// the rarest shards can only be bought a few times per server day and player, however often the shop is checked
+const SHARD_DAY_CAP = { legendary: 6, mythic: 3 };
+function shardDayLeft(roster, rarity, now) {
+  const cap = SHARD_DAY_CAP[rarity];
+  if (!cap) return Infinity;
+  const b = roster && roster.dayBuys && roster.dayBuys.day === serverDayNo(now) ? roster.dayBuys.n || {} : {};
+  return Math.max(0, cap - (b[rarity] || 0));
+}
 function shardPrice(d, r) { return Math.round(SHARD_PRICE[d.rarity] * (1 - Math.min(0.5, cmdPerk(r, "shop") / 100))); }
 const SHARD_PRICE = { common: 18000, uncommon: 54000, rare: 168000, epic: 504000, legendary: 1680000, mythic: 6000000 }; // Space-Cash per shard
 // how many shards an offer holds, rolled per offer and round (the same for everyone; every player can buy that many): the rarer, the fewer
-const SHARD_AMOUNT = { common: [1, 3], uncommon: [1, 2], rare: [1, 2], epic: [1, 1], legendary: [1, 1], mythic: [1, 1] };
+const SHARD_AMOUNT = { common: [1, 3], uncommon: [1, 3], rare: [1, 2], epic: [1, 2], legendary: [1, 2], mythic: [1, 2] };
 // Two inactive commanders can stand beside the active one in the hunt: +% of its attack, by rarity (and rank)
 const HELPER_SLOTS = 2;
 // Helpers add to the active commander's attack in the hunt. The top rank pays extra, so the strongest Mythic
@@ -14852,13 +14894,13 @@ const COMMANDERS = {
   banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 7.7, trait: { shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
   tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.2, trait: { tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
   professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 5.6, trait: { xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
-  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 6.3, trait: { atk: 5 }, quip: "Every plan ends in an explosion, usually a planned one." },
-  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 11.9, trait: { fee: 1.5 }, quip: "Bids on things he is already holding." },
-  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 10.5, trait: { cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
-  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 10.5, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
-  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 12.6, trait: { tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
-  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 14.7, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
-  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 25.2, trait: { cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
+  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 5.4, trait: { atk: 5 }, quip: "Every plan ends in an explosion, usually a planned one." },
+  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 8.2, trait: { fee: 1.5 }, quip: "Bids on things he is already holding." },
+  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 7.4, trait: { cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
+  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 10.0, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
+  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 9.9, trait: { tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
+  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 11.0, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
+  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 13.9, trait: { cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
 };
 // what each effect does; the value is per rank 1 and grows with the rank
 const TRAIT_TEXT = {
@@ -14866,8 +14908,8 @@ const TRAIT_TEXT = {
   cash: (v) => "+" + v + "% Space-Cash from hunt slots", tap: (v) => "+" + v + "% Strike damage", xp: (v) => "+" + v + "% commander xp",
   shop: (v) => "shards " + v + "% cheaper", fee: (v) => "auction fee −" + v + " points", spawn: (v) => "+" + v + " points more opponents while you are away",
 };
-// Star Credits grow slower with the rank than the other effects: +25% per rank, twice at the top
-function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1) * 0.25; }
+// Star Credits grow slower with the rank than the other effects: +15% per rank, 1.6 times at the top
+function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1) * 0.15; }
 // ✨ shiny tiers for creatures and commanders: plain, silver, gold, diamond, rainbow. A tier multiplies strength
 // (a creature's HP and Space-Cash, a commander's effects and helper power). Star Credits are not multiplied.
 const SHINY = [{ id: "", name: "", mult: 1 }, { id: "s", name: "Silver", mult: 1.5 }, { id: "g", name: "Gold", mult: 2 }, { id: "d", name: "Diamond", mult: 2.5 }, { id: "r", name: "Rainbow", mult: 3 }];
@@ -14924,20 +14966,36 @@ function commanderIncome(userId, now) {
   const card = r.cards.find((c) => c.id === r.active) || r.cards[0];
   const base = COMMANDERS[card.key] || COMMANDERS.recruit;
   const def = Object.assign({}, base, { rate: Math.round(base.rate * creditScale(card.rank) * 100) / 100 });
-  const capMs = COMMANDER_IDLE_HOURS * 3600000;
-  const elapsed = Math.max(0, Math.min(capMs, now - (r.collectAt || now)));
+  const capMs = AWAY_MAX_EQ_H * 3600000;
+  const real = Math.max(0, now - (r.collectAt || now));
+  const elapsed = awayMs(real); // income time: the first hours count in full, later ones at half
   const pending = Math.floor((elapsed / 3600000) * def.rate + 1e-9);
-  return { roster: r, def, rate: def.rate, capMs, elapsed, pending, cap: Math.max(1, Math.floor(COMMANDER_IDLE_HOURS * def.rate)) };
+  return { roster: r, def, rate: def.rate, capMs, real, elapsed, pending, cap: Math.max(1, Math.floor(AWAY_MAX_EQ_H * def.rate)) };
 }
 function commanderCollect(userId, now) {
   const inc = commanderIncome(userId, now);
   if (!inc || inc.pending < 1) return 0;
   const r = inc.roster;
   // keep the part of an hour that did not make a whole credit
-  r.collectAt = inc.elapsed >= inc.capMs ? now : (r.collectAt || now) + Math.round((inc.pending / inc.rate) * 3600000);
+  r.collectAt = inc.real >= AWAY_FULL_H * 3600000 ? now : (r.collectAt || now) + Math.round((inc.pending / inc.rate) * 3600000);
   db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
   addCredits(userId, inc.pending);
   return inc.pending;
+}
+// While you play, earned credits flow into the wallet by themselves. After a longer absence (more than AWAY_HOLD_MS since the last
+// payout) they wait in the commander pile instead, so coming back shows the pile filled and Collect pays it out.
+const AWAY_HOLD_MS = 30 * 60000;
+function commanderFlow(userId, now) {
+  const inc = commanderIncome(userId, now);
+  if (inc && inc.real > AWAY_HOLD_MS) return 0;
+  return commanderCollect(userId, now);
+}
+// for the wallet on the screen: Star Credits per hour and how far the next whole credit has come (0 to 1), so it can tick up live
+function creditFlow(userId, now) {
+  const inc = commanderIncome(userId, now);
+  if (!inc) return { rate: 0, frac: 0 };
+  const frac = Math.max(0, (inc.elapsed / 3600000) * inc.rate - inc.pending);
+  return { rate: inc.rate, frac: Math.min(0.999, Math.round(frac * 1000) / 1000) };
 }
 // the same offers for everyone in a round; every player can buy each offer a few times per round
 function shopStock(round) {
@@ -14966,14 +15024,14 @@ function shopView(now, roster) {
     round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now,
     stock: shopStock(round).map((k) => {
       const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.max(0, (amt[k] || 0) - (bought[k] || 0)), total: amt[k] || 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
     }),
     // the whole catalogue, rarest last: only the ones in stock can be bought
     all: (() => {
       const order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"], stock = shopStock(round);
       return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter).sort((x, y) => order.indexOf(COMMANDERS[x].rarity) - order.indexOf(COMMANDERS[y].rarity)).map((k) => {
         const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, effect: commanderTraitText(d, 1), quip: d.quip || "", offer: stock.includes(k), left: Math.max(0, (amt[k] || 0) - (bought[k] || 0)), total: amt[k] || 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, effect: commanderTraitText(d, 1), quip: d.quip || "", offer: stock.includes(k), left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
       });
     })(),
   };
@@ -15039,12 +15097,18 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     r.bought = r.bought && r.bought.round === round && r.bought.n ? r.bought : { round, n: {} };
     if ((r.bought.n[key] || 0) >= (shopStock(round).amt[key] || 0)) return res.status(400).json({ error: "You bought all you can of that this round" });
     const d = COMMANDERS[key], price = shardPrice(d, r);
+    if (shardDayLeft(r, d.rarity, now) <= 0) return res.status(400).json({ error: "Daily limit reached: " + SHARD_DAY_CAP[d.rarity] + " " + d.rarity + " shards per day" });
     const own = r.cards.find((c) => c.key === key);
     if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
     if (cashOf(uid) < price) return res.status(400).json({ error: "You need " + price + " " + CASH.name });
     addCash(uid, -price);
     r.shards[key] = (r.shards[key] || 0) + 1;
     r.bought.n[key] = (r.bought.n[key] || 0) + 1;
+    if (SHARD_DAY_CAP[d.rarity]) {
+      const dn = serverDayNo(now);
+      if (!r.dayBuys || r.dayBuys.day !== dn) r.dayBuys = { day: dn, n: {} };
+      r.dayBuys.n[d.rarity] = (r.dayBuys.n[d.rarity] || 0) + 1;
+    }
     save();
   } else if (b.action === "fuse") {
     const key = String(b.key || "");
@@ -15078,7 +15142,6 @@ app.post("/api/commanders", requireLogin, (req, res) => {
 const HUNT_MS = 5 * 60000;
 const HUNT_BACK_SLOTS = 48; // 4 hours of windows, like the Star Credit income
 const HUNT_SLOTS = 5; // creatures that can earn Space-Cash at once
-const HUNT_CASH_HOURS = 4; // time away that still counts for the Space-Cash income
 const HUNT_OFFLINE_SPAWN = 0.5;
 const HUNT_AUTO = 2.5; // damage over a whole window, in multiples of the commander's attack (helpers included)
 const HUNT_TAP = 0.08; // one tapped strike, in multiples of the commander's own attack (helpers do not add to it)
@@ -15210,7 +15273,7 @@ function huntSync(userId, now, hero) {
   return { r, h, hu, atk, base, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
 }
 // Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
-// it is looked at). Time away counts for at most HUNT_CASH_HOURS. The part of a unit that has not
+// it is looked at). Time away counts in full for 4 hours, then at half speed for 8 more (awayMs). The part of a unit that has not
 // become a whole one yet is kept in hunt.cashFrac.
 function huntCashRate(hu, r) { return Math.round((hu.slots || []).slice(0, HUNT_SLOTS).reduce((n, k) => n + (CREATURES[k] ? CREATURES[k].cash : 0), 0) * (1 + cmdPerk(r, "cash") / 100) * 10) / 10; }
 function cashSettle(userId, now, force) {
@@ -15222,7 +15285,7 @@ function cashSettle(userId, now, force) {
   if (!hu || !hu.slots) return;
   const rate = huntCashRate(hu, r);
   if (!rate) { if (force && hu.cashAt !== now) { hu.cashAt = now; db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId); } return; }
-  const elapsed = Math.min(HUNT_CASH_HOURS * 3600000, Math.max(0, now - (hu.cashAt || now)));
+  const elapsed = awayMs(now - (hu.cashAt || now));
   const gain = (hu.cashFrac || 0) + (rate * elapsed) / 1000;
   const whole = Math.floor(gain);
   if (whole < 1 && !force) return;
@@ -15467,7 +15530,9 @@ app.post("/api/hero", requireLogin, (req, res) => {
       h.quirkRound = roundNumber();
       req.extra = { quirk: HERO_QUIRKS[h.quirk].name };
     } else if (b.action === "collect") {
-      if (!commanderCollect(req.user.id, now)) return "No Star Credits to collect yet";
+      const got = commanderCollect(req.user.id, now);
+      if (!got) return "No Star Credits to collect yet";
+      req.extra = { collected: got };
     } else if (b.action === "quirk-seen") {
       h.quirkNew = 0;
     } else if (b.action === "event") {
@@ -16292,8 +16357,15 @@ function jobLeft(job, now) {
 function jobBase(job) {
   return job.full || job.duration;
 }
+// Expansion buildings (the hub: Expansion Office, Nest Bureau, ...) always take their full time: no overtime, helping hands,
+// alliance help, tribe power, free finish or Star Credits. Only the permanent build-speed bonuses (HQ and so on) apply to them.
+const NO_SPEEDUP_BUILDINGS = ["hub"];
+function noSpeedup(job) {
+  return !!job && job.kind === "building" && NO_SPEEDUP_BUILDINGS.includes(job.type);
+}
 // how much free help this job can still take
 function freeRoom(job, now) {
+  if (noSpeedup(job)) return 0;
   return Math.max(0, Math.min(Math.floor(jobBase(job) * BOOST_FREE_MAX) - (job.cut || 0), jobLeft(job, now)));
 }
 function cutJob(job, ms, now) {
@@ -16361,13 +16433,13 @@ function askDone(colonyId) {
   if (colonyId) db.prepare("DELETE FROM build_asks WHERE colony_id = ?").run(colonyId);
 }
 
-// 🎫 finishing a job at once with Star Credits. The price is per hour left and gets dearer in steps (30 an hour for the
-// first hour left, 45 up to 4 hours, 80 up to 12 hours, 160 beyond), and every use costs at least creditFinishMin() (30 on a x1 server, less on faster ones),
+// 🎫 finishing a job at once with Star Credits. The price is per hour left and gets dearer in steps (45 an hour for the
+// first hour left, 60 up to 4 hours, 100 up to 12 hours, 200 beyond), and every use costs at least creditFinishMin() (45 on a x1 server, less on faster ones),
 // so quick jobs cannot be rushed in bulk (the first ten levels of a field take about 2 hours in all):
-// 5 minutes 30, 1 hour 30, 4 hours 165, 12 hours 805, a day 2725
-const CREDIT_FINISH_STEPS = [[1, 30], [4, 45], [12, 80], [Infinity, 160]]; // [up to this many hours left, credits per hour]
-const CREDIT_FINISH_MIN = 30; // on a x1 server
-// the minimum shrinks on faster servers like the free-finish window does (x10: 10, x500: 2), because jobs are much shorter there
+// 5 minutes 45, 1 hour 45, 4 hours 225, 12 hours 1025, a day 3425
+const CREDIT_FINISH_STEPS = [[1, 45], [4, 60], [12, 100], [Infinity, 200]]; // [up to this many hours left, credits per hour]
+const CREDIT_FINISH_MIN = 45; // on a x1 server
+// the minimum shrinks on faster servers like the free-finish window does (x10: 15, x500: 2), because jobs are much shorter there
 function creditFinishMin() {
   return Math.max(2, Math.round(CREDIT_FINISH_MIN / Math.pow(Math.max(1, BUILD_SPEED || 1), Math.log10(3))));
 }
@@ -16398,8 +16470,9 @@ function jobBoostView(s, q, now) {
     allyMaxMs: Math.round(base * ALLY_HELP_MAX),
     helpers: (q.helpers || []).length,
     asked: s.askJob === q.id,
-    freeNow: !!q.finishAt && left <= freeFinishMs(),
-    creditCost: q.finishAt && left > 0 ? creditFinishCost(left) : 0,
+    locked: noSpeedup(q),
+    freeNow: !noSpeedup(q) && !!q.finishAt && left <= freeFinishMs(),
+    creditCost: !noSpeedup(q) && q.finishAt && left > 0 ? creditFinishCost(left) : 0,
   };
 }
 function boostView(s, userId, colonyId, now) {
@@ -16423,7 +16496,7 @@ function boostView(s, userId, colonyId, now) {
     pct: { overtime: Math.round(OVERTIME_CUT * 100), hands: Math.round(HANDS_CUT * 100), ally: Math.round(ALLY_HELP_CUT * 100), allyMax: Math.round(ALLY_HELP_MAX * 100), free: Math.round(BOOST_FREE_MAX * 100) },
     overtimeMaxMs: Math.round((OVERTIME_MAX_MIN * 60000) / BUILD_SPEED),
     freeFinishMs: freeFinishMs(),
-    credits: creditsOf(userId),
+    credits: (commanderFlow(userId, now), creditsOf(userId) + ((commanderIncome(userId, now) || {}).pending || 0)), // spending pays out the pile first, so it counts
   };
 }
 
@@ -16638,6 +16711,7 @@ app.post("/api/boost", requireLogin, (req, res) => {
     if (!job) return "That job is already done";
     const how = String(body.how || "");
     const day = serverDayNo(now);
+    if (noSpeedup(job) && how !== "unask") return "Expansion buildings always take their full time";
     if (how === "overtime") {
       if (s.overtimeDay === day) return "Overtime is used up for today";
       const ms = overtimeMs(job, now);
@@ -16676,6 +16750,7 @@ app.post("/api/boost", requireLogin, (req, res) => {
       const left = jobLeft(job, now);
       if (left <= 0) return "This job is already done";
       const cost = creditFinishCost(left);
+      commanderCollect(req.user.id, now); // credits just earned count, as the wallet shows them
       if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
       addCredits(req.user.id, -cost);
       cutJob(job, left, now);
@@ -16783,7 +16858,7 @@ function wikiExtra() {
     hero: {
       maxLevel: HERO_MAX_LEVEL, speed: Math.round(HERO_SPEED * MOVE_SPEED * 10) / 10, settleMs: heroLockMs(), recoverMs: heroRecoverMs(), reviveMs: heroReviveMs(),
       fallPct: Math.round(HERO_FALL_XP * 100), bag: HERO_BAG,
-      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
+      roster: { shards: SHARDS_PER_COMMANDER, dayCap: SHARD_DAY_CAP, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
       orders: HERO_ORDERS, stances: HERO_STANCES, quirks: HERO_QUIRKS, quirkLevel: HERO_QUIRK_LEVEL,
@@ -17017,6 +17092,9 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]],["🏛️ Auction",["Creatures in the auction now show how much Space-Cash a second each one earns.", "Your commander’s supplies (field dressings, medkits, field journals, recovery kits and Insight tokens) can now go to auction too, in a new Sell supplies tab. The winner gets them straight into their commander’s supplies; supplies nobody bids on come back to you."]],["🛒 Shard shop",["Legendary and Mythic commanders are much rarer in the shop: a legendary one turns up in about 1 in 60 restocks (it was about 1 in 20) and a Mythic one in about 1 in 180 (it was about 1 in 55). Rare and epic commanders show up more often instead (rare in 40% of restocks, epic in 23%). Offers now hold 1 to 3 shards for common and uncommon commanders and 1 to 2 for rare, epic, legendary and Mythic ones (epic offers held 1 before).","Legendary shards can now be bought 6 times and Mythic shards 3 times per day and player. Checking the shop every 5 minutes no longer gets you the rarest commanders in a few weeks. Once the limit is reached, the offer says so; the next day it opens again."]],["🏢 Expansion buildings",["The expansion building (the hub, for example the Nest Bureau) can no longer be sped up: no overtime, helping hands, alliance help, tribe power, free finish or Star Credits. It always takes its full time. The permanent build-speed bonuses such as the HQ still apply."]]]},
+  {v:"1.0.410",date:"2026-11-18",title:"Time away, in two steps",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first hour, then half speed for the next 6 hours, nothing after 7 hours. At most 4 hours of income pile up, as before; it just takes 7 hours away to get there.","After a longer time away, your Star Credits wait in the commander pile instead of being paid out in the background. Open the commander page, see the pile filled and tap Collect (the toast shows how many you got). While you play they still flow in on their own.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
+  {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
   {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 30 Star Credits an hour for the first hour, 45 up to 4 hours, 80 up to 12 hours and 160 beyond. Every use costs at least 30, so quick jobs are not cheap to skip: 5 minutes to 1 hour cost 30, 2 hours 75, 4 hours 165, 12 hours 805 and a day 2,725.","That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits, while mid-length jobs cost about a fifth less than before (12 hours 805 instead of 1,010).","On faster servers the 30 Star Credit minimum shrinks (10 on a ×10 server, 2 on the fastest), because jobs are much shorter there. The wiki now also says correctly that the free finish covers the last 3 minutes on a ×1 server."]]]},
   {v:"1.0.407",date:"2026-11-17",title:"Hunt luck grows with the acts",groups:[["🍀 Hunt",["Every time a new act starts and the monster camps get stronger, the hunt gets luckier too: ×1.25 from Discovery, ×1.5 in the Storm Season, ×1.75 in the Relic Hunt and ×2 in the Aurora.","Luck gives every rarity above common that much more weight (above-common opponents go from about 35% to about 52% in the Aurora), and multiplies the shiny chances for creatures and for fusing commanders (creatures: 7.1% of opponents at the start, 14.2% in the Aurora).","The share of opponents that show up while you are away also rises by 5 points per act, from 50% to 70%."]],["🎓 Graduation",["The one-time graduation gift is now 100 Star Credits (was 500), in line with the faster Star Credit income."]]]},
   {v:"1.0.406",date:"2026-11-17",title:"Star Credits ten times faster",groups:[["🎫 Star Credits",["Every commander now earns ten times as many Star Credits (about 40 a day for a common commander up to about 600 for a Mythic one at rank 1), so the balance moves as you play.","Finishing a build job with Star Credits costs ten times as much: 30 minutes 10, an hour 30, 3 hours 140, 12 hours 1010, a day 2750. Relative to income nothing changed.","Credits now pile up for at most 4 hours while you are away (was 6)."]]]},
@@ -23880,6 +23958,11 @@ const PAGE = `<!DOCTYPE html>
   .wallet { display: inline-flex; align-items: center; gap: 8px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2, rgba(0,0,0,.06)); font-size: 12px; font-weight: 700; white-space: nowrap; } .wallet > span { position: relative; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; } .w-cash b { display: inline-block; } .wallet .gi { width: 15px; height: 15px; }
   .cash-pop { position: absolute; left: 50%; top: -2px; transform: translateX(-50%); font-style: normal; font-size: 11px; font-weight: 800; color: #d99a00; text-shadow: 0 1px 0 rgba(255,255,255,.7); pointer-events: none; white-space: nowrap; z-index: 6; animation: cashpop 1s ease-out forwards; }
   @keyframes cashpop { 0% { opacity: 0; transform: translate(-50%, 6px); } 18% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -18px); } }
+  .w-cr b { display: inline-block; } .w-cr.bump b, .wal-n.bump { animation: cashbump .4s ease-out; }
+  .wallet .w-cr::before, .wallet .w-cr::after { content: ""; position: absolute; left: 0; bottom: -3px; height: 2px; border-radius: 2px; }
+  .wallet .w-cr::before { width: 100%; background: rgba(120,130,255,.22); }
+  .wallet .w-cr::after { width: calc(var(--p, 0) * 1%); background: #6a7dff; transition: width 1s linear; }
+  .wal-bar { height: 5px; border-radius: 3px; background: rgba(120,130,255,.22); margin: 5px 0 4px; overflow: hidden; } .wal-bar i { display: block; height: 100%; width: 0; background: #6a7dff; transition: width 1s linear; }
   .w-cash.bump b, .hunt-cash.bump b { animation: cashbump .4s ease-out; }
   @keyframes cashbump { 0% { transform: scale(1); } 35% { transform: scale(1.18); color: #c98a00; } 100% { transform: scale(1); } }
   .hunt-slot { position: relative; } .hunt-slot:not(.empty) > span { animation: slotbob 2.4s ease-in-out infinite; }
@@ -29443,21 +29526,25 @@ function submitAuth() {
 //  Shared parts
 // =====================================================================
 // compact wallet in the top bar: Space-Cash ticks up every second from the slotted creatures
-var wallet = { cash: 0, rate: 0, credits: 0, at: Date.now() };
+var wallet = { cash: 0, rate: 0, credits: 0, crRate: 0, at: Date.now() };
 function walletSet(d) {
-  wallet = { cash: (d.cash || 0) + (d.cashFrac || 0), rate: d.cashRate || 0, credits: d.credits || 0, at: Date.now() };
+  wallet = { cash: (d.cash || 0) + (d.cashFrac || 0), rate: d.cashRate || 0, credits: (d.credits || 0) + (d.creditFrac || 0), crRate: d.creditRate || 0, at: Date.now() };
 }
+// Star Credits tick up too: the commander earns a little all the time, the bar under the 🎫 shows the way to the next whole one
+function walletCr() { return wallet.credits + (wallet.crRate * Math.min(Date.now() - wallet.at, 4 * 3600000)) / 3600000; }
+function crPct() { var v = walletCr(); return wallet.crRate ? Math.round((v - Math.floor(v)) * 100) : 0; }
 function walletNow() { return wallet.cash + (wallet.rate * (Date.now() - wallet.at)) / 1000; }
-var lastCashShown = null;
+var lastCashShown = null, lastCrShown = null;
 // the exact amount with every digit (1,204,517), for the wallet window and the hunt window; the top bar chip is shortened (1.2M)
 function cashText(v) { return v < 1e10 ? v.toLocaleString("en-US") : shortNum(v); }
 var calmMotion = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 // a small "+N" that floats up from the element, so you can see the money arrive
-function cashPop(host, text) {
+function cashPop(host, text, color) {
   if (!host || calmMotion) return;
   var e = document.createElement("i");
   e.className = "cash-pop";
   e.textContent = text;
+  if (color) e.style.color = color;
   host.appendChild(e);
   setTimeout(function () { if (e.parentNode) e.parentNode.removeChild(e); }, 1000);
 }
@@ -29487,6 +29574,21 @@ setInterval(function () {
   if (c && c.textContent !== txt) c.textContent = txt;
   if (hs && hs.textContent !== full) hs.textContent = full;
   if (wl && wl.textContent !== full) wl.textContent = full;
+  // Star Credits: whole credits arrive one by one, the bar fills toward the next
+  var cv = walletCr(), cw = Math.floor(cv), cf = cv - cw, cel = document.getElementById("w-cr"), cn = document.getElementById("wl-cr");
+  if (cel && cel.textContent !== shortNum(cw)) cel.textContent = shortNum(cw);
+  if (cn && cn.textContent !== cw.toLocaleString("en-US")) cn.textContent = cw.toLocaleString("en-US");
+  var cchip = document.querySelector(".wallet .w-cr");
+  if (cchip) cchip.style.setProperty("--p", wallet.crRate ? Math.round(cf * 100) : 0);
+  var cbar = document.getElementById("wl-crbar"), cnext = document.getElementById("wl-crnext");
+  if (cbar) cbar.style.width = Math.round(cf * 100) + "%";
+  if (cnext && wallet.crRate) cnext.textContent = cdText((1 - cf) * 3600000 / wallet.crRate);
+  if (lastCrShown !== null && cw > lastCrShown && cw - lastCrShown <= 3 && !document.hidden) {
+    cashBump(cchip);
+    cashPop(cchip, "+" + (cw - lastCrShown), "#6a7dff");
+    cashBump(cn);
+  }
+  lastCrShown = cw;
   // only a normal second of income pops; a refund or a purchase just changes the number
   if (gain > 0 && gain <= wallet.rate * 3 + 2 && !document.hidden) {
     var chip = document.querySelector(".wallet .w-cash");
@@ -29512,7 +29614,7 @@ function renderTop(d) {
   h += "</small></div>";
   var qready = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
   walletSet(d);
-  h += '<div class="topbtns"><button class="wallet" data-wallet-open="1" title="Your money: Space-Cash and Star Credits. Tap for the exact amounts"><span class="w-cash">💲<b id="w-cash">' + shortNum(Math.floor(wallet.cash)) + '</b></span><span class="w-cr">🎫<b id="w-cr">' + shortNum(wallet.credits) + '</b></span></button><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
+  h += '<div class="topbtns"><button class="wallet" data-wallet-open="1" title="Your money: Space-Cash and Star Credits. Tap for the exact amounts"><span class="w-cash">💲<b id="w-cash">' + shortNum(Math.floor(wallet.cash)) + '</b></span><span class="w-cr" style="--p:' + crPct() + '">🎫<b id="w-cr">' + shortNum(Math.floor(walletCr())) + '</b></span></button><a class="build-badge" href="/patch-notes" target="_blank" title="Running game version">v__VER__</a>';
   // phones: quests and troop traffic open from here (no floating buttons)
   h += '<button class="btn small ghost desk-only" data-sound="1" title="Sound on/off">' + (sound.on ? "🔊" : "🔇") + '</button><button class="btn small ghost desk-only" data-tutorial="1" title="Show the tour again">' + "❓" + '</button>';
   if (d.world && d.world.open) h += '<button class="btn small ghost" data-relics="1" title="Relics: where they are">' + "🗿" + '</button>';
@@ -29629,6 +29731,7 @@ function crewQueueHtml(d) {
 
 // ⚡ speed up, or (in its last minute on ×10, 5 on ×1) finish for free
 function boostOrFree(q) {
+  if (q.locked) return "";
   return q.freeNow ? '<button class="x freefin" data-free-job="' + q.id + '" title="Finish now, for free"><span class="fin-i">⚡</span>Finish</button>' : '<button class="x boost" data-boost="' + q.id + '" title="Speed up">⚡</button>';
 }
 // 🏘️ a slot lent to another colony of mine
@@ -37427,10 +37530,10 @@ function wikiMore(W, tab, cards) {
         ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (3 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
-        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (30 on a ×1 server, less on faster ones), so quick early jobs cannot be rushed in bulk; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
+        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (45 on a ×1 server, less on faster ones), so quick early jobs cannot be rushed in bulk; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
-    }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job.")));
+    }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job. The expansion building (hub) is the exception: it always takes its full time, with none of these speed-ups.")));
     var Mk = X.market;
     cards.push(wkCard("offers", "📋", "Market offers", wkList([
       "In the market’s 📋 Offers tab you post an offer: one resource you give, one you want. Ask for " + Mk.ratioMin + "× to " + Mk.ratioMax + "× of what you give, at least " + Mk.min + " on each side.",
@@ -37456,7 +37559,7 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
-    if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear and commander shards to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
+    if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear, commander shards, creatures from your hunt inventory and your commander’s supplies (dressings, medkits, journals, recovery kits, Insight tokens) to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
       left: 1,
@@ -37478,10 +37581,10 @@ function wikiMore(W, tab, cards) {
     ])));
     var Ro = He.roster;
     if (Ro) cards.push(wkCard("roster", "🐾", "Commander roster and hunt", wkList([
-      "🎫 Your active commander earns <b>Star Credits</b> steadily, from about 40 a day for a common commander up to about 600 for a Mythic one (more for rarer commanders, and +25% for every rank). Credits pile up for at most 4 hours while you are away, so look in now and then. They finish a build job at once, see Build speed-ups. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
-      "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and every offer holds a different number of shards: " + Ro.buyAmount.common[0] + " to " + Ro.buyAmount.common[1] + " for a common commander, " + Ro.buyAmount.uncommon[0] + " to " + Ro.buyAmount.uncommon[1] + " for an uncommon or rare one and just " + Ro.buyAmount.epic[1] + " for epic, legendary and Mythic ones (each player can buy that many per offer, and an offer is gone at the next restock). " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
+      "🎫 Your active commander earns <b>Star Credits</b> steadily, from about 40 a day for a common commander up to about 330 for a Mythic one (more for rarer commanders, and +15% for every rank). While you are away the first hour counts in full and the next 6 hours at half speed; after 7 hours nothing more piles up (4 hours of income at most), so look in now and then. They finish a build job at once, see Build speed-ups. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
+      "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and every offer holds a different number of shards: " + Ro.buyAmount.common[0] + " to " + Ro.buyAmount.common[1] + " for a common commander, " + Ro.buyAmount.uncommon[0] + " to " + Ro.buyAmount.uncommon[1] + " for an uncommon one and " + Ro.buyAmount.rare[0] + " to " + Ro.buyAmount.rare[1] + " for rare, epic, legendary and Mythic ones (each player can buy that many per offer, and an offer is gone at the next restock). Legendary shards can be bought " + Ro.dayCap.legendary + " times and Mythic ones " + Ro.dayCap.mythic + " times per " + dayLenText() + " and player, however often you check. " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself for " + Ro.auto + " times its attack over the window (helpers add to that), and Strike adds a little extra (only its own attack counts, no helpers). So rarer creatures need a stronger commander: level up, spend skill points on 💪 Strength, wear better gear and put strong commanders in the helper slots. The table shows the attack that catches each one without striking; striking about every 20 seconds adds roughly half as much again. Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
-      "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the auction.",
+      "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts in full for the first hour and at half speed for the next 6). Space-Cash pays for shards, gear upgrades and the auction.",
       "✨ <b>Shiny</b> creatures: every opponent has a small chance to come as " + Ro.shiny.map(function (t) { return "<b>" + t.name + "</b> (×" + t.mult + ", " + t.creature + "%)"; }).join(", ") + ". A shiny has " + "that many times the HP and pays that many times the Space-Cash, so it needs a stronger commander but earns far more in a slot. Shiny catches are never auto-sold, and with a full inventory a shiny is sold on the spot instead of getting away. Commanders can turn shiny too: every time shards are fused there is a chance of " + Ro.shiny.map(function (t) { return t.name + " " + t.commander + "%"; }).join(", ") + ". A shiny commander has that many times the effects and helper power (Star Credits stay the same). Fusing a commander you already own can only raise its tier, never lower it.",
       "🍀 <b>Hunt luck</b> grows with the acts, just like the monster camps do: from Discovery on it is ×" + Ro.luck.slice(2).join(", ×") + " (Discovery, Storm Season, Relic Hunt, Aurora). Every rarity above common gets that much more weight (opponents above common go from about a third of all to about half in the Aurora), the shiny chances above are multiplied the same way (for creatures and for fusing commanders), and while you are away " + Ro.spawnAct.slice(2).map(function (x) { return "+" + x; }).join(", ") + " points more of the opponents come.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
@@ -38166,7 +38269,7 @@ function commanderSheet() {
     C.shop.all.forEach(function (o) {
       var buy = o.offer && !o.maxed && o.left > 0;
       h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " · " + o.shards + "/" + C.shop.stock[0].need + "</small></b><small title='" + esc(o.quip) + "'>" + esc(o.effect) + "</small></div>";
-      h += o.maxed ? "<small>top rank</small>" : !o.offer ? "<small>not in stock · 💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>sold out</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.total > 1 ? " · " + o.left + " left" : "") + "</button>";
+      h += o.maxed ? "<small>top rank</small>" : !o.offer ? "<small>not in stock · 💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>" + (o.capped ? "daily limit reached" : "sold out") + "</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.total > 1 ? " · " + o.left + " left" : "") + "</button>";
       h += "</div>";
     });
   } else {
@@ -38199,7 +38302,8 @@ function walletSheet() {
   var v = Math.floor(walletNow()), r = wallet.rate;
   var h = '<div class="sheet-head"><span class="hi">💲</span><div><h3>Your wallet</h3><b>Space-Cash and Star Credits</b></div></div>';
   h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
-  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n">' + wallet.credits.toLocaleString("en-US") + "</b><small>Your active commander earns them all the time, online or away.</small></div></div>";
+  var cr = wallet.crRate, cfr = walletCr() % 1;
+  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + Math.floor(walletCr()).toLocaleString("en-US") + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
   h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button></div>';
   return h;
 }
@@ -38310,11 +38414,11 @@ function aucPost(path, body, msg) {
   post(path, body, function () { if (msg) toast(msg, true); openAuction(); });
 }
 function aucName(it) {
-  return it.kind === "shard" || it.kind === "creature" ? it.icon + ' <span class="cmd-rar r-' + it.rarity + '">' + esc(it.name) + "</span>" : it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span>";
+  return it.kind === "shard" || it.kind === "creature" || it.kind === "consumable" ? it.icon + ' <span class="cmd-rar r-' + it.rarity + '">' + esc(it.name) + "</span>" : it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span>";
 }
 function aucRow(a, A) {
-  var it = a.item, shard = it.kind === "shard", crea = it.kind === "creature", noHero = shard || crea;
-  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (crea ? "<small>" + it.rarity + " creature" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + "</div>";
+  var it = a.item, shard = it.kind === "shard", crea = it.kind === "creature", cons = it.kind === "consumable", noHero = shard || crea;
+  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (cons ? "<small>" + it.rarity + " supplies" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : crea ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " each" : "") + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + "</div>";
   h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>" + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids yet") + "</small><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + esc(a.seller) + "</small>";
   if (a.mine) h += a.bids ? '<small class="ok">Your item, bids are in</small>' : '<button class="btn small ghost" data-auc-cancel="' + a.id + '">Take it back</button>';
   else {
@@ -38324,7 +38428,7 @@ function aucRow(a, A) {
   return h + "</div></div>";
 }
 function aucMine(a, A) {
-  var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + aucName(it) + '</b></div><div class="auc-side">';
+  var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + aucName(it) + '</b>' + (it.kind === "creature" ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " each" : "") + "</small>" : "") + '</div><div class="auc-side">';
   if (a.status === "active") h += "<small>" + (a.mine ? "Your auction" : "You lead") + " · " + A.currency.icon + " " + shortNum(a.price) + " · ⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + "</small>";
   else if (a.outcome === "sold") h += "<small>" + (a.mine ? "Sold for " + A.currency.icon + " " + shortNum(a.sold) + " (fee " + shortNum(a.fee) + ")" : "You won it for " + A.currency.icon + " " + shortNum(a.sold)) + "</small>";
   else h += "<small>" + (a.outcome === "cancelled" ? "Taken back" : "Nobody bid") + "</small>";
@@ -38335,7 +38439,7 @@ function auctionSheet() {
   var A = auc.data, h = "";
   h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
   var open = A.mine.filter(function (a) { return a.status === "active" || (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))); }).length;
-  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["shards", "Sell shards"], ["creatures", "Sell creatures"], ["mine", "My auctions" + (open ? " · " + open : "")]];
+  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["shards", "Sell shards"], ["creatures", "Sell creatures"], ["cons", "Sell supplies"], ["mine", "My auctions" + (open ? " · " + open : "")]];
   h += '<div class="auc-tabs">' + tabs.map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (!A.hasHero) h += '<p class="hint left">🎖️ Browsing is open to everyone. To bid on or sell gear you need a commander to carry it.</p>';
   if (auc.tab === "browse") {
@@ -38352,10 +38456,18 @@ function auctionSheet() {
   } else if (auc.tab === "creatures") {
     if (!A.creatures.length) h += '<p class="empty">No creatures to sell. Creatures in a hunt slot are not for sale: take them out first.</p><p class="hint left"><button class="btn small ghost" data-hunt-open="1">🐾 Open the hunt</button></p>';
     A.creatures.forEach(function (cr) {
-      h += '<div class="auc-row stack"><div class="auc-item"><b>' + cr.icon + ' <span class="cmd-rar r-' + cr.rarity + '">' + esc(cr.name) + "</span></b><small>" + cr.count + " in your inventory</small></div>" +
+      h += '<div class="auc-row stack"><div class="auc-item"><b>' + cr.icon + ' <span class="cmd-rar r-' + cr.rarity + '">' + esc(cr.name) + "</span></b><small>" + cr.count + " in your inventory · 💲 " + (Math.round((cr.cash || 0) * 10) / 10) + "/s each</small></div>" +
         '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + cr.count + '" value="1" id="auc-cn-' + cr.key + '" aria-label="How many"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-cp-' + cr.key + '" aria-label="Start price"><select id="auc-ch-' + cr.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-crea="' + cr.key + '">Sell</button></div></div></div>';
     });
     h += '<p class="hint left">Pick how many go into the lot, the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. A winner needs room in the creature inventory; creatures nobody bids on come back to you.</p>";
+  } else if (auc.tab === "cons") {
+    if (!A.hasHero) h += '<p class="empty">Supplies belong to your commander. Get a commander first.</p>';
+    else if (!A.consumables.length) h += '<p class="empty">No supplies to sell. Dressings, medkits, journals, recovery kits and Insight tokens drop on your commander’s adventures.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
+    A.consumables.forEach(function (co) {
+      h += '<div class="auc-row stack"><div class="auc-item"><b>' + co.icon + ' <span class="cmd-rar r-' + co.rarity + '">' + esc(co.name) + "</span></b><small>" + co.count + " in your supplies · " + esc(co.text) + "</small></div>" +
+        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + co.count + '" value="1" id="auc-sn-' + co.key + '" aria-label="How many"><input type="number" min="1" max="' + A.rules.priceMax + '" value="10000" id="auc-sp-' + co.key + '" aria-label="Start price"><select id="auc-sh-' + co.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-cons="' + co.key + '">Sell</button></div></div></div>';
+    });
+    if (A.consumables.length) h += '<p class="hint left">Pick how many go into the lot, the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. Supplies nobody bids on come back to you.</p>";
   } else if (auc.tab === "sell") {
     if (!A.hasHero) h += '<p class="empty">Gear comes from your commander’s bag. Get a commander first.</p>';
     else if (!A.items.length) h += '<p class="empty">Your bag has no gear to sell yet. Gear drops when your commander leads attacks on monster camps; equipped gear can’t be sold, take it off first.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
@@ -39166,7 +39278,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -39359,7 +39471,7 @@ document.addEventListener("click", function (e) {
   } else if (has("data-cmd-switch")) {
     cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
   } else if (has("data-hero-collect")) {
-    post("/api/hero", { action: "collect" }, function () { toast("🎫 Star Credits collected"); });
+    post("/api/hero", { action: "collect" }, function (r) { toast("🎫 +" + ((r && r.collected) || 0).toLocaleString("en-US") + " Star Credits collected"); });
   } else if (has("data-hero-stance")) {
     post("/api/hero", { action: "stance", key: attr("data-hero-stance") }, function () { toast("🛡️ Stance set"); });
   } else if (has("data-hero-quirk")) {
@@ -39659,6 +39771,9 @@ document.addEventListener("click", function (e) {
   } else if (has("data-auc-lot")) {
     var slk = attr("data-auc-lot"), sln = document.getElementById("auc-n-" + slk), slp = document.getElementById("auc-p-" + slk), slh = document.getElementById("auc-h-" + slk);
     aucPost("/api/auction/list", { shard: slk, count: sln ? sln.value : 0, price: slp ? slp.value : 0, hours: slh ? slh.value : 24 }, "🏛️ Auction started");
+  } else if (has("data-auc-cons")) {
+    var ok2 = attr("data-auc-cons"), on2 = document.getElementById("auc-sn-" + ok2), op2 = document.getElementById("auc-sp-" + ok2), oh2 = document.getElementById("auc-sh-" + ok2);
+    aucPost("/api/auction/list", { consumable: ok2, count: on2 ? on2.value : 1, price: op2 ? op2.value : 0, hours: oh2 ? oh2.value : 24 }, "🏛️ Auction started");
   } else if (has("data-auc-crea")) {
     var ck = attr("data-auc-crea"), cn = document.getElementById("auc-cn-" + ck), cp = document.getElementById("auc-cp-" + ck), ch = document.getElementById("auc-ch-" + ck);
     aucPost("/api/auction/list", { creature: ck, count: cn ? cn.value : 1, price: cp ? cp.value : 0, hours: ch ? ch.value : 24 }, "🏛️ Auction started");
