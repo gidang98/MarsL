@@ -541,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.436";
+const GAME_VERSION = "1.0.437";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17263,6 +17263,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.437",date:"2026-11-18",title:"Bigger resource fields",groups:[["🌾 Fields",["The twelve resource fields and your mascot are drawn larger on the clay slab, so less space is wasted around them."]]]},
   {v:"1.0.436",date:"2026-11-18",title:"Shards from adventures",groups:[["🧩 Adventures",["An adventure sometimes brings home commander shards (about one trip in five, one in three on the dangerous route). Which commander follows the shop\u2019s odds, so a Mythic shard is as rare as in the shop, and the amounts are the same. The shop\u2019s daily limits do not apply. The trip report and the commander sheet show what was found."]]]},
   {v:"1.0.435",date:"2026-11-18",title:"Research rush price: 6 times the time left",groups:[["🎫 Star Credits",["Finishing a research with Star Credits is now priced as if it took 6 times as long (was 9). The raider and all air units of a Human colony cost about 250 credits to finish at lab level 5, instead of about 370. The price still falls as the research gets shorter and with every lab level."]]]},
   {v:"1.0.434",date:"2026-11-18",title:"Labs speed research up by 3% per level",groups:[["🔬 Research",["Every lab level now makes research 3% faster (was 10%), so a high lab level saves much less time. A Human raider and all air units take about 48 minutes at lab level 5 instead of 33.","The Star Credit price to finish research follows the time left, so it rises a little with the longer times."]]]},
@@ -30206,11 +30207,11 @@ function fieldScene(d, order) {
   var g = '<defs><filter id="fxsoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>' +
     '<filter id="fxgrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" values="0 0 0 0 .55 0 0 0 0 .25 0 0 0 0 .18 0 0 0 .55 -.18"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs>';
   // an oval clay slab; the 12 fields stand on a ring around your mascot in the middle
-  var CX = 190, CY = 124, RX = 152, RY = 82, W0 = 54;
+  var CX = 190, CY = 124, RX = 157, RY = 85, W0 = 61;
   g += '<ellipse cx="' + (CX + 10) + '" cy="' + (CY + 30) + '" rx="186" ry="104" fill="rgba(150,70,60,.16)" filter="url(#fxsoft)"/>';
   g += '<path d="M' + (CX - 182) + " " + CY + "v12a182 104 0 0 0 364 0v-12z" + '" fill="#D27358"/>';
   g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#F7C4A5"/><ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#fff" filter="url(#fxgrain)" opacity=".5"/>';
-  g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="62" ry="32" fill="rgba(255,255,255,.35)"/>';
+  g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="70" ry="36" fill="rgba(255,255,255,.35)"/>';
   // equal spacing along the oval, so the fields on the sides never touch
   var pts = [], L = 0, N = 720, a0 = -75 * Math.PI / 180, prev = null;
   for (var q = 0; q <= N; q++) { var an = a0 + q * 2 * Math.PI / N, pt = [CX + RX * Math.cos(an), CY + RY * Math.sin(an)]; if (prev) L += Math.hypot(pt[0] - prev[0], pt[1] - prev[1]); pts.push([pt, L]); prev = pt; }
@@ -30228,7 +30229,7 @@ function fieldScene(d, order) {
   }
   cells.filter(function (c) { return c.y <= CY + 20; }).forEach(function (c) { g += tile(c); });
   // the centre: your tribe's mascot on its own clay disc, never covered by a field
-  var mk = "mascot-" + d.tribe.key, WM = d.tribe.key === "human" ? 86 : 74;
+  var mk = "mascot-" + d.tribe.key, WM = d.tribe.key === "human" ? 98 : 84;
   g += '<g class="fx-dome" data-view="buildings" role="button" tabindex="0" aria-label="' + (curLang() === "en" ? "Enter " + esc(d.colony) : trf("Enter {0}", esc(trStr(d.colony)))) + '"><title>' + (curLang() === "en" ? "Enter " + esc(d.colony) : trf("Enter {0}", esc(trStr(d.colony)))) + "</title>";
   if (FX_ART.t[mk]) g += fxShadow(CX, CY, WM) + fxImg(mk, CX, CY, WM);
   else g += '<g class="fx-mascot"><svg x="' + (CX - 26) + '" y="' + (CY - 56) + '" width="52" height="60" viewBox="0 0 80 92">' + (FX_MASCOT[d.tribe.key] || FX_MASCOT.human) + "</svg></g>";
