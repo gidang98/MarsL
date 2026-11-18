@@ -611,8 +611,9 @@ const BUILDING_TYPES = {
   trap: {
     cost: { wood: 110, stone: 140, metal: 130, food: 50 },
     time: 70,
+    max: 20, high: true, multi: true,
     requires: { hq: 3, wall: 1 },
-    info: "Catches a share of the attacking ground troops before the fight (more per level), up to its free cells. Prisoners stay for 3 days: let them go, strip them for resources, or they break out. Their owner wins an attack here to free them.",
+    info: "Catches attacking ground troops before the fight: 20 traps per level, 400 at level 20. At level 20 you may build another one. Prisoners stay until someone wins an attack on this colony. Raids free nobody.",
   },
   lab: {
     cost: { wood: 220, stone: 160, metal: 240, food: 90 },
@@ -3244,7 +3245,6 @@ const TRIBE_GAG = {
 };
 function update(s, tribe, now) {
   if (now === undefined) now = Date.now();
-  trapSweep(s, now); // 🪤 prisoners held too long break out
   // 🐔 the panicked chickens find their way home
   if (s.panic && s.panic.length) {
     s.panic = s.panic.filter((p) => { if (p.at <= now) { addTroops(s.troops, p.troops); return false; } return true; });
@@ -4404,8 +4404,7 @@ function resolveArrival(m) {
     }
   } else {
     // 🪤 traps catch ground troops before the fight
-    const dStance = defStance(def, T), dTrapper = heroDefending(def, T);
-    const trapped = trapArmy(def, att, troops, survivors, atkTribe, T, { order: m.hero && heroOf(att.userId, T) ? m.orders : "", stance: dStance ? dStance.key : "", pts: quirkFx(dTrapper).trap });
+    const trapped = trapArmy(def, att, troops, survivors, atkTribe, T);
     if (trapped && countUnits(troops) === 0) {
       const tdata = { mission: "trapped", attacker, defender, trapped: unitList(trapped, atkTribe, null) };
       addReport(att.userId, T, "🪤", tt("Caught at {0}", shortColonyName(def.name)), Object.assign({ side: "attacker", flavor: "Not a single one got through. They are waiting in the traps." }, tdata));
@@ -5203,7 +5202,7 @@ function effectText(type, level, tk) {
     case "weaponry":
       return level === 0 ? "No upgrades" : "Upgrades up to Lv " + Math.min(level, UPGRADE_MAX) + " · upgrade time " + faster(WEAPONRY_SPEEDUP);
     case "trap":
-      return level === 0 ? "No traps" : "Holds " + Math.round(TRAP_PER_LEVEL * level * speedScale()) + ", catches " + Math.round(Math.min(TRAP_SHARE_MAX, TRAP_SHARE_BASE + TRAP_SHARE_PER_LEVEL * level) * 100) + "% of the ground troops";
+      return level === 0 ? "No traps" : "Holds " + TRAP_PER_LEVEL * level + " attackers";
     case "hospital":
       return level === 0 ? "No beds" : "Saves " + perkOf(tk, "hospital") * level + "% of the fallen · " + hospitalBeds(level) + " beds · healing time " + faster(HOSPITAL_SPEEDUP);
     case "sawmill":
@@ -14297,7 +14296,7 @@ function heroSkillLimit(h, k) {
 // A roll leans towards the quirks that fit the archetype. Rerolling is once per round and slot.
 const HERO_QUIRK_LEVEL = 5;
 const HERO_QUIRK2_LEVEL = 30;
-const HERO_QUIRK_FX = { atk: ["attack for the army it leads", 1], def: ["defense at home", 1], carry: ["carry", 1], xp: ["experience", 1], regen: ["health regeneration", 1], dmg: ["health lost in fights", -1], upkeep: ["food upkeep at home", -1], trap: ["trap catch chance at home", 1], charge: ["Charge attack", 1] };
+const HERO_QUIRK_FX = { atk: ["attack for the army it leads", 1], def: ["defense at home", 1], carry: ["carry", 1], xp: ["experience", 1], regen: ["health regeneration", 1], dmg: ["health lost in fights", -1], upkeep: ["food upkeep at home", -1], charge: ["Charge attack", 1] };
 const HERO_QUIRKS = {
   glutton: { icon: "🍗", name: "Glutton", fx: { regen: 10, upkeep: 5 }, fits: ["quartermaster"] },
   stubborn: { icon: "🐂", name: "Stubborn", fx: { def: 5, regen: -10 }, fits: ["warlord"] },
@@ -14306,7 +14305,7 @@ const HERO_QUIRKS = {
   coward: { icon: "🐔", name: "Coward", fx: { atk: -5 }, up: "never falls in a lost fight: it runs with 1 health", fits: ["quartermaster"] },
   scavenger: { icon: "🎒", name: "Scavenger", fx: { carry: 10, atk: -3 }, fits: ["quartermaster", "explorer"] },
   bookworm: { icon: "📚", name: "Bookworm", fx: { xp: 10, def: -4 }, fits: ["explorer"] },
-  paranoid: { icon: "🪤", name: "Paranoid", fx: { trap: 8, atk: -3 }, fits: ["warlord"] },
+  paranoid: { icon: "🪤", name: "Paranoid", fx: { def: 6, xp: -5 }, fits: ["warlord"] },
   thick: { icon: "🦏", name: "Thick-skinned", fx: { dmg: -12, carry: -6 }, fits: ["explorer", "warlord"] },
 };
 function heroQuirkList(h) {
@@ -14320,7 +14319,7 @@ function hasQuirk(h, k) { return !!h && heroQuirkList(h).indexOf(k) >= 0; }
 function quirkScale(h) { return 1 + Math.min(1, Math.max(0, (h.level - HERO_QUIRK_LEVEL) / (HERO_MAX_LEVEL - HERO_QUIRK_LEVEL))) * 0.5; }
 // everything the quirks add up to, in percent (negative = a cost)
 function quirkFx(h) {
-  const t = { atk: 0, def: 0, carry: 0, xp: 0, regen: 0, dmg: 0, upkeep: 0, trap: 0, charge: 0 };
+  const t = { atk: 0, def: 0, carry: 0, xp: 0, regen: 0, dmg: 0, upkeep: 0, charge: 0 };
   if (!h) return t;
   const k = quirkScale(h);
   for (const q of heroQuirkList(h)) for (const f in HERO_QUIRKS[q].fx) t[f] += HERO_QUIRKS[q].fx[f] * k;
@@ -17180,7 +17179,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.428",date:"2026-11-18",title:"Quirks and traps, properly",groups:[["🎲 Commander quirks",["Nine quirks, each a real trade of numbers (for example Stubborn: +5% defense at home, −10% regeneration; Hothead: +4% attack, +10% health lost; Scavenger: +10% carry, −3% attack; Paranoid: better traps, −3% attack).","A second quirk slot opens at level 30. The numbers grow with the commander\u2019s level, up to +50% at level 100.","Rolls lean towards quirks that fit the archetype. Each quirk can be rerolled once per round, into one you do not have."]],["🪤 Traps",["A trap level catches a share of the attacking ground troops (35% at level 1, 85% at level 10), up to its free cells, instead of swallowing a whole army. The rest fight on.","Charge storms past the traps (25% fewer caught); an Ambush stance at home sets them better (25% more).","Prisoners break out after 3 days and walk home. New: Strip them, the troops are lost for good and you keep 25% of their cost. Let go and the owner winning an attack still free them."]]]},
+  {v:"1.0.428",date:"2026-11-18",title:"Quirks and traps, properly",groups:[["🎲 Commander quirks",["Nine quirks, each a real trade of numbers (for example Stubborn: +5% defense at home, −10% regeneration; Hothead: +4% attack, +10% health lost; Scavenger: +10% carry, −3% attack; Paranoid: +6% defense at home, −5% XP).","A second quirk slot opens at level 30. The numbers grow with the commander\u2019s level, up to +50% at level 100.","Rolls lean towards quirks that fit the archetype. Each quirk can be rerolled once per round, into one you do not have."]],["🪤 Traps",["The trap building now goes up to level 20 with 20 traps per level: 400 traps per building, on every server speed. Once one is maxed you can build another, and their traps add up.","Trapped troops stay until someone wins an attack on that colony. Raids free nobody, and the trapper can no longer let them go. A won attack frees all prisoners there, including other players\u2019 troops."]]]},
   {v:"1.0.427",date:"2026-11-18",title:"Permanent specialisations",groups:[["🏷️ Colonies",["A colony\u2019s specialisation can no longer be switched: once chosen, it stays for the life of the colony. The choice button now says it is permanent and asks for a second tap. Colonies that already have a specialisation keep it, and it is now locked."]]]},
   {v:"1.0.426",date:"2026-11-18",title:"Readable archetypes in the wiki",groups:[["📖 Wiki",["The Archetypes and Quirks cards now show one block per entry (skills and rules as short lists) instead of a squeezed table, so they read well on a phone."]]]},
   {v:"1.0.425",date:"2026-11-18",title:"Hunt health bar",groups:[["🐾 Hunt",["The opponent now has a health bar that empties (❤️ 581 / 680 HP, green, then yellow, then red) instead of a damage bar that fills. The Strike button shows how much health a hit takes away."]]]},
@@ -19306,7 +19305,7 @@ app.get("/api/players/suggest", requireLogin, (req, res) => {
 // =====================================================================
 //  v95 - 🪤 TRAPS, 💥 BOMBARDS and 🎩 TAKING OVER COLONIES
 //
-//  Traps: every level of the trap building holds TRAP_PER_LEVEL attacking
+//  Traps: every level of the trap building (up to 20) holds TRAP_PER_LEVEL attacking
 //  ground troops. They are caught before the fight and stay as prisoners
 //  (their owner still feeds them) until the trapper lets them go or the
 //  owner wins an attack on this colony, which frees them.
@@ -19321,14 +19320,7 @@ app.get("/api/players/suggest", requireLogin, (req, res) => {
 //  has enough terra for one more colony. Loyalty grows back by itself.
 //  A ⭐ main colony can never be taken.
 // =====================================================================
-const TRAP_PER_LEVEL = 10;
-// 🪤 traps v2: a trap never swallows a whole army. Each level catches a bigger share of the ground troops,
-// up to the free cells; the rest fights on. Charge storms past (-25%), an Ambush stance sets them better
-// (+25%), a Paranoid commander at home adds points. Prisoners are held for PRISON_DAYS, then they break out.
-const TRAP_SHARE_BASE = 0.3, TRAP_SHARE_PER_LEVEL = 0.055, TRAP_SHARE_MAX = 0.85, TRAP_SHARE_HARD = 0.95;
-const TRAP_CHARGE = 0.75, TRAP_AMBUSH = 1.25;
-const PRISON_DAYS = 3;
-const TRAP_SALVAGE = 0.25; // of the troops' cost when the trapper strips them
+const TRAP_PER_LEVEL = 20; // 400 traps at the top level 20, on every server speed
 const BOMBARD_PER_LEVEL = 2;
 const LOYALTY_MAX = 100;
 const LOYALTY_HIT = [20, 30]; // per envoy
@@ -19389,40 +19381,20 @@ function setLoyalty(s, v, now) {
 // and carry capacity, so a trap building still holds a meaningful bite of
 // an attacking army on a faster server, not just its original x1 handful.
 function trapCap(s) {
-  return Math.round(TRAP_PER_LEVEL * levelOf(s, "trap") * speedScale());
+  return TRAP_PER_LEVEL * levelsOf(s, "trap").reduce((a, b) => a + b, 0);
 }
-function prisonMs() { return PRISON_DAYS * serverDayMs(); }
-function trapShare(level, o) {
-  o = o || {};
-  let sh = Math.min(TRAP_SHARE_MAX, TRAP_SHARE_BASE + TRAP_SHARE_PER_LEVEL * level) + (o.pts || 0) / 100;
-  if (o.order === "charge") sh *= TRAP_CHARGE;
-  if (o.stance === "ambush") sh *= TRAP_AMBUSH;
-  return Math.max(0, Math.min(TRAP_SHARE_HARD, sh));
-}
-function trapUsed(s, now) {
-  now = now || Date.now();
-  return (s.prisoners || []).filter((p) => p.at + prisonMs() > now).reduce((n, p) => n + countUnits(p.t), 0);
-}
-// prisoners held too long break out and walk home (a colony state update calls this)
-function trapSweep(s, now) {
-  if (!s.prisoners || !s.prisoners.length || !s._cid) return;
-  const gone = s.prisoners.filter((p) => p.at + prisonMs() <= now);
-  if (!gone.length) return;
-  const c = db.prepare("SELECT id, x, y FROM colonies WHERE id = ?").get(s._cid);
-  if (c) for (const p of gone) prisonersHome({ id: c.id, x: c.x, y: c.y }, p, now);
-  s.prisoners = s.prisoners.filter((p) => gone.indexOf(p) < 0);
+function trapUsed(s) {
+  return (s.prisoners || []).reduce((n, p) => n + countUnits(p.t), 0);
 }
 // Before a fight: catch what fits. Changes "troops" and "survivors", not the owner's "away"
-function trapArmy(def, att, troops, survivors, atkTribe, T, opt) {
+function trapArmy(def, att, troops, survivors, atkTribe, T) {
   if (def.userId === att.userId) return null;
-  trapSweep(def.state, T);
-  let free = trapCap(def.state) - trapUsed(def.state, T);
+  let free = trapCap(def.state) - trapUsed(def.state);
   if (free <= 0) return null;
   const keys = Object.keys(troops).filter((k) => troops[k] > 0 && atkTribe.units[k] && atkTribe.units[k].type === "ground");
   const ground = keys.reduce((n, k) => n + troops[k], 0);
   if (!ground) return null;
-  const take = Math.min(free, ground, Math.round(ground * trapShare(levelOf(def.state, "trap"), opt)));
-  if (take <= 0) return null;
+  const take = Math.min(free, ground);
   const caught = {};
   let got = 0;
   const rest = [];
@@ -19441,7 +19413,7 @@ function trapArmy(def, att, troops, survivors, atkTribe, T, opt) {
   subtractTroops(troops, caught);
   subtractTroops(survivors, caught);
   def.state.prisoners = def.state.prisoners || [];
-  let p = def.state.prisoners.find((x) => x.c === att.id && T - x.at < 3600000);
+  let p = def.state.prisoners.find((x) => x.c === att.id);
   if (!p) {
     p = { u: att.userId, c: att.id, tribe: att.tribe, t: {}, at: T };
     def.state.prisoners.push(p);
@@ -19460,70 +19432,30 @@ function prisonersHome(def, p, T) {
   ).run(home.id, def.id, JSON.stringify(p.t), T - trip, T, T + trip, T + trip, def.x, def.y);
   return true;
 }
-// The owner won an attack here: all their prisoners are free
+// A won attack here frees every prisoner in the traps, whoever they belong to
 function freePrisoners(def, userId, T) {
-  const mine = (def.state.prisoners || []).filter((p) => p.u === userId);
-  if (!mine.length) return null;
+  const all = def.state.prisoners || [];
+  if (!all.length) return null;
   const freed = {};
-  for (const p of mine) {
+  for (const p of all) {
     if (prisonersHome(def, p, T)) addTroops(freed, p.t);
   }
-  def.state.prisoners = def.state.prisoners.filter((p) => p.u !== userId);
+  def.state.prisoners = [];
   return countUnits(freed) ? freed : null;
 }
 
 function trapView(s, now) {
   const cap = trapCap(s);
   if (!cap && !(s.prisoners || []).length) return null;
-  const hero = heroDefending({ userId: s._uid, id: s._cid }, now);
   return {
     cap,
-    used: trapUsed(s, now),
-    share: Math.round(trapShare(levelOf(s, "trap"), { pts: quirkFx(hero).trap }) * 100),
-    days: PRISON_DAYS,
-    salvage: Math.round(TRAP_SALVAGE * 100),
+    used: trapUsed(s),
     prisoners: (s.prisoners || []).map((p, i) => {
       const c = db.prepare("SELECT name, x, y FROM colonies WHERE id = ?").get(p.c);
-      return { i, owner: usernameOf(p.u) || "???", colony: c ? c.name : "???", x: c ? c.x : null, y: c ? c.y : null, at: p.at, until: p.at + prisonMs(), units: unitList(p.t, tribeOf(p.tribe), null) };
+      return { i, owner: usernameOf(p.u) || "???", colony: c ? c.name : "???", x: c ? c.x : null, y: c ? c.y : null, at: p.at, units: unitList(p.t, tribeOf(p.tribe), null) };
     }),
   };
 }
-
-app.post("/api/traps/release", requireLogin, (req, res) => {
-  withColony(req, res, (s, tribe, colony) => {
-    const list = s.prisoners || [];
-    const i = Number((req.body || {}).i);
-    const pick = (req.body || {}).all ? list.slice() : list[i] ? [list[i]] : [];
-    if (!pick.length) return "Nobody to let go";
-    const now = Date.now();
-    const def = { id: colony.id, x: colony.x, y: colony.y, state: s };
-    for (const p of pick) prisonersHome(def, p, now);
-    s.prisoners = list.filter((p) => pick.indexOf(p) < 0);
-    return null;
-  });
-});
-
-// Strip the prisoners of their kit: the troops are gone for good, the trapper keeps a share of their cost
-app.post("/api/traps/strip", requireLogin, (req, res) => {
-  withColony(req, res, (s, tribe, colony) => {
-    const list = s.prisoners || [];
-    const i = Number((req.body || {}).i);
-    const pick = (req.body || {}).all ? list.slice() : list[i] ? [list[i]] : [];
-    if (!pick.length) return "Nobody to strip";
-    const gain = { wood: 0, stone: 0, metal: 0, food: 0 };
-    for (const p of pick) {
-      const pt = tribeOf(p.tribe);
-      for (const k in p.t) {
-        const u = pt.units[k];
-        if (u) for (const r of RESOURCES) gain[r] += Math.floor(u.cost[r] * p.t[k] * TRAP_SALVAGE);
-      }
-    }
-    refund(s, gain);
-    s.prisoners = list.filter((p) => pick.indexOf(p) < 0);
-    req.extra = { salvage: gain };
-    return null;
-  });
-});
 
 // ---------- bombards ----------
 function bombardPower(troops, tribe, upgrades) {
@@ -19708,7 +19640,7 @@ function loyaltyView(s, now) {
 }
 
 function wikiConquest() {
-  return { trapPer: Math.round(TRAP_PER_LEVEL * speedScale()), trapShares: [1, 5, 10].map((l) => [l, Math.round(trapShare(l) * 100)]), trapCharge: Math.round((1 - TRAP_CHARGE) * 100), trapAmbush: Math.round((TRAP_AMBUSH - 1) * 100), prisonDays: PRISON_DAYS, trapSalvage: Math.round(TRAP_SALVAGE * 100), bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs() };
+  return { trapPer: TRAP_PER_LEVEL, trapMax: TRAP_PER_LEVEL * 20, bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs() };
 }
 
 // =====================================================================
@@ -35023,11 +34955,9 @@ function advPanel(H) {
 function trapPanel(d) {
   var T = d.traps;
   if (!T) return "";
-  var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.cap + ' cells in use</b><small> · catches ' + T.share + '% of an attacking ground army</small><div class="meter thin"><i style="width:' + (T.cap ? Math.min(100, Math.round((T.used / T.cap) * 100)) : 0) + '%"></i></div></div>';
-  var now = serverNow();
+  var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.cap + ' traps in use</b><div class="meter thin"><i style="width:' + (T.cap ? Math.min(100, Math.round((T.used / T.cap) * 100)) : 0) + '%"></i></div></div>';
   T.prisoners.forEach(function (p) {
-    var left = p.until - now;
-    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return u.icon + " " + u.count; }).join(" ") + " · " + (left > 0 ? "breaks out in " + fmt(left) : "breaking out") + '</small></div><button class="btn small ghost" data-trap-free="' + p.i + '">Let go</button><button class="btn small ghost" data-trap-strip="' + p.i + '" title="The troops are lost for good; you keep ' + T.salvage + '% of their cost">Strip</button></div>';
+    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return u.icon + " " + u.count; }).join(" ") + "</small></div></div>";
   });
   return h;
 }
@@ -37890,10 +37820,9 @@ function wikiMore(W, tab, cards) {
 
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
-      "Every level of the trap building has " + Cq.trapPer + " cells. Before the fight it catches a <b>share</b> of the attacking <b>ground</b> troops (flyers pass over): " + Cq.trapShares.map(function (x) { return x[1] + "% at level " + x[0]; }).join(", ") + ". Only as many as there are free cells. The rest fight on, so traps wear an army down instead of stopping it.",
-      "⚔️ Charge storms past: " + Cq.trapCharge + "% fewer caught. 🌵 An Ambush stance at home sets them better: " + Cq.trapAmbush + "% more. A 🪤 Paranoid commander at home adds points to the share.",
-      "Prisoners fill the cells and no longer fight. Their owner still feeds them. After " + Cq.prisonDays + " days they break out and walk home, which also frees the cells.",
-      "Three ways out: <b>Let go</b> (they walk home, a gesture), <b>Strip</b> (the troops are lost for good, you keep " + Cq.trapSalvage + "% of their cost), or their owner wins an <b>attack</b> (not a raid) on that colony and frees them all.",
+      "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps, so they don’t fight. Flyers pass over.",
+      "Prisoners stay in the traps, and their owner still feeds them. Nobody can let them go.",
+      "A <b>won attack</b> (not a raid) on that colony frees <b>every</b> prisoner in it, yours or another player’s. They walk home.",
     ])));
     cards.push(wkCard("bombard", "💥", "Bombarding buildings", wkList([
       "Bombards that survive a won <b>attack</b> (never a raid) knock levels off buildings and resource fields, like rams do with the wall: a level L needs " + Cq.bombardPer + " × L bombards (upgrades count).",
@@ -39577,7 +39506,7 @@ document.addEventListener("click", function (e) {
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
-    "[data-trap-strip],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
+    "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
     "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
@@ -39672,10 +39601,6 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-open")) {
     heroTab = "skills";
     openSheet("hero", null);
-  } else if (has("data-trap-strip")) {
-    post("/api/traps/strip", { i: Number(attr("data-trap-strip")) }, function () { toast("🪤 Stripped for resources"); });
-  } else if (has("data-trap-free")) {
-    post("/api/traps/release", { i: Number(attr("data-trap-free")) }, function () { toast("They are walking home"); });
   } else if (has("data-adv-go")) {
     post("/api/adventure", { id: attr("data-adv-go").split(":")[0],route:attr("data-adv-go").split(":")[1]||"safe" }, function () { toast("🧭 Off it goes!"); });
   } else if (has("data-adv-cancel")) {
