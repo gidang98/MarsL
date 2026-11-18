@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.421";
+const GAME_VERSION = "1.0.422";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6863,8 +6863,8 @@ app.post("/api/simulate", requireLogin, (req, res) => {
       str: num(H.str, HERO_SKILLS.str.max),
       gAtk: num(H.gAtk, 99999),
       gDef: num(H.gDef, 99999),
-      gAtkPct: Math.max(0, Math.min(82, Number(H.gAtkPct) || 0)),
-      gDefPct: Math.max(0, Math.min(82, Number(H.gDefPct) || 0)),
+      gAtkPct: Math.max(0, Math.min(69, Number(H.gAtkPct) || 0)),
+      gDefPct: Math.max(0, Math.min(69, Number(H.gDefPct) || 0)),
       mend: Math.max(0, Math.min(15, Number(H.mend) || 0)),
     };
   };
@@ -15264,8 +15264,8 @@ function huntOpponent(userId, slot) {
 }
 // the commander's attack for the hunt does not depend on the game speed
 const COMMANDER_BONUS_CAP = 25; // on top of that, the commander's own attack and defense add up to 25% as a separate layer
-const HERO_BONUS_CAP = 45; // in fights between players the attack and defense bonus of gear, skills and the commander stops at 45%
-const HUNT_ATK_CAP = HERO_BONUS_CAP + 15; // the hunt lets them add up to 60%
+const HERO_BONUS_CAP = 35; // in fights between players the attack and defense bonus of gear and skills stops at 35%
+const HUNT_ATK_CAP = HERO_BONUS_CAP + 15; // the hunt lets them add up to 50%
 function huntAtk(h) { return Math.max(1, Math.round((heroPoints(h).atk / speedScale()) * (1 + layered(heroAtkRaw(h), personaBonus(h).atk, HUNT_ATK_CAP) / 100))); }
 // works out finished windows and the one in progress; saves when anything changed
 function huntSync(userId, now, hero) {
@@ -17132,8 +17132,9 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.421",date:"2026-11-18",title:"Commander bonus on top of gear and skills",groups:[["🎖️ Commander",["The active commander's attack and defense are no longer squeezed into the same cap as gear and skills: they come on top as a separate bonus of up to 25%. Upgrading a commander, raising its rank or making it shiny now always adds army strength, also when gear and skills are already at 45%. Gear and skills keep their 45% cap (60% in the hunt)."]]]},
-  {v:"1.0.420",date:"2026-11-18",title:"Higher attack and defense cap",groups:[["🎖️ Commander",["The cap on the attack and defense bonus from gear, skills and the commander is now 45% in fights between players (was 30%) and 60% in the hunt (was 45%). Gear and skills alone could already fill the old cap, so the commander's own bonus now counts for more."]]]},
+  {v:"1.0.422",date:"2026-11-18",title:"Gear cap 35%",groups:[["🎖️ Commander",["The cap on attack and defense from gear and skills is 35% in fights between players and 50% in the hunt. With the commander's own bonus on top (up to 25%), the most a fully built army gets is about +69%."]]]},
+  {v:"1.0.421",date:"2026-11-18",title:"Commander bonus on top of gear and skills",groups:[["🎖️ Commander",["The active commander's attack and defense are no longer squeezed into the same cap as gear and skills: they come on top as a separate bonus of up to 25%. Upgrading a commander, raising its rank or making it shiny now always adds army strength, also when gear and skills are already at 45%. Gear and skills keep their 35% cap (50% in the hunt)."]]]},
+  {v:"1.0.420",date:"2026-11-18",title:"Higher attack and defense cap",groups:[["🎖️ Commander",["The cap on the attack and defense bonus from gear, skills and the commander is now 35% in fights between players (was 30%) and 50% in the hunt (was 45%)."]]]},
   {v:"1.0.419",date:"2026-11-18",title:"Every commander fights",groups:[["🎖️ Commanders",["Every commander now grants some attack and defense, not just the fighters. All-rounders give a base amount that grows with rarity (common 0.5%, uncommon 1%, rare 1.5%, epic 2%, legendary 4%, Mythic 5 to 6%), and the fighting specialists keep a clear edge in their own stat (Sergeant Stompy, Captain Cushion, Sir Charge-a-Lot, Big Barry, General Kaboom). Rank and shiny tier scale it as before, and the 30% cap on attack and defense from all sources still applies."]]]},
   {v:"1.0.418",date:"2026-11-18",title:"Compact inventory",groups:[["🎖️ Commander",["Inventory: supplies are now small chips with their count (tap one to read what it does and use it). Gear in the bag is one line each, best first, showing what changes against what you wear; tap a line for its full stats and the upgrade, XP and auction buttons. With gear in more than one slot, filter chips by slot appear above the list."]]]},
   {v:"1.0.417",date:"2026-11-18",title:"Equipped gear in the inventory",groups:[["🎖️ Commander",["The equipped gear and the stats it adds now sit at the top of the Inventory tab, right above the supplies and the gear in your bag, so you can compare and swap in one place. The Skills tab keeps only skills, quirk and stance."]]]},
@@ -37682,7 +37683,7 @@ function wikiMore(W, tab, cards) {
       "🍀 <b>Hunt luck</b> grows with the acts, just like the monster camps do: from Discovery on it is ×" + Ro.luck.slice(2).join(", ×") + " (Discovery, Storm Season, Relic Hunt, Aurora). Every rarity above common gets that much more weight (opponents above common go from about a third of all to about half in the Aurora), the shiny chances above are multiplied the same way (for creatures and for fusing commanders), and while you are away " + Ro.spawnAct.slice(2).map(function (x) { return "+" + x; }).join(", ") + " points more of the opponents come.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
       "🎖️ When your commander leads an attack or raid on a colony it earns <b>xp</b> by the enemy units killed: " + Ro.killXp + " per unit. Staying home earns nothing.",
-      "🎖️ Every commander is its own character with one signature effect, and the effect grows by 50% for every rank. Attack bonuses of gear, skills and commanders add up to 45% in fights between players (attack and defense), and to 60% in the hunt. The active commander's own attack and defense come on top as a separate bonus of up to 25%, so upgrading a commander always counts. Strike damage can also come from gear (up to +40%), and together with the commander it never passes +100%. The ones you do not lead can still stand beside the active one as <b>helpers</b> (rarer ones add more attack in the hunt).",
+      "🎖️ Every commander is its own character with one signature effect, and the effect grows by 50% for every rank. Attack bonuses of gear, skills and commanders add up to 35% in fights between players (attack and defense), and to 50% in the hunt. The active commander's own attack and defense come on top as a separate bonus of up to 25%, so upgrading a commander always counts. Strike damage can also come from gear (up to +40%), and together with the commander it never passes +100%. The ones you do not lead can still stand beside the active one as <b>helpers</b> (rarer ones add more attack in the hunt).",
     ]) + kt({ head: ["Commander", "Effect (rank 1)", "🎫/day", "Helper"], left: 1, rows: Ro.commanders.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span><small>" + esc(c.quip) + "</small>", esc(c.effect), Math.round(c.rate * 24 * 10) / 10, "+" + c.help + "%"]; }) }) + kt({ head: ["Creature", "HP", "Attack needed", "Spawn", "💲/s", "Sells for"], left: 1, rows: Ro.creatures.map(function (c) { return [c.icon + ' <span class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</span>", shortNum(c.hp), shortNum(Math.ceil(c.hp / Ro.auto)), c.chance + "%", c.cash, shortNum(c.sell)]; }) })));
     cards.push(wkCard("gags", "🎭", "Tribe quirks", wkP("Every tribe has one silly habit that is also a real tactic.") + kt({ head: ["Tribe", "Quirk", "What it does"], left: 3, rows: [
       ["🧑‍🚀 Humans", "☕ Coffee break", "When a human colony beats an attack or raid, its crew is wide awake for 3 hours: +10% defense against everyone. Don't send a second wave right after a failed one: wait it out or bring more."],
