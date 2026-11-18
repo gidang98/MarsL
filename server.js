@@ -414,7 +414,7 @@ const SPY_DEF_LOSS = 0.3; // defenders lose up to 30% (less if they have many mo
 const BARRACKS_SPEEDUP = 0.9; // every Barracks level: training 10% faster
 const HANGAR_SPEEDUP = 0.9; // every Hangar level: flying troops 10% faster
 const WORKSHOP_SPEEDUP = 0.9; // every Siege Workshop level: siege machines 10% faster
-const LAB_SPEEDUP = 0.9; // every Lab level: research 10% faster
+const LAB_SPEEDUP = 0.97; // every Lab level: research 3% faster
 const WEAPONRY_SPEEDUP = 0.92; // every Weaponry level: upgrades 8% faster
 const UPGRADE_MAX = 10; // highest troop upgrade level
 const UPGRADE_BONUS = 0.03; // +3% attack and defense per upgrade level
@@ -541,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.433";
+const GAME_VERSION = "1.0.434";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17263,6 +17263,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.434",date:"2026-11-18",title:"Labs speed research up by 3% per level",groups:[["🔬 Research",["Every lab level now makes research 3% faster (was 10%), so a high lab level saves much less time. A Human raider and all air units take about 48 minutes at lab level 5 instead of 33.","The Star Credit price to finish research follows the time left, so it rises a little with the longer times."]]]},
   {v:"1.0.433",date:"2026-11-18",title:"Shorter research, same rush price",groups:[["🔬 Research",["Research takes 9 times less time: 6.7 times a unit\u2019s training time instead of 60. A Human raider and all air units take about 33 minutes at lab level 5.","Finishing a research with Star Credits costs the same as before: it is priced as if the research still took 9 times as long."]]]},
   {v:"1.0.432",date:"2026-11-18",title:"Slightly fewer Star Credits from top commanders",groups:[["🎫 Star Credits",["The Banker, the epic, legendary and mythic commanders now earn about 12% fewer Star Credits per hour (for example Meowthulhu 12.2 instead of 13.9, Admiral Sparkle-Pants 8.8 instead of 10). Common and uncommon commanders are unchanged, and every commander still earns a different amount."]]]},
   {v:"1.0.431",date:"2026-11-18",title:"Research takes longer",groups:[["🔬 Research",["Research now takes 60 times the unit\u2019s training time (was 3). A Human raider and all air units take about 4.9 hours at lab level 5 instead of 15 minutes. Each lab level still makes research 10% faster, and the price in resources stays the same.","Finishing a research with Star Credits follows the same price per hour left as before, so it now costs more for the longer jobs. Research already running keeps its old end time."]]]},
