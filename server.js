@@ -11082,6 +11082,15 @@ function auctionDeliver(a, now) {
     db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
     return true;
   }
+  if (lot.kind === "consumable") { // field dressings, medkits and so on go straight into the commander's supplies, no bag needed
+    const h = heroOf(uid, now);
+    if (!h || !HERO_CONSUMABLES[lot.key]) return false;
+    h.consumables = h.consumables || {};
+    h.consumables[lot.key] = Math.max(0, Math.floor(Number(h.consumables[lot.key]) || 0)) + lot.n;
+    heroSave(uid, h);
+    db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
+    return true;
+  }
   if (lot.kind === "creature") { // creatures go into the hunt inventory when there is room
     const S = huntSync(uid, now);
     if (!S || !CREATURES[lot.key] || huntBagUsed(S.hu) + lot.n > HUNT_BAG) return false;
@@ -11137,10 +11146,16 @@ app.get("/api/auction", requireLogin, (req, res) => {
     active, mine,
     items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
     creatures: (() => { const S = huntSync(uid, now); return S ? Object.keys(CREATURES).filter((k) => creatureSpare(S.hu, k) > 0).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, count: creatureSpare(S.hu, k) })) : []; })(),
+    consumables: h ? Object.keys(HERO_CONSUMABLES).filter((k) => Math.floor(Number((h.consumables || {})[k]) || 0) > 0).map((k) => ({ key: k, name: HERO_CONSUMABLES[k].name, icon: HERO_CONSUMABLES[k].icon, text: HERO_CONSUMABLES[k].text, rarity: consumableRarity(k), count: Math.floor(Number(h.consumables[k]) || 0) })) : [],
     huntFull: (() => { const S = huntSync(uid, now); return !!S && huntBagUsed(S.hu) >= HUNT_BAG; })(),
     shards: (() => { const r = rosterOf(uid, now); return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter && r && (r.shards[k] || 0) > 0).map((k) => ({ key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k] })); })(),
   });
 });
+// how rare a consumable is, from how often it drops
+function consumableRarity(key) {
+  const w = (HERO_CONSUMABLES[key] || {}).weight || 0;
+  return w >= 40 ? "common" : w >= 20 ? "uncommon" : "rare";
+}
 app.post("/api/auction/list", requireLogin, (req, res) => {
   const uid = req.user.id;
   const b = req.body || {};
@@ -11153,7 +11168,15 @@ app.post("/api/auction/list", requireLogin, (req, res) => {
   if (!auctionHours().includes(hours)) return res.status(400).json({ error: "Choose " + auctionHours().map(hrTxt).join(", ") });
   if (db.prepare("SELECT COUNT(*) AS n FROM auctions WHERE seller_id = ? AND status = 'active'").get(uid).n >= AUCTION_MAX_ACTIVE) return res.status(400).json({ error: "You can run " + AUCTION_MAX_ACTIVE + " auctions at a time" });
   let item;
-  if (b.creature) { // creatures from the hunt inventory
+  if (b.consumable) { // supplies the commander carries: dressings, medkits, journals, recovery kits, Insight tokens
+    const key = String(b.consumable), n = Math.floor(Number(b.count)), def = HERO_CONSUMABLES[key];
+    if (!def || !h) return res.status(400).json({ error: "Unknown supplies" });
+    const have = Math.max(0, Math.floor(Number((h.consumables || {})[key]) || 0));
+    if (!(n >= 1 && n <= have)) return res.status(400).json({ error: "You have " + have + " " + def.name });
+    h.consumables[key] = have - n;
+    heroSave(uid, h);
+    item = { kind: "consumable", id: crypto.randomBytes(4).toString("hex"), key, n, icon: def.icon, name: (n > 1 ? n + " × " : "") + def.name, rarity: consumableRarity(key) };
+  } else if (b.creature) { // creatures from the hunt inventory
     const key = String(b.creature), n = Math.floor(Number(b.count));
     const S = huntSync(uid, now);
     if (!CREATURES[key] || !S) return res.status(400).json({ error: "Unknown creature" });
@@ -17067,7 +17090,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]],["🛒 Shard shop",["Legendary shards can now be bought 6 times and Mythic shards 3 times per day and player. Checking the shop every 5 minutes no longer gets you the rarest commanders in a few weeks. Once the limit is reached, the offer says so; the next day it opens again."]],["🏢 Expansion buildings",["The expansion building (the hub, for example the Nest Bureau) can no longer be sped up: no overtime, helping hands, alliance help, tribe power, free finish or Star Credits. It always takes its full time. The permanent build-speed bonuses such as the HQ still apply."]]]},
+  {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]],["🏛️ Auction",["Your commander’s supplies (field dressings, medkits, field journals, recovery kits and Insight tokens) can now go to auction too, in a new Sell supplies tab. The winner gets them straight into their commander’s supplies; supplies nobody bids on come back to you."]],["🛒 Shard shop",["Legendary shards can now be bought 6 times and Mythic shards 3 times per day and player. Checking the shop every 5 minutes no longer gets you the rarest commanders in a few weeks. Once the limit is reached, the offer says so; the next day it opens again."]],["🏢 Expansion buildings",["The expansion building (the hub, for example the Nest Bureau) can no longer be sped up: no overtime, helping hands, alliance help, tribe power, free finish or Star Credits. It always takes its full time. The permanent build-speed bonuses such as the HQ still apply."]]]},
   {v:"1.0.410",date:"2026-11-18",title:"Time away, in two steps",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first hour, then half speed for the next 6 hours, nothing after 7 hours. At most 4 hours of income pile up, as before; it just takes 7 hours away to get there.","After a longer time away, your Star Credits wait in the commander pile instead of being paid out in the background. Open the commander page, see the pile filled and tap Collect (the toast shows how many you got). While you play they still flow in on their own.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
   {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
   {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 30 Star Credits an hour for the first hour, 45 up to 4 hours, 80 up to 12 hours and 160 beyond. Every use costs at least 30, so quick jobs are not cheap to skip: 5 minutes to 1 hour cost 30, 2 hours 75, 4 hours 165, 12 hours 805 and a day 2,725.","That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits, while mid-length jobs cost about a fifth less than before (12 hours 805 instead of 1,010).","On faster servers the 30 Star Credit minimum shrinks (10 on a ×10 server, 2 on the fastest), because jobs are much shorter there. The wiki now also says correctly that the free finish covers the last 3 minutes on a ×1 server."]]]},
@@ -37534,7 +37557,7 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
-    if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear and commander shards to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
+    if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear, commander shards, creatures from your hunt inventory and your commander’s supplies (dressings, medkits, journals, recovery kits, Insight tokens) to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
       left: 1,
@@ -38389,11 +38412,11 @@ function aucPost(path, body, msg) {
   post(path, body, function () { if (msg) toast(msg, true); openAuction(); });
 }
 function aucName(it) {
-  return it.kind === "shard" || it.kind === "creature" ? it.icon + ' <span class="cmd-rar r-' + it.rarity + '">' + esc(it.name) + "</span>" : it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span>";
+  return it.kind === "shard" || it.kind === "creature" || it.kind === "consumable" ? it.icon + ' <span class="cmd-rar r-' + it.rarity + '">' + esc(it.name) + "</span>" : it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span>";
 }
 function aucRow(a, A) {
-  var it = a.item, shard = it.kind === "shard", crea = it.kind === "creature", noHero = shard || crea;
-  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (crea ? "<small>" + it.rarity + " creature" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + "</div>";
+  var it = a.item, shard = it.kind === "shard", crea = it.kind === "creature", cons = it.kind === "consumable", noHero = shard || crea;
+  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (cons ? "<small>" + it.rarity + " supplies" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : crea ? "<small>" + it.rarity + " creature" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + "</div>";
   h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>" + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids yet") + "</small><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + esc(a.seller) + "</small>";
   if (a.mine) h += a.bids ? '<small class="ok">Your item, bids are in</small>' : '<button class="btn small ghost" data-auc-cancel="' + a.id + '">Take it back</button>';
   else {
@@ -38414,7 +38437,7 @@ function auctionSheet() {
   var A = auc.data, h = "";
   h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
   var open = A.mine.filter(function (a) { return a.status === "active" || (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))); }).length;
-  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["shards", "Sell shards"], ["creatures", "Sell creatures"], ["mine", "My auctions" + (open ? " · " + open : "")]];
+  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["shards", "Sell shards"], ["creatures", "Sell creatures"], ["cons", "Sell supplies"], ["mine", "My auctions" + (open ? " · " + open : "")]];
   h += '<div class="auc-tabs">' + tabs.map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (!A.hasHero) h += '<p class="hint left">🎖️ Browsing is open to everyone. To bid on or sell gear you need a commander to carry it.</p>';
   if (auc.tab === "browse") {
@@ -38435,6 +38458,14 @@ function auctionSheet() {
         '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + cr.count + '" value="1" id="auc-cn-' + cr.key + '" aria-label="How many"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-cp-' + cr.key + '" aria-label="Start price"><select id="auc-ch-' + cr.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-crea="' + cr.key + '">Sell</button></div></div></div>';
     });
     h += '<p class="hint left">Pick how many go into the lot, the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. A winner needs room in the creature inventory; creatures nobody bids on come back to you.</p>";
+  } else if (auc.tab === "cons") {
+    if (!A.hasHero) h += '<p class="empty">Supplies belong to your commander. Get a commander first.</p>';
+    else if (!A.consumables.length) h += '<p class="empty">No supplies to sell. Dressings, medkits, journals, recovery kits and Insight tokens drop on your commander’s adventures.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
+    A.consumables.forEach(function (co) {
+      h += '<div class="auc-row stack"><div class="auc-item"><b>' + co.icon + ' <span class="cmd-rar r-' + co.rarity + '">' + esc(co.name) + "</span></b><small>" + co.count + " in your supplies · " + esc(co.text) + "</small></div>" +
+        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + co.count + '" value="1" id="auc-sn-' + co.key + '" aria-label="How many"><input type="number" min="1" max="' + A.rules.priceMax + '" value="10000" id="auc-sp-' + co.key + '" aria-label="Start price"><select id="auc-sh-' + co.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-cons="' + co.key + '">Sell</button></div></div></div>';
+    });
+    if (A.consumables.length) h += '<p class="hint left">Pick how many go into the lot, the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. Supplies nobody bids on come back to you.</p>";
   } else if (auc.tab === "sell") {
     if (!A.hasHero) h += '<p class="empty">Gear comes from your commander’s bag. Get a commander first.</p>';
     else if (!A.items.length) h += '<p class="empty">Your bag has no gear to sell yet. Gear drops when your commander leads attacks on monster camps; equipped gear can’t be sold, take it off first.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
@@ -39245,7 +39276,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -39738,6 +39769,9 @@ document.addEventListener("click", function (e) {
   } else if (has("data-auc-lot")) {
     var slk = attr("data-auc-lot"), sln = document.getElementById("auc-n-" + slk), slp = document.getElementById("auc-p-" + slk), slh = document.getElementById("auc-h-" + slk);
     aucPost("/api/auction/list", { shard: slk, count: sln ? sln.value : 0, price: slp ? slp.value : 0, hours: slh ? slh.value : 24 }, "🏛️ Auction started");
+  } else if (has("data-auc-cons")) {
+    var ok2 = attr("data-auc-cons"), on2 = document.getElementById("auc-sn-" + ok2), op2 = document.getElementById("auc-sp-" + ok2), oh2 = document.getElementById("auc-sh-" + ok2);
+    aucPost("/api/auction/list", { consumable: ok2, count: on2 ? on2.value : 1, price: op2 ? op2.value : 0, hours: oh2 ? oh2.value : 24 }, "🏛️ Auction started");
   } else if (has("data-auc-crea")) {
     var ck = attr("data-auc-crea"), cn = document.getElementById("auc-cn-" + ck), cp = document.getElementById("auc-cp-" + ck), ch = document.getElementById("auc-ch-" + ck);
     aucPost("/api/auction/list", { creature: ck, count: cn ? cn.value : 1, price: cp ? cp.value : 0, hours: ch ? ch.value : 24 }, "🏛️ Auction started");
