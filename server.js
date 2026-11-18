@@ -432,7 +432,7 @@ const COMBINED_ARMS_SHARE = 0.2;
 const SPY_DEPTH_TROOPS = { power: 3, ratio: 1.5 }; // see troops and helpers
 const SPY_DEPTH_BUILDINGS = { power: 10, ratio: 3 }; // also see all buildings
 const RESEARCH_COST = 3; // research costs 3x the unit's price
-const RESEARCH_TIME = 3; // ...and takes 3x its training time
+const RESEARCH_TIME = 60; // ...and takes 60x its training time (a Human raider and all air units: about 4.9 h at lab level 5)
 const UPGRADE_COST = 1.2; // upgrade level 1 costs 1.2x the unit's price
 const UPGRADE_COST_GROWTH = 1.35;
 const UPGRADE_TIME = 2;
@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.424";
+const GAME_VERSION = "1.0.432";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -611,8 +611,9 @@ const BUILDING_TYPES = {
   trap: {
     cost: { wood: 110, stone: 140, metal: 130, food: 50 },
     time: 70,
+    max: 20, high: true, multi: true,
     requires: { hq: 3, wall: 1 },
-    info: "Catches attacking ground troops before the fight. They stay as prisoners until you let them go or their owner wins an attack here.",
+    info: "Catches attacking ground troops before the fight: 20 traps per level, 400 at level 20. At level 20 you may build another one. Prisoners stay until someone wins an attack on this colony. Raids free nobody.",
   },
   lab: {
     cost: { wood: 220, stone: 160, metal: 240, food: 90 },
@@ -3039,7 +3040,7 @@ function upkeep(s, tribe, includeTraining) {
       if (tribe.units[key]) total += group[key] * tribe.units[key].upkeep * k;
     }
   }
-  if (hp && hp.glutton && hp.home === s._cid) total *= 1.05; // 🍗 a glutton at home
+  if (hp && hp.upkeep !== 1 && hp.home === s._cid) total *= hp.upkeep; // 🍗 quirks that eat or save food at home
   if (s.spec === "breadbasket") total *= 1 - COLONY_SPECS.breadbasket.eat - 0.01 * levelOf(s, "ration"); // 🌾 fed well here
   if (includeTraining) {
     for (const t of allTraining(s)) total += t.remaining * tribe.units[t.unit].upkeep;
@@ -5201,7 +5202,7 @@ function effectText(type, level, tk) {
     case "weaponry":
       return level === 0 ? "No upgrades" : "Upgrades up to Lv " + Math.min(level, UPGRADE_MAX) + " · upgrade time " + faster(WEAPONRY_SPEEDUP);
     case "trap":
-      return level === 0 ? "No traps" : "Catches " + Math.round(TRAP_PER_LEVEL * level * speedScale()) + " attackers";
+      return level === 0 ? "No traps" : "Holds " + TRAP_PER_LEVEL * level + " attackers";
     case "hospital":
       return level === 0 ? "No beds" : "Saves " + perkOf(tk, "hospital") * level + "% of the fallen · " + hospitalBeds(level) + " beds · healing time " + faster(HOSPITAL_SPEEDUP);
     case "sawmill":
@@ -5684,7 +5685,7 @@ function movementsFor(userId, now) {
       cloaked: !stay && m.power === "alien",
       seen: !stay && !friendly && m.mission !== "trade" ? seenUnits(m, from, sight(m.target_id)) : null,
       // 🎺 a show-off commander can't hide that it is coming
-      showoff: !stay && !friendly && m.hero && from && heroReady && !BOT_IDS.has(from.user_id) ? (heroOf(from.user_id, now) || {}).quirk === "showoff" : false,
+      showoff: !stay && !friendly && m.hero && from && heroReady && !BOT_IDS.has(from.user_id) ? hasQuirk(heroOf(from.user_id, now), "showoff") : false,
       spottedAt: !stay && !friendly && m.mission !== "trade" ? spottedAt(userId, m) : null,
       canRecall: stay,
       // Stationed ally troops defending you: you can redirect them onward
@@ -6110,7 +6111,6 @@ function snapshot(user, colony) {
     specOpen: levelOf(s, "hq") >= SPEC_HQ && actNow(now) >= 1,
     specAct: actNow(now) >= 1 || levelOf(s, "hq") < SPEC_HQ ? 0 : actDays()[1],
     specs: Object.keys(COLONY_SPECS).map((k) => ({ key: k, icon: COLONY_SPECS[k].icon, name: COLONY_SPECS[k].name, text: COLONY_SPECS[k].text, building: { name: tribeOf(colony.tribe).names[COLONY_SPECS[k].building][0], icon: tribeOf(colony.tribe).names[COLONY_SPECS[k].building][1] } })),
-    specChange: SPEC_CHANGE_COST,
     rich: !!s.rich,
     forecast: forecastView(now),
     lent: (() => { const L = handsLend(colony.id, now); return L ? { colony: L.colony, leftMs: L.finishAt ? Math.max(0, L.finishAt - now) : 0 } : null; })(),
@@ -6123,7 +6123,7 @@ function snapshot(user, colony) {
       workshop: { level: levelOf(s, "workshop"), name: tribe.names.workshop[0], icon: tribe.names.workshop[1] },
     },
     hub: { level: levelOf(s, "hub"), name: tribe.names.hub[0], icon: tribe.names.hub[1] },
-    lab: { level: levelOf(s, "lab"), name: tribe.names.lab[0], icon: tribe.names.lab[1], job: job(s.labJob, "Researching") },
+    lab: { level: levelOf(s, "lab"), name: tribe.names.lab[0], icon: tribe.names.lab[1], job: s.labJob ? Object.assign(job(s.labJob, "Researching"), { rush: s.labJob.finishAt > now ? creditFinishCost(s.labJob.finishAt - now) : 0 }) : null },
     weaponry: {
       level: levelOf(s, "weaponry"),
       name: tribe.names.weaponry[0],
@@ -6652,25 +6652,14 @@ app.use("/api", (req, res, next) => {
   res.status(409).json({ error: "This server has been won by " + w.name + ". The round is over.", won: w });
 });
 
-// 🏷️ pick (or change) the specialisation of this colony (HQ 10)
-const SPEC_CHANGE_COST = 2000; // of each resource to change it later
+// 🏷️ pick the specialisation of this colony (HQ 10) - it is permanent
 app.post("/api/spec", requireLogin, (req, res) => {
   withColony(req, res, (s, tribe) => {
     const key = String((req.body || {}).key || "");
     if (!COLONY_SPECS[key]) return "Unknown specialisation";
     if (levelOf(s, "hq") < SPEC_HQ) return "Specialisations open at " + tribe.names.hq[0] + " level " + SPEC_HQ;
     if (actNow() < 1) return "Specialisations open with Act 2 (Expansion) on " + dayDate(actDays()[1]);
-    if (s.spec === key) return "This colony already is a " + COLONY_SPECS[key].name;
-    if (s.spec) {
-      const n = SPEC_CHANGE_COST;
-      const cost = { wood: n, stone: n, metal: n, food: n };
-      if (!canAfford(s, cost)) return "Changing costs " + n + " of each resource";
-      const old = COLONY_SPECS[s.spec].building;
-      if (jobsOf(s).some((q) => q.kind === "building" && (q.type === old || (s.buildings[q.slot] && s.buildings[q.slot].type === old)))) return "Finish or cancel the job on the " + tribe.names[old][0] + " first";
-      pay(s, cost);
-      // the old unique building is torn down
-      s.buildings.forEach((b, i) => { if (b.type === old) s.buildings[i] = { type: null, level: 0 }; });
-    }
+    if (s.spec) return "The specialisation of this colony is permanent";
     s.spec = key;
     return null;
   });
@@ -7462,6 +7451,22 @@ app.post("/api/upgrade-unit", requireLogin, (req, res) => {
     if (c.error) return c.error;
     pay(s, c.cost);
     s.smithJob = { unit, level: c.level, cost: c.cost, duration: c.duration, finishAt: Date.now() + c.duration, at: Date.now() };
+    return null;
+  });
+});
+
+// 🎫 finish the running research at once with Star Credits (same price per hour left as finishing a build)
+app.post("/api/rush-research", requireLogin, (req, res) => {
+  withColony(req, res, (s, tribe) => {
+    const now = Date.now();
+    if (!s.labJob || s.labJob.finishAt <= now) return "No research is running";
+    const cost = creditFinishCost(s.labJob.finishAt - now);
+    commanderCollect(req.user.id, now);
+    if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
+    addCredits(req.user.id, -cost);
+    s.labJob.finishAt = now;
+    update(s, tribe, now);
+    req.extra = { cost };
     return null;
   });
 });
@@ -11372,6 +11377,7 @@ db.exec(`
     land_at INTEGER NOT NULL, note TEXT NOT NULL DEFAULT ''
   );
 `);
+addColumn("alliance_project_pots", "cred", "INTEGER NOT NULL DEFAULT 0"); // Star Credits given to the pot for this level
 
 // fast lookups for the bonuses (they are asked for very often)
 var ALLY_PROJ;
@@ -11456,7 +11462,7 @@ function allianceExtras(aid, uid, now) {
     const level = allyLevel(aid, k);
     const max = level >= ALLY_MAX_LEVEL;
     const donors = max ? [] : db.prepare("SELECT users.username AS name, amount FROM alliance_project_donors LEFT JOIN users ON users.id = alliance_project_donors.user_id WHERE alliance_id = ? AND kind = ? AND amount > 0 ORDER BY amount DESC LIMIT 5").all(aid, k);
-    return { key: k, icon: p.icon, name: p.name, level, max: ALLY_MAX_LEVEL, now: level ? allyProjText(k, level) : "no bonus yet", next: max ? null : allyProjText(k, level + 1), cost: max ? null : projectCost(aid, k, now), pot: potOf(aid, k), donors };
+    return { key: k, icon: p.icon, name: p.name, level, max: ALLY_MAX_LEVEL, now: level ? allyProjText(k, level) : "no bonus yet", next: max ? null : allyProjText(k, level + 1), cost: max ? null : projectCost(aid, k, now), pot: potOf(aid, k), donors, credit: max ? null : (() => { const c = allyCreditInfo(aid, k, now); return { each: c.rate, room: c.room }; })() };
   });
   db.prepare("DELETE FROM alliance_plans WHERE land_at < ?").run(now - 3600000);
   db.prepare("DELETE FROM alliance_plan_joins WHERE plan_id NOT IN (SELECT id FROM alliance_plans)").run();
@@ -11559,7 +11565,7 @@ function fundProject(aid, uid, kind, give, now) {
   let up = false;
   if (RESOURCES.every((k) => pot[k] >= cost[k])) {
     db.prepare("INSERT INTO alliance_levels (alliance_id, kind, level) VALUES (?, ?, 1) ON CONFLICT(alliance_id, kind) DO UPDATE SET level = MIN(" + ALLY_MAX_LEVEL + ", level + 1)").run(aid, kind);
-    db.prepare("UPDATE alliance_project_pots SET wood = 0, stone = 0, metal = 0, food = 0, rounds = rounds + 1 WHERE alliance_id = ? AND kind = ?").run(aid, kind);
+    db.prepare("UPDATE alliance_project_pots SET wood = 0, stone = 0, metal = 0, food = 0, cred = 0, rounds = rounds + 1 WHERE alliance_id = ? AND kind = ?").run(aid, kind);
     db.prepare("DELETE FROM alliance_project_donors WHERE alliance_id = ? AND kind = ?").run(aid, kind);
     loadAllyProjects();
     bankLog(aid, null, p.icon + " " + p.name + " reached level " + (level + 1) + ": " + allyProjText(kind, level + 1) + " for everyone!");
@@ -11568,6 +11574,42 @@ function fundProject(aid, uid, kind, give, now) {
   }
   return { took, up };
 }
+
+// 🎫 Star Credits into a project: one credit fills a little of every resource, but credits can cover
+// at most ALLY_CREDIT_SHARE of a level, so the pot still needs real resources from the members
+const ALLY_CREDIT_SHARE = 0.3, ALLY_CREDIT_PER_HOUR = 0.02; // a credit = 2% of a typical player's hourly production, of each resource
+function allyCreditInfo(aid, kind, now) {
+  const cost = projectCost(aid, kind, now);
+  const rate = Math.max(1, Math.round(meteorSize(now) * ALLY_CREDIT_PER_HOUR));
+  const pot = db.prepare("SELECT cred FROM alliance_project_pots WHERE alliance_id = ? AND kind = ?").get(aid, kind);
+  const room = Math.max(0, Math.floor((cost.wood * ALLY_CREDIT_SHARE) / rate) - (pot ? pot.cred : 0));
+  return { cost, rate, room };
+}
+app.post("/api/alliance/credits", requireLogin, (req, res) => {
+  const me = allyMember(req);
+  if (!me) return res.status(400).json({ error: "You are not in an alliance" });
+  const kind = String((req.body || {}).kind || "");
+  if (!ALLY_PROJECTS[kind]) return res.status(400).json({ error: "Unknown project" });
+  const want = Math.floor(Number((req.body || {}).credits) || 0);
+  if (want < 1) return res.status(400).json({ error: "Enter how many Star Credits to give" });
+  const now = Date.now();
+  if (allyLevel(me.id, kind) >= ALLY_MAX_LEVEL) return res.status(400).json({ error: ALLY_PROJECTS[kind].name + " is already at the highest level" });
+  const info = allyCreditInfo(me.id, kind, now);
+  const pot = potOf(me.id, kind);
+  const missing = Math.max(...RESOURCES.map((k) => Math.max(0, info.cost[k] - pot[k])));
+  const take = Math.min(want, info.room, Math.ceil(missing / info.rate));
+  if (take < 1) return res.status(400).json({ error: info.room < 1 ? "Star Credits already cover their share of this level. The rest must come as resources." : "This project already has enough." });
+  commanderCollect(req.user.id, now);
+  if (creditsOf(req.user.id) < take) return res.status(400).json({ error: "You need " + take + " Star Credits for this (you have " + creditsOf(req.user.id) + ")" });
+  const give = {};
+  for (const k of RESOURCES) give[k] = take * info.rate;
+  const r = fundProject(me.id, req.user.id, kind, give, now);
+  if (r.error) return res.status(400).json({ error: r.error });
+  addCredits(req.user.id, -take);
+  if (!r.up) db.prepare("UPDATE alliance_project_pots SET cred = cred + ? WHERE alliance_id = ? AND kind = ?").run(take, me.id, kind);
+  bankLog(me.id, req.user.id, "gave " + take + " Star Credits to " + ALLY_PROJECTS[kind].icon + " " + ALLY_PROJECTS[kind].name);
+  res.json({ ok: true, credits: take, up: r.up });
+});
 
 // Donate to a project from the colony you are in (or, as leader, from the bank)
 app.post("/api/alliance/project", requireLogin, (req, res) => {
@@ -14302,13 +14344,68 @@ function heroSkillLimit(h, k) {
   if (h.arch === undefined) return k === "haul" || k === "prod" ? sk.max : 0;
   return h.arch === sk.arch ? sk.max : 0;
 }
-// 🎲 quirks: one per commander from level 5, rerolled once per round
+// 🎲 quirks: a commander's habits. Slot 1 opens at level 5, slot 2 at level 30. Every quirk is a real
+// trade: numbers (fx, in percent) that grow with the commander's level, up to +50% at level 100.
+// A roll leans towards the quirks that fit the archetype. Rerolling is once per round and slot.
 const HERO_QUIRK_LEVEL = 5;
+const HERO_QUIRK2_LEVEL = 30;
+const HERO_QUIRK_FX = { atk: ["attack for the army it leads", 1], def: ["defense at home", 1], carry: ["carry", 1], xp: ["experience", 1], regen: ["health regeneration", 1], dmg: ["health lost in fights", -1], upkeep: ["food upkeep at home", -1], trap: ["trap capacity while it is home", 1], charge: ["Charge attack", 1] };
 const HERO_QUIRKS = {
-  glutton: { icon: "🍗", name: "Glutton", up: "+10% health regeneration", down: "+5% food upkeep in its home colony" },
-  showoff: { icon: "🎺", name: "Show-off", up: "Charge gives +5% more attack", down: "the target always sees the commander coming" },
-  coward: { icon: "🐔", name: "Coward", up: "never falls in a lost fight", down: "−5% attack for the army it leads" },
+  glutton: { icon: "🍗", name: "Glutton", fx: { regen: 10, upkeep: 5 }, fits: ["quartermaster"] },
+  stubborn: { icon: "🐂", name: "Stubborn", fx: { def: 5, regen: -10 }, fits: ["warlord"] },
+  hothead: { icon: "🔥", name: "Hothead", fx: { atk: 4, dmg: 10 }, fits: ["warlord"] },
+  showoff: { icon: "🎺", name: "Show-off", fx: { charge: 5 }, down: "the target always sees the commander coming", fits: ["warlord"] },
+  coward: { icon: "🐔", name: "Coward", fx: { atk: -5 }, up: "never falls in a lost fight: it runs with 1 health", fits: ["quartermaster"] },
+  scavenger: { icon: "🎒", name: "Scavenger", fx: { carry: 10, atk: -3 }, fits: ["quartermaster", "explorer"] },
+  bookworm: { icon: "📚", name: "Bookworm", fx: { xp: 10, def: -4 }, fits: ["explorer"] },
+  paranoid: { icon: "🪤", name: "Paranoid", fx: { trap: 10, atk: -3 }, fits: ["warlord"] },
+  thick: { icon: "🦏", name: "Thick-skinned", fx: { dmg: -12, carry: -6 }, fits: ["explorer", "warlord"] },
 };
+function heroQuirkList(h) {
+  const l = [];
+  if (h && HERO_QUIRKS[h.quirk]) l.push(h.quirk);
+  if (h && h.level >= HERO_QUIRK2_LEVEL && HERO_QUIRKS[h.quirk2]) l.push(h.quirk2);
+  return l;
+}
+function hasQuirk(h, k) { return !!h && heroQuirkList(h).indexOf(k) >= 0; }
+// level scaling: x1 at level 5, x1.5 at level 100
+function quirkScale(h) { return 1 + Math.min(1, Math.max(0, (h.level - HERO_QUIRK_LEVEL) / (HERO_MAX_LEVEL - HERO_QUIRK_LEVEL))) * 0.5; }
+// everything the quirks add up to, in percent (negative = a cost)
+function quirkFx(h) {
+  const t = { atk: 0, def: 0, carry: 0, xp: 0, regen: 0, dmg: 0, upkeep: 0, trap: 0, charge: 0 };
+  if (!h) return t;
+  const k = quirkScale(h);
+  for (const q of heroQuirkList(h)) for (const f in HERO_QUIRKS[q].fx) t[f] += HERO_QUIRKS[q].fx[f] * k;
+  return t;
+}
+function quirkText(key, h) {
+  const Q = HERO_QUIRKS[key], k = h ? quirkScale(h) : 1;
+  const up = [], down = [];
+  for (const f in Q.fx) {
+    const v = Math.round(Q.fx[f] * k * 10) / 10, F = HERO_QUIRK_FX[f];
+    (v * F[1] > 0 ? up : down).push((v > 0 ? "+" : "−") + Math.abs(v) + "% " + F[0]);
+  }
+  if (Q.up) up.push(Q.up);
+  if (Q.down) down.push(Q.down);
+  return { up: up.join(", "), down: down.join(", ") };
+}
+// 🎫 more rerolls in the same round cost Star Credits, dearer every time
+const QUIRK_REROLL_PRICE = 150, QUIRK_REROLL_PRICE_MAX = 1200;
+function quirkExtra(h, slot) { return h.quirkExtra && h.quirkExtra.round === roundNumber() ? h.quirkExtra[slot] || 0 : 0; }
+function quirkPrice(h, slot) { return Math.min(QUIRK_REROLL_PRICE_MAX, QUIRK_REROLL_PRICE * Math.pow(2, quirkExtra(h, slot))); }
+// 🎫 resetting the skills without an Insight token: grows with the points to hand back
+const RESPEC_CREDITS_BASE = 150, RESPEC_CREDITS_PER_POINT = 4, RESPEC_CREDITS_MAX = 1000;
+function respecCredits(h) {
+  const spent = Object.keys(HERO_SKILLS).reduce((n, k) => n + ((h.pts && h.pts[k]) || 0), 0);
+  return Math.min(RESPEC_CREDITS_MAX, RESPEC_CREDITS_BASE + RESPEC_CREDITS_PER_POINT * spent);
+}
+function quirkRoll(h, not) {
+  const pool = Object.keys(HERO_QUIRKS).filter((q) => not.indexOf(q) < 0);
+  const w = pool.map((q) => (HERO_QUIRKS[q].fits.indexOf(h.arch) >= 0 ? 3 : 1));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r < 0) return pool[i]; }
+  return pool[0];
+}
 // "⚔️" battle orders (attacker) and 🛡️ stances (defender)
 const HERO_ORDERS = {
   charge: { icon: "⚔️", name: "Charge", up: "+15% attack", down: "+10% own losses", beats: "evacuate", loses: "fortify" },
@@ -14439,7 +14536,7 @@ function heroHp(h, now) {
   return Math.min(HERO_HP, h.hp + Math.max(0, ((now - from) / serverDayMs()) * heroRegen(h)));
 }
 function heroRegen(h) {
-  return Math.round((HERO_HP_DAY + heroGearStats(h).regen + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.per) * (h.quirk === "glutton" ? 1.1 : 1) * 10) / 10;
+  return Math.round((HERO_HP_DAY + heroGearStats(h).regen + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.per) * (1 + quirkFx(h).regen / 100) * 10) / 10;
 }
 // everything the equipped gear adds up to
 function heroGearStats(h) {
@@ -14545,7 +14642,10 @@ function heroOf(userId, now) {
   h.lockUntil = h.lockUntil || 0;
   if (h.away && !db.prepare("SELECT 1 FROM movements WHERE id = ?").get(h.away)) h.away = 0;
   h.stats = Object.assign({ fights: 0, wins: 0, xp: 0, adv: 0 }, h.stats || {});
-  if (h.level >= HERO_QUIRK_LEVEL && !HERO_QUIRKS[h.quirk]) { const qk = Object.keys(HERO_QUIRKS); h.quirk = qk[Math.floor(Math.random() * qk.length)]; h.quirkNew = 1; }
+  if (h.quirk && !HERO_QUIRKS[h.quirk]) h.quirk = "";
+  if (h.quirk2 && !HERO_QUIRKS[h.quirk2]) h.quirk2 = "";
+  if (h.level >= HERO_QUIRK_LEVEL && !h.quirk) { h.quirk = quirkRoll(h, [h.quirk2]); h.quirkNew = 1; }
+  if (h.level >= HERO_QUIRK2_LEVEL && !h.quirk2) { h.quirk2 = quirkRoll(h, [h.quirk]); h.quirkNew = 1; }
   if (h.stance && !HERO_STANCES[h.stance]) h.stance = "";
   if (h.adv && now >= h.adv.until) advFinish(userId, h); // back from an adventure
   if (advSync(h, now)) heroSave(userId, h);
@@ -14579,9 +14679,9 @@ function heroBonus(h) {
   return {
     def: Math.min(HERO_BONUS_CAP, heroGearStats(h).defPct + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0)),
     mend: heroMend(h) * 100,
-    atk: layered(heroAtkRaw(h), personaBonus(h).atk, HERO_BONUS_CAP),
-    def: layered(heroGearStats(h).defPct + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0), personaBonus(h).def, HERO_BONUS_CAP),
-    carry: heroGearStats(h).carry + personaBonus(h).carry,
+    atk: Math.round((layered(heroAtkRaw(h), personaBonus(h).atk, HERO_BONUS_CAP) + quirkFx(h).atk) * 10) / 10,
+    def: Math.round((layered(heroGearStats(h).defPct + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0), personaBonus(h).def, HERO_BONUS_CAP) + quirkFx(h).def) * 10) / 10,
+    carry: heroGearStats(h).carry + personaBonus(h).carry + quirkFx(h).carry,
     prod: Math.round(h.pts.prod * HERO_SKILLS.prod.per * PRODUCTION_SPEED * 10) / 10, // real per hour, like the fields
     prodPct: Math.min(25, h.pts.prod * HERO_SKILLS.prod.pct + heroGearStats(h).prod + personaBonus(h).prod), // and a share of the colony's own production
   };
@@ -14607,7 +14707,7 @@ function heroPerks(userId) {
     c = {
       until: now + 20000,
       home: h ? h.home : 0,
-      glutton: !!h && h.quirk === "glutton",
+      upkeep: h ? 1 + quirkFx(h).upkeep / 100 : 1,
       qm25: heroRule(h, "quartermaster", 25),
       qm50: heroRule(h, "quartermaster", 50),
       qm75: heroRule(h, "quartermaster", 75),
@@ -14688,7 +14788,7 @@ function battleMods(order, aHero, st) {
   const k = 1 + (aHero ? (aHero.pts.orders || 0) * HERO_SKILLS.orders.per / 100 : 0);
   const ks = (1 + (st ? (st.h.pts.bulwark || 0) * HERO_SKILLS.bulwark.per / 100 : 0)) * (aHero && heroRule(aHero, "warlord", 100) && O ? 0.5 : 1);
   if (O === "charge") {
-    M.atk *= 1 + 0.15 * k + (aHero.quirk === "showoff" ? 0.05 : 0);
+    M.atk *= 1 + 0.15 * k + quirkFx(aHero).charge / 100;
     if (!heroRule(aHero, "warlord", 25)) M.loss *= 1.1;
   } else if (O === "pillage") {
     M.carry *= 1 + 0.3 * k;
@@ -14716,7 +14816,7 @@ function lossWith(frac, mul) {
 }
 // attack (ground + air) of an army led by the commander
 function heroLead(attack, h) {
-  const k = (1 + heroBonus(h).atk / 100) * (h.quirk === "coward" ? 0.95 : 1);
+  const k = 1 + heroBonus(h).atk / 100;
   return { g: attack.g * k + heroPoints(h).atk, a: attack.a * k };
 }
 // The defending commander (only at home and healthy)
@@ -14760,7 +14860,7 @@ function heroAfterFight(userId, h, o) {
   const cap = h.level >= HERO_MAX_LEVEL ? 0 : heroNeed(h.level);
   const G = heroGearStats(h);
   const note = { name: h.name, level: h.level, bonus: o.bonus, xp: Math.max(0, Math.min(cap, Math.round(o.xp * (o.scrap ? 1 : 1 + G.xp / 100)))) };
-  if (o.dmg > 0) o.dmg *= 1 - Math.min(HERO_CAPS.ward, G.ward + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.ward) / 100;
+  if (o.dmg > 0) o.dmg *= (1 - Math.min(HERO_CAPS.ward, G.ward + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.ward) / 100) * (1 + quirkFx(h).dmg / 100);
   const huntPct = h.arch === "explorer" ? (h.pts.hunter || 0) * HERO_SKILLS.hunter.per : 0;
   if (o.bounty && (G.bounty || huntPct)) {
     const b = {};
@@ -14773,7 +14873,7 @@ function heroAfterFight(userId, h, o) {
     if (o.won || (o.won === undefined && !o.beaten)) h.stats.wins++;
   }
   if(o.campTier===2)note.xp=Math.round(note.xp*(1+heroGearStats(h).frontier/100));
-  note.xp = Math.round(note.xp * (1 + personaBonus(h).xp / 100));
+  note.xp = Math.round(note.xp * (1 + (personaBonus(h).xp + quirkFx(h).xp) / 100));
   h.stats.xp += note.xp;
   // ❤️ what the fight or the trip cost
   if (o.dmg > 0) {
@@ -14785,7 +14885,7 @@ function heroAfterFight(userId, h, o) {
     else heroSetHp(h, Math.max(1, left), o.at);
   }
   // 🐔 a coward runs before it can fall
-  if (o.beaten && !o.safe && h.quirk === "coward") { o.beaten = false; if (o._left !== undefined && o._left <= 0) heroSetHp(h, 1, o.at); note.ranAway = true; }
+  if (o.beaten && !o.safe && hasQuirk(h, "coward")) { o.beaten = false; if (o._left !== undefined && o._left <= 0) heroSetHp(h, 1, o.at); note.ranAway = true; }
   h.xp += note.xp;
   while (h.level < HERO_MAX_LEVEL && h.xp >= heroNeed(h.level)) {
     h.xp -= heroNeed(h.level);
@@ -14912,16 +15012,16 @@ const COMMANDERS = {
   steward: { name: "Penny the Tally-Penguin", icon: "🐧", rarity: "uncommon", rate: 4.9, trait: { atk: 1, def: 1 }, quip: "Counts everything twice, just to be sure." },
   nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 4.1, trait: { atk: 1, def: 1, spawn: 5 }, quip: "Keeps strange hours, and so do the monsters around her." },
   bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 4.2, trait: { atk: 1.5, def: 4.5 }, quip: "Stands very still until the problem goes away." },
-  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 7.7, trait: { atk: 1.5, def: 1.5, shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
+  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 6.8, trait: { atk: 1.5, def: 1.5, shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
   tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.9, trait: { atk: 1.5, def: 1.5, tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
   professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 5.6, trait: { atk: 1.5, def: 1.5, xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
-  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 5.4, trait: { atk: 7, def: 2 }, quip: "Every plan ends in an explosion, usually a planned one." },
-  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 8.2, trait: { atk: 2, def: 2, fee: 1.5 }, quip: "Bids on things he is already holding." },
-  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 7.4, trait: { atk: 2, def: 2, cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
-  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 10.0, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
-  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 9.9, trait: { atk: 4, def: 4, tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
-  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 11.0, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
-  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 13.9, trait: { atk: 5, def: 5, cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
+  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 4.8, trait: { atk: 7, def: 2 }, quip: "Every plan ends in an explosion, usually a planned one." },
+  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 7.2, trait: { atk: 2, def: 2, fee: 1.5 }, quip: "Bids on things he is already holding." },
+  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 6.5, trait: { atk: 2, def: 2, cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
+  starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 8.8, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
+  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 8.7, trait: { atk: 4, def: 4, tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
+  voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 9.7, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
+  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 12.2, trait: { atk: 5, def: 5, cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
 };
 // what each effect does; the value is per rank 1 and grows with the rank
 const TRAIT_TEXT = {
@@ -15479,6 +15579,7 @@ function heroView(userId, colonyId, now) {
     reviveMs: heroReviveMs(),
     reviveCost: status === "fallen" && h.hurtUntil - now > heroReviveMs() ? heroReviveCost(h) : null,
     respecCost: heroRespecCost(h),
+    respecCredits: respecCredits(h),
     road: HERO_ROAD.map((r) => Object.assign({ done: h.level >= r.lv }, r)),
     moveLeft: h.move ? Math.max(0, h.move.at - now) : 0,
     lockLeft: Math.max(0, h.lockUntil - now),
@@ -15524,8 +15625,8 @@ function heroView(userId, colonyId, now) {
     stance: h.stance || "",
     stances: Object.keys(HERO_STANCES).map((k) => Object.assign({ key: k }, HERO_STANCES[k])),
     orders: Object.keys(HERO_ORDERS).map((k) => Object.assign({ key: k }, HERO_ORDERS[k])),
-    quirk: HERO_QUIRKS[h.quirk] ? Object.assign({ key: h.quirk, reroll: h.quirkRound !== roundNumber() }, HERO_QUIRKS[h.quirk]) : null,
-    quirkLevel: HERO_QUIRK_LEVEL,
+    quirks: [[h.quirk, "quirkRound", HERO_QUIRK_LEVEL], [h.quirk2, "quirk2Round", HERO_QUIRK2_LEVEL]].map((x, i) => HERO_QUIRKS[x[0]] && h.level >= x[2] ? Object.assign({ key: x[0], slot: i + 1, reroll: h[x[1]] !== roundNumber(), price: quirkPrice(h, i + 1), icon: HERO_QUIRKS[x[0]].icon, name: HERO_QUIRKS[x[0]].name }, quirkText(x[0], h)) : null).filter(Boolean),
+    quirkNext: h.level < HERO_QUIRK_LEVEL ? HERO_QUIRK_LEVEL : h.level < HERO_QUIRK2_LEVEL ? HERO_QUIRK2_LEVEL : 0,
   };
 }
 
@@ -15570,14 +15671,27 @@ app.post("/api/hero", requireLogin, (req, res) => {
       if (k && !HERO_STANCES[k]) return "Unknown stance";
       h.stance = k;
     } else if (b.action === "quirk") {
-      if (!HERO_QUIRKS[h.quirk]) return "Your commander gets a quirk at level " + HERO_QUIRK_LEVEL;
-      if (h.quirkRound === roundNumber()) return "The quirk can be rerolled once per round";
+      const slot = Number(b.slot) === 2 ? 2 : 1;
+      const f = slot === 2 ? "quirk2" : "quirk", rf = f + "Round";
+      if (!HERO_QUIRKS[h[f]] || h.level < (slot === 2 ? HERO_QUIRK2_LEVEL : HERO_QUIRK_LEVEL)) return "That quirk opens at level " + (slot === 2 ? HERO_QUIRK2_LEVEL : HERO_QUIRK_LEVEL);
+      let cost = 0;
+      if (h[rf] === roundNumber()) {
+        // the free reroll of this round is used: another one costs Star Credits
+        cost = quirkPrice(h, slot);
+        if (!b.pay) return "The free reroll is used. Another one costs " + cost + " Star Credits";
+        commanderCollect(req.user.id, now);
+        if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
+      }
       heroSettleAll(req.user.id, now);
       heroGearChange(h, now);
-      const others = Object.keys(HERO_QUIRKS).filter((q) => q !== h.quirk);
-      h.quirk = others[Math.floor(Math.random() * others.length)];
-      h.quirkRound = roundNumber();
-      req.extra = { quirk: HERO_QUIRKS[h.quirk].name };
+      if (cost) {
+        addCredits(req.user.id, -cost);
+        h.quirkExtra = h.quirkExtra && h.quirkExtra.round === roundNumber() ? h.quirkExtra : { round: roundNumber() };
+        h.quirkExtra[slot] = (h.quirkExtra[slot] || 0) + 1;
+      }
+      h[f] = quirkRoll(h, [h.quirk, h.quirk2]);
+      h[rf] = roundNumber();
+      req.extra = { quirk: HERO_QUIRKS[h[f]].name };
     } else if (b.action === "collect") {
       const got = commanderCollect(req.user.id, now);
       if (!got) return "No Star Credits to collect yet";
@@ -15608,8 +15722,15 @@ app.post("/api/hero", requireLogin, (req, res) => {
       const spent = Object.keys(HERO_SKILLS).reduce((n, k) => n + (h.pts[k] || 0), 0);
       if (!spent && !h.arch) return "There are no skill points to reset";
       h.consumables=h.consumables||{};
-      if((h.consumables.respec||0)<1)return "Resetting skills requires an Insight token, found on adventures";
-      h.consumables.respec--;
+      if (b.pay === "credits") {
+        const cost = respecCredits(h);
+        commanderCollect(req.user.id, now);
+        if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
+        addCredits(req.user.id, -cost);
+      } else {
+        if((h.consumables.respec||0)<1)return "Resetting skills requires an Insight token (or Star Credits)";
+        h.consumables.respec--;
+      }
       if (h.pts.prod) heroSettle(h.home, now);
       heroGearChange(h, now);
       heroSettleAll(req.user.id, now);
@@ -16483,11 +16604,11 @@ function askDone(colonyId) {
 }
 
 // 🎫 finishing a job at once with Star Credits. The price is per hour left and gets dearer in steps (45 an hour for the
-// first hour left, 60 up to 4 hours, 100 up to 12 hours, 200 beyond), and every use costs at least creditFinishMin() (45 on a x1 server, less on faster ones),
+// first hour left, 60 up to 4 hours, 100 up to 12 hours, 200 beyond), and every use costs at least creditFinishMin() (10 on a x1 server, less on faster ones),
 // so quick jobs cannot be rushed in bulk (the first ten levels of a field take about 2 hours in all):
 // 5 minutes 45, 1 hour 45, 4 hours 225, 12 hours 1025, a day 3425
 const CREDIT_FINISH_STEPS = [[1, 45], [4, 60], [12, 100], [Infinity, 200]]; // [up to this many hours left, credits per hour]
-const CREDIT_FINISH_MIN = 45; // on a x1 server
+const CREDIT_FINISH_MIN = 10; // on a x1 server: a job of 13 minutes or less costs 10
 // the minimum shrinks on faster servers like the free-finish window does (x10: 15, x500: 2), because jobs are much shorter there
 function creditFinishMin() {
   return Math.max(2, Math.round(CREDIT_FINISH_MIN / Math.pow(Math.max(1, BUILD_SPEED || 1), Math.log10(3))));
@@ -16910,7 +17031,7 @@ function wikiExtra() {
       roster: { shards: SHARDS_PER_COMMANDER, dayCap: SHARD_DAY_CAP, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
-      orders: HERO_ORDERS, stances: HERO_STANCES, quirks: HERO_QUIRKS, quirkLevel: HERO_QUIRK_LEVEL,
+      orders: HERO_ORDERS, stances: HERO_STANCES, quirks: Object.keys(HERO_QUIRKS).reduce((o, k) => { o[k] = Object.assign({ icon: HERO_QUIRKS[k].icon, name: HERO_QUIRKS[k].name, fits: HERO_QUIRKS[k].fits.map((a) => HERO_ARCHES[a].icon + " " + HERO_ARCHES[a].name).join(", ") }, quirkText(k, null)); return o; }, {}), quirkLevel: HERO_QUIRK_LEVEL, quirk2Level: HERO_QUIRK2_LEVEL,
       events: ADV_EVENTS.map((e) => ({ icon: e.icon, text: e.text, a: e.a.label, b: e.b.label })),
       gear: HERO_SLOTS.map((k) => ({ slot: k, name: HERO_GEAR[k].name, tiers: HERO_GEAR[k].tiers.map((t) => ({ name: t[0], icon: t[1] })), main: HERO_GEAR[k].main })),
       stats: HERO_STATS, affix: HERO_AFFIX, affixN: HERO_AFFIX_N, caps: HERO_CAPS,
@@ -16929,7 +17050,7 @@ function wikiExtra() {
     market: { offers: OFFER_MAX, min: OFFER_MIN, ratioMin: OFFER_RATIO_MIN, ratioMax: OFFER_RATIO_MAX, lastsMs: offerMs() },
     ally: { officers: ALLY_OFFICERS_MAX, shared: SHARED_MAX },
     longterm: { acts: actsView(Date.now()), leagues: LEAGUES, contests: LEAGUE_CONTESTS, late: { day: LATE_DAY, days: LATE_DAYS, per: Math.round(LATE_PER_DAY * 1000) / 10, max: Math.round(LATE_MAX * 100) }, titles: LEGACY_TITLES.map((t) => ({ name: t.name, how: t.how })) },
-    econ: { specs: COLONY_SPECS, specHq: SPEC_HQ, change: SPEC_CHANGE_COST, forecasts: FORECASTS.map((f) => ({ icon: f.icon, name: f.name, text: f.text, w: f.w })), rich: { pct: Math.round(RICH_BONUS * 100), per: RICH_PER_QUARTER, waves: RICH_WAVES.map((w, i) => ({ n: w.n, day: richWaveDay(i) })), ring: RICH_RING } },
+    econ: { specs: COLONY_SPECS, specHq: SPEC_HQ, forecasts: FORECASTS.map((f) => ({ icon: f.icon, name: f.name, text: f.text, w: f.w })), rich: { pct: Math.round(RICH_BONUS * 100), per: RICH_PER_QUARTER, waves: RICH_WAVES.map((w, i) => ({ n: w.n, day: richWaveDay(i) })), ring: RICH_RING } },
     newp: { gradGift: GRAD_GIFT, gradH: GRAD_WINDOW_MS / 3600000, raid: typicalRaidAttack(), insPct: Math.round(INS_SHARE * 100), insClaims: INS_CLAIMS, insHeavy: Math.round(INS_HEAVY * 100), insHour: INS_MORNING_UTC, scorp: SCORP_PACK, scorpS: SCORP_MS / 1000, planSlots: PLAN_SLOTS, allyGift: BOARD_ALLY_GIFT, badges: BOARD_BADGES.map((b) => [b.n, b.icon, b.title]) },
     living: { daily: [1, 2, 3, 4, 5, 6, 7].map((n) => dailyAmount(n)), dailyMax: DAILY_MAX_STREAK, powers: TRIBE_POWERS, war: WAR_POWERS, warTwice: WAR_TWICE_LEVEL, lock: POWER_LOCK, rally: POWER_RALLY, mind: Math.round(POWER_MIND * 100), warLoot: Math.round(WAR_LOOT * 100), paths: HERO_PATHS, pathOpen: HERO_PATH_OPEN, road: HERO_ROAD, fxMin: Math.round(FX_SHOW_MS / 60000),
       trader: { range: TRADER_RANGE, max: Math.round(TRADER_BASE * 1.4 / 10) * 10, hours: Math.round(traderLifeMs() / 360000) / 10 },
@@ -17141,6 +17262,14 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.432",date:"2026-11-18",title:"Slightly fewer Star Credits from top commanders",groups:[["🎫 Star Credits",["The Banker, the epic, legendary and mythic commanders now earn about 12% fewer Star Credits per hour (for example Meowthulhu 12.2 instead of 13.9, Admiral Sparkle-Pants 8.8 instead of 10). Common and uncommon commanders are unchanged, and every commander still earns a different amount."]]]},
+  {v:"1.0.431",date:"2026-11-18",title:"Research takes longer",groups:[["🔬 Research",["Research now takes 60 times the unit\u2019s training time (was 3). A Human raider and all air units take about 4.9 hours at lab level 5 instead of 15 minutes. Each lab level still makes research 10% faster, and the price in resources stays the same.","Finishing a research with Star Credits follows the same price per hour left as before, so it now costs more for the longer jobs. Research already running keeps its old end time."]]]},
+  {v:"1.0.430",date:"2026-11-18",title:"Cheaper quick finishes",groups:[["🎫 Star Credits",["Finishing a job at once now costs at least 10 Star Credits on a \u00d71 server (was 45), so short jobs of up to about 13 minutes cost 10 and longer ones follow the same price per hour as before. Faster servers pay less, like before."]]]},
+  {v:"1.0.429",date:"2026-11-18",title:"Star Credits: quirks, skills, research and alliances",groups:[["🎫 Star Credits",["Quirks: when a quirk\u2019s free reroll of the round is used, you can reroll it again for Star Credits (150, then 300, 600, 1200 for each further one in the same round).","Skills: reset them for Star Credits (150 plus 4 per point spent, up to 1000) instead of an Insight token. The token still works.","Research: a \u26a1 button on the running research finishes it now, at the same price per hour left as finishing a build.","Alliance projects: members can give Star Credits to a project. One credit fills about 2% of a typical player\u2019s hourly production of every resource, and credits cover at most 30% of a level, so the pot still needs real resources."]]]},
+  {v:"1.0.428",date:"2026-11-18",title:"Quirks and traps, properly",groups:[["🎲 Commander quirks",["Nine quirks, each a real trade of numbers (for example Stubborn: +5% defense at home, −10% regeneration; Hothead: +4% attack, +10% health lost; Scavenger: +10% carry, −3% attack; Paranoid: +10% trap capacity while home, −3% attack).","A second quirk slot opens at level 30. The numbers grow with the commander\u2019s level, up to +50% at level 100.","Rolls lean towards quirks that fit the archetype. Each quirk can be rerolled once per round, into one you do not have."]],["🪤 Traps",["The trap building now goes up to level 20 with 20 traps per level: 400 traps per building, on every server speed. Once one is maxed you can build another, and their traps add up.","Trapped troops stay until someone wins an attack on that colony. Raids free nobody, and the trapper can no longer let them go. A won attack frees all prisoners there, including other players\u2019 troops."]]]},
+  {v:"1.0.427",date:"2026-11-18",title:"Permanent specialisations",groups:[["🏷️ Colonies",["A colony\u2019s specialisation can no longer be switched: once chosen, it stays for the life of the colony. The choice button now says it is permanent and asks for a second tap. Colonies that already have a specialisation keep it, and it is now locked."]]]},
+  {v:"1.0.426",date:"2026-11-18",title:"Readable archetypes in the wiki",groups:[["📖 Wiki",["The Archetypes and Quirks cards now show one block per entry (skills and rules as short lists) instead of a squeezed table, so they read well on a phone."]]]},
+  {v:"1.0.425",date:"2026-11-18",title:"Hunt health bar",groups:[["🐾 Hunt",["The opponent now has a health bar that empties (❤️ 581 / 680 HP, green, then yellow, then red) instead of a damage bar that fills. The Strike button shows how much health a hit takes away."]]]},
   {v:"1.0.424",date:"2026-11-18",title:"Faster hunt",groups:[["🐾 Hunt",["Strike as fast as you can tap, up to 6 times a second (it used to be once every 20 seconds). Every strike lands on the opponent's health bar at once, with a little hit effect, and a fast tapper deals up to about twice the damage of the commander alone in the same time.","The opponent's health bar now moves smoothly all the time instead of jumping every few seconds, also when only the commander is fighting."]]]},
   {v:"1.0.423",date:"2026-11-18",title:"Every production is different",groups:[["🎖️ Commanders",["No two commanders of the same rarity earn the same Star Credits any more: common 1.4 to 1.8, uncommon 2.8 to 4.9 and rare 4.2 to 7.7 per hour, each one different."]],["🐾 Hunt",["No two creatures of the same rarity earn the same Space-Cash per second any more (common 1 to 2, uncommon 3 to 5)."]]]},
   {v:"1.0.422",date:"2026-11-18",title:"Gear cap 35%",groups:[["🎖️ Commander",["The cap on attack and defense from gear and skills is 35% in fights between players and 50% in the hunt. With the commander's own bonus on top (up to 25%), the most a fully built army gets is about +69%."]]]},
@@ -19263,7 +19392,7 @@ app.get("/api/players/suggest", requireLogin, (req, res) => {
 // =====================================================================
 //  v95 - 🪤 TRAPS, 💥 BOMBARDS and 🎩 TAKING OVER COLONIES
 //
-//  Traps: every level of the trap building holds TRAP_PER_LEVEL attacking
+//  Traps: every level of the trap building (up to 20) holds TRAP_PER_LEVEL attacking
 //  ground troops. They are caught before the fight and stay as prisoners
 //  (their owner still feeds them) until the trapper lets them go or the
 //  owner wins an attack on this colony, which frees them.
@@ -19278,7 +19407,7 @@ app.get("/api/players/suggest", requireLogin, (req, res) => {
 //  has enough terra for one more colony. Loyalty grows back by itself.
 //  A ⭐ main colony can never be taken.
 // =====================================================================
-const TRAP_PER_LEVEL = 10;
+const TRAP_PER_LEVEL = 20; // 400 traps at the top level 20, on every server speed
 const BOMBARD_PER_LEVEL = 2;
 const LOYALTY_MAX = 100;
 const LOYALTY_HIT = [20, 30]; // per envoy
@@ -19338,8 +19467,11 @@ function setLoyalty(s, v, now) {
 // Catches ground troops before the fight, per level - scaled like storage
 // and carry capacity, so a trap building still holds a meaningful bite of
 // an attacking army on a faster server, not just its original x1 handful.
-function trapCap(s) {
-  return Math.round(TRAP_PER_LEVEL * levelOf(s, "trap") * speedScale());
+function trapCap(s, now) {
+  const base = TRAP_PER_LEVEL * levelsOf(s, "trap").reduce((a, b) => a + b, 0);
+  // 🪤 a Paranoid commander at home sets extra traps
+  const h = base && s._uid && s._cid ? heroDefending({ userId: s._uid, id: s._cid }, now || Date.now()) : null;
+  return h ? Math.round(base * (1 + quirkFx(h).trap / 100)) : base;
 }
 function trapUsed(s) {
   return (s.prisoners || []).reduce((n, p) => n + countUnits(p.t), 0);
@@ -19347,7 +19479,7 @@ function trapUsed(s) {
 // Before a fight: catch what fits. Changes "troops" and "survivors", not the owner's "away"
 function trapArmy(def, att, troops, survivors, atkTribe, T) {
   if (def.userId === att.userId) return null;
-  let free = trapCap(def.state) - trapUsed(def.state);
+  let free = trapCap(def.state, T) - trapUsed(def.state);
   if (free <= 0) return null;
   const keys = Object.keys(troops).filter((k) => troops[k] > 0 && atkTribe.units[k] && atkTribe.units[k].type === "ground");
   const ground = keys.reduce((n, k) => n + troops[k], 0);
@@ -19390,15 +19522,15 @@ function prisonersHome(def, p, T) {
   ).run(home.id, def.id, JSON.stringify(p.t), T - trip, T, T + trip, T + trip, def.x, def.y);
   return true;
 }
-// The owner won an attack here: all their prisoners are free
+// A won attack here frees every prisoner in the traps, whoever they belong to
 function freePrisoners(def, userId, T) {
-  const mine = (def.state.prisoners || []).filter((p) => p.u === userId);
-  if (!mine.length) return null;
+  const all = def.state.prisoners || [];
+  if (!all.length) return null;
   const freed = {};
-  for (const p of mine) {
+  for (const p of all) {
     if (prisonersHome(def, p, T)) addTroops(freed, p.t);
   }
-  def.state.prisoners = def.state.prisoners.filter((p) => p.u !== userId);
+  def.state.prisoners = [];
   return countUnits(freed) ? freed : null;
 }
 
@@ -19414,20 +19546,6 @@ function trapView(s, now) {
     }),
   };
 }
-
-app.post("/api/traps/release", requireLogin, (req, res) => {
-  withColony(req, res, (s, tribe, colony) => {
-    const list = s.prisoners || [];
-    const i = Number((req.body || {}).i);
-    const pick = (req.body || {}).all ? list.slice() : list[i] ? [list[i]] : [];
-    if (!pick.length) return "Nobody to let go";
-    const now = Date.now();
-    const def = { id: colony.id, x: colony.x, y: colony.y, state: s };
-    for (const p of pick) prisonersHome(def, p, now);
-    s.prisoners = list.filter((p) => pick.indexOf(p) < 0);
-    return null;
-  });
-});
 
 // ---------- bombards ----------
 function bombardPower(troops, tribe, upgrades) {
@@ -19612,7 +19730,7 @@ function loyaltyView(s, now) {
 }
 
 function wikiConquest() {
-  return { trapPer: Math.round(TRAP_PER_LEVEL * speedScale()), bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs() };
+  return { trapPer: TRAP_PER_LEVEL, trapMax: TRAP_PER_LEVEL * 20, bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs() };
 }
 
 // =====================================================================
@@ -23755,6 +23873,12 @@ const PAGE = `<!DOCTYPE html>
   .wk-q { font-style: italic; color: var(--muted); }
   /* compact level tables */
   .kt-w { display: block; width: fit-content; max-width: 100%; overflow-x: auto; margin: 6px 0; border: 1px solid var(--line); border-radius: var(--radius-sm); -webkit-overflow-scrolling: touch; }
+  .wk-arch { margin: 10px 0; padding: 10px 12px; border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.035); }
+  .wk-arch h4 { margin: 0 0 2px; font-size: 15px; }
+  .wk-arch h5 { margin: 8px 0 2px; font-size: 12px; color: var(--muted); }
+  .wk-arch p { margin: 0; font-size: 13px; }
+  .wk-arch ul { margin: 0; padding-left: 18px; font-size: 13px; }
+  .wk-arch li { margin: 2px 0; }
   .kt { width: auto; border-collapse: separate; border-spacing: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
   .kt th { position: sticky; top: 0; padding: 6px 8px; font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap; color: var(--ink); background: color-mix(in srgb, var(--card) 88%, #000); border-bottom: 1px solid var(--line); }
   .kt td { padding: 5px 8px; border-bottom: 1px solid rgba(0, 0, 0, 0.05); vertical-align: middle; }
@@ -24032,6 +24156,7 @@ const PAGE = `<!DOCTYPE html>
   .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
   .hunt-ic { font-size: 44px; line-height: 1; } .hunt-body { flex: 1; min-width: 0; } .hunt-body b, .hunt-body small { display: block; }
   .hunt-hp i { transition: width .12s linear; }
+  .hbar.hpg i { background: #3fae4f; } .hbar.hpy i { background: #e6a417; } .hbar.hpr i { background: #e0483d; }
   .hunt-card { position: relative; }
   .hunt-card.hit .hunt-ic { animation: hunt-hit .14s ease-out; }
   @keyframes hunt-hit { 0% { transform: scale(1); } 40% { transform: scale(.88) rotate(-4deg); } 100% { transform: scale(1); } }
@@ -25220,6 +25345,7 @@ const PAGE = `<!DOCTYPE html>
 .hquirk > span { font-size: 22px; }
 .hquirk div { flex: 1; min-width: 0; }
 .hquirk small { display: block; color: #7d6f64; }
+.hquirk-next { display: block; margin: -4px 0 8px; color: #7d6f64; font-size: 12px; }
 .advev { margin: 8px 0; padding: 10px 12px; border-radius: var(--radius-sm); background: #eef4ff; font-size: 13px; }
 .advev p { margin: 0 0 8px; }
 .advev-o { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -28026,7 +28152,7 @@ var GTR = {
 "Every player has one. It levels up (max #) from battles and adventures and gets # skill point per level.": ["Jeder Spieler hat einen. Er steigt durch Kämpfe und Abenteuer auf (max. #) und erhält # Fertigkeitspunkt pro Stufe.", "Ogni giocatore ne ha uno. Sale di livello (max #) con battaglie e avventure e ottiene # punto abilità per livello.", "Chaque joueur en a un. Il monte de niveau (max #) grâce aux combats et aux aventures et gagne # point de compétence par niveau.", "Her oyuncunun bir tane vardır. Savaşlar ve maceralarla seviye atlar (en fazla #) ve seviye başına # yetenek puanı kazanır.", "Cada jugador tiene uno. Sube de nivel (máx. #) con batallas y aventuras y gana # punto de habilidad por nivel.", "У каждого игрока есть один. Он растёт в уровнях (макс. #) от боёв и приключений и получает # очко навыков за уровень.", "Mỗi người chơi có một. Nó lên cấp (tối đa #) nhờ chiến đấu và phiêu lưu và nhận # điểm kỹ năng mỗi cấp.", "Cada jogador tem um. Ele sobe de nível (máx. #) com batalhas e aventuras e ganha # ponto de habilidade por nível.", "Setiap pemain punya satu. Naik level (maks. #) dari pertempuran dan petualangan serta mendapat # poin keterampilan per level.", "Każdy gracz ma jednego. Awansuje (maks. #) za bitwy i wyprawy i dostaje # punkt umiejętności za poziom.", "Každý hráč jednoho má. Stoupá na úrovni (max. #) z bitev a dobrodružství a za úroveň dostává # bod dovedností.", "Každý hráč jedného má. Stúpa na úrovniach (max. #) z bitiek a dobrodružstiev a za úroveň dostáva # bod zručností."],
 "❤️ <b>Health</b> (#): leading an army costs up to # health in a fight, defending up to # (the more its side loses, the more it costs). It grows back by # per server day (gear can add more). At # it falls.": ["❤️ <b>Gesundheit</b> (#): Eine Armee anzuführen kostet im Kampf bis zu # Gesundheit, verteidigen bis zu # (je mehr die eigene Seite verliert, desto mehr kostet es). Sie wächst pro Servertag um # zurück (Ausrüstung kann mehr geben). Bei # fällt er.", "❤️ <b>Salute</b> (#): guidare un esercito costa fino a # di salute in battaglia, difendere fino a # (più perde la sua parte, più costa). Si rigenera di # per giorno server (l'equipaggiamento può aggiungere di più). A # cade.", "❤️ <b>Santé</b> (#) : mener une armée coûte jusqu'à # de santé au combat, la défendre jusqu'à # (plus son camp perd, plus cela coûte). Elle remonte de # par jour serveur (l'équipement peut en ajouter). À # il tombe.", "❤️ <b>Sağlık</b> (#): bir ordunun başında savaşta en fazla # sağlık, savunurken en fazla # (tarafı ne kadar çok kaybederse o kadar maliyetli olur). Sunucu günü başına # geri gelir (ekipman daha fazla ekleyebilir). # olduğunda düşer.", "❤️ <b>Salud</b> (#): liderar un ejército cuesta hasta # de salud en una batalla, defender hasta # (cuanto más pierde su bando, más cuesta). Se recupera # por día de servidor (el equipo puede añadir más). Al llegar a # cae.", "❤️ <b>Здоровье</b> (#): командование армией стоит до # здоровья в бою, защита — до # (чем больше теряет его сторона, тем дороже). Восстанавливается на # за серверный день (снаряжение может добавить больше). При # он падает.", "❤️ <b>Sức khỏe</b> (#): chỉ huy một đội quân tốn tới # sức khỏe trong trận, phòng thủ tới # (phe càng thua nhiều, càng tốn). Hồi lại # mỗi ngày máy chủ (trang bị có thể thêm). Khi còn # thì gục.", "❤️ <b>Saúde</b> (#): liderar um exército custa até # de saúde numa luta, defender até # (quanto mais o lado perde, mais custa). Recupera # por dia de servidor (equipamentos podem somar mais). Em # ele cai.", "❤️ <b>Kesehatan</b> (#): memimpin pasukan memakan hingga # kesehatan dalam pertempuran, bertahan hingga # (semakin banyak sisi itu kalah, semakin mahal). Pulih # per hari server (perlengkapan bisa menambah). Pada # ia jatuh.", "❤️ <b>Zdrowie</b> (#): dowodzenie armią kosztuje do # zdrowia w walce, obrona do # (im więcej traci jej strona, tym drożej). Odrasta o # za dzień serwera (ekwipunek może dodać więcej). Przy # spada.", "❤️ <b>Zdraví</b> (#): vedení armády stojí v boji až # zdraví, obrana až # (čím víc jeho strana ztrácí, tím víc to stojí). Obnoví se o # za serverový den (výbava může přidat víc). Při # padá.", "❤️ <b>Zdravie</b> (#): velenie armáde stojí v boji až # zdravia, obrana až # (čím viac jeho strana stráca, tým viac to stojí). Obnoví sa o # za serverový deň (výstroj môže pridať viac). Pri # padá."],
 "⚔️ <b>Attack and defense points</b>: it fights itself, with # attack and # defense, +# each per level, plus its gear. Leading an army it adds its attack; at home and healthy it adds its defense. Every skill point in 💪 Strength adds to <b>both</b> its attack and its defense. On faster servers the points are bigger (about #× here), like the armies.": ["⚔️ <b>Angriffs- und Verteidigungspunkte</b>: er kämpft selbst, mit # Angriff und # Verteidigung, je +# pro Stufe, plus seine Ausrüstung. Wenn er eine Armee anführt, addiert er seinen Angriff; zu Hause und gesund addiert er seine Verteidigung. Jeder Fertigkeitspunkt in 💪 Stärke erhöht <b>sowohl</b> seinen Angriff als auch seine Verteidigung. Auf schnelleren Servern sind die Punkte größer (hier etwa #×), wie die Armeen.", "⚔️ <b>Punti attacco e difesa</b>: combatte da solo, con # attacco e # difesa, +# ciascuno per livello, più il suo equipaggiamento. Guidando un esercito aggiunge il suo attacco; a casa e in salute aggiunge la sua difesa. Ogni punto abilità in 💪 Forza aggiunge a <b>entrambi</b> attacco e difesa. Sui server più veloci i punti sono più grandi (circa #× qui), come gli eserciti.", "⚔️ <b>Points d'attaque et de défense</b> : il se bat seul, avec # en attaque et # en défense, +# chacun par niveau, plus son équipement. Quand il mène une armée, il ajoute son attaque ; chez lui et en bonne santé, il ajoute sa défense. Chaque point de compétence dans 💪 Force ajoute <b>à la fois</b> son attaque et sa défense. Sur les serveurs plus rapides les points sont plus gros (environ #× ici), comme les armées.", "⚔️ <b>Saldırı ve savunma puanları</b>: kendi başına savaşır, # saldırı ve # savunmayla, seviye başına her biri +#, bir de ekipmanı. Bir ordunun başındayken saldırısını ekler; evde ve sağlıklıyken savunmasını ekler. 💪 Güç'teki her yetenek puanı hem saldırısına hem de savunmasına <b>ekler</b>. Daha hızlı sunucularda puanlar daha büyüktür (burada yaklaşık #×), ordular gibi.", "⚔️ <b>Puntos de ataque y defensa</b>: lucha por sí mismo, con # de ataque y # de defensa, +# cada uno por nivel, más su equipo. Al liderar un ejército suma su ataque; en casa y sano suma su defensa. Cada punto de habilidad en 💪 Fuerza suma a <b>ambos</b>, ataque y defensa. En servidores más rápidos los puntos son mayores (unas #× aquí), igual que los ejércitos.", "⚔️ <b>Очки атаки и защиты</b>: он сражается сам, с # атаки и # защиты, по +# за уровень каждого, плюс снаряжение. Когда он ведёт армию, добавляет свою атаку; дома и здоровым добавляет защиту. Каждое очко навыка в 💪 Силе добавляет <b>и</b> атаку, и защиту. На более быстрых серверах очки больше (здесь примерно в #×), как и армии.", "⚔️ <b>Điểm tấn công và phòng thủ</b>: nó tự chiến đấu, với # tấn công và # phòng thủ, mỗi cấp +#, cộng trang bị. Khi chỉ huy một đội quân, nó cộng tấn công; ở nhà và khỏe mạnh, nó cộng phòng thủ. Mỗi điểm kỹ năng trong 💪 Sức mạnh cộng vào <b>cả</b> tấn công và phòng thủ. Trên máy chủ nhanh hơn, điểm lớn hơn (khoảng #× ở đây), giống như quân đội.", "⚔️ <b>Pontos de ataque e defesa</b>: ele luta sozinho, com # de ataque e # de defesa, +# cada por nível, mais o equipamento. Liderando um exército, soma o ataque; em casa e saudável, soma a defesa. Cada ponto de habilidade em 💪 Força soma a <b>ambos</b>, ataque e defesa. Em servidores mais rápidos os pontos são maiores (cerca de #× aqui), como os exércitos.", "⚔️ <b>Poin serangan dan pertahanan</b>: ia bertarung sendiri, dengan # serangan dan # pertahanan, +# masing-masing per level, ditambah perlengkapannya. Saat memimpin pasukan ia menambah serangannya; di rumah dan sehat ia menambah pertahanannya. Setiap poin keterampilan di 💪 Kekuatan menambah <b>keduanya</b>, serangan dan pertahanan. Di server yang lebih cepat poinnya lebih besar (sekitar #× di sini), seperti pasukan.", "⚔️ <b>Punkty ataku i obrony</b>: walczy sam, z # ataku i # obrony, +# każde za poziom, plus ekwipunek. Dowodząc armią dodaje swój atak; w domu i zdrowy dodaje obronę. Każdy punkt umiejętności w 💪 Sile dodaje <b>zarówno</b> do ataku, jak i do obrony. Na szybszych serwerach punkty są większe (tu około #×), tak jak armie.", "⚔️ <b>Body útoku a obrany</b>: bojuje sám, s # útokem a # obranou, +# každé za úroveň, plus výbava. Když vede armádu, přidává svůj útok; doma a zdravý přidává obranu. Každý bod dovedností v 💪 Síle přidává <b>obojí</b>, útok i obranu. Na rychlejších serverech jsou body větší (zde zhruba #×), jako armády.", "⚔️ <b>Body útoku a obrany</b>: bojuje sám, s # útokom a # obranou, +# každé za úroveň, plus výstroj. Keď velí armáde, pridáva svoj útok; doma a zdravý pridáva obranu. Každý bod zručnosti v 💪 Sile pridáva <b>obe</b>, útok aj obranu. Na rýchlejších serveroch sú body väčšie (tu zhruba #×), ako armády."],
-"✨ <b>Skill points</b>: four per level, up to level #. 💪 Strength (attack + defense), ❤️ Vitality (faster healing, less health lost) and 🧭 the tribe path (see Tribe paths) are for every commander. From level # an <b>archetype</b> opens three more skills (see Archetypes); 🎒 Logistics and ⛏️ Foreman belong to the Quartermaster. 🔄 Reset skills gives all points back for some resources (more at a higher level) and lets you choose the archetype again. Older Leadership and Guard points became Strength.": ["✨ <b>Fertigkeitspunkte</b>: vier pro Stufe, bis Stufe #. 💪 Stärke (Angriff + Verteidigung), ❤️ Vitalität (schnellere Heilung, weniger Gesundheitsverlust) und 🧭 der Stammespfad (siehe Stammespfade) gelten für jeden Kommandanten. Ab Stufe # öffnet ein <b>Archetyp</b> drei weitere Fertigkeiten (siehe Archetypen); 🎒 Logistik und ⛏️ Vorarbeiter gehören zum Quartiermeister. 🔄 Fertigkeiten zurücksetzen gibt alle Punkte für einige Rohstoffe zurück (mehr auf höherer Stufe) und lässt dich den Archetyp neu wählen. Alte Führungs- und Wachen-Punkte wurden zu Stärke.", "✨ <b>Punti abilità</b>: quattro per livello, fino al livello #. 💪 Forza (attacco + difesa), ❤️ Vitalità (guarigione più rapida, meno salute persa) e 🧭 il percorso di tribù (vedi Percorsi di tribù) valgono per ogni comandante. Dal livello # un <b>archetipo</b> apre altre tre abilità (vedi Archetipi); 🎒 Logistica e ⛏️ Capo cantiere appartengono al Quartiermastro. 🔄 Reimposta abilità restituisce tutti i punti per alcune risorse (di più a livello più alto) e ti permette di scegliere di nuovo l'archetipo. I vecchi punti Leadership e Guardia sono diventati Forza.", "✨ <b>Points de compétence</b> : quatre par niveau, jusqu'au niveau #. 💪 Force (attaque + défense), ❤️ Vitalité (soins plus rapides, moins de santé perdue) et 🧭 la voie de tribu (voir Voies de tribu) valent pour tout commandant. À partir du niveau # un <b>archétype</b> ouvre trois autres compétences (voir Archétypes) ; 🎒 Logistique et ⛏️ Contremaître appartiennent à l'Intendant. 🔄 Réinitialiser les compétences rend tous les points contre certaines ressources (plus à haut niveau) et permet de rechoisir l'archétype. Les anciens points de Commandement et de Garde sont devenus Force.", "✨ <b>Yetenek puanları</b>: seviye başına dört, # seviyeye kadar. 💪 Güç (saldırı + savunma), ❤️ Canlılık (daha hızlı iyileşme, daha az sağlık kaybı) ve 🧭 kabile yolu (bkz. Kabile yolları) her komutan için geçerlidir. # seviyeden itibaren bir <b>arketip</b> üç beceri daha açar (bkz. Arketipler); 🎒 Lojistik ve ⛏️ Ustabaşı Levazımcı'ya aittir. 🔄 Yetenekleri sıfırla, bazı kaynaklar karşılığında tüm puanları geri verir (yüksek seviyede daha fazla) ve arketipi yeniden seçmene izin verir. Eski Liderlik ve Muhafız puanları Güç oldu.", "✨ <b>Puntos de habilidad</b>: cuatro por nivel, hasta el nivel #. 💪 Fuerza (ataque + defensa), ❤️ Vitalidad (curación más rápida, menos salud perdida) y 🧭 la senda de tribu (ver Sendas de tribu) valen para todo comandante. Desde el nivel # un <b>arquetipo</b> abre tres habilidades más (ver Arquetipos); 🎒 Logística y ⛏️ Capataz pertenecen al Intendente. 🔄 Reiniciar habilidades devuelve todos los puntos por algunos recursos (más en un nivel mayor) y te deja elegir de nuevo el arquetipo. Los antiguos puntos de Liderazgo y Guardia pasaron a Fuerza.", "✨ <b>Очки навыков</b>: четыре за уровень, до уровня #. 💪 Сила (атака + защита), ❤️ Жизнестойкость (быстрее лечение, меньше потерь здоровья) и 🧭 путь племени (см. Пути племён) действуют для каждого командира. С уровня # <b>архетип</b> открывает ещё три навыка (см. Архетипы); 🎒 Логистика и ⛏️ Прораб относятся к Квартирмейстеру. 🔄 Сброс навыков возвращает все очки за некоторые ресурсы (больше на высоком уровне) и позволяет выбрать архетип заново. Старые очки Лидерства и Стражи стали Силой.", "✨ <b>Điểm kỹ năng</b>: bốn mỗi cấp, đến cấp #. 💪 Sức mạnh (tấn công + phòng thủ), ❤️ Sinh lực (hồi phục nhanh hơn, mất ít sức khỏe) và 🧭 con đường bộ tộc (xem Con đường bộ tộc) dành cho mọi chỉ huy. Từ cấp # một <b>nguyên mẫu</b> mở thêm ba kỹ năng (xem Nguyên mẫu); 🎒 Hậu cần và ⛏️ Quản đốc thuộc về Quản lý kho. 🔄 Đặt lại kỹ năng hoàn lại mọi điểm đổi lấy một số tài nguyên (nhiều hơn ở cấp cao) và cho phép chọn lại nguyên mẫu. Các điểm Lãnh đạo và Bảo vệ cũ đã thành Sức mạnh.", "✨ <b>Pontos de habilidade</b>: quatro por nível, até o nível #. 💪 Força (ataque + defesa), ❤️ Vitalidade (cura mais rápida, menos saúde perdida) e 🧭 o caminho da tribo (veja Caminhos de tribo) valem para todo comandante. A partir do nível # um <b>arquétipo</b> abre mais três habilidades (veja Arquétipos); 🎒 Logística e ⛏️ Capataz pertencem ao Intendente. 🔄 Redefinir habilidades devolve todos os pontos por alguns recursos (mais em nível alto) e permite escolher o arquétipo de novo. Os antigos pontos de Liderança e Guarda viraram Força.", "✨ <b>Poin keterampilan</b>: empat per level, hingga level #. 💪 Kekuatan (serangan + pertahanan), ❤️ Vitalitas (penyembuhan lebih cepat, kesehatan hilang lebih sedikit) dan 🧭 jalur suku (lihat Jalur suku) berlaku untuk setiap komandan. Dari level # sebuah <b>arketipe</b> membuka tiga keterampilan lagi (lihat Arketipe); 🎒 Logistik dan ⛏️ Mandor milik Quartermaster. 🔄 Atur ulang keterampilan mengembalikan semua poin dengan sejumlah sumber daya (lebih banyak di level tinggi) dan membiarkan Anda memilih arketipe lagi. Poin Kepemimpinan dan Penjaga yang lama menjadi Kekuatan.", "✨ <b>Punkty umiejętności</b>: cztery na poziom, do poziomu #. 💪 Siła (atak + obrona), ❤️ Witalność (szybsze leczenie, mniejsze straty zdrowia) i 🧭 ścieżka plemienia (zob. Ścieżki plemion) są dla każdego dowódcy. Od poziomu # <b>archetyp</b> otwiera trzy kolejne umiejętności (zob. Archetypy); 🎒 Logistyka i ⛏️ Brygadzista należą do Kwatermistrza. 🔄 Reset umiejętności zwraca wszystkie punkty za niektóre surowce (więcej na wyższym poziomie) i pozwala wybrać archetyp na nowo. Dawne punkty Przywództwa i Straży stały się Siłą.", "✨ <b>Body dovedností</b>: čtyři za úroveň, až do úrovně #. 💪 Síla (útok + obrana), ❤️ Vitalita (rychlejší léčení, méně ztraceného zdraví) a 🧭 cesta kmene (viz Cesty kmenů) platí pro každého velitele. Od úrovně # <b>archetyp</b> otevře další tři dovednosti (viz Archetypy); 🎒 Logistika a ⛏️ Vedoucí patří Kvartýrmistrovi. 🔄 Resetovat dovednosti vrátí všechny body za některé suroviny (více na vyšší úrovni) a umožní znovu vybrat archetyp. Staré body Vedení a Stráže se staly Sílou.", "✨ <b>Body zručností</b>: štyri za úroveň, až do úrovne #. 💪 Sila (útok + obrana), ❤️ Vitalita (rýchlejšie liečenie, menej stratenho zdravia) a 🧭 cesta kmeňa (pozri Cesty kmeňov) platia pre každého veliteľa. Od úrovne # <b>archetyp</b> otvorí ďalšie tri zručnosti (pozri Archetypy); 🎒 Logistika a ⛏️ Majster patria Kvartérmajstrovi. 🔄 Resetovať zručnosti vráti všetky body za niektoré suroviny (viac na vyššej úrovni) a umožní znova vybrať archetyp. Staré body Vedenia a Strážcu sa stali Silou."],
+"✨ <b>Skill points</b>: four per level, up to level #. 💪 Strength (attack + defense), ❤️ Vitality (faster healing, less health lost) and 🧭 the tribe path (see Tribe paths) are for every commander. From level # an <b>archetype</b> opens three more skills (see Archetypes); 🎒 Logistics and ⛏️ Foreman belong to the Quartermaster. 🔄 Reset skills gives all points back and lets you choose the archetype again. It costs 1 Insight token (an adventure find) or Star Credits: 150 🎫 plus 4 per point spent, up to 1000 🎫. Older Leadership and Guard points became Strength.": ["✨ <b>Fertigkeitspunkte</b>: vier pro Stufe, bis Stufe #. 💪 Stärke (Angriff + Verteidigung), ❤️ Vitalität (schnellere Heilung, weniger Gesundheitsverlust) und 🧭 der Stammespfad (siehe Stammespfade) gelten für jeden Kommandanten. Ab Stufe # öffnet ein <b>Archetyp</b> drei weitere Fertigkeiten (siehe Archetypen); 🎒 Logistik und ⛏️ Vorarbeiter gehören zum Quartiermeister. 🔄 Fertigkeiten zurücksetzen gibt alle Punkte für einige Rohstoffe zurück (mehr auf höherer Stufe) und lässt dich den Archetyp neu wählen. Alte Führungs- und Wachen-Punkte wurden zu Stärke.", "✨ <b>Punti abilità</b>: quattro per livello, fino al livello #. 💪 Forza (attacco + difesa), ❤️ Vitalità (guarigione più rapida, meno salute persa) e 🧭 il percorso di tribù (vedi Percorsi di tribù) valgono per ogni comandante. Dal livello # un <b>archetipo</b> apre altre tre abilità (vedi Archetipi); 🎒 Logistica e ⛏️ Capo cantiere appartengono al Quartiermastro. 🔄 Reimposta abilità restituisce tutti i punti per alcune risorse (di più a livello più alto) e ti permette di scegliere di nuovo l'archetipo. I vecchi punti Leadership e Guardia sono diventati Forza.", "✨ <b>Points de compétence</b> : quatre par niveau, jusqu'au niveau #. 💪 Force (attaque + défense), ❤️ Vitalité (soins plus rapides, moins de santé perdue) et 🧭 la voie de tribu (voir Voies de tribu) valent pour tout commandant. À partir du niveau # un <b>archétype</b> ouvre trois autres compétences (voir Archétypes) ; 🎒 Logistique et ⛏️ Contremaître appartiennent à l'Intendant. 🔄 Réinitialiser les compétences rend tous les points contre certaines ressources (plus à haut niveau) et permet de rechoisir l'archétype. Les anciens points de Commandement et de Garde sont devenus Force.", "✨ <b>Yetenek puanları</b>: seviye başına dört, # seviyeye kadar. 💪 Güç (saldırı + savunma), ❤️ Canlılık (daha hızlı iyileşme, daha az sağlık kaybı) ve 🧭 kabile yolu (bkz. Kabile yolları) her komutan için geçerlidir. # seviyeden itibaren bir <b>arketip</b> üç beceri daha açar (bkz. Arketipler); 🎒 Lojistik ve ⛏️ Ustabaşı Levazımcı'ya aittir. 🔄 Yetenekleri sıfırla, bazı kaynaklar karşılığında tüm puanları geri verir (yüksek seviyede daha fazla) ve arketipi yeniden seçmene izin verir. Eski Liderlik ve Muhafız puanları Güç oldu.", "✨ <b>Puntos de habilidad</b>: cuatro por nivel, hasta el nivel #. 💪 Fuerza (ataque + defensa), ❤️ Vitalidad (curación más rápida, menos salud perdida) y 🧭 la senda de tribu (ver Sendas de tribu) valen para todo comandante. Desde el nivel # un <b>arquetipo</b> abre tres habilidades más (ver Arquetipos); 🎒 Logística y ⛏️ Capataz pertenecen al Intendente. 🔄 Reiniciar habilidades devuelve todos los puntos por algunos recursos (más en un nivel mayor) y te deja elegir de nuevo el arquetipo. Los antiguos puntos de Liderazgo y Guardia pasaron a Fuerza.", "✨ <b>Очки навыков</b>: четыре за уровень, до уровня #. 💪 Сила (атака + защита), ❤️ Жизнестойкость (быстрее лечение, меньше потерь здоровья) и 🧭 путь племени (см. Пути племён) действуют для каждого командира. С уровня # <b>архетип</b> открывает ещё три навыка (см. Архетипы); 🎒 Логистика и ⛏️ Прораб относятся к Квартирмейстеру. 🔄 Сброс навыков возвращает все очки за некоторые ресурсы (больше на высоком уровне) и позволяет выбрать архетип заново. Старые очки Лидерства и Стражи стали Силой.", "✨ <b>Điểm kỹ năng</b>: bốn mỗi cấp, đến cấp #. 💪 Sức mạnh (tấn công + phòng thủ), ❤️ Sinh lực (hồi phục nhanh hơn, mất ít sức khỏe) và 🧭 con đường bộ tộc (xem Con đường bộ tộc) dành cho mọi chỉ huy. Từ cấp # một <b>nguyên mẫu</b> mở thêm ba kỹ năng (xem Nguyên mẫu); 🎒 Hậu cần và ⛏️ Quản đốc thuộc về Quản lý kho. 🔄 Đặt lại kỹ năng hoàn lại mọi điểm đổi lấy một số tài nguyên (nhiều hơn ở cấp cao) và cho phép chọn lại nguyên mẫu. Các điểm Lãnh đạo và Bảo vệ cũ đã thành Sức mạnh.", "✨ <b>Pontos de habilidade</b>: quatro por nível, até o nível #. 💪 Força (ataque + defesa), ❤️ Vitalidade (cura mais rápida, menos saúde perdida) e 🧭 o caminho da tribo (veja Caminhos de tribo) valem para todo comandante. A partir do nível # um <b>arquétipo</b> abre mais três habilidades (veja Arquétipos); 🎒 Logística e ⛏️ Capataz pertencem ao Intendente. 🔄 Redefinir habilidades devolve todos os pontos por alguns recursos (mais em nível alto) e permite escolher o arquétipo de novo. Os antigos pontos de Liderança e Guarda viraram Força.", "✨ <b>Poin keterampilan</b>: empat per level, hingga level #. 💪 Kekuatan (serangan + pertahanan), ❤️ Vitalitas (penyembuhan lebih cepat, kesehatan hilang lebih sedikit) dan 🧭 jalur suku (lihat Jalur suku) berlaku untuk setiap komandan. Dari level # sebuah <b>arketipe</b> membuka tiga keterampilan lagi (lihat Arketipe); 🎒 Logistik dan ⛏️ Mandor milik Quartermaster. 🔄 Atur ulang keterampilan mengembalikan semua poin dengan sejumlah sumber daya (lebih banyak di level tinggi) dan membiarkan Anda memilih arketipe lagi. Poin Kepemimpinan dan Penjaga yang lama menjadi Kekuatan.", "✨ <b>Punkty umiejętności</b>: cztery na poziom, do poziomu #. 💪 Siła (atak + obrona), ❤️ Witalność (szybsze leczenie, mniejsze straty zdrowia) i 🧭 ścieżka plemienia (zob. Ścieżki plemion) są dla każdego dowódcy. Od poziomu # <b>archetyp</b> otwiera trzy kolejne umiejętności (zob. Archetypy); 🎒 Logistyka i ⛏️ Brygadzista należą do Kwatermistrza. 🔄 Reset umiejętności zwraca wszystkie punkty za niektóre surowce (więcej na wyższym poziomie) i pozwala wybrać archetyp na nowo. Dawne punkty Przywództwa i Straży stały się Siłą.", "✨ <b>Body dovedností</b>: čtyři za úroveň, až do úrovně #. 💪 Síla (útok + obrana), ❤️ Vitalita (rychlejší léčení, méně ztraceného zdraví) a 🧭 cesta kmene (viz Cesty kmenů) platí pro každého velitele. Od úrovně # <b>archetyp</b> otevře další tři dovednosti (viz Archetypy); 🎒 Logistika a ⛏️ Vedoucí patří Kvartýrmistrovi. 🔄 Resetovat dovednosti vrátí všechny body za některé suroviny (více na vyšší úrovni) a umožní znovu vybrat archetyp. Staré body Vedení a Stráže se staly Sílou.", "✨ <b>Body zručností</b>: štyri za úroveň, až do úrovne #. 💪 Sila (útok + obrana), ❤️ Vitalita (rýchlejšie liečenie, menej stratenho zdravia) a 🧭 cesta kmeňa (pozri Cesty kmeňov) platia pre každého veliteľa. Od úrovne # <b>archetyp</b> otvorí ďalšie tri zručnosti (pozri Archetypy); 🎒 Logistika a ⛏️ Majster patria Kvartérmajstrovi. 🔄 Resetovať zručnosti vráti všetky body za niektoré suroviny (viac na vyššej úrovni) a umožní znova vybrať archetyp. Staré body Vedenia a Strážcu sa stali Silou."],
 "🗡️ <b>Going alone</b>: with no troops ticked, the commander can go out by itself on an attack or a raid against a monster camp or an inactive colony. It walks # tiles/h, fights with its own attack only, brings back no loot (only the camp’s bounty stash) and risks the same fall as always. Not possible in waves.": ["🗡️ <b>Allein gehen</b>: ohne angehakte Truppen kann der Kommandant selbst auf einen Angriff oder Überfall gegen ein Monsterlager oder eine inaktive Kolonie losziehen. Er läuft # Kacheln/h, kämpft nur mit seinem eigenen Angriff, bringt keine Beute zurück (nur den Kopfgeldvorrat des Lagers) und riskiert wie immer den gleichen Sturz. Bei Wellen nicht möglich.", "🗡️ <b>Andare da solo</b>: senza truppe spuntate, il comandante può partire da solo per un attacco o una razzia contro un campo mostri o una colonia inattiva. Cammina a # caselle/h, combatte solo con il proprio attacco, non riporta bottino (solo la scorta di taglie del campo) e rischia la stessa caduta di sempre. Non possibile in ondate.", "🗡️ <b>Aller seul</b> : sans troupes cochées, le commandant peut partir seul pour une attaque ou un raid contre un camp de monstres ou une colonie inactive. Il marche à # cases/h, combat avec sa seule attaque, ne rapporte aucun butin (seulement la réserve de primes du camp) et risque la même chute que d'habitude. Impossible dans les vagues.", "🗡️ <b>Yalnız gitmek</b>: hiçbir birlik işaretlenmemişken komutan, bir canavar kampına ya da etkin olmayan bir kolonie karşı tek başına saldırıya ya da akına çıkabilir. Saatte # kare yürür, yalnızca kendi saldırısıyla savaşır, ganimet getirmez (yalnızca kampın ödül deposu) ve her zamanki düşme riskini taşır. Dalgalarda mümkün değildir.", "🗡️ <b>Ir solo</b>: sin tropas marcadas, el comandante puede salir por sí mismo a un ataque o incursión contra un campamento de monstruos o una colonia inactiva. Camina a # casillas/h, lucha solo con su propio ataque, no trae botín (solo el alijo de recompensas del campamento) y arriesga la misma caída de siempre. No es posible en oleadas.", "🗡️ <b>Идти одному</b>: если ни одно войско не отмечено, командир может сам отправиться в атаку или налёт на лагерь монстров или неактивную колонию. Идёт # клеток/ч, сражается только своей атакой, добычи не приносит (только запас наград лагеря) и рискует падением, как обычно. В волнах невозможно.", "🗡️ <b>Đi một mình</b>: khi không đánh dấu quân nào, chỉ huy có thể tự đi tấn công hoặc cướp trại quái hay thuộc địa không hoạt động. Di chuyển # ô/giờ, chỉ chiến đấu bằng tấn công của riêng mình, không mang chiến lợi phẩm (chỉ kho thưởng của trại) và có nguy cơ gục như thường lệ. Không thể trong các đợt.", "🗡️ <b>Ir sozinho</b>: sem tropas marcadas, o comandante pode sair sozinho num ataque ou incursão contra um acampamento de monstros ou uma colônia inativa. Anda # casas/h, luta só com o próprio ataque, não traz saque (só o esconderijo de recompensas do acampamento) e arrisca a mesma queda de sempre. Não é possível em ondas.", "🗡️ <b>Pergi sendiri</b>: tanpa pasukan yang dicentang, komandan bisa pergi sendiri untuk serangan atau penyerbuan melawan kamp monster atau koloni tidak aktif. Ia berjalan # petak/jam, bertarung hanya dengan serangannya sendiri, tidak membawa jarahan (hanya simpanan hadiah kamp) dan berisiko jatuh seperti biasa. Tidak mungkin di gelombang.", "🗡️ <b>Sam</b>: bez zaznaczonych wojsk dowódca może sam wyruszyć na atak lub najazd na obóz potworów albo nieaktywną kolonię. Chodzi z prędkością # pól/h, walczy tylko własnym atakiem, nie przynosi łupu (tylko zapas nagród obozu) i ryzykuje takim samym upadkiem jak zawsze. Niemożliwe w falach.", "🗡️ <b>Jít sám</b>: bez zaškrtnutých jednotek může velitel sám vyrazit na útok nebo nájezd proti táboru příšer či neaktivní kolonii. Chodí rychlostí # políček/h, bojuje jen vlastním útokem, nepřináší kořist (jen zásobník odměn tábora) a riskuje stejný pád jako vždy. Ve vlnách nelze.", "🗡️ <b>Ísť sám</b>: bez označených jednotiek môže veliteľ sám vyraziť na útok alebo nájazd proti táboru príšer či neaktívnej kolónii. Chodí rýchlosťou # políčok/h, bojuje len vlastným útokom, neprináša korisť (len zásobník odmien tábora) a riskuje rovnaký pád ako vždy. Vo vlnách nie je možné."],
 "🎒 <b>Inventory</b> (# slots): gear from monster camps and adventures (see Commander gear). Scrap spare gear for xp.": ["🎒 <b>Inventar</b> (# Plätze): Ausrüstung aus Monsterlagern und Abenteuern (siehe Kommandanten-Ausrüstung). Überschüssige Ausrüstung zu EP verschrotten.", "🎒 <b>Inventario</b> (# slot): equipaggiamento da campi mostri e avventure (vedi Equipaggiamento del comandante). Rottama l'equipaggiamento in più per XP.", "🎒 <b>Inventaire</b> (# emplacements) : équipement issu des camps de monstres et des aventures (voir Équipement du commandant). Recycle l'équipement en trop pour de l'XP.", "🎒 <b>Envanter</b> (# yuva): canavar kamplarından ve maceralardan gelen ekipman (bkz. Komutan ekipmanı). Fazla ekipmanı hurdaya çevirip deneyim kazan.", "🎒 <b>Inventario</b> (# ranuras): equipo de campamentos de monstruos y aventuras (ver Equipo del comandante). Desguaza el equipo sobrante para XP.", "🎒 <b>Инвентарь</b> (# слотов): снаряжение из лагерей монстров и приключений (см. Снаряжение командира). Лишнее снаряжение сдавай в утиль за опыт.", "🎒 <b>Túi đồ</b> (# ô): trang bị từ trại quái và phiêu lưu (xem Trang bị chỉ huy). Phân rã trang bị thừa để lấy kinh nghiệm.", "🎒 <b>Inventário</b> (# vagas): equipamentos de acampamentos de monstros e aventuras (veja Equipamento do comandante). Desmonte o equipamento sobrando por XP.", "🎒 <b>Inventaris</b> (# slot): perlengkapan dari kamp monster dan petualangan (lihat Perlengkapan komandan). Lebur perlengkapan cadangan untuk XP.", "🎒 <b>Ekwipunek</b> (# miejsc): wyposażenie z obozów potworów i wypraw (zob. Ekwipunek dowódcy). Zezłomuj nadmiarowe wyposażenie za doświadczenie.", "🎒 <b>Inventář</b> (# míst): výbava z táborů příšer a dobrodružství (viz Výbava velitele). Přebytečnou výbavu rozlož na zkušenosti.", "🎒 <b>Inventár</b> (# miest): výstroj z táborov príšer a dobrodružstiev (pozri Výstroj veliteľa). Nadbytočnú výstroj rozlož na skúsenosti."],
 "🚶 <b>Moving</b>: it walks # tiles/h to another of your colonies and settles in for # s. No bonus while on the way; it shows up in 🧭 Troop Traffic like any other movement. Move it from its own panel (open it, then 🏅 Skills) or, quicker, from the send window: picking one of your other colonies as the target offers a 🚶 Restation button right there (it asks you to confirm, since it's easy to tap by accident).": ["🚶 <b>Umziehen</b>: er läuft # Kacheln/h zu einer anderen deiner Kolonien und lässt sich dort # s nieder. Unterwegs gibt es keinen Bonus; er erscheint im 🧭 Truppenverkehr wie jede andere Bewegung. Verschiebe ihn über sein eigenes Fenster (öffnen, dann 🏅 Fertigkeiten) oder schneller über das Sendefenster: Wählst du dort eine deiner anderen Kolonien als Ziel, erscheint direkt eine Schaltfläche 🚶 Umsiedeln (sie fragt zur Bestätigung nach, da man sie leicht versehentlich antippt).", "🚶 <b>Spostamento</b>: cammina a # caselle/h verso un'altra delle tue colonie e si stabilisce per # s. Nessun bonus durante il viaggio; compare nel 🧭 Traffico truppe come ogni altro movimento. Spostalo dal suo pannello (aprilo, poi 🏅 Abilità) oppure, più veloce, dalla finestra d'invio: scegliendo come bersaglio una delle tue altre colonie compare subito il pulsante 🚶 Ricollocazione (chiede conferma, perché è facile toccarlo per sbaglio).", "🚶 <b>Déplacement</b> : il marche à # cases/h vers une autre de tes colonies et s'installe pendant # s. Aucun bonus en route ; il apparaît dans 🧭 Trafic des troupes comme tout autre mouvement. Déplace-le depuis son panneau (ouvre-le, puis 🏅 Compétences) ou, plus vite, depuis la fenêtre d'envoi : choisir une autre de tes colonies comme cible affiche directement un bouton 🚶 Réinstaller (il demande confirmation, car on le touche facilement par erreur).", "🚶 <b>Taşınma</b>: # kare/sa hızla başka bir kolonine yürür ve # sn yerleşir. Yolda bonus yoktur; diğer hareketler gibi 🧭 Birlik Trafiği'nde görünür. Kendi panelinden taşı (aç, sonra 🏅 Yetenekler) ya da daha hızlısı gönderme penceresinden: hedef olarak diğer kolonilerinden birini seçince orada bir 🚶 Yeniden yerleştir düğmesi çıkar (yanlışlıkla dokunmak kolay olduğu için onay ister).", "🚶 <b>Mudanza</b>: camina a # casillas/h hasta otra de tus colonias y se asienta durante # s. Sin bonus durante el camino; aparece en 🧭 Tráfico de tropas como cualquier otro movimiento. Muévelo desde su propio panel (ábrelo y luego 🏅 Habilidades) o, más rápido, desde la ventana de envío: al elegir otra de tus colonias como destino aparece un botón 🚶 Reasentar (pide confirmación, porque es fácil tocarlo por error).", "🚶 <b>Переезд</b>: он идёт # клеток/ч к другой твоей колонии и обустраивается там на # с. В пути бонуса нет; он показывается в 🧭 Движении войск, как любое другое перемещение. Перемести его из собственной панели (открой, затем 🏅 Навыки) или, быстрее, из окна отправки: если выбрать одну из других твоих колоний целью, сразу появится кнопка 🚶 Переселить (она спросит подтверждение, так как её легко нажать случайно).", "🚶 <b>Di chuyển</b>: nó đi # ô/giờ tới một thuộc địa khác của bạn và ổn định trong # giây. Không có bonus trên đường; nó hiện trong 🧭 Lưu thông quân như mọi di chuyển khác. Chuyển nó từ bảng riêng (mở ra, rồi 🏅 Kỹ năng) hoặc nhanh hơn, từ cửa sổ gửi: chọn một thuộc địa khác của bạn làm đích sẽ hiện nút 🚶 Tái định cư ngay (nó hỏi xác nhận vì dễ chạm nhầm).", "🚶 <b>Mudança</b>: ele anda # casas/h até outra das suas colônias e se instala por # s. Sem bônus no caminho; aparece em 🧭 Tráfego de tropas como qualquer outro movimento. Mova-o pelo painel dele (abra e depois 🏅 Habilidades) ou, mais rápido, pela janela de envio: escolher outra das suas colônias como destino mostra um botão 🚶 Reassentar ali mesmo (ele pede confirmação, porque é fácil tocar sem querer).", "🚶 <b>Pindah</b>: ia berjalan # petak/jam ke koloni Anda yang lain dan menetap selama # dtk. Tidak ada bonus di perjalanan; ia muncul di 🧭 Lalu lintas pasukan seperti gerakan lain. Pindahkan dari panelnya sendiri (buka, lalu 🏅 Keterampilan) atau, lebih cepat, dari jendela kirim: memilih koloni lain sebagai target langsung menampilkan tombol 🚶 Tempatkan ulang (ia meminta konfirmasi, karena mudah tersentuh tidak sengaja).", "🚶 <b>Przeprowadzka</b>: idzie z prędkością # pól/h do innej Twojej kolonii i osiedla się na # s. Brak premii w drodze; pojawia się w 🧭 Ruchu wojsk jak każdy inny ruch. Przenieś go z jego panelu (otwórz, potem 🏅 Umiejętności) albo szybciej z okna wysyłki: wybór innej Twojej kolonii jako celu od razu pokazuje przycisk 🚶 Przesiedlenie (pyta o potwierdzenie, bo łatwo kliknąć przypadkiem).", "🚶 <b>Stěhování</b>: chodí rychlostí # políček/h do jiné tvé kolonie a usadí se na # s. Během cesty žádný bonus; objeví se v 🧭 Provozu jednotek jako každý jiný pohyb. Přesuň ho z jeho vlastního panelu (otevři, pak 🏅 Dovednosti) nebo rychleji z okna odeslání: výběr jiné tvé kolonie jako cíle hned nabídne tlačítko 🚶 Přesídlit (potvrzuje se, protože se snadno klepne omylem).", "🚶 <b>Sťahovanie</b>: chodí rýchlosťou # políčok/h do inej tvojej kolónie a usadí sa na # s. Počas cesty žiadny bonus; objaví sa v 🧭 Pohybe jednotiek ako každý iný pohyb. Presuň ho z jeho vlastného panela (otvor, potom 🏅 Zručnosti) alebo rýchlejšie z okna odoslania: výber inej tvojej kolónie ako cieľa hneď ponúkne tlačidlo 🚶 Presídliť (potvrdzuje sa, lebo sa ľahko klepne omylom)."],
@@ -29859,15 +29985,14 @@ function specPanel(d) {
     var sub = d.specAct ? "Unlocks with Act 2 (day " + d.specAct + ") and HQ level 10" : "Rich site: +20% production of every resource";
     return '<div class="spx locked"><div class="spx-sum">' + row(d.specAct ? "🔒" : "✨", d.specAct ? "Specialisation" : "Rich site", esc(sub)) + '</div>' + (d.specAct ? helpBtn("economy:specs", "About specialisations") : "") + "</div>";
   }
-  var h = '<div class="tfold spx' + (specUi ? " open" : "") + (d.spec ? "" : " todo") + '"><div class="spx-head"><button class="spx-sum" data-specfold="1" aria-expanded="' + specUi + '">';
-  h += d.spec ? row(d.spec.icon, esc(d.spec.name), esc(d.spec.text), '<span class="tf-caret">▾</span>') : row("🏷️", "Choose a specialisation", "Pick a focus for this colony", '<span class="tf-caret">▾</span>');
+  if (d.spec) return '<div class="spx locked"><div class="spx-sum">' + row(d.spec.icon, esc(d.spec.name), esc(d.spec.text), '<span class="tag">🔒 Permanent</span>') + "</div>" + helpBtn("economy:specs", "About specialisations") + "</div>";
+  var h = '<div class="tfold spx' + (specUi ? " open" : "") + ' todo"><div class="spx-head"><button class="spx-sum" data-specfold="1" aria-expanded="' + specUi + '">';
+  h += row("🏷️", "Choose a specialisation", "Permanent for this colony", '<span class="tf-caret">▾</span>');
   h += "</button>" + helpBtn("economy:specs", "About specialisations") + '</div><div class="tf-body">';
-  if (d.spec) h += '<p class="spx-note">Switching costs ' + shortNum(d.specChange) + " of each resource.</p>";
   d.specs.forEach(function (o) {
-    if (d.spec && d.spec.key === o.key) return;
     var armed = specArm.key === o.key && Date.now() - specArm.at < 4000;
     h += '<div class="spx-opt"><span class="spx-ic">' + o.icon + '</span><span class="spx-tx"><b>' + esc(o.name) + "</b><small>" + esc(o.text) + "</small>" + (o.building ? "<small>Unlocks " + o.building.icon + " " + esc(o.building.name) + "</small>" : "") + "</span>";
-    h += '<button class="btn small' + (d.spec && !armed ? " ghost" : "") + (armed ? " danger" : "") + '" data-spec="' + o.key + '">' + (armed ? "Sure?" : d.spec ? "Switch" : "Choose") + "</button></div>";
+    h += '<button class="btn small' + (armed ? " danger" : "") + '" data-spec="' + o.key + '">' + (armed ? "Sure? Permanent" : "Choose") + "</button></div>";
   });
   return h + "</div></div>";
 }
@@ -30998,7 +31123,7 @@ function jobPanel(job, which) {
   h += '<div class="qbody"><b>' + job.label + " " + job.name + (job.level ? " → Level " + job.level : "") + "</b>";
   h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
   h += "<small>🔬 " + fmt(job.leftMs) + " left</small></div>";
-  h += cancelBtn(job, 'data-cancel-job="' + which + '"') + "</div>";
+  h += (job.rush ? '<button class="btn small" data-rush-research="1" title="Finish the research now for Star Credits">⚡ ' + job.rush + " 🎫</button>" : "") + cancelBtn(job, 'data-cancel-job="' + which + '"') + "</div>";
   return h;
 }
 
@@ -31775,6 +31900,7 @@ var myProfile = null; // my own profile (Players tab)
 var profileView = null; // somebody's profile in the popup
 var allyForm = { name: "", tag: "", invite: "", post: "", about: null, bio: null, dtag: "", repReason: "", repText: "", appeal: "", giveTo: "", planX: "", planY: "", planAt: "", planNote: "" };
 RES.forEach(function (k) { allyForm["dep_" + k] = ""; allyForm["give_" + k] = ""; allyForm["proj_" + k] = ""; });
+allyForm.proj_credits = "";
 allyForm.projSel = "";
 
 // 🏦 bank · ✨ projects · "🎯" joint attacks
@@ -31831,6 +31957,10 @@ function allyTeamwork(M, lead) {
       h += '</div><div class="ap-acts"><button class="btn small ghost" data-ally-pfill="' + p.key + '">Fill in what is missing</button><button class="btn small" data-ally-pgive="' + p.key + '">' + '🎁' + ' Give from this colony</button>';
       if (lead) h += '<button class="btn small ghost" data-ally-pbank="' + p.key + '">' + '🏦' + ' Pay from bank</button>';
       h += "</div>";
+      if (p.credit) {
+        h += '<div class="abrow"><label>🎫<input type="number" min="0" data-ally="proj_credits" value="' + esc(allyForm.proj_credits) + '" placeholder="0"></label><button class="btn small ghost" data-ally-pcredit="' + p.key + '"' + (p.credit.room < 1 ? " disabled" : "") + '>🎫 Give Star Credits</button></div>';
+        h += '<small class="ap-don">1 🎫 fills ' + shortNum(p.credit.each) + " of every resource" + (p.credit.room < 1 ? " · credits cover their share of this level" : " · up to " + p.credit.room + " more 🎫 for this level") + "</small>";
+      }
     }
     h += "</div>";
   });
@@ -34670,7 +34800,7 @@ var heroBagOpen = 0, heroBagFilter = "", heroConsPick = ""; // inventory: the ge
 var heroNameEdit = null;
 var heroTab = "skills";
 var heroTake = {}, heroNeed = {};
-var heroRespecArm = 0;
+var heroRespecArm = 0, heroRespecArmAt = 0;
 // ●●●○○ the skill's points at a glance
 function heroPips(s) {
   return '<span class="hpips"><i style="width:' + Math.min(100, Math.round((s.lvl / (s.max || 1)) * 100)) + '%"></i></span>';
@@ -34769,8 +34899,9 @@ function heroSheet(d) {
       (nextRoad ? "<span>Next at <b>Lv " + nextRoad.lv + "</b>: " + esc(nextRoad.text) + "</span>" : "<span>🌟 The whole road is done</span>") + "</div>";
     var spent = H.skills.reduce(function (n, s) { return n + s.lvl; }, 0);
     if (spent) {
-      var armedRs = heroRespecArm && Date.now() - heroRespecArm < 4000;
-      h += '<div class="hrespec"><small>' + '🔄' + ' Reset all ' + spent + ' skill points · requires 1 uncommon Insight token (adventure drop: ~1 in 10 consumable finds)</small>' + '<button class="btn small ' + (armedRs ? "danger" : "ghost") + '" data-hero-respec="1">' + (armedRs ? "Sure? 🔄" : "🔄 Reset skills") + "</button></div>";
+      var armedRs = heroRespecArm === 1 && Date.now() - heroRespecArmAt < 4000;
+      var armedCr = heroRespecArm === 2 && Date.now() - heroRespecArmAt < 4000;
+      h += '<div class="hrespec"><small>' + '🔄' + ' Reset all ' + spent + ' skill points with 1 Insight token (adventure drop) or ' + H.respecCredits + " 🎫 Star Credits</small>" + (((H.consumables || []).filter(function (x) { return x.key === "respec"; })[0] || {}).count > 0 ? '<button class="btn small ' + (armedRs ? "danger" : "ghost") + '" data-hero-respec="1">' + (armedRs ? "Sure? 🔄" : "🔄 Use token") + "</button>" : "") + '<button class="btn small ' + (armedCr ? "danger" : "ghost") + '" data-hero-respec="2">' + (armedCr ? "Sure? 🎫" : "🔄 " + H.respecCredits + " 🎫") + "</button></div>";
     }
     h += '</div>';
     if (!H.here && H.status === "home") {
@@ -34837,11 +34968,15 @@ function heroSheet(d) {
   return h;
 }
 
-// 🎲 the quirk: one upside, one downside
+// 🎲 quirks: each one an upside and a downside; the second slot opens at level 30
 function heroQuirkHtml(H) {
-  if (!H.quirk) return H.level < H.quirkLevel ? "" : "";
-  var Q = H.quirk;
-  return '<div class="hquirk"><span>' + Q.icon + "</span><div><b>" + esc(Q.name) + "</b><small>👍 " + esc(Q.up) + " · 👎 " + esc(Q.down) + "</small></div>" + (Q.reroll ? '<button class="btn small ghost" data-hero-quirk="1" title="Once per round">🎲 Reroll</button>' : "") + helpBtn("troops:quirks", "About quirks") + "</div>";
+  if (!H.quirks || !H.quirks.length) return "";
+  var h = "";
+  H.quirks.forEach(function (Q) {
+    h += '<div class="hquirk"><span>' + Q.icon + "</span><div><b>" + esc(Q.name) + "</b><small>👍 " + esc(Q.up || "–") + "</small><small>👎 " + esc(Q.down || "–") + "</small></div>" + (Q.reroll ? '<button class="btn small ghost" data-hero-quirk="' + Q.slot + '" title="One free reroll per round">🎲 Reroll</button>' : '<button class="btn small ghost" data-hero-quirk="' + Q.slot + '" data-pay="1" title="The free reroll of this round is used">🎲 ' + Q.price + " 🎫</button>") + (Q.slot === 1 ? helpBtn("troops:quirks", "About quirks") : "") + "</div>";
+  });
+  if (H.quirkNext) h += '<small class="hquirk-next">🎲 Next quirk slot at level ' + H.quirkNext + "</small>";
+  return h;
 }
 // 🛡️ the stance at home: counts when an attack lands while the commander is home
 function heroStanceHtml(H) {
@@ -34918,7 +35053,7 @@ function trapPanel(d) {
   if (!T) return "";
   var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.cap + ' traps in use</b><div class="meter thin"><i style="width:' + (T.cap ? Math.min(100, Math.round((T.used / T.cap) * 100)) : 0) + '%"></i></div></div>';
   T.prisoners.forEach(function (p) {
-    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return u.icon + " " + u.count; }).join(" ") + '</small></div><button class="btn small ghost" data-trap-free="' + p.i + '">Let go</button></div>';
+    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return u.icon + " " + u.count; }).join(" ") + "</small></div></div>";
   });
   return h;
 }
@@ -37314,7 +37449,7 @@ function wikiChapter(W, tab) {
     var tr = T.terra.map(function (n, i) { acc += n; return ["Colony " + (i + 2), wkN(n), wkN(acc)]; });
     var Ec = W.extra && W.extra.econ;
     if (Ec) {
-      cards.push(wkCard("specs", "🏷️", "Colony specialisations", wkP(trf("When a colony's {0} reaches level {1}, pick one specialisation for it (🏗️ Colony → Specialisation). They open with Act 2 (Expansion). Each opens a building of its own (10 levels). Changing later costs {2} of each resource and tears the old special building down.", wkBName(W, "hq"), Ec.specHq, shortNum(Ec.change))) + kt({ head: ["Specialisation", "Effect", "Its building, per level"], left: 3, rows: Object.keys(Ec.specs).map(function (k) { var c = Ec.specs[k]; return [c.icon + " " + c.name, c.text, wkBName(W, c.building) + ": " + (k === "breadbasket" ? "troops here eat 1% less" : k === "industrial" ? "+1% wood, stone and metal" : "+1% defense")]; }) }) + wkNote("Several colonies, different jobs: a Breadbasket feeds big armies, an Industrial Town builds, a Garrison holds the front. Merchants and trade routes move the goods between them.")));
+      cards.push(wkCard("specs", "🏷️", "Colony specialisations", wkP(trf("When a colony's {0} reaches level {1}, pick one specialisation for it (🏗️ Colony → Specialisation). They open with Act 2 (Expansion). Each opens a building of its own (10 levels). The choice is permanent, so pick the job this colony will keep.", wkBName(W, "hq"), Ec.specHq)) + kt({ head: ["Specialisation", "Effect", "Its building, per level"], left: 3, rows: Object.keys(Ec.specs).map(function (k) { var c = Ec.specs[k]; return [c.icon + " " + c.name, c.text, wkBName(W, c.building) + ": " + (k === "breadbasket" ? "troops here eat 1% less" : k === "industrial" ? "+1% wood, stone and metal" : "+1% defense")]; }) }) + wkNote("Several colonies, different jobs: a Breadbasket feeds big armies, an Industrial Town builds, a Garrison holds the front. Merchants and trade routes move the goods between them.")));
       cards.push(wkCard("forecast", "☁️", "Sol forecast", wkP("The weather changes every " + dayLenText() + " and is known one step ahead. The bar at the top of your colony shows today and tomorrow. Production changes count from the start of each period.") + kt({ head: ["Weather", "Effect", "How often"], left: 2, rows: Ec.forecasts.map(function (f) { var tot = Ec.forecasts.reduce(function (n, x) { return n + x.w; }, 0); return [f.icon + " " + f.name, f.text, Math.round(f.w / tot * 100) + "%"]; }) }) + wkNote("Plan around it: stockpile before a bad day, sell when swaps are cheap, send merchants on windy days.")));
     }
     cards.push(wkCard("terra", "🌱", "Terra for new colonies", kt({ head: ["", "Terra", "Σ so far"], rows: tr }) + wkNote(trf("Plus {0} settlers (hub level {1}). Every colony earns terra by itself. There is no colony limit: the table shows the first 15, each one needs more terra than the last.", T.settlers, T.hubLevel))));
@@ -37454,7 +37589,7 @@ function wikiChapter(W, tab) {
     ])));
     var head = ["Project"];
     for (var al = 1; al <= A.maxLevel; al++) head.push("Lv " + al);
-    cards.push(wkCard("projects", "✨", "Project bonuses", kt({ head: head, rows: A.projects.map(function (p) { return [p.icon + " " + p.name].concat(p.levels.map(function (x) { return x.split(" ")[0]; })); }) }) + wkNote(A.projects.map(function (p) { return p.icon + " " + p.levels[0].replace(/^[^ ]+ /, ""); }).join(" · "))));
+    cards.push(wkCard("projects", "✨", "Project bonuses", kt({ head: head, rows: A.projects.map(function (p) { return [p.icon + " " + p.name].concat(p.levels.map(function (x) { return x.split(" ")[0]; })); }) }) + wkNote(A.projects.map(function (p) { return p.icon + " " + p.levels[0].replace(/^[^ ]+ /, ""); }).join(" · ")) + wkNote("🎫 Star Credits can fund a project too: one credit fills about 2% of a typical player’s hourly production of every resource, and credits can cover at most 30% of a level. The rest has to come as resources.")));
     cards.push(wkCard("projcost", "💰", "Project costs", kt({ head: head.concat(["Σ"]), rows: A.projects.map(function (p) { var s = 0; return [p.icon + " " + p.name].concat(p.hours.map(function (x) { s += x; return x + " h"; }), [Math.round(s * 10) / 10 + " h"]); }) }) + wkNote("Hours of a typical player’s production, per member (at least 3 count). Any member can give; a full pot raises the level by itself.")));
   } else if (tab === "tactics") {
     cards.push(wkCard("tac-core", "🧠", "Six rules of thumb", kt({
@@ -37642,7 +37777,7 @@ function wikiMore(W, tab, cards) {
         ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (3 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
-        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (45 on a ×1 server, less on faster ones), so quick early jobs cannot be rushed in bulk; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
+        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew, and the running research in the lab (the ⚡ button on it). The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (10 on a ×1 server, less on faster ones); the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
     }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job. The expansion building (hub) is the exception: it always takes its full time, with none of these speed-ups.")));
@@ -37719,11 +37854,17 @@ function wikiMore(W, tab, cards) {
       ]) + kt({ head: ["Order", "Good", "Bad", "Beats", "Loses to"], left: 3, rows: Object.keys(OR).map(function (k) { var o = OR[k]; return [o.icon + " " + o.name, o.up, o.down, ST[o.beats].icon + " " + ST[o.beats].name, ST[o.loses].icon + " " + ST[o.loses].name]; }) })
         + kt({ head: ["Stance", "Good", "Weak spot"], left: 3, rows: Object.keys(ST).map(function (k) { var o = ST[k]; return [o.icon + " " + o.name, o.up, o.down]; }) })
         + wkNote("In detail: Charge against Fortify meets +15% defense. Pillage against Ambush meets +20% defense; against Fortify the bunkers hide 30% less. Precision against Ambush meets 10% less defense; against Evacuate the bombards hit at random. Evacuate always costs 10% defense and hides 30% more.")));
-      cards.push(wkCard("archetypes", "🎭", "Archetypes", wkP("At level " + He.archLevel + " the commander picks one archetype, once. Its three skills open, and the points in them together unlock rules at 25, 50, 75 and 100. 🔄 Reset skills lets you choose again.") + kt({ head: ["Archetype", "Skills", "Rules (archetype points)"], left: 3, rows: He.arches.map(function (a) {
-        var sk = He.skills.filter(function (x) { return x.arch === a.key; }).map(function (x) { return x.icon + " <b>" + x.name + "</b>: +" + x.per + (x.unit.charAt(0) === "%" ? "" : " ") + x.unit + " per point " + x.text; }).join("<br>");
-        return [a.icon + " <b>" + a.name + "</b><br>" + a.text, sk, a.rules.map(function (r) { return "<b>" + r.at + "</b> " + r.text; }).join("<br>")];
-      }) }) + wkNote("Commanders from before the archetypes keep their Logistics and Foreman points until they choose. Choosing another archetype gives those points back as free points.")));
-      cards.push(wkCard("quirks", "🎲", "Quirks", wkP("At level " + He.quirkLevel + " every commander rolls one quirk: an upside with a downside. It can be rerolled once per round (into one of the other two).") + kt({ head: ["Quirk", "👍", "👎"], left: 3, rows: Object.keys(He.quirks).map(function (k) { var q = He.quirks[k]; return [q.icon + " " + q.name, q.up, q.down]; }) })));
+      cards.push(wkCard("archetypes", "🎭", "Archetypes", wkP("At level " + He.archLevel + " the commander picks one archetype, once. Its three skills open, and the points in them together unlock rules at 25, 50, 75 and 100. 🔄 Reset skills lets you choose again.") + He.arches.map(function (a) {
+        var sk = He.skills.filter(function (x) { return x.arch === a.key; }).map(function (x) { return "<li><b>" + x.icon + " " + esc(x.name) + "</b> +" + x.per + (x.unit.charAt(0) === "%" ? "" : " ") + esc(x.unit) + " per point " + esc(x.text) + "</li>"; }).join("");
+        var ru = a.rules.map(function (r) { return "<li><b>" + r.at + " pts</b> " + esc(r.text) + "</li>"; }).join("");
+        return '<div class="wk-arch"><h4>' + a.icon + " " + esc(a.name) + "</h4><p>" + esc(a.text) + "</p><h5>Skills</h5><ul>" + sk + "</ul><h5>Rules</h5><ul>" + ru + "</ul></div>";
+      }).join("") + wkNote("Commanders from before the archetypes keep their Logistics and Foreman points until they choose. Choosing another archetype gives those points back as free points.")));
+      cards.push(wkCard("quirks", "🎲", "Quirks", wkList([
+        "A commander has habits: at level " + He.quirkLevel + " it rolls its first quirk, at level " + He.quirk2Level + " a second one. Each quirk is a trade, an upside with a downside.",
+        "The numbers grow with the commander’s level: +50% at level 100 (the values below are for level " + He.quirkLevel + ").",
+        "A roll leans towards quirks that fit the archetype (three times as likely). You can <b>reroll</b> each quirk once per round for free, into one you do not have yet. More rerolls in the same round cost Star Credits: 150 🎫, then 300, 600 and 1200 🎫 for each further one (per quirk).",
+        "Quirks add to the commander’s own attack and defense, so they count on top of gear and skills. A quirk’s defense counts only while the commander is home and healthy.",
+      ]) + Object.keys(He.quirks).map(function (k) { var q = He.quirks[k]; return '<div class="wk-arch"><h4>' + q.icon + " " + esc(q.name) + "</h4><ul><li>👍 " + esc(q.up) + "</li><li>👎 " + esc(q.down) + "</li></ul><p><small>Fits: " + esc(q.fits) + "</small></p></div>"; }).join("")));
     }
     var LvP = W.extra && W.extra.living;
     if (LvP) {
@@ -37775,9 +37916,9 @@ function wikiMore(W, tab, cards) {
 
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
-      "Every level of the trap building holds " + Cq.trapPer + " attacking <b>ground</b> troops. Flyers pass over. They are caught before the fight, so they don’t fight.",
-      "Prisoners stay in the traps; their owner still feeds them. Open the trap building to let them go home.",
-      "If their owner wins an <b>attack</b> (not a raid) on that colony, all of their prisoners are free and walk home.",
+      "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps, so they don’t fight. Flyers pass over.",
+      "A 🪤 Paranoid commander adds to the traps while it is home and healthy. Prisoners stay in the traps, and their owner still feeds them. Nobody can let them go.",
+      "A <b>won attack</b> (not a raid) on that colony frees <b>every</b> prisoner in it, yours or another player’s. They walk home.",
     ])));
     cards.push(wkCard("bombard", "💥", "Bombarding buildings", wkList([
       "Bombards that survive a won <b>attack</b> (never a raid) knock levels off buildings and resource fields, like rams do with the wall: a level L needs " + Cq.bombardPer + " × L bombards (upgrades count).",
@@ -38415,6 +38556,7 @@ function commanderSheet() {
 function cmdPost(body, msg) { post("/api/commanders", body, function () { if (msg) toast(msg, true); openCommanders(); }); }
 
 // ---------- the hunt ----------
+function huntHpClass(f) { return f > 0.5 ? "hpg" : f > 0.25 ? "hpy" : "hpr"; }
 function hitTxt(x) { return x < 1 ? x.toFixed(2) : String(Math.round(x * 10) / 10); }
 var hunt = { data: null, at: 0, timer: 0, view: "main", sel: {}, extra: 0, pend: 0, inflight: false, lastTap: 0, anim: 0 };
 // the hunt bar runs on this device between server answers: the commander's own damage grows every moment and every strike counts at once
@@ -38427,8 +38569,10 @@ function huntPaint() {
   var o = hunt.data.opponent, fill = document.getElementById("hunt-hpfill"), txt = document.getElementById("hunt-dmg");
   if (o.won || !fill) return;
   var d = huntDmgNow();
-  fill.style.width = (o.hp ? Math.min(100, (d / o.hp) * 100) : 100) + "%";
-  if (txt) txt.textContent = Math.floor(d) + " / " + o.hp + " damage";
+  var left = o.hp ? Math.max(0, 1 - d / o.hp) : 0;
+  fill.style.width = left * 100 + "%";
+  var bar = document.getElementById("hunt-hpbar"); if (bar) bar.className = "hbar hunt-hp " + huntHpClass(left);
+  if (txt) txt.textContent = "❤️ " + Math.max(0, Math.ceil(o.hp - d)) + " / " + o.hp + " HP";
   if (d >= o.hp && !hunt.inflight && !hunt.done) { hunt.done = true; huntFlush(); setTimeout(openHunt, 250); }
 }
 function huntFlush() {
@@ -38552,8 +38696,8 @@ function huntSheet() {
   var D = hunt.data, o = D.opponent, left = Math.max(0, D.nextMs - (Date.now() - hunt.at)), h = "";
   h += '<div class="sheet-head"><span class="hi">🐾</span><div><h3>Hunt</h3><b>' + D.total + (D.total === 1 ? " creature" : " creatures") + " caught</b></div></div>";
   h += '<div class="hunt-card rc-' + o.rarity + (o.tier ? " sh-" + o.tier : "") + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
-  h += '<div class="hbar hp hunt-hp"><i id="hunt-hpfill" style="width:' + (o.hp ? Math.min(100, (o.dmgExact / o.hp) * 100) : 100) + '%"></i></div><small id="hunt-dmg">' + (o.won ? "Caught!" : o.dmg + " / " + o.hp + " damage") + '</small>' + (o.won ? "" : '<small class="hunt-need' + (o.reach ? "" : " bad") + '">' + (o.reach ? "Catches by itself at " + o.need + " attack · yours " + D.atk : "Too strong: needs " + o.need + " attack · yours " + D.atk) + "</small>") + '</div><div class="hunt-cd"><small>next opponent</small>⏱ ' + cdSpan(left, "hunt") + "</div></div>";
-  h += '<div class="hunt-act"><button class="btn hunt-strike" data-hunt-tap="1"' + (o.won ? " disabled" : "") + ">⚔️ Strike +" + hitTxt(D.tap.dmg) + "</button><small>Tap as fast as you like, up to " + Math.round(1000 / D.tap.cd) + " strikes a second. Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
+  h += '<div class="hbar hunt-hp ' + huntHpClass(o.hp ? (o.hp - o.dmgExact) / o.hp : 0) + '" id="hunt-hpbar"><i id="hunt-hpfill" style="width:' + (o.won ? 0 : o.hp ? Math.max(0, (1 - o.dmgExact / o.hp) * 100) : 0) + '%"></i></div><small id="hunt-dmg">' + (o.won ? "Caught!" : "❤️ " + Math.max(0, Math.ceil(o.hp - o.dmgExact)) + " / " + o.hp + " HP") + '</small>' + (o.won ? "" : '<small class="hunt-need' + (o.reach ? "" : " bad") + '">' + (o.reach ? "Catches by itself at " + o.need + " attack · yours " + D.atk : "Too strong: needs " + o.need + " attack · yours " + D.atk) + "</small>") + '</div><div class="hunt-cd"><small>next opponent</small>⏱ ' + cdSpan(left, "hunt") + "</div></div>";
+  h += '<div class="hunt-act"><button class="btn hunt-strike" data-hunt-tap="1"' + (o.won ? " disabled" : "") + ">⚔️ Strike · −" + hitTxt(D.tap.dmg) + " HP</button><small>Tap as fast as you like, up to " + Math.round(1000 / D.tap.cd) + " strikes a second. Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
   if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + ' <span class="cmd-rar r-' + l.rarity + '">' + esc(l.name) + "</span>" + (l.lost ? " <small>(inventory full, got away)</small>" : l.sold ? " <small>(sold 💲" + shortNum(l.sold) + ")</small>" : ""); }).join(" · ") + "</p>";
   h += '<div class="hunt-cash"><span>💲</span><b id="hs-cash">' + cashText(Math.floor(walletNow())) + "</b><small>+" + shortNum(D.cash.cashRate) + "/s from the slotted creatures</small></div>";
   h += '<div class="hunt-slots">' + D.slots.map(function (sl, i) {
@@ -39458,7 +39602,7 @@ document.addEventListener("click", function (e) {
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
-    "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
+    "[data-ally-pcredit],[data-rush-research],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
     "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
@@ -39541,9 +39685,12 @@ document.addEventListener("click", function (e) {
     shortages.forEach(function(item) { var parts=item.split(":"); if(RES.indexOf(parts[0])>=0) heroNeed[parts[0]]=Math.max(0,Number(parts[1])||0); });
     RES.forEach(function(r) { var H=data&&data.hero||{},room=Math.max(0,Math.floor(data.capacity[r]-data.res[r])),available=(H.stash&&H.stash[r])||0;heroTake[r]=Math.min(heroNeed[r],available,room); });
     openSheet("stash-transfer", null);
+  } else if (has("data-rush-research")) {
+    if (confirm("Finish the research now for " + el.textContent.replace(/[^0-9]/g, "") + " Star Credits?")) post("/api/rush-research", {}, function (r) { toast("⚡ Research done · −" + (r && r.cost || 0) + " 🎫", true); });
   } else if (has("data-hero-respec")) {
-    if (!heroRespecArm || Date.now() - heroRespecArm > 4000) { heroRespecArm = Date.now(); renderSheet(); }
-    else { heroRespecArm = 0; post("/api/hero", { action: "respec" }, function () { toast("🔄 Skill points are free again", true); }); }
+    var rk = Number(attr("data-hero-respec")) || 1;
+    if (heroRespecArm !== rk || Date.now() - heroRespecArmAt > 4000) { heroRespecArm = rk; heroRespecArmAt = Date.now(); renderSheet(); }
+    else { heroRespecArm = 0; post("/api/hero", { action: "respec", pay: rk === 2 ? "credits" : "" }, function () { toast("🔄 Skill points are free again", true); }); }
   } else if (has("data-hero-open-crate")) {
     var tk = {};
     var cr = data && data.hero ? data.hero.bag.filter(function (x) { return x.kind === "crate"; })[0] : null;
@@ -39553,8 +39700,6 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-open")) {
     heroTab = "skills";
     openSheet("hero", null);
-  } else if (has("data-trap-free")) {
-    post("/api/traps/release", { i: Number(attr("data-trap-free")) }, function () { toast("They are walking home"); });
   } else if (has("data-adv-go")) {
     post("/api/adventure", { id: attr("data-adv-go").split(":")[0],route:attr("data-adv-go").split(":")[1]||"safe" }, function () { toast("🧭 Off it goes!"); });
   } else if (has("data-adv-cancel")) {
@@ -39672,7 +39817,8 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-stance")) {
     post("/api/hero", { action: "stance", key: attr("data-hero-stance") }, function () { toast("🛡️ Stance set"); });
   } else if (has("data-hero-quirk")) {
-    if (confirm("Reroll the quirk? You can do this once per round.")) post("/api/hero", { action: "quirk" }, function (r) { toast("🎲 New quirk: " + (r && r.quirk || ""), true); });
+    var qpay = has("data-pay");
+    if (confirm(qpay ? "Reroll this quirk for " + el.textContent.replace(/[^0-9]/g, "") + " Star Credits?" : "Reroll this quirk? You get one free reroll per round.")) post("/api/hero", { action: "quirk", slot: Number(attr("data-hero-quirk")) || 1, pay: qpay ? 1 : 0 }, function (r) { toast("🎲 New quirk: " + (r && r.quirk || ""), true); });
   } else if (has("data-adv-pick")) {
     post("/api/hero", { action: "event", pick: attr("data-adv-pick") }, function (r) { toast(r && r.eventText || "Done", true); });
   } else if (has("data-send-order")) {
@@ -40247,6 +40393,8 @@ document.addEventListener("click", function (e) {
     var pj = alliance && alliance.mine && alliance.mine.projects ? alliance.mine.projects.filter(function (x) { return x.key === attr("data-ally-pfill"); })[0] : null;
     if (pj && data) RES.forEach(function (k) { var miss = Math.max(0, pj.cost[k] - pj.pot[k]); var v = Math.min(miss, Math.floor(data.res[k])); allyForm["proj_" + k] = v ? String(v) : ""; });
     if (data) renderColony(data);
+  } else if (has("data-ally-pcredit")) {
+    allyPost("/api/alliance/credits", { kind: attr("data-ally-pcredit"), credits: parseInt(allyForm.proj_credits, 10) || 0 }, "🎫 Given! The next level switches on by itself when the pot is full.", function () { allyForm.proj_credits = ""; loadColony(false); });
   } else if (has("data-ally-pgive") || has("data-ally-pbank")) {
     var bank = has("data-ally-pbank");
     var pk = attr(bank ? "data-ally-pbank" : "data-ally-pgive");
