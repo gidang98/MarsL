@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.409";
+const GAME_VERSION = "1.0.410";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -14816,6 +14816,15 @@ if (!db.prepare("SELECT 1 FROM settings WHERE key = 'cash_x1200'").get()) {
   } catch (e) { db.exec("ROLLBACK"); console.error("cash migration:", e.message); }
 }
 const COMMANDER_IDLE_HOURS = 4; // production that can pile up before collecting
+// Time away counts in two steps, for Star Credits and Space-Cash alike: full speed for the first AWAY_FULL_H hours, half speed for the
+// next AWAY_TAIL_H hours, nothing after that. A night away (8 h) therefore pays 6 hours of income, 12 h or more pays 8.
+const AWAY_FULL_H = COMMANDER_IDLE_HOURS, AWAY_TAIL_H = 8, AWAY_TAIL = 0.5;
+const AWAY_MAX_EQ_H = AWAY_FULL_H + AWAY_TAIL_H * AWAY_TAIL; // income hours the longest absence pays
+function awayMs(ms) {
+  const full = AWAY_FULL_H * 3600000;
+  ms = Math.max(0, ms);
+  return Math.min(ms, full) + AWAY_TAIL * Math.min(Math.max(0, ms - full), AWAY_TAIL_H * 3600000);
+}
 const SHOP_RESTOCK_MS = 5 * 60000; // every game speed
 const SHOP_POOL = []; // commanders for sale: { key, price, weight }, to be decided
 const COMMANDER_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
@@ -14925,17 +14934,18 @@ function commanderIncome(userId, now) {
   const card = r.cards.find((c) => c.id === r.active) || r.cards[0];
   const base = COMMANDERS[card.key] || COMMANDERS.recruit;
   const def = Object.assign({}, base, { rate: Math.round(base.rate * creditScale(card.rank) * 100) / 100 });
-  const capMs = COMMANDER_IDLE_HOURS * 3600000;
-  const elapsed = Math.max(0, Math.min(capMs, now - (r.collectAt || now)));
+  const capMs = AWAY_MAX_EQ_H * 3600000;
+  const real = Math.max(0, now - (r.collectAt || now));
+  const elapsed = awayMs(real); // income time: the first hours count in full, later ones at half
   const pending = Math.floor((elapsed / 3600000) * def.rate + 1e-9);
-  return { roster: r, def, rate: def.rate, capMs, elapsed, pending, cap: Math.max(1, Math.floor(COMMANDER_IDLE_HOURS * def.rate)) };
+  return { roster: r, def, rate: def.rate, capMs, real, elapsed, pending, cap: Math.max(1, Math.floor(AWAY_MAX_EQ_H * def.rate)) };
 }
 function commanderCollect(userId, now) {
   const inc = commanderIncome(userId, now);
   if (!inc || inc.pending < 1) return 0;
   const r = inc.roster;
   // keep the part of an hour that did not make a whole credit
-  r.collectAt = inc.elapsed >= inc.capMs ? now : (r.collectAt || now) + Math.round((inc.pending / inc.rate) * 3600000);
+  r.collectAt = inc.real >= AWAY_FULL_H * 3600000 ? now : (r.collectAt || now) + Math.round((inc.pending / inc.rate) * 3600000);
   db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
   addCredits(userId, inc.pending);
   return inc.pending;
@@ -15086,7 +15096,6 @@ app.post("/api/commanders", requireLogin, (req, res) => {
 const HUNT_MS = 5 * 60000;
 const HUNT_BACK_SLOTS = 48; // 4 hours of windows, like the Star Credit income
 const HUNT_SLOTS = 5; // creatures that can earn Space-Cash at once
-const HUNT_CASH_HOURS = 4; // time away that still counts for the Space-Cash income
 const HUNT_OFFLINE_SPAWN = 0.5;
 const HUNT_AUTO = 2.5; // damage over a whole window, in multiples of the commander's attack (helpers included)
 const HUNT_TAP = 0.08; // one tapped strike, in multiples of the commander's own attack (helpers do not add to it)
@@ -15218,7 +15227,7 @@ function huntSync(userId, now, hero) {
   return { r, h, hu, atk, base, cur, key, hp, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
 }
 // Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
-// it is looked at). Time away counts for at most HUNT_CASH_HOURS. The part of a unit that has not
+// it is looked at). Time away counts in full for 4 hours, then at half speed for 8 more (awayMs). The part of a unit that has not
 // become a whole one yet is kept in hunt.cashFrac.
 function huntCashRate(hu, r) { return Math.round((hu.slots || []).slice(0, HUNT_SLOTS).reduce((n, k) => n + (CREATURES[k] ? CREATURES[k].cash : 0), 0) * (1 + cmdPerk(r, "cash") / 100) * 10) / 10; }
 function cashSettle(userId, now, force) {
@@ -15230,7 +15239,7 @@ function cashSettle(userId, now, force) {
   if (!hu || !hu.slots) return;
   const rate = huntCashRate(hu, r);
   if (!rate) { if (force && hu.cashAt !== now) { hu.cashAt = now; db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId); } return; }
-  const elapsed = Math.min(HUNT_CASH_HOURS * 3600000, Math.max(0, now - (hu.cashAt || now)));
+  const elapsed = awayMs(now - (hu.cashAt || now));
   const gain = (hu.cashFrac || 0) + (rate * elapsed) / 1000;
   const whole = Math.floor(gain);
   if (whole < 1 && !force) return;
@@ -16792,7 +16801,7 @@ function wikiExtra() {
     hero: {
       maxLevel: HERO_MAX_LEVEL, speed: Math.round(HERO_SPEED * MOVE_SPEED * 10) / 10, settleMs: heroLockMs(), recoverMs: heroRecoverMs(), reviveMs: heroReviveMs(),
       fallPct: Math.round(HERO_FALL_XP * 100), bag: HERO_BAG,
-      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, cashHours: HUNT_CASH_HOURS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
+      roster: { shards: SHARDS_PER_COMMANDER, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
       orders: HERO_ORDERS, stances: HERO_STANCES, quirks: HERO_QUIRKS, quirkLevel: HERO_QUIRK_LEVEL,
@@ -17026,6 +17035,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.410",date:"2026-11-18",title:"A night away still pays",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first 4 hours, then half speed for the next 8 hours. Before, everything after 4 hours was lost, so a night away barely paid.","A night away (8 hours) now pays 6 hours of income, 12 hours or more pays 8. The commander pile shows the new, larger limit.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
   {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
   {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 30 Star Credits an hour for the first hour, 45 up to 4 hours, 80 up to 12 hours and 160 beyond. Every use costs at least 30, so quick jobs are not cheap to skip: 5 minutes to 1 hour cost 30, 2 hours 75, 4 hours 165, 12 hours 805 and a day 2,725.","That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits, while mid-length jobs cost about a fifth less than before (12 hours 805 instead of 1,010).","On faster servers the 30 Star Credit minimum shrinks (10 on a ×10 server, 2 on the fastest), because jobs are much shorter there. The wiki now also says correctly that the free finish covers the last 3 minutes on a ×1 server."]]]},
   {v:"1.0.407",date:"2026-11-17",title:"Hunt luck grows with the acts",groups:[["🍀 Hunt",["Every time a new act starts and the monster camps get stronger, the hunt gets luckier too: ×1.25 from Discovery, ×1.5 in the Storm Season, ×1.75 in the Relic Hunt and ×2 in the Aurora.","Luck gives every rarity above common that much more weight (above-common opponents go from about 35% to about 52% in the Aurora), and multiplies the shiny chances for creatures and for fusing commanders (creatures: 7.1% of opponents at the start, 14.2% in the Aurora).","The share of opponents that show up while you are away also rises by 5 points per act, from 50% to 70%."]],["🎓 Graduation",["The one-time graduation gift is now 100 Star Credits (was 500), in line with the faster Star Credit income."]]]},
@@ -37512,10 +37522,10 @@ function wikiMore(W, tab, cards) {
     ])));
     var Ro = He.roster;
     if (Ro) cards.push(wkCard("roster", "🐾", "Commander roster and hunt", wkList([
-      "🎫 Your active commander earns <b>Star Credits</b> steadily, from about 40 a day for a common commander up to about 600 for a Mythic one (more for rarer commanders, and +25% for every rank). Credits pile up for at most 4 hours while you are away, so look in now and then. They finish a build job at once, see Build speed-ups. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
+      "🎫 Your active commander earns <b>Star Credits</b> steadily, from about 40 a day for a common commander up to about 600 for a Mythic one (more for rarer commanders, and +25% for every rank). While you are away they count in full for 4 hours and at half speed for 8 more (a night away pays 6 hours, 12 hours or more pays 8), so look in now and then. They finish a build job at once, see Build speed-ups. Other commanders you own sit in your roster; only the active one counts, plus up to " + Ro.helpers + " <b>helpers</b> that add to its attack in the hunt (more at higher rank, most at rank " + Ro.maxRank + ").",
       "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and every offer holds a different number of shards: " + Ro.buyAmount.common[0] + " to " + Ro.buyAmount.common[1] + " for a common commander, " + Ro.buyAmount.uncommon[0] + " to " + Ro.buyAmount.uncommon[1] + " for an uncommon or rare one and just " + Ro.buyAmount.epic[1] + " for epic, legendary and Mythic ones (each player can buy that many per offer, and an offer is gone at the next restock). " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself for " + Ro.auto + " times its attack over the window (helpers add to that), and Strike adds a little extra (only its own attack counts, no helpers). So rarer creatures need a stronger commander: level up, spend skill points on 💪 Strength, wear better gear and put strong commanders in the helper slots. The table shows the attack that catches each one without striking; striking about every 20 seconds adds roughly half as much again. Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
-      "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts up to " + Ro.cashHours + " h). Space-Cash pays for shards, gear upgrades and the auction.",
+      "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts in full for 4 hours and at half speed for 8 more). Space-Cash pays for shards, gear upgrades and the auction.",
       "✨ <b>Shiny</b> creatures: every opponent has a small chance to come as " + Ro.shiny.map(function (t) { return "<b>" + t.name + "</b> (×" + t.mult + ", " + t.creature + "%)"; }).join(", ") + ". A shiny has " + "that many times the HP and pays that many times the Space-Cash, so it needs a stronger commander but earns far more in a slot. Shiny catches are never auto-sold, and with a full inventory a shiny is sold on the spot instead of getting away. Commanders can turn shiny too: every time shards are fused there is a chance of " + Ro.shiny.map(function (t) { return t.name + " " + t.commander + "%"; }).join(", ") + ". A shiny commander has that many times the effects and helper power (Star Credits stay the same). Fusing a commander you already own can only raise its tier, never lower it.",
       "🍀 <b>Hunt luck</b> grows with the acts, just like the monster camps do: from Discovery on it is ×" + Ro.luck.slice(2).join(", ×") + " (Discovery, Storm Season, Relic Hunt, Aurora). Every rarity above common gets that much more weight (opponents above common go from about a third of all to about half in the Aurora), the shiny chances above are multiplied the same way (for creatures and for fusing commanders), and while you are away " + Ro.spawnAct.slice(2).map(function (x) { return "+" + x; }).join(", ") + " points more of the opponents come.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
