@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.411";
+const GAME_VERSION = "1.0.412";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17092,6 +17092,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.412",date:"2026-11-18",title:"Tidier auction rows",groups:[["🏛️ Auction",["Each auction row now puts the name, rarity, production and seller on separate lines instead of running them together, and the right side shows the price with one line for time left and bids."]]]},
   {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]],["🏛️ Auction",["Creatures in the auction now show how much Space-Cash a second each one earns.", "Your commander’s supplies (field dressings, medkits, field journals, recovery kits and Insight tokens) can now go to auction too, in a new Sell supplies tab. The winner gets them straight into their commander’s supplies; supplies nobody bids on come back to you."]],["🛒 Shard shop",["Legendary and Mythic commanders are much rarer in the shop: a legendary one turns up in about 1 in 60 restocks (it was about 1 in 20) and a Mythic one in about 1 in 180 (it was about 1 in 55). Rare and epic commanders show up more often instead (rare in 40% of restocks, epic in 23%). Offers now hold 1 to 3 shards for common and uncommon commanders and 1 to 2 for rare, epic, legendary and Mythic ones (epic offers held 1 before).","Legendary shards can now be bought 6 times and Mythic shards 3 times per day and player. Checking the shop every 5 minutes no longer gets you the rarest commanders in a few weeks. Once the limit is reached, the offer says so; the next day it opens again."]],["🏢 Expansion buildings",["The expansion building (the hub, for example the Nest Bureau) can no longer be sped up: no overtime, helping hands, alliance help, tribe power, free finish or Star Credits. It always takes its full time. The permanent build-speed bonuses such as the HQ still apply."]]]},
   {v:"1.0.410",date:"2026-11-18",title:"Time away, in two steps",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first hour, then half speed for the next 6 hours, nothing after 7 hours. At most 4 hours of income pile up, as before; it just takes 7 hours away to get there.","After a longer time away, your Star Credits wait in the commander pile instead of being paid out in the background. Open the commander page, see the pile filled and tap Collect (the toast shows how many you got). While you play they still flow in on their own.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
   {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
@@ -25623,7 +25624,11 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .auc-row { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; margin-bottom: 6px; }
 .auc-row.lead { border-color: #2f9e6e; background: rgba(47, 158, 110, .1); }
 .auc-row.mine { border-color: #c9a227; background: rgba(201, 162, 39, .08); }
-.auc-item { min-width: 0; flex: 1; }
+.auc-item { min-width: 0; flex: 1; display: grid; gap: 2px; align-content: start; }
+.auc-item small { font-size: 12px; opacity: .8; }
+.auc-item .auc-by { opacity: .6; }
+.auc-side { flex: none; }
+.auc-side > b { font-size: 15px; }
 .auc-side { display: grid; gap: 3px; justify-items: end; text-align: right; }
 .auc-side small { font-size: 12px; opacity: .85; }
 .auc-side .ok { color: #2f9e6e; opacity: 1; }
@@ -38418,8 +38423,8 @@ function aucName(it) {
 }
 function aucRow(a, A) {
   var it = a.item, shard = it.kind === "shard", crea = it.kind === "creature", cons = it.kind === "consumable", noHero = shard || crea;
-  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (cons ? "<small>" + it.rarity + " supplies" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : crea ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " each" : "") + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + "</div>";
-  h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>" + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids yet") + "</small><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + esc(a.seller) + "</small>";
+  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (cons ? "<small>" + it.rarity + " supplies" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : crea ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + (a.mine ? "" : '<small class="auc-by">by ' + esc(a.seller) + "</small>") + "</div>";
+  h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids") + "</small>";
   if (a.mine) h += a.bids ? '<small class="ok">Your item, bids are in</small>' : '<button class="btn small ghost" data-auc-cancel="' + a.id + '">Take it back</button>';
   else {
     if (a.leading) h += '<small class="ok">You lead</small>';
@@ -38429,7 +38434,7 @@ function aucRow(a, A) {
 }
 function aucMine(a, A) {
   var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + aucName(it) + '</b>' + (it.kind === "creature" ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " each" : "") + "</small>" : "") + '</div><div class="auc-side">';
-  if (a.status === "active") h += "<small>" + (a.mine ? "Your auction" : "You lead") + " · " + A.currency.icon + " " + shortNum(a.price) + " · ⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + "</small>";
+  if (a.status === "active") h += "<small>" + (a.mine ? "" : "You lead · ") + A.currency.icon + " " + shortNum(a.price) + " · ⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + "</small>";
   else if (a.outcome === "sold") h += "<small>" + (a.mine ? "Sold for " + A.currency.icon + " " + shortNum(a.sold) + " (fee " + shortNum(a.fee) + ")" : "You won it for " + A.currency.icon + " " + shortNum(a.sold)) + "</small>";
   else h += "<small>" + (a.outcome === "cancelled" ? "Taken back" : "Nobody bid") + "</small>";
   if (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))) h += '<button class="btn small" data-auc-claim="' + a.id + '">Collect ' + (a.item.kind === "creature" ? (A.huntFull ? "(inventory full)" : "") : A.bagFull && a.item.kind !== "shard" ? "(bag full)" : "") + "</button>";
