@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.429";
+const GAME_VERSION = "1.0.430";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -16604,11 +16604,11 @@ function askDone(colonyId) {
 }
 
 // 🎫 finishing a job at once with Star Credits. The price is per hour left and gets dearer in steps (45 an hour for the
-// first hour left, 60 up to 4 hours, 100 up to 12 hours, 200 beyond), and every use costs at least creditFinishMin() (45 on a x1 server, less on faster ones),
+// first hour left, 60 up to 4 hours, 100 up to 12 hours, 200 beyond), and every use costs at least creditFinishMin() (10 on a x1 server, less on faster ones),
 // so quick jobs cannot be rushed in bulk (the first ten levels of a field take about 2 hours in all):
 // 5 minutes 45, 1 hour 45, 4 hours 225, 12 hours 1025, a day 3425
 const CREDIT_FINISH_STEPS = [[1, 45], [4, 60], [12, 100], [Infinity, 200]]; // [up to this many hours left, credits per hour]
-const CREDIT_FINISH_MIN = 45; // on a x1 server
+const CREDIT_FINISH_MIN = 10; // on a x1 server: a job of 13 minutes or less costs 10
 // the minimum shrinks on faster servers like the free-finish window does (x10: 15, x500: 2), because jobs are much shorter there
 function creditFinishMin() {
   return Math.max(2, Math.round(CREDIT_FINISH_MIN / Math.pow(Math.max(1, BUILD_SPEED || 1), Math.log10(3))));
@@ -17262,6 +17262,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.430",date:"2026-11-18",title:"Cheaper quick finishes",groups:[["🎫 Star Credits",["Finishing a job at once now costs at least 10 Star Credits on a \u00d71 server (was 45), so short jobs of up to about 13 minutes cost 10 and longer ones follow the same price per hour as before. Faster servers pay less, like before."]]]},
   {v:"1.0.429",date:"2026-11-18",title:"Star Credits: quirks, skills, research and alliances",groups:[["🎫 Star Credits",["Quirks: when a quirk\u2019s free reroll of the round is used, you can reroll it again for Star Credits (150, then 300, 600, 1200 for each further one in the same round).","Skills: reset them for Star Credits (150 plus 4 per point spent, up to 1000) instead of an Insight token. The token still works.","Research: a \u26a1 button on the running research finishes it now, at the same price per hour left as finishing a build.","Alliance projects: members can give Star Credits to a project. One credit fills about 2% of a typical player\u2019s hourly production of every resource, and credits cover at most 30% of a level, so the pot still needs real resources."]]]},
   {v:"1.0.428",date:"2026-11-18",title:"Quirks and traps, properly",groups:[["🎲 Commander quirks",["Nine quirks, each a real trade of numbers (for example Stubborn: +5% defense at home, −10% regeneration; Hothead: +4% attack, +10% health lost; Scavenger: +10% carry, −3% attack; Paranoid: +10% trap capacity while home, −3% attack).","A second quirk slot opens at level 30. The numbers grow with the commander\u2019s level, up to +50% at level 100.","Rolls lean towards quirks that fit the archetype. Each quirk can be rerolled once per round, into one you do not have."]],["🪤 Traps",["The trap building now goes up to level 20 with 20 traps per level: 400 traps per building, on every server speed. Once one is maxed you can build another, and their traps add up.","Trapped troops stay until someone wins an attack on that colony. Raids free nobody, and the trapper can no longer let them go. A won attack frees all prisoners there, including other players\u2019 troops."]]]},
   {v:"1.0.427",date:"2026-11-18",title:"Permanent specialisations",groups:[["🏷️ Colonies",["A colony\u2019s specialisation can no longer be switched: once chosen, it stays for the life of the colony. The choice button now says it is permanent and asks for a second tap. Colonies that already have a specialisation keep it, and it is now locked."]]]},
@@ -37774,7 +37775,7 @@ function wikiMore(W, tab, cards) {
         ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (3 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
-        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew, and the running research in the lab (the ⚡ button on it). The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (45 on a ×1 server, less on faster ones), so quick early jobs cannot be rushed in bulk; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
+        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew, and the running research in the lab (the ⚡ button on it). The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (10 on a ×1 server, less on faster ones); the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
     }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job. The expansion building (hub) is the exception: it always takes its full time, with none of these speed-ups.")));
