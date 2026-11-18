@@ -38415,6 +38415,7 @@ function commanderSheet() {
 function cmdPost(body, msg) { post("/api/commanders", body, function () { if (msg) toast(msg, true); openCommanders(); }); }
 
 // ---------- the hunt ----------
+function hitTxt(x) { return x < 1 ? x.toFixed(2) : String(Math.round(x * 10) / 10); }
 var hunt = { data: null, at: 0, timer: 0, view: "main", sel: {}, extra: 0, pend: 0, inflight: false, lastTap: 0, anim: 0 };
 // the hunt bar runs on this device between server answers: the commander's own damage grows every moment and every strike counts at once
 function huntDmgNow() {
@@ -38458,7 +38459,7 @@ function huntStrike() {
   var card = document.querySelector(".hunt-card");
   if (card) {
     card.classList.remove("hit"); void card.offsetWidth; card.classList.add("hit");
-    var pop = document.createElement("i"); pop.className = "hit-pop"; pop.textContent = "-" + (Math.round(hunt.data.tap.dmg * 10) / 10);
+    var pop = document.createElement("i"); pop.className = "hit-pop"; pop.textContent = "-" + hitTxt(hunt.data.tap.dmg);
     pop.style.left = 20 + Math.random() * 60 + "%"; card.appendChild(pop); setTimeout(function () { pop.remove(); }, 600);
   }
   clearTimeout(hunt.flushT); hunt.flushT = setTimeout(huntFlush, 150);
@@ -38552,7 +38553,7 @@ function huntSheet() {
   h += '<div class="sheet-head"><span class="hi">🐾</span><div><h3>Hunt</h3><b>' + D.total + (D.total === 1 ? " creature" : " creatures") + " caught</b></div></div>";
   h += '<div class="hunt-card rc-' + o.rarity + (o.tier ? " sh-" + o.tier : "") + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
   h += '<div class="hbar hp hunt-hp"><i id="hunt-hpfill" style="width:' + (o.hp ? Math.min(100, (o.dmgExact / o.hp) * 100) : 100) + '%"></i></div><small id="hunt-dmg">' + (o.won ? "Caught!" : o.dmg + " / " + o.hp + " damage") + '</small>' + (o.won ? "" : '<small class="hunt-need' + (o.reach ? "" : " bad") + '">' + (o.reach ? "Catches by itself at " + o.need + " attack · yours " + D.atk : "Too strong: needs " + o.need + " attack · yours " + D.atk) + "</small>") + '</div><div class="hunt-cd"><small>next opponent</small>⏱ ' + cdSpan(left, "hunt") + "</div></div>";
-  h += '<div class="hunt-act"><button class="btn hunt-strike" data-hunt-tap="1"' + (o.won ? " disabled" : "") + ">⚔️ Strike +" + Math.round(D.tap.dmg * 10) / 10 + "</button><small>Tap as fast as you like, up to " + Math.round(1000 / D.tap.cd) + " strikes a second. Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
+  h += '<div class="hunt-act"><button class="btn hunt-strike" data-hunt-tap="1"' + (o.won ? " disabled" : "") + ">⚔️ Strike +" + hitTxt(D.tap.dmg) + "</button><small>Tap as fast as you like, up to " + Math.round(1000 / D.tap.cd) + " strikes a second. Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
   if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + ' <span class="cmd-rar r-' + l.rarity + '">' + esc(l.name) + "</span>" + (l.lost ? " <small>(inventory full, got away)</small>" : l.sold ? " <small>(sold 💲" + shortNum(l.sold) + ")</small>" : ""); }).join(" · ") + "</p>";
   h += '<div class="hunt-cash"><span>💲</span><b id="hs-cash">' + cashText(Math.floor(walletNow())) + "</b><small>+" + shortNum(D.cash.cashRate) + "/s from the slotted creatures</small></div>";
   h += '<div class="hunt-slots">' + D.slots.map(function (sl, i) {
