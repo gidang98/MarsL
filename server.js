@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.426";
+const GAME_VERSION = "1.0.427";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6110,7 +6110,6 @@ function snapshot(user, colony) {
     specOpen: levelOf(s, "hq") >= SPEC_HQ && actNow(now) >= 1,
     specAct: actNow(now) >= 1 || levelOf(s, "hq") < SPEC_HQ ? 0 : actDays()[1],
     specs: Object.keys(COLONY_SPECS).map((k) => ({ key: k, icon: COLONY_SPECS[k].icon, name: COLONY_SPECS[k].name, text: COLONY_SPECS[k].text, building: { name: tribeOf(colony.tribe).names[COLONY_SPECS[k].building][0], icon: tribeOf(colony.tribe).names[COLONY_SPECS[k].building][1] } })),
-    specChange: SPEC_CHANGE_COST,
     rich: !!s.rich,
     forecast: forecastView(now),
     lent: (() => { const L = handsLend(colony.id, now); return L ? { colony: L.colony, leftMs: L.finishAt ? Math.max(0, L.finishAt - now) : 0 } : null; })(),
@@ -6652,25 +6651,14 @@ app.use("/api", (req, res, next) => {
   res.status(409).json({ error: "This server has been won by " + w.name + ". The round is over.", won: w });
 });
 
-// 🏷️ pick (or change) the specialisation of this colony (HQ 10)
-const SPEC_CHANGE_COST = 2000; // of each resource to change it later
+// 🏷️ pick the specialisation of this colony (HQ 10) - it is permanent
 app.post("/api/spec", requireLogin, (req, res) => {
   withColony(req, res, (s, tribe) => {
     const key = String((req.body || {}).key || "");
     if (!COLONY_SPECS[key]) return "Unknown specialisation";
     if (levelOf(s, "hq") < SPEC_HQ) return "Specialisations open at " + tribe.names.hq[0] + " level " + SPEC_HQ;
     if (actNow() < 1) return "Specialisations open with Act 2 (Expansion) on " + dayDate(actDays()[1]);
-    if (s.spec === key) return "This colony already is a " + COLONY_SPECS[key].name;
-    if (s.spec) {
-      const n = SPEC_CHANGE_COST;
-      const cost = { wood: n, stone: n, metal: n, food: n };
-      if (!canAfford(s, cost)) return "Changing costs " + n + " of each resource";
-      const old = COLONY_SPECS[s.spec].building;
-      if (jobsOf(s).some((q) => q.kind === "building" && (q.type === old || (s.buildings[q.slot] && s.buildings[q.slot].type === old)))) return "Finish or cancel the job on the " + tribe.names[old][0] + " first";
-      pay(s, cost);
-      // the old unique building is torn down
-      s.buildings.forEach((b, i) => { if (b.type === old) s.buildings[i] = { type: null, level: 0 }; });
-    }
+    if (s.spec) return "The specialisation of this colony is permanent";
     s.spec = key;
     return null;
   });
@@ -16929,7 +16917,7 @@ function wikiExtra() {
     market: { offers: OFFER_MAX, min: OFFER_MIN, ratioMin: OFFER_RATIO_MIN, ratioMax: OFFER_RATIO_MAX, lastsMs: offerMs() },
     ally: { officers: ALLY_OFFICERS_MAX, shared: SHARED_MAX },
     longterm: { acts: actsView(Date.now()), leagues: LEAGUES, contests: LEAGUE_CONTESTS, late: { day: LATE_DAY, days: LATE_DAYS, per: Math.round(LATE_PER_DAY * 1000) / 10, max: Math.round(LATE_MAX * 100) }, titles: LEGACY_TITLES.map((t) => ({ name: t.name, how: t.how })) },
-    econ: { specs: COLONY_SPECS, specHq: SPEC_HQ, change: SPEC_CHANGE_COST, forecasts: FORECASTS.map((f) => ({ icon: f.icon, name: f.name, text: f.text, w: f.w })), rich: { pct: Math.round(RICH_BONUS * 100), per: RICH_PER_QUARTER, waves: RICH_WAVES.map((w, i) => ({ n: w.n, day: richWaveDay(i) })), ring: RICH_RING } },
+    econ: { specs: COLONY_SPECS, specHq: SPEC_HQ, forecasts: FORECASTS.map((f) => ({ icon: f.icon, name: f.name, text: f.text, w: f.w })), rich: { pct: Math.round(RICH_BONUS * 100), per: RICH_PER_QUARTER, waves: RICH_WAVES.map((w, i) => ({ n: w.n, day: richWaveDay(i) })), ring: RICH_RING } },
     newp: { gradGift: GRAD_GIFT, gradH: GRAD_WINDOW_MS / 3600000, raid: typicalRaidAttack(), insPct: Math.round(INS_SHARE * 100), insClaims: INS_CLAIMS, insHeavy: Math.round(INS_HEAVY * 100), insHour: INS_MORNING_UTC, scorp: SCORP_PACK, scorpS: SCORP_MS / 1000, planSlots: PLAN_SLOTS, allyGift: BOARD_ALLY_GIFT, badges: BOARD_BADGES.map((b) => [b.n, b.icon, b.title]) },
     living: { daily: [1, 2, 3, 4, 5, 6, 7].map((n) => dailyAmount(n)), dailyMax: DAILY_MAX_STREAK, powers: TRIBE_POWERS, war: WAR_POWERS, warTwice: WAR_TWICE_LEVEL, lock: POWER_LOCK, rally: POWER_RALLY, mind: Math.round(POWER_MIND * 100), warLoot: Math.round(WAR_LOOT * 100), paths: HERO_PATHS, pathOpen: HERO_PATH_OPEN, road: HERO_ROAD, fxMin: Math.round(FX_SHOW_MS / 60000),
       trader: { range: TRADER_RANGE, max: Math.round(TRADER_BASE * 1.4 / 10) * 10, hours: Math.round(traderLifeMs() / 360000) / 10 },
@@ -17141,6 +17129,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.427",date:"2026-11-18",title:"Permanent specialisations",groups:[["🏷️ Colonies",["A colony\u2019s specialisation can no longer be switched: once chosen, it stays for the life of the colony. The choice button now says it is permanent and asks for a second tap. Colonies that already have a specialisation keep it, and it is now locked."]]]},
   {v:"1.0.426",date:"2026-11-18",title:"Readable archetypes in the wiki",groups:[["📖 Wiki",["The Archetypes and Quirks cards now show one block per entry (skills and rules as short lists) instead of a squeezed table, so they read well on a phone."]]]},
   {v:"1.0.425",date:"2026-11-18",title:"Hunt health bar",groups:[["🐾 Hunt",["The opponent now has a health bar that empties (❤️ 581 / 680 HP, green, then yellow, then red) instead of a damage bar that fills. The Strike button shows how much health a hit takes away."]]]},
   {v:"1.0.424",date:"2026-11-18",title:"Faster hunt",groups:[["🐾 Hunt",["Strike as fast as you can tap, up to 6 times a second (it used to be once every 20 seconds). Every strike lands on the opponent's health bar at once, with a little hit effect, and a fast tapper deals up to about twice the damage of the commander alone in the same time.","The opponent's health bar now moves smoothly all the time instead of jumping every few seconds, also when only the commander is fighting."]]]},
@@ -29868,15 +29857,14 @@ function specPanel(d) {
     var sub = d.specAct ? "Unlocks with Act 2 (day " + d.specAct + ") and HQ level 10" : "Rich site: +20% production of every resource";
     return '<div class="spx locked"><div class="spx-sum">' + row(d.specAct ? "🔒" : "✨", d.specAct ? "Specialisation" : "Rich site", esc(sub)) + '</div>' + (d.specAct ? helpBtn("economy:specs", "About specialisations") : "") + "</div>";
   }
-  var h = '<div class="tfold spx' + (specUi ? " open" : "") + (d.spec ? "" : " todo") + '"><div class="spx-head"><button class="spx-sum" data-specfold="1" aria-expanded="' + specUi + '">';
-  h += d.spec ? row(d.spec.icon, esc(d.spec.name), esc(d.spec.text), '<span class="tf-caret">▾</span>') : row("🏷️", "Choose a specialisation", "Pick a focus for this colony", '<span class="tf-caret">▾</span>');
+  if (d.spec) return '<div class="spx locked"><div class="spx-sum">' + row(d.spec.icon, esc(d.spec.name), esc(d.spec.text), '<span class="tag">🔒 Permanent</span>') + "</div>" + helpBtn("economy:specs", "About specialisations") + "</div>";
+  var h = '<div class="tfold spx' + (specUi ? " open" : "") + ' todo"><div class="spx-head"><button class="spx-sum" data-specfold="1" aria-expanded="' + specUi + '">';
+  h += row("🏷️", "Choose a specialisation", "Permanent for this colony", '<span class="tf-caret">▾</span>');
   h += "</button>" + helpBtn("economy:specs", "About specialisations") + '</div><div class="tf-body">';
-  if (d.spec) h += '<p class="spx-note">Switching costs ' + shortNum(d.specChange) + " of each resource.</p>";
   d.specs.forEach(function (o) {
-    if (d.spec && d.spec.key === o.key) return;
     var armed = specArm.key === o.key && Date.now() - specArm.at < 4000;
     h += '<div class="spx-opt"><span class="spx-ic">' + o.icon + '</span><span class="spx-tx"><b>' + esc(o.name) + "</b><small>" + esc(o.text) + "</small>" + (o.building ? "<small>Unlocks " + o.building.icon + " " + esc(o.building.name) + "</small>" : "") + "</span>";
-    h += '<button class="btn small' + (d.spec && !armed ? " ghost" : "") + (armed ? " danger" : "") + '" data-spec="' + o.key + '">' + (armed ? "Sure?" : d.spec ? "Switch" : "Choose") + "</button></div>";
+    h += '<button class="btn small' + (armed ? " danger" : "") + '" data-spec="' + o.key + '">' + (armed ? "Sure? Permanent" : "Choose") + "</button></div>";
   });
   return h + "</div></div>";
 }
@@ -37323,7 +37311,7 @@ function wikiChapter(W, tab) {
     var tr = T.terra.map(function (n, i) { acc += n; return ["Colony " + (i + 2), wkN(n), wkN(acc)]; });
     var Ec = W.extra && W.extra.econ;
     if (Ec) {
-      cards.push(wkCard("specs", "🏷️", "Colony specialisations", wkP(trf("When a colony's {0} reaches level {1}, pick one specialisation for it (🏗️ Colony → Specialisation). They open with Act 2 (Expansion). Each opens a building of its own (10 levels). Changing later costs {2} of each resource and tears the old special building down.", wkBName(W, "hq"), Ec.specHq, shortNum(Ec.change))) + kt({ head: ["Specialisation", "Effect", "Its building, per level"], left: 3, rows: Object.keys(Ec.specs).map(function (k) { var c = Ec.specs[k]; return [c.icon + " " + c.name, c.text, wkBName(W, c.building) + ": " + (k === "breadbasket" ? "troops here eat 1% less" : k === "industrial" ? "+1% wood, stone and metal" : "+1% defense")]; }) }) + wkNote("Several colonies, different jobs: a Breadbasket feeds big armies, an Industrial Town builds, a Garrison holds the front. Merchants and trade routes move the goods between them.")));
+      cards.push(wkCard("specs", "🏷️", "Colony specialisations", wkP(trf("When a colony's {0} reaches level {1}, pick one specialisation for it (🏗️ Colony → Specialisation). They open with Act 2 (Expansion). Each opens a building of its own (10 levels). The choice is permanent, so pick the job this colony will keep.", wkBName(W, "hq"), Ec.specHq)) + kt({ head: ["Specialisation", "Effect", "Its building, per level"], left: 3, rows: Object.keys(Ec.specs).map(function (k) { var c = Ec.specs[k]; return [c.icon + " " + c.name, c.text, wkBName(W, c.building) + ": " + (k === "breadbasket" ? "troops here eat 1% less" : k === "industrial" ? "+1% wood, stone and metal" : "+1% defense")]; }) }) + wkNote("Several colonies, different jobs: a Breadbasket feeds big armies, an Industrial Town builds, a Garrison holds the front. Merchants and trade routes move the goods between them.")));
       cards.push(wkCard("forecast", "☁️", "Sol forecast", wkP("The weather changes every " + dayLenText() + " and is known one step ahead. The bar at the top of your colony shows today and tomorrow. Production changes count from the start of each period.") + kt({ head: ["Weather", "Effect", "How often"], left: 2, rows: Ec.forecasts.map(function (f) { var tot = Ec.forecasts.reduce(function (n, x) { return n + x.w; }, 0); return [f.icon + " " + f.name, f.text, Math.round(f.w / tot * 100) + "%"]; }) }) + wkNote("Plan around it: stockpile before a bad day, sell when swaps are cheap, send merchants on windy days.")));
     }
     cards.push(wkCard("terra", "🌱", "Terra for new colonies", kt({ head: ["", "Terra", "Σ so far"], rows: tr }) + wkNote(trf("Plus {0} settlers (hub level {1}). Every colony earns terra by itself. There is no colony limit: the table shows the first 15, each one needs more terra than the last.", T.settlers, T.hubLevel))));
