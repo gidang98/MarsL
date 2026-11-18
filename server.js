@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.416";
+const GAME_VERSION = "1.0.417";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17128,6 +17128,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.417",date:"2026-11-18",title:"Equipped gear in the inventory",groups:[["🎖️ Commander",["The equipped gear and the stats it adds now sit at the top of the Inventory tab, right above the supplies and the gear in your bag, so you can compare and swap in one place. The Skills tab keeps only skills, quirk and stance."]]]},
   {v:"1.0.416",date:"2026-11-18",title:"Adventure count on the tab",groups:[["🎖️ Commander",["The Adventures tab shows a small number in its left corner with how many adventures are on the board."]]]},
   {v:"1.0.415",date:"2026-11-18",title:"Shiny tiers by merging",groups:[["🎖️ Commanders",["Two copies of the same commander with the same shiny tier can be made into one copy of the next tier (normal to Silver to Gold to Diamond to Rainbow). The new copy keeps the higher rank. A Rainbow commander therefore takes 16 plain copies, fewer with lucky shiny fusings.","Because merging now gives a sure way up, the shiny chance when fusing shards is lower: Silver 6% (was 8%), Gold 2% (was 3%), Diamond 0.7% (was 1.2%), Rainbow 0.25% (was 0.4%)."]]]},
   {v:"1.0.414",date:"2026-11-18",title:"Tidier commander inventory",groups:[["🎖️ Commander",["Inventory: each piece of gear in the bag is now a card of its own, with Equip on top, the comparison with what you wear underneath and the upgrade, spare, XP and auction buttons in one row. Before, the comparison and upgrade buttons were printed above the item they belonged to. Consumables and gear have their own headings, and the upgrade rules sit in one small note below."]]]},
@@ -23604,6 +23605,7 @@ const PAGE = `<!DOCTYPE html>
   body.noscroll .sidebtn, body.noscroll .herobtn { display: none !important; } /* no compass on top of popups */
   .demolish small { flex: 1; min-width: 140px; color: var(--muted); font-size: 12px; }
   .bagsub { margin: 14px 0 4px; font-size: 14px; }
+  .bagsub.first { margin-top: 4px; }
   .bagcard { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin: 6px 0; display: grid; gap: 6px; background: rgba(255,255,255,.35); }
   .bc-name > b { display: block; margin-bottom: 2px; }
   .bc-top { display: flex; align-items: flex-start; gap: 10px; } .bc-name { flex: 1; min-width: 0; }
@@ -34734,10 +34736,7 @@ function heroSheet(d) {
       var armedRs = heroRespecArm && Date.now() - heroRespecArm < 4000;
       h += '<div class="hrespec"><small>' + '🔄' + ' Reset all ' + spent + ' skill points · requires 1 uncommon Insight token (adventure drop: ~1 in 10 consumable finds)</small>' + '<button class="btn small ' + (armedRs ? "danger" : "ghost") + '" data-hero-respec="1">' + (armedRs ? "Sure? 🔄" : "🔄 Reset skills") + "</button></div>";
     }
-    h += '</div><h4 class="sidesub">Equipped</h4><div class="hgears">' + H.slots.map(function (s) { return heroGearHtml(H.gear[s.key], s.key, s.name); }).join("") + "</div>";
-    var gs = [];
-    for (var gk in H.gearStats) if (H.gearStats[gk] && gk !== "atk" && gk !== "def" && gk !== "atkPct" && gk !== "defPct" && gk !== "carry") gs.push(heroStatTxt(H.statInfo, gk, H.gearStats[gk]));
-    if (gs.length) h += '<p class="hint left gsum">From gear: ' + gs.join(" · ") + "</p>";
+    h += '</div>';
     if (!H.here && H.status === "home") {
       h += H.lockLeft > 0
         ? '<button class="btn small ghost" disabled>🚶 Can move again in ' + shortTime(H.lockLeft) + "</button>"
@@ -34757,6 +34756,10 @@ function heroSheet(d) {
       h += '</div><div class="mkquick"><button type="button" class="chipbtn" data-stash-q="fit">' + '📦' + ' What fits</button><button type="button" class="chipbtn" data-stash-q="half">½ Half</button><button type="button" class="chipbtn" data-stash-q="none">0 None</button></div>';
       h += '<button class="btn" data-hero-open-crate="1">Collect</button></div>';
     }
+    h += '<h4 class="bagsub first">Equipped</h4><div class="hgears">' + H.slots.map(function (s) { return heroGearHtml(H.gear[s.key], s.key, s.name); }).join("") + "</div>";
+    var gs = [];
+    for (var gk in H.gearStats) if (H.gearStats[gk] && gk !== "atk" && gk !== "def" && gk !== "atkPct" && gk !== "defPct" && gk !== "carry") gs.push(heroStatTxt(H.statInfo, gk, H.gearStats[gk]));
+    if (gs.length) h += '<p class="hint left gsum">From gear: ' + gs.join(" · ") + "</p>";
     var supplies=(H.consumables||[]).filter(function(x){return x.count>0;});
     var gear = H.bag.filter(function (x) { return x.kind !== "crate"; });
     if (supplies.length) {
