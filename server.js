@@ -14296,7 +14296,7 @@ function heroSkillLimit(h, k) {
 // A roll leans towards the quirks that fit the archetype. Rerolling is once per round and slot.
 const HERO_QUIRK_LEVEL = 5;
 const HERO_QUIRK2_LEVEL = 30;
-const HERO_QUIRK_FX = { atk: ["attack for the army it leads", 1], def: ["defense at home", 1], carry: ["carry", 1], xp: ["experience", 1], regen: ["health regeneration", 1], dmg: ["health lost in fights", -1], upkeep: ["food upkeep at home", -1], charge: ["Charge attack", 1] };
+const HERO_QUIRK_FX = { atk: ["attack for the army it leads", 1], def: ["defense at home", 1], carry: ["carry", 1], xp: ["experience", 1], regen: ["health regeneration", 1], dmg: ["health lost in fights", -1], upkeep: ["food upkeep at home", -1], trap: ["trap capacity while it is home", 1], charge: ["Charge attack", 1] };
 const HERO_QUIRKS = {
   glutton: { icon: "🍗", name: "Glutton", fx: { regen: 10, upkeep: 5 }, fits: ["quartermaster"] },
   stubborn: { icon: "🐂", name: "Stubborn", fx: { def: 5, regen: -10 }, fits: ["warlord"] },
@@ -14305,7 +14305,7 @@ const HERO_QUIRKS = {
   coward: { icon: "🐔", name: "Coward", fx: { atk: -5 }, up: "never falls in a lost fight: it runs with 1 health", fits: ["quartermaster"] },
   scavenger: { icon: "🎒", name: "Scavenger", fx: { carry: 10, atk: -3 }, fits: ["quartermaster", "explorer"] },
   bookworm: { icon: "📚", name: "Bookworm", fx: { xp: 10, def: -4 }, fits: ["explorer"] },
-  paranoid: { icon: "🪤", name: "Paranoid", fx: { def: 6, xp: -5 }, fits: ["warlord"] },
+  paranoid: { icon: "🪤", name: "Paranoid", fx: { trap: 10, atk: -3 }, fits: ["warlord"] },
   thick: { icon: "🦏", name: "Thick-skinned", fx: { dmg: -12, carry: -6 }, fits: ["explorer", "warlord"] },
 };
 function heroQuirkList(h) {
@@ -14319,7 +14319,7 @@ function hasQuirk(h, k) { return !!h && heroQuirkList(h).indexOf(k) >= 0; }
 function quirkScale(h) { return 1 + Math.min(1, Math.max(0, (h.level - HERO_QUIRK_LEVEL) / (HERO_MAX_LEVEL - HERO_QUIRK_LEVEL))) * 0.5; }
 // everything the quirks add up to, in percent (negative = a cost)
 function quirkFx(h) {
-  const t = { atk: 0, def: 0, carry: 0, xp: 0, regen: 0, dmg: 0, upkeep: 0, charge: 0 };
+  const t = { atk: 0, def: 0, carry: 0, xp: 0, regen: 0, dmg: 0, upkeep: 0, trap: 0, charge: 0 };
   if (!h) return t;
   const k = quirkScale(h);
   for (const q of heroQuirkList(h)) for (const f in HERO_QUIRKS[q].fx) t[f] += HERO_QUIRKS[q].fx[f] * k;
@@ -17179,7 +17179,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.428",date:"2026-11-18",title:"Quirks and traps, properly",groups:[["🎲 Commander quirks",["Nine quirks, each a real trade of numbers (for example Stubborn: +5% defense at home, −10% regeneration; Hothead: +4% attack, +10% health lost; Scavenger: +10% carry, −3% attack; Paranoid: +6% defense at home, −5% XP).","A second quirk slot opens at level 30. The numbers grow with the commander\u2019s level, up to +50% at level 100.","Rolls lean towards quirks that fit the archetype. Each quirk can be rerolled once per round, into one you do not have."]],["🪤 Traps",["The trap building now goes up to level 20 with 20 traps per level: 400 traps per building, on every server speed. Once one is maxed you can build another, and their traps add up.","Trapped troops stay until someone wins an attack on that colony. Raids free nobody, and the trapper can no longer let them go. A won attack frees all prisoners there, including other players\u2019 troops."]]]},
+  {v:"1.0.428",date:"2026-11-18",title:"Quirks and traps, properly",groups:[["🎲 Commander quirks",["Nine quirks, each a real trade of numbers (for example Stubborn: +5% defense at home, −10% regeneration; Hothead: +4% attack, +10% health lost; Scavenger: +10% carry, −3% attack; Paranoid: +10% trap capacity while home, −3% attack).","A second quirk slot opens at level 30. The numbers grow with the commander\u2019s level, up to +50% at level 100.","Rolls lean towards quirks that fit the archetype. Each quirk can be rerolled once per round, into one you do not have."]],["🪤 Traps",["The trap building now goes up to level 20 with 20 traps per level: 400 traps per building, on every server speed. Once one is maxed you can build another, and their traps add up.","Trapped troops stay until someone wins an attack on that colony. Raids free nobody, and the trapper can no longer let them go. A won attack frees all prisoners there, including other players\u2019 troops."]]]},
   {v:"1.0.427",date:"2026-11-18",title:"Permanent specialisations",groups:[["🏷️ Colonies",["A colony\u2019s specialisation can no longer be switched: once chosen, it stays for the life of the colony. The choice button now says it is permanent and asks for a second tap. Colonies that already have a specialisation keep it, and it is now locked."]]]},
   {v:"1.0.426",date:"2026-11-18",title:"Readable archetypes in the wiki",groups:[["📖 Wiki",["The Archetypes and Quirks cards now show one block per entry (skills and rules as short lists) instead of a squeezed table, so they read well on a phone."]]]},
   {v:"1.0.425",date:"2026-11-18",title:"Hunt health bar",groups:[["🐾 Hunt",["The opponent now has a health bar that empties (❤️ 581 / 680 HP, green, then yellow, then red) instead of a damage bar that fills. The Strike button shows how much health a hit takes away."]]]},
@@ -19380,8 +19380,11 @@ function setLoyalty(s, v, now) {
 // Catches ground troops before the fight, per level - scaled like storage
 // and carry capacity, so a trap building still holds a meaningful bite of
 // an attacking army on a faster server, not just its original x1 handful.
-function trapCap(s) {
-  return TRAP_PER_LEVEL * levelsOf(s, "trap").reduce((a, b) => a + b, 0);
+function trapCap(s, now) {
+  const base = TRAP_PER_LEVEL * levelsOf(s, "trap").reduce((a, b) => a + b, 0);
+  // 🪤 a Paranoid commander at home sets extra traps
+  const h = base && s._uid && s._cid ? heroDefending({ userId: s._uid, id: s._cid }, now || Date.now()) : null;
+  return h ? Math.round(base * (1 + quirkFx(h).trap / 100)) : base;
 }
 function trapUsed(s) {
   return (s.prisoners || []).reduce((n, p) => n + countUnits(p.t), 0);
@@ -19389,7 +19392,7 @@ function trapUsed(s) {
 // Before a fight: catch what fits. Changes "troops" and "survivors", not the owner's "away"
 function trapArmy(def, att, troops, survivors, atkTribe, T) {
   if (def.userId === att.userId) return null;
-  let free = trapCap(def.state) - trapUsed(def.state);
+  let free = trapCap(def.state, T) - trapUsed(def.state);
   if (free <= 0) return null;
   const keys = Object.keys(troops).filter((k) => troops[k] > 0 && atkTribe.units[k] && atkTribe.units[k].type === "ground");
   const ground = keys.reduce((n, k) => n + troops[k], 0);
@@ -37821,7 +37824,7 @@ function wikiMore(W, tab, cards) {
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
       "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps, so they don’t fight. Flyers pass over.",
-      "Prisoners stay in the traps, and their owner still feeds them. Nobody can let them go.",
+      "A 🪤 Paranoid commander adds to the traps while it is home and healthy. Prisoners stay in the traps, and their owner still feeds them. Nobody can let them go.",
       "A <b>won attack</b> (not a raid) on that colony frees <b>every</b> prisoner in it, yours or another player’s. They walk home.",
     ])));
     cards.push(wkCard("bombard", "💥", "Bombarding buildings", wkList([
