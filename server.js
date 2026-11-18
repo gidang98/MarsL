@@ -432,7 +432,8 @@ const COMBINED_ARMS_SHARE = 0.2;
 const SPY_DEPTH_TROOPS = { power: 3, ratio: 1.5 }; // see troops and helpers
 const SPY_DEPTH_BUILDINGS = { power: 10, ratio: 3 }; // also see all buildings
 const RESEARCH_COST = 3; // research costs 3x the unit's price
-const RESEARCH_TIME = 60; // ...and takes 60x its training time (a Human raider and all air units: about 4.9 h at lab level 5)
+const RESEARCH_TIME = 60 / 9; // ...and takes 6.7x its training time (a Human raider and all air units: about 33 min at lab level 5)
+const RESEARCH_RUSH_TIME = 9; // finishing research with Star Credits is priced as if it still took 9 times as long (the price of the old 60x research)
 const UPGRADE_COST = 1.2; // upgrade level 1 costs 1.2x the unit's price
 const UPGRADE_COST_GROWTH = 1.35;
 const UPGRADE_TIME = 2;
@@ -540,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.432";
+const GAME_VERSION = "1.0.433";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6123,7 +6124,7 @@ function snapshot(user, colony) {
       workshop: { level: levelOf(s, "workshop"), name: tribe.names.workshop[0], icon: tribe.names.workshop[1] },
     },
     hub: { level: levelOf(s, "hub"), name: tribe.names.hub[0], icon: tribe.names.hub[1] },
-    lab: { level: levelOf(s, "lab"), name: tribe.names.lab[0], icon: tribe.names.lab[1], job: s.labJob ? Object.assign(job(s.labJob, "Researching"), { rush: s.labJob.finishAt > now ? creditFinishCost(s.labJob.finishAt - now) : 0 }) : null },
+    lab: { level: levelOf(s, "lab"), name: tribe.names.lab[0], icon: tribe.names.lab[1], job: s.labJob ? Object.assign(job(s.labJob, "Researching"), { rush: s.labJob.finishAt > now ? creditFinishCost((s.labJob.finishAt - now) * RESEARCH_RUSH_TIME) : 0 }) : null },
     weaponry: {
       level: levelOf(s, "weaponry"),
       name: tribe.names.weaponry[0],
@@ -7460,7 +7461,7 @@ app.post("/api/rush-research", requireLogin, (req, res) => {
   withColony(req, res, (s, tribe) => {
     const now = Date.now();
     if (!s.labJob || s.labJob.finishAt <= now) return "No research is running";
-    const cost = creditFinishCost(s.labJob.finishAt - now);
+    const cost = creditFinishCost((s.labJob.finishAt - now) * RESEARCH_RUSH_TIME);
     commanderCollect(req.user.id, now);
     if (creditsOf(req.user.id) < cost) return "You need " + cost + " Star Credits for this (you have " + creditsOf(req.user.id) + ")";
     addCredits(req.user.id, -cost);
@@ -17042,7 +17043,7 @@ function wikiExtra() {
       atkBase: Math.round(HERO_ATK_BASE * speedScale()), atkLvl: Math.round(HERO_ATK_LVL * speedScale()), defBase: Math.round(HERO_DEF_BASE * speedScale()), defLvl: Math.round(HERO_DEF_LVL * speedScale()), soloSpeed: HERO_SOLO_SPEED, scale: speedScale(),
     },
     freeFinishMs: freeFinishMs(),
-    creditFinish: [0.25, 1, 2, 4, 8, 12, 24, 48].map((h) => [h, creditFinishCost(h * 3600000)]), creditMin: creditFinishMin(), creditSteps: CREDIT_FINISH_STEPS.map((x) => [x[0] === Infinity ? 0 : x[0], x[1]]),
+    creditFinish: [0.25, 1, 2, 4, 8, 12, 24, 48].map((h) => [h, creditFinishCost(h * 3600000)]), creditMin: creditFinishMin(), researchRush: RESEARCH_RUSH_TIME, creditSteps: CREDIT_FINISH_STEPS.map((x) => [x[0] === Infinity ? 0 : x[0], x[1]]),
     vac: wikiVacation(),
     adv: wikiAdventures(),
     conquest: wikiConquest(),
@@ -17262,6 +17263,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.433",date:"2026-11-18",title:"Shorter research, same rush price",groups:[["🔬 Research",["Research takes 9 times less time: 6.7 times a unit\u2019s training time instead of 60. A Human raider and all air units take about 33 minutes at lab level 5.","Finishing a research with Star Credits costs the same as before: it is priced as if the research still took 9 times as long."]]]},
   {v:"1.0.432",date:"2026-11-18",title:"Slightly fewer Star Credits from top commanders",groups:[["🎫 Star Credits",["The Banker, the epic, legendary and mythic commanders now earn about 12% fewer Star Credits per hour (for example Meowthulhu 12.2 instead of 13.9, Admiral Sparkle-Pants 8.8 instead of 10). Common and uncommon commanders are unchanged, and every commander still earns a different amount."]]]},
   {v:"1.0.431",date:"2026-11-18",title:"Research takes longer",groups:[["🔬 Research",["Research now takes 60 times the unit\u2019s training time (was 3). A Human raider and all air units take about 4.9 hours at lab level 5 instead of 15 minutes. Each lab level still makes research 10% faster, and the price in resources stays the same.","Finishing a research with Star Credits follows the same price per hour left as before, so it now costs more for the longer jobs. Research already running keeps its old end time."]]]},
   {v:"1.0.430",date:"2026-11-18",title:"Cheaper quick finishes",groups:[["🎫 Star Credits",["Finishing a job at once now costs at least 10 Star Credits on a \u00d71 server (was 45), so short jobs of up to about 13 minutes cost 10 and longer ones follow the same price per hour as before. Faster servers pay less, like before."]]]},
@@ -37777,7 +37779,7 @@ function wikiMore(W, tab, cards) {
         ["🕐 Overtime", "Once every " + dayLenText() + " in every colony, on any job", "−" + Bo.overtime + "% of the job, at most " + wkDur(Bo.overtimeMaxMs)],
         ["🏘️ Helping hands", "You <b>pick</b> which of your other colonies lend a hand (each needs a free build slot; the list shows their queue). The helper's slot stays taken until the helped job is finished or cancelled", "−" + Bo.hands + "% per colony"],
         ["⚡ Free finish", "A job that is being built, in its last " + wkDur(X.freeFinishMs) + " (3 min on a ×1 server, 1 min on ×10, shorter on faster servers), in the queue or by the commander’s crew. Tap <b>Finish</b> in the queue", "Finishes it at once"],
-        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew, and the running research in the lab (the ⚡ button on it). The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (10 on a ×1 server, less on faster ones); the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
+        ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew, and the running research in the lab (the ⚡ button on it; research is priced as if it took " + X.researchRush + " times as long, so it is dear for its length). The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (10 on a ×1 server, less on faster ones); the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
     }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job. The expansion building (hub) is the exception: it always takes its full time, with none of these speed-ups.")));
@@ -38358,7 +38360,7 @@ function wkFormulas(W, part) {
   ];
   parts.troops = [
     ["Upgrade level L", "price × " + F.upCost + " × " + F.upCostGrowth + "<sup>L−1</sup>, time × " + F.upTime + " × " + F.upTimeGrowth + "<sup>L−1</sup>, +" + C.upgrade + "% attack & defense per level"],
-    ["Research", "price × " + C.research + ", time × " + F.researchTime + ", " + "−" + Math.round((1 - F.lab) * 100) + "% per lab level"],
+    ["Research", "price × " + C.research + ", time × " + Math.round(F.researchTime * 10) / 10 + ", " + "−" + Math.round((1 - F.lab) * 100) + "% per lab level"],
     ["Training", less(F.barracks) + " per training-building level"],
     ["Upgrades", less(F.weaponry) + " per armory level"],
     ["Speed bonuses", "divide the time: +25% faster = time ÷ 1.25"],
