@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.415";
+const GAME_VERSION = "1.0.416";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17128,6 +17128,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.416",date:"2026-11-18",title:"Adventure count on the tab",groups:[["🎖️ Commander",["The Adventures tab shows a small number in its left corner with how many adventures are on the board."]]]},
   {v:"1.0.415",date:"2026-11-18",title:"Shiny tiers by merging",groups:[["🎖️ Commanders",["Two copies of the same commander with the same shiny tier can be made into one copy of the next tier (normal to Silver to Gold to Diamond to Rainbow). The new copy keeps the higher rank. A Rainbow commander therefore takes 16 plain copies, fewer with lucky shiny fusings.","Because merging now gives a sure way up, the shiny chance when fusing shards is lower: Silver 6% (was 8%), Gold 2% (was 3%), Diamond 0.7% (was 1.2%), Rainbow 0.25% (was 0.4%)."]]]},
   {v:"1.0.414",date:"2026-11-18",title:"Tidier commander inventory",groups:[["🎖️ Commander",["Inventory: each piece of gear in the bag is now a card of its own, with Equip on top, the comparison with what you wear underneath and the upgrade, spare, XP and auction buttons in one row. Before, the comparison and upgrade buttons were printed above the item they belonged to. Consumables and gear have their own headings, and the upgrade rules sit in one small note below."]]]},
   {v:"1.0.413",date:"2026-11-18",title:"Commander copies and commander auctions",groups:[["🎖️ Commanders",["Fusing shards now always makes a new commander, also when you already own that one. Copies of the same commander can be merged: their ranks add up (up to 5) and the better shiny tier stays. Shards no longer raise a rank by themselves, and the shop no longer stops at the top rank. Commanders you already have keep their rank."]],["🏛️ Auction",["Spare commanders can be sold in the auction (the active one cannot). The winner gets a commander of its own with the same rank and shiny tier. The auction tabs are now Browse, Sell and My auctions, with Gear, Commanders, Shards, Creatures and Supplies inside Sell."]]]},
@@ -24180,6 +24181,7 @@ const PAGE = `<!DOCTYPE html>
   .donelist span { font-size: 20px; }
   .subtabs.two { grid-template-columns: repeat(2, 1fr); }
   .subtabs .dot { position: absolute; top: 4px; right: 8px; }
+  .subtabs .dot.cnt { right: auto; left: 8px; background: var(--accent); }
   .subtabs.mini button { padding: 6px 4px; font-size: 13px; }
   .subtabs.mini button span { display: inline; font-size: 16px; margin-right: 4px; }
   .subtabs.mini button small { display: none; }
@@ -34705,7 +34707,7 @@ function heroSheet(d) {
     h += '<div class="hcred" title="Your active commander earns Star Credits all the time: they arrive on their own while you play, and while you are away they pile up here, up to ' + shortTime(C.capMs) + ' of production"><div class="hc-info"><span>🎫</span><div class="hc-num"><b>' + C.pending + " / " + C.cap + "</b><small>+" + Math.round(C.rate * 24 * 10) / 10 + "/day" + (C.full ? " · full" : "") + '</small></div></div><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + '>Collect</button><div class="hc-btns"><button class="btn small ghost" type="button" data-cmd-open="1" title="Your commanders and the shop">🎖️ ' + esc(C.name) + '</button><button class="btn small ghost" type="button" data-hunt-open="1" title="Fight for creatures">🐾 Hunt</button></div></div>';
   }
   var used = H.bag.length;
-  h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
+  h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.adventure && !H.adventure.on && H.adventure.board.length ? '<i class="dot cnt" title="Adventures on the board">' + H.adventure.board.length + "</i>" : "") + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
   if (heroTab === "adv") {
     h += advPanel(H);
   } else if (heroTab === "skills") {
