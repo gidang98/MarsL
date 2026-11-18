@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.411";
+const GAME_VERSION = "1.0.418";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -11064,6 +11064,7 @@ function auctionItem(a) {
 function auctionView(a, uid) {
   const item = auctionItem(a);
   if (item && item.kind === "creature" && CREATURES[item.key]) item.cash = CREATURES[item.key].cash; // what one of them earns in a hunt slot, per second
+  if (item && item.kind === "commander" && COMMANDERS[item.key]) { const d = COMMANDERS[item.key]; item.trait = commanderTraitText(d, item.rank, item.tier); item.rate = Math.round(d.rate * creditScale(item.rank) * 100) / 100; }
   return {
     id: a.id, item, seller: usernameOf(a.seller_id), mine: a.seller_id === uid,
     price: a.bidder_id ? a.bid : a.start_price, bids: a.bids, leading: a.bidder_id === uid,
@@ -11080,6 +11081,14 @@ function auctionDeliver(a, now) {
     const r = rosterOf(uid, now);
     if (!r || !COMMANDERS[lot.key]) return false;
     r.shards[lot.key] = (r.shards[lot.key] || 0) + lot.n;
+    db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
+    db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
+    return true;
+  }
+  if (lot.kind === "commander") { // a commander joins the roster as a card of its own
+    const r = rosterOf(uid, now);
+    if (!r || !COMMANDERS[lot.key]) return false;
+    r.cards.push({ id: Math.max.apply(null, r.cards.map((c) => c.id)) + 1, key: lot.key, rank: lot.rank || 1, tier: lot.tier || 0 });
     db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
     db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
     return true;
@@ -11149,6 +11158,7 @@ app.get("/api/auction", requireLogin, (req, res) => {
     items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
     creatures: (() => { const S = huntSync(uid, now); return S ? Object.keys(CREATURES).filter((k) => creatureSpare(S.hu, k) > 0).map((k) => ({ key: k, name: CREATURES[k].name, icon: CREATURES[k].icon, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, count: creatureSpare(S.hu, k) })) : []; })(),
     consumables: h ? Object.keys(HERO_CONSUMABLES).filter((k) => Math.floor(Number((h.consumables || {})[k]) || 0) > 0).map((k) => ({ key: k, name: HERO_CONSUMABLES[k].name, icon: HERO_CONSUMABLES[k].icon, text: HERO_CONSUMABLES[k].text, rarity: consumableRarity(k), count: Math.floor(Number(h.consumables[k]) || 0) })) : [],
+    commanders: (() => { const r = rosterOf(uid, now); return r ? r.cards.filter((c) => c.id !== r.active && COMMANDERS[c.key]).map((c) => { const d = COMMANDERS[c.key]; return { id: c.id, key: c.key, name: (c.tier ? SHINY[c.tier].name + " " : "") + d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, tier: c.tier || 0, trait: commanderTraitText(d, c.rank, c.tier), rate: Math.round(d.rate * creditScale(c.rank) * 100) / 100 }; }) : []; })(),
     huntFull: (() => { const S = huntSync(uid, now); return !!S && huntBagUsed(S.hu) >= HUNT_BAG; })(),
     shards: (() => { const r = rosterOf(uid, now); return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter && r && (r.shards[k] || 0) > 0).map((k) => ({ key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k] })); })(),
   });
@@ -11163,7 +11173,7 @@ app.post("/api/auction/list", requireLogin, (req, res) => {
   const b = req.body || {};
   const now = Date.now();
   const h = heroOf(uid, now);
-  if (!h && !b.shard && !b.creature) return res.status(400).json({ error: "You need a commander first" });
+  if (!h && !b.shard && !b.creature && !b.commander) return res.status(400).json({ error: "You need a commander first" });
   const price = Math.floor(Number(b.price));
   const hours = Number(b.hours);
   if (!(price >= 1 && price <= AUCTION_PRICE_MAX)) return res.status(400).json({ error: "Start price: 1 to " + AUCTION_PRICE_MAX + " " + CASH.name });
@@ -11178,6 +11188,15 @@ app.post("/api/auction/list", requireLogin, (req, res) => {
     h.consumables[key] = have - n;
     heroSave(uid, h);
     item = { kind: "consumable", id: crypto.randomBytes(4).toString("hex"), key, n, icon: def.icon, name: (n > 1 ? n + " × " : "") + def.name, rarity: consumableRarity(key) };
+  } else if (b.commander) { // a commander from the collection (not the active one)
+    const r = rosterOf(uid, now), card = r && r.cards.find((c) => c.id === Number(b.commander));
+    if (!card || !COMMANDERS[card.key]) return res.status(400).json({ error: "You do not own that commander" });
+    if (card.id === r.active) return res.status(400).json({ error: "The active commander is not for sale. Make another one active first" });
+    const d = COMMANDERS[card.key];
+    r.cards = r.cards.filter((c) => c.id !== card.id);
+    r.helpers = (r.helpers || []).filter((id) => id !== card.id);
+    db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), uid);
+    item = { kind: "commander", id: crypto.randomBytes(4).toString("hex"), key: card.key, rank: card.rank, tier: card.tier || 0, icon: d.icon, name: (card.tier ? SHINY[card.tier].name + " " : "") + d.name, rarity: d.rarity };
   } else if (b.creature) { // creatures from the hunt inventory
     const key = String(b.creature), n = Math.floor(Number(b.count));
     const S = huntSync(uid, now);
@@ -11212,7 +11231,7 @@ app.post("/api/auction/bid", requireLogin, (req, res) => {
   if (!a || a.ends_at <= now) return res.status(400).json({ error: "This auction is over" });
   if (a.seller_id === uid) return res.status(400).json({ error: "That is your own auction" });
   if (accountsLinked(a.seller_id, uid)) return res.status(400).json({ error: LINKED_MSG });
-  if (!["shard", "creature"].includes(JSON.parse(a.item).kind) && !heroOf(uid, now)) return res.status(400).json({ error: "You need a commander to receive the gear" });
+  if (!["shard", "creature", "commander"].includes(JSON.parse(a.item).kind) && !heroOf(uid, now)) return res.status(400).json({ error: "You need a commander to receive the gear" });
   const amount = Math.floor(Number(b.amount));
   const min = auctionMinBid(a);
   if (!(amount >= min)) return res.status(400).json({ error: "The lowest bid is " + min + " " + CASH.name });
@@ -14913,8 +14932,9 @@ function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1
 // ✨ shiny tiers for creatures and commanders: plain, silver, gold, diamond, rainbow. A tier multiplies strength
 // (a creature's HP and Space-Cash, a commander's effects and helper power). Star Credits are not multiplied.
 const SHINY = [{ id: "", name: "", mult: 1 }, { id: "s", name: "Silver", mult: 1.5 }, { id: "g", name: "Gold", mult: 2 }, { id: "d", name: "Diamond", mult: 2.5 }, { id: "r", name: "Rainbow", mult: 3 }];
+const TIER_MERGE_COPIES = 2; // copies of the same commander and tier that make one of the next tier
 const SHINY_CREATURE_CHANCE = [0.05, 0.02, 0.008, 0.003]; // per opponent: silver, gold, diamond, rainbow (7.1% in all)
-const SHINY_COMMANDER_CHANCE = [0.08, 0.03, 0.012, 0.004]; // per fusing of shards (12.6% in all)
+const SHINY_COMMANDER_CHANCE = [0.06, 0.02, 0.007, 0.0025]; // per fusing of shards (9.1% in all); two copies of one tier also merge up (TIER_MERGE_COPIES), so a lucky roll saves copies
 function rollShiny(chances, rnd) {
   let x = rnd(), acc = 0;
   for (let t = 4; t >= 1; t--) { acc += chances[t - 1]; if (x < acc) return t; }
@@ -15023,15 +15043,15 @@ function shopView(now, roster) {
   return {
     round, nextMs: (round + 1) * SHOP_RESTOCK_MS - now,
     stock: shopStock(round).map((k) => {
-      const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+      const d = COMMANDERS[k];
+      return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, need: SHARDS_PER_COMMANDER, left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0 };
     }),
     // the whole catalogue, rarest last: only the ones in stock can be bought
     all: (() => {
       const order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"], stock = shopStock(round);
       return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter).sort((x, y) => order.indexOf(COMMANDERS[x].rarity) - order.indexOf(COMMANDERS[y].rarity)).map((k) => {
-        const d = COMMANDERS[k], own = roster ? roster.cards.find((c) => c.key === k) : null;
-        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, effect: commanderTraitText(d, 1), quip: d.quip || "", offer: stock.includes(k), left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0, maxed: !!own && own.rank >= COMMANDER_MAX_RANK };
+        const d = COMMANDERS[k];
+        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, effect: commanderTraitText(d, 1), quip: d.quip || "", offer: stock.includes(k), left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0 };
       });
     })(),
   };
@@ -15047,8 +15067,7 @@ function commandersView(userId, now) {
       return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, tier: c.tier || 0, tierName: SHINY[c.tier || 0].name, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * creditScale(c.rank) * 100) / 100, trait: commanderTraitText(d, c.rank, c.tier), quip: d.quip || "", help: Math.round(HELPER_POWER[d.rarity] * helperScale(c.rank, c.tier) * 100) };
     }),
     shards: Object.keys(r.shards || {}).filter((k) => COMMANDERS[k] && r.shards[k] > 0).map((k) => {
-      const own = r.cards.find((c) => c.key === k);
-      return { key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k], need: SHARDS_PER_COMMANDER, maxed: !!own && own.rank >= COMMANDER_MAX_RANK, owned: !!own };
+      return { key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k], need: SHARDS_PER_COMMANDER };
     }),
   };
 }
@@ -15098,8 +15117,6 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     if ((r.bought.n[key] || 0) >= (shopStock(round).amt[key] || 0)) return res.status(400).json({ error: "You bought all you can of that this round" });
     const d = COMMANDERS[key], price = shardPrice(d, r);
     if (shardDayLeft(r, d.rarity, now) <= 0) return res.status(400).json({ error: "Daily limit reached: " + SHARD_DAY_CAP[d.rarity] + " " + d.rarity + " shards per day" });
-    const own = r.cards.find((c) => c.key === key);
-    if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
     if (cashOf(uid) < price) return res.status(400).json({ error: "You need " + price + " " + CASH.name });
     addCash(uid, -price);
     r.shards[key] = (r.shards[key] || 0) + 1;
@@ -15115,16 +15132,35 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     const d = COMMANDERS[key];
     if (!d || d.starter) return res.status(400).json({ error: "Unknown commander" });
     if ((r.shards[key] || 0) < SHARDS_PER_COMMANDER) return res.status(400).json({ error: "You need " + SHARDS_PER_COMMANDER + " shards" });
-    const own = r.cards.find((c) => c.key === key);
-    if (own && own.rank >= COMMANDER_MAX_RANK) return res.status(400).json({ error: d.name + " is already at the top rank" });
     r.shards[key] -= SHARDS_PER_COMMANDER;
-    const shiny = rollShiny(shinyChances(SHINY_COMMANDER_CHANCE), Math.random); // a fusing can make it shiny; a better tier replaces a lower one, never the other way
-    let got = shiny;
-    if (own) { own.rank++; if (shiny > (own.tier || 0)) own.tier = shiny; else got = 0; }
-    else r.cards.push({ id: Math.max.apply(null, r.cards.map((c) => c.id)) + 1, key, rank: 1, tier: shiny });
+    const shiny = rollShiny(shinyChances(SHINY_COMMANDER_CHANCE), Math.random); // every fusing makes a new commander of its own, and can make it shiny
+    r.cards.push({ id: Math.max.apply(null, r.cards.map((c) => c.id)) + 1, key, rank: 1, tier: shiny });
     save();
-    if (own && own.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key, rank: own.rank, tier: own.tier || 0 }; heroSave(uid, h); } }
-    shinyGot = got;
+    shinyGot = shiny;
+  } else if (b.action === "merge") { // a spare copy joins another copy of the same commander: their ranks add up (top rank 5), the better shiny tier stays
+    const from = r.cards.find((c) => c.id === Number(b.id)), into = r.cards.find((c) => c.id === Number(b.into));
+    if (!from || !into || from.id === into.id || from.key !== into.key) return res.status(400).json({ error: "Pick two copies of the same commander" });
+    if (from.id === r.active) return res.status(400).json({ error: "The active commander cannot be merged away. Make another copy active first" });
+    if (from.rank + into.rank > COMMANDER_MAX_RANK) return res.status(400).json({ error: "Together they would pass the top rank (" + COMMANDER_MAX_RANK + ")" });
+    into.rank += from.rank;
+    if ((from.tier || 0) > (into.tier || 0)) into.tier = from.tier;
+    r.cards = r.cards.filter((c) => c.id !== from.id);
+    r.helpers = (r.helpers || []).filter((id) => id !== from.id);
+    save();
+    if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier || 0 }; heroSave(uid, h); } }
+  } else if (b.action === "upgrade") { // two copies of one commander with the same shiny tier become one of the next tier (rank: the higher of the two)
+    const from = r.cards.find((c) => c.id === Number(b.id)), into = r.cards.find((c) => c.id === Number(b.into));
+    if (!from || !into || from.id === into.id || from.key !== into.key) return res.status(400).json({ error: "Pick two copies of the same commander" });
+    if ((from.tier || 0) !== (into.tier || 0)) return res.status(400).json({ error: "Both copies need the same shiny tier" });
+    if ((into.tier || 0) >= SHINY.length - 1) return res.status(400).json({ error: "Rainbow is the top tier" });
+    if (from.id === r.active) return res.status(400).json({ error: "The active commander cannot be used up. Make another copy active first" });
+    into.tier = (into.tier || 0) + 1;
+    into.rank = Math.max(into.rank, from.rank);
+    shinyGot = into.tier;
+    r.cards = r.cards.filter((c) => c.id !== from.id);
+    r.helpers = (r.helpers || []).filter((id) => id !== from.id);
+    save();
+    if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier }; heroSave(uid, h); } }
   } else return res.status(400).json({ error: "Unknown action" });
   res.json({ ok: true, shiny: shinyGot });
 });
@@ -17092,6 +17128,13 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.418",date:"2026-11-18",title:"Compact inventory",groups:[["🎖️ Commander",["Inventory: supplies are now small chips with their count (tap one to read what it does and use it). Gear in the bag is one line each, best first, showing what changes against what you wear; tap a line for its full stats and the upgrade, XP and auction buttons. With gear in more than one slot, filter chips by slot appear above the list."]]]},
+  {v:"1.0.417",date:"2026-11-18",title:"Equipped gear in the inventory",groups:[["🎖️ Commander",["The equipped gear and the stats it adds now sit at the top of the Inventory tab, right above the supplies and the gear in your bag, so you can compare and swap in one place. The Skills tab keeps only skills, quirk and stance."]]]},
+  {v:"1.0.416",date:"2026-11-18",title:"Adventure count on the tab",groups:[["🎖️ Commander",["The Adventures tab shows a small number in its left corner with how many adventures are on the board."]]]},
+  {v:"1.0.415",date:"2026-11-18",title:"Shiny tiers by merging",groups:[["🎖️ Commanders",["Two copies of the same commander with the same shiny tier can be made into one copy of the next tier (normal to Silver to Gold to Diamond to Rainbow). The new copy keeps the higher rank. A Rainbow commander therefore takes 16 plain copies, fewer with lucky shiny fusings.","Because merging now gives a sure way up, the shiny chance when fusing shards is lower: Silver 6% (was 8%), Gold 2% (was 3%), Diamond 0.7% (was 1.2%), Rainbow 0.25% (was 0.4%)."]]]},
+  {v:"1.0.414",date:"2026-11-18",title:"Tidier commander inventory",groups:[["🎖️ Commander",["Inventory: each piece of gear in the bag is now a card of its own, with Equip on top, the comparison with what you wear underneath and the upgrade, spare, XP and auction buttons in one row. Before, the comparison and upgrade buttons were printed above the item they belonged to. Consumables and gear have their own headings, and the upgrade rules sit in one small note below."]]]},
+  {v:"1.0.413",date:"2026-11-18",title:"Commander copies and commander auctions",groups:[["🎖️ Commanders",["Fusing shards now always makes a new commander, also when you already own that one. Copies of the same commander can be merged: their ranks add up (up to 5) and the better shiny tier stays. Shards no longer raise a rank by themselves, and the shop no longer stops at the top rank. Commanders you already have keep their rank."]],["🏛️ Auction",["Spare commanders can be sold in the auction (the active one cannot). The winner gets a commander of its own with the same rank and shiny tier. The auction tabs are now Browse, Sell and My auctions, with Gear, Commanders, Shards, Creatures and Supplies inside Sell."]]]},
+  {v:"1.0.412",date:"2026-11-18",title:"Tidier auction rows",groups:[["🏛️ Auction",["Each auction row now puts the name, rarity, production and seller on separate lines instead of running them together, and the right side shows the price with one line for time left and bids."]]]},
   {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]],["🏛️ Auction",["Creatures in the auction now show how much Space-Cash a second each one earns.", "Your commander’s supplies (field dressings, medkits, field journals, recovery kits and Insight tokens) can now go to auction too, in a new Sell supplies tab. The winner gets them straight into their commander’s supplies; supplies nobody bids on come back to you."]],["🛒 Shard shop",["Legendary and Mythic commanders are much rarer in the shop: a legendary one turns up in about 1 in 60 restocks (it was about 1 in 20) and a Mythic one in about 1 in 180 (it was about 1 in 55). Rare and epic commanders show up more often instead (rare in 40% of restocks, epic in 23%). Offers now hold 1 to 3 shards for common and uncommon commanders and 1 to 2 for rare, epic, legendary and Mythic ones (epic offers held 1 before).","Legendary shards can now be bought 6 times and Mythic shards 3 times per day and player. Checking the shop every 5 minutes no longer gets you the rarest commanders in a few weeks. Once the limit is reached, the offer says so; the next day it opens again."]],["🏢 Expansion buildings",["The expansion building (the hub, for example the Nest Bureau) can no longer be sped up: no overtime, helping hands, alliance help, tribe power, free finish or Star Credits. It always takes its full time. The permanent build-speed bonuses such as the HQ still apply."]]]},
   {v:"1.0.410",date:"2026-11-18",title:"Time away, in two steps",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first hour, then half speed for the next 6 hours, nothing after 7 hours. At most 4 hours of income pile up, as before; it just takes 7 hours away to get there.","After a longer time away, your Star Credits wait in the commander pile instead of being paid out in the background. Open the commander page, see the pile filled and tap Collect (the toast shows how many you got). While you play they still flow in on their own.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
   {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
@@ -23562,6 +23605,21 @@ const PAGE = `<!DOCTYPE html>
   .demolish { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
   body.noscroll .sidebtn, body.noscroll .herobtn { display: none !important; } /* no compass on top of popups */
   .demolish small { flex: 1; min-width: 140px; color: var(--muted); font-size: 12px; }
+  .bagsub { margin: 14px 0 4px; font-size: 14px; }
+  .bagsub.first { margin-top: 4px; }
+  .bagcard { border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; margin: 5px 0; display: grid; gap: 6px; background: rgba(255,255,255,.35); }
+  .bc-name > b { display: block; margin-bottom: 2px; }
+  .bc-top { display: flex; align-items: center; gap: 10px; }
+  .bc-name { flex: 1; min-width: 0; display: grid; gap: 1px; text-align: left; background: none; border: 0; padding: 2px 0; font: inherit; color: inherit; cursor: pointer; }
+  .bc-name b { display: block; margin: 0; } .bc-name .bc-cmp { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bagcard.open .bc-name .bc-cmp { white-space: normal; }
+  .cchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+  .cchip { border: 1px solid var(--line); background: rgba(255,255,255,.45); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; color: inherit; cursor: pointer; }
+  .cchip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cpick { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.35); margin-bottom: 6px; } .cpick small { flex: 1; color: var(--muted); }
+  .bc-cmp { margin: 0; font-size: 12px; color: var(--muted); } .bc-cmp.warn { color: #b0562b; }
+  .bc-acts { display: flex; gap: 6px; flex-wrap: wrap; } .bc-acts .btn { flex: 0 1 auto; }
+  .bagnote { font-size: 11px; opacity: .8; }
   .stayrow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
   .stayrow > div { flex: 1; min-width: 0; }
   .stayrow small { display: block; color: var(--muted); font-size: 12px; }
@@ -24133,6 +24191,7 @@ const PAGE = `<!DOCTYPE html>
   .donelist span { font-size: 20px; }
   .subtabs.two { grid-template-columns: repeat(2, 1fr); }
   .subtabs .dot { position: absolute; top: 4px; right: 8px; }
+  .subtabs .dot.cnt { right: auto; left: 8px; background: var(--accent); }
   .subtabs.mini button { padding: 6px 4px; font-size: 13px; }
   .subtabs.mini button span { display: inline; font-size: 16px; margin-right: 4px; }
   .subtabs.mini button small { display: none; }
@@ -25620,10 +25679,15 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .relic-badge { cursor: pointer; }
 /* 1.0.377 gear auction */
 .auc-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+.auc-tabs.sub { margin-top: -2px; }
 .auc-row { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; margin-bottom: 6px; }
 .auc-row.lead { border-color: #2f9e6e; background: rgba(47, 158, 110, .1); }
 .auc-row.mine { border-color: #c9a227; background: rgba(201, 162, 39, .08); }
-.auc-item { min-width: 0; flex: 1; }
+.auc-item { min-width: 0; flex: 1; display: grid; gap: 2px; align-content: start; }
+.auc-item small { font-size: 12px; opacity: .8; }
+.auc-item .auc-by { opacity: .6; }
+.auc-side { flex: none; }
+.auc-side > b { font-size: 15px; }
 .auc-side { display: grid; gap: 3px; justify-items: end; text-align: right; }
 .auc-side small { font-size: 12px; opacity: .85; }
 .auc-side .ok { color: #2f9e6e; opacity: 1; }
@@ -34575,6 +34639,7 @@ function loadSitting(after) {
   fetch("/api/sitting").then(function (r) { return r.json(); }).then(function (a) { sittingInfo = a.error ? null : a; if (after) after(); });
 }
 var heroScrapArm = { id: "", at: 0 };
+var heroBagOpen = 0, heroBagFilter = "", heroConsPick = ""; // inventory: the gear line that is open, the slot filter, the supply picked
 var heroNameEdit = null;
 var heroTab = "skills";
 var heroTake = {}, heroNeed = {};
@@ -34653,7 +34718,7 @@ function heroSheet(d) {
     h += '<div class="hcred" title="Your active commander earns Star Credits all the time: they arrive on their own while you play, and while you are away they pile up here, up to ' + shortTime(C.capMs) + ' of production"><div class="hc-info"><span>🎫</span><div class="hc-num"><b>' + C.pending + " / " + C.cap + "</b><small>+" + Math.round(C.rate * 24 * 10) / 10 + "/day" + (C.full ? " · full" : "") + '</small></div></div><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + '>Collect</button><div class="hc-btns"><button class="btn small ghost" type="button" data-cmd-open="1" title="Your commanders and the shop">🎖️ ' + esc(C.name) + '</button><button class="btn small ghost" type="button" data-hunt-open="1" title="Fight for creatures">🐾 Hunt</button></div></div>';
   }
   var used = H.bag.length;
-  h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
+  h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.adventure && !H.adventure.on && H.adventure.board.length ? '<i class="dot cnt" title="Adventures on the board">' + H.adventure.board.length + "</i>" : "") + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
   if (heroTab === "adv") {
     h += advPanel(H);
   } else if (heroTab === "skills") {
@@ -34680,10 +34745,7 @@ function heroSheet(d) {
       var armedRs = heroRespecArm && Date.now() - heroRespecArm < 4000;
       h += '<div class="hrespec"><small>' + '🔄' + ' Reset all ' + spent + ' skill points · requires 1 uncommon Insight token (adventure drop: ~1 in 10 consumable finds)</small>' + '<button class="btn small ' + (armedRs ? "danger" : "ghost") + '" data-hero-respec="1">' + (armedRs ? "Sure? 🔄" : "🔄 Reset skills") + "</button></div>";
     }
-    h += '</div><h4 class="sidesub">Equipped</h4><div class="hgears">' + H.slots.map(function (s) { return heroGearHtml(H.gear[s.key], s.key, s.name); }).join("") + "</div>";
-    var gs = [];
-    for (var gk in H.gearStats) if (H.gearStats[gk] && gk !== "atk" && gk !== "def" && gk !== "atkPct" && gk !== "defPct" && gk !== "carry") gs.push(heroStatTxt(H.statInfo, gk, H.gearStats[gk]));
-    if (gs.length) h += '<p class="hint left gsum">From gear: ' + gs.join(" · ") + "</p>";
+    h += '</div>';
     if (!H.here && H.status === "home") {
       h += H.lockLeft > 0
         ? '<button class="btn small ghost" disabled>🚶 Can move again in ' + shortTime(H.lockLeft) + "</button>"
@@ -34703,22 +34765,45 @@ function heroSheet(d) {
       h += '</div><div class="mkquick"><button type="button" class="chipbtn" data-stash-q="fit">' + '📦' + ' What fits</button><button type="button" class="chipbtn" data-stash-q="half">½ Half</button><button type="button" class="chipbtn" data-stash-q="none">0 None</button></div>';
       h += '<button class="btn" data-hero-open-crate="1">Collect</button></div>';
     }
-    h+='<p class="hint">Gear upgrades: +8% base stats per rank, maximum +5. Duplicate upgrades consume an unupgraded item of the same slot and rarity. Cosmetic finds: '+esc((H.cosmetics||[]).join(', ')||'none')+' · Star Metal: '+(H.starMetal||0)+'</p>';
-    h+='<h4>Consumables</h4>';
+    h += '<h4 class="bagsub first">Equipped</h4><div class="hgears">' + H.slots.map(function (s) { return heroGearHtml(H.gear[s.key], s.key, s.name); }).join("") + "</div>";
+    var gs = [];
+    for (var gk in H.gearStats) if (H.gearStats[gk] && gk !== "atk" && gk !== "def" && gk !== "atkPct" && gk !== "defPct" && gk !== "carry") gs.push(heroStatTxt(H.statInfo, gk, H.gearStats[gk]));
+    if (gs.length) h += '<p class="hint left gsum">From gear: ' + gs.join(" · ") + "</p>";
     var supplies=(H.consumables||[]).filter(function(x){return x.count>0;});
-    if(!supplies.length)h+='<p class="hint left">Find healing supplies, field journals and recovery kits on adventures.</p>';
-    supplies.forEach(function(x){h+='<div class="stayrow"><div><b>'+esc(x.icon)+' '+esc(x.name)+' ×'+x.count+'</b><small style="display:block">'+esc(x.text)+'</small></div>'+(x.key==='respec'?'<span class="tag">Used for reset</span>':'<button class="btn small ghost" data-hero-consume="'+esc(x.key)+'">Use</button>')+'</div>';});
     var gear = H.bag.filter(function (x) { return x.kind !== "crate"; });
-    gear.forEach(function (it) {
+    if (supplies.length) { // supplies as small chips: tap one to see what it does and use it
+      var pickC = supplies.filter(function (x) { return x.key === heroConsPick; })[0] || null;
+      h += '<h4 class="bagsub">Consumables · ' + supplies.reduce(function (n, x) { return n + x.count; }, 0) + '</h4><div class="cchips">' + supplies.map(function (x) {
+        return '<button type="button" class="cchip' + (pickC && pickC.key === x.key ? " on" : "") + '" data-cons-pick="' + esc(x.key) + '" title="' + esc(x.text) + '">' + esc(x.icon) + " " + esc(x.name) + " <b>×" + x.count + "</b></button>";
+      }).join("") + "</div>";
+      if (pickC) h += '<div class="cpick"><small>' + esc(pickC.text) + "</small>" + (pickC.key === "respec" ? '<span class="tag">Used for reset</span>' : '<button class="btn small" data-hero-consume="' + esc(pickC.key) + '">Use</button>') + "</div>";
+    }
+    if (gear.length) { // gear: one line each, sorted best first; tap a line for the full stats and the upgrade options
+      var slotsIn = H.slots.filter(function (sl) { return gear.some(function (g) { return g.slot === sl.key; }); });
+      if (heroBagFilter && !slotsIn.some(function (sl) { return sl.key === heroBagFilter; })) heroBagFilter = "";
+      h += '<h4 class="bagsub">Gear in your bag · ' + gear.length + "</h4>";
+      if (slotsIn.length > 1) h += '<div class="cchips">' + [{ key: "", name: "All" }].concat(slotsIn).map(function (sl) {
+        var n = sl.key ? gear.filter(function (g) { return g.slot === sl.key; }).length : gear.length;
+        return '<button type="button" class="cchip' + (heroBagFilter === sl.key ? " on" : "") + '" data-bag-filter="' + sl.key + '">' + esc(sl.name) + " <b>" + n + "</b></button>";
+      }).join("") + "</div>";
+    }
+    gear.slice().sort(function (a, b) { return b.tier - a.tier || (b.rank || 0) - (a.rank || 0); }).filter(function (g) { return !heroBagFilter || g.slot === heroBagFilter; }).forEach(function (it) {
       var equipped=H.gear[it.slot],diffs=Object.keys(it.stats||{}).map(function(k){var delta=it.stats[k]-((equipped&&equipped.stats[k])||0);return delta?((delta>0?'+':'')+Math.round(delta*100)/100+' '+(H.statInfo[k]?trStr(H.statInfo[k].name):k)):'';}).filter(Boolean);
       var down=Object.keys((equipped&&equipped.stats)||{}).filter(function(k){return !it.stats[k];}).map(function(k){return '-'+equipped.stats[k]+' '+trStr(H.statInfo[k].name);});
-      h+='<small>'+(!equipped?'Empty slot · upgrade':down.length||diffs.some(function(x){return x[0]==='-';})?'Trade-off':'Upgrade or equal')+' · '+esc(diffs.concat(down).join(' · '))+'</small>';
-      if((it.rank||0)<5)h+='<div><button class="btn small ghost" data-hero-upgrade="'+it.id+'">Upgrade +'+((it.rank||0)+1)+' · 💲 '+Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate">Use duplicate · 💲 '+Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale*.35)+'</button></div>';
-      if(H.starMetal>0&&(it.rank||0)<5)h+='<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">Upgrade with 1 Star Metal</button>';
+      var worse = down.length || diffs.some(function(x){return x[0]==='-';});
+      var open = String(heroBagOpen) === String(it.id);
       var armedScrap = heroScrapArm.id === it.id && Date.now() - heroScrapArm.at < 4000;
-      h += '<div class="stayrow"><div><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + "</div>";
-      h += '<button class="btn small" data-hero-equip="' + it.id + '">Equip</button><button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + '</button><button class="btn small ghost" data-auction="sell" title="Sell at auction">🏛️</button></div>';
+      var cost = Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale);
+      h += '<div class="bagcard' + (open ? " open" : "") + '"><div class="bc-top"><button type="button" class="bc-name" data-bag-open="' + it.id + '"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + '</span></b><small class="bc-cmp' + (worse ? " warn" : "") + '">' + (!equipped ? "Empty slot" : worse ? "Trade-off" : "Better or equal") + (diffs.length || down.length ? " · " + esc(diffs.concat(down).join(" · ")) : "") + '</small></button><button class="btn small" data-hero-equip="' + it.id + '">Equip</button></div>';
+      if (open) {
+        h += heroGearLine(it, true) + '<div class="bc-acts">';
+        if ((it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+'">⬆️ +'+((it.rank||0)+1)+' · 💲 '+shortNum(cost)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate" title="Consumes an unupgraded item of the same slot and rarity">⬆️ With a spare · 💲 '+shortNum(Math.round(cost*.35))+'</button>';
+        if (H.starMetal > 0 && (it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+':material">⬆️ 1 Star Metal</button>';
+        h += '<button class="btn small ' + (armedScrap ? "danger" : "ghost") + '" data-hero-scrap="' + it.id + '">' + (armedScrap ? "Sure? ♻️" : "♻️ XP") + '</button><button class="btn small ghost" data-auction="sell" title="Sell at auction">🏛️</button></div>';
+      }
+      h += "</div>";
     });
+    if (gear.length || (H.cosmetics || []).length || H.starMetal) h += '<p class="hint left bagnote">Upgrades: +8% base stats per rank, up to +5. Cosmetic finds: ' + esc((H.cosmetics||[]).join(', ')||'none') + ' · Star Metal: ' + (H.starMetal||0) + "</p>";
     if (!H.bag.length) h += '<p class="empty">Empty. Lead an attack on a monster camp: its bounty and gear end up here.</p>';
     else if (H.level < 4) h += '<p class="hint left">Collect puts the bounty into ' + esc(H.stashTo || H.home) + ", the colony you are looking at. Whatever doesn’t fit stays here.</p>";
   }
@@ -37585,7 +37670,8 @@ function wikiMore(W, tab, cards) {
       "🛒 The <b>shard shop</b> offers " + Ro.offers + " commanders and restocks every " + wkDur(Ro.restockMs) + ". Shards cost 💲 Space-Cash (rarer is dearer and shows up less often) and every offer holds a different number of shards: " + Ro.buyAmount.common[0] + " to " + Ro.buyAmount.common[1] + " for a common commander, " + Ro.buyAmount.uncommon[0] + " to " + Ro.buyAmount.uncommon[1] + " for an uncommon one and " + Ro.buyAmount.rare[0] + " to " + Ro.buyAmount.rare[1] + " for rare, epic, legendary and Mythic ones (each player can buy that many per offer, and an offer is gone at the next restock). Legendary shards can be bought " + Ro.dayCap.legendary + " times and Mythic ones " + Ro.dayCap.mythic + " times per " + dayLenText() + " and player, however often you check. " + Ro.shards + " shards fuse into a commander, or raise its rank (up to " + Ro.maxRank + ") if you own it.",
       "🐾 In the <b>hunt</b> a new opponent appears every " + wkDur(Ro.huntMs) + ". Your commander strikes by itself for " + Ro.auto + " times its attack over the window (helpers add to that), and Strike adds a little extra (only its own attack counts, no helpers). So rarer creatures need a stronger commander: level up, spend skill points on 💪 Strength, wear better gear and put strong commanders in the helper slots. The table shows the attack that catches each one without striking; striking about every 20 seconds adds roughly half as much again. Reduce its HP to 0 before the next one comes and it joins your creature collection. Every rarity has several creatures: the common ones of a tier are weaker and pay less, the scarce ones are tougher and pay more (see the table). While you are away up to " + Ro.backHours + " h of fights are worked out when you return: only auto strikes, and " + Ro.offline + "% of the opponents show up.",
       "💲 Put up to " + Ro.slots + " creatures in slots: each earns Space-Cash every second, so your balance climbs while you watch (time away counts in full for the first hour and at half speed for the next 6). Space-Cash pays for shards, gear upgrades and the auction.",
-      "✨ <b>Shiny</b> creatures: every opponent has a small chance to come as " + Ro.shiny.map(function (t) { return "<b>" + t.name + "</b> (×" + t.mult + ", " + t.creature + "%)"; }).join(", ") + ". A shiny has " + "that many times the HP and pays that many times the Space-Cash, so it needs a stronger commander but earns far more in a slot. Shiny catches are never auto-sold, and with a full inventory a shiny is sold on the spot instead of getting away. Commanders can turn shiny too: every time shards are fused there is a chance of " + Ro.shiny.map(function (t) { return t.name + " " + t.commander + "%"; }).join(", ") + ". A shiny commander has that many times the effects and helper power (Star Credits stay the same). Fusing a commander you already own can only raise its tier, never lower it.",
+      "✨ <b>Shiny</b> creatures: every opponent has a small chance to come as " + Ro.shiny.map(function (t) { return "<b>" + t.name + "</b> (×" + t.mult + ", " + t.creature + "%)"; }).join(", ") + ". A shiny has " + "that many times the HP and pays that many times the Space-Cash, so it needs a stronger commander but earns far more in a slot. Shiny catches are never auto-sold, and with a full inventory a shiny is sold on the spot instead of getting away. Commanders can turn shiny too: every time shards are fused there is a chance of " + Ro.shiny.map(function (t) { return t.name + " " + t.commander + "%"; }).join(", ") + ". A shiny commander has that many times the effects and helper power (Star Credits stay the same). ",
+      "🎖️ Every fusing makes a <b>new commander</b>, also when you already own that one, so you can hold several copies. A spare copy can be <b>merged</b> into another copy of the same commander: their ranks add up (top rank " + Ro.maxRank + ") and the better shiny tier stays. Two copies of the same commander with the same shiny tier can also be made into <b>one copy of the next tier</b> (normal → Silver → Gold → Diamond → Rainbow, so 16 plain copies make a Rainbow one; the new copy keeps the higher rank). The active commander cannot be used up. Spare commanders can also be sold in the 🏛️ Auction; the winner gets one with its rank and shiny tier.",
       "🍀 <b>Hunt luck</b> grows with the acts, just like the monster camps do: from Discovery on it is ×" + Ro.luck.slice(2).join(", ×") + " (Discovery, Storm Season, Relic Hunt, Aurora). Every rarity above common gets that much more weight (opponents above common go from about a third of all to about half in the Aurora), the shiny chances above are multiplied the same way (for creatures and for fusing commanders), and while you are away " + Ro.spawnAct.slice(2).map(function (x) { return "+" + x; }).join(", ") + " points more of the opponents come.",
       "💰 Your <b>inventory</b> holds " + Ro.bag + " creatures; a creature in a slot leaves the inventory until you take it out. Press <b>Sell</b> to pick which to sell: each fetches " + Math.round(Ro.sell / 60) + " minutes of its own income. Turn on <b>auto-sell</b> for any rarity and new catches of it are sold on the spot. If the inventory is full, new catches get away, so sell spares or use auto-sell. Slotted creatures are never sold.",
       "🎖️ When your commander leads an attack or raid on a colony it earns <b>xp</b> by the enemy units killed: " + Ro.killXp + " per unit. Staying home earns nothing.",
@@ -38265,26 +38351,33 @@ function commanderSheet() {
   h += '<div class="sheet-head"><span class="hi">🎖️</span><div><h3>Commanders</h3><b>💲 ' + shortNum(C.cash) + " Space-Cash · 🎫 " + shortNum(C.credits) + " Star Credits</b></div></div>";
   h += '<div class="auc-tabs">' + [["mine", "Collection · " + C.cards.length], ["shop", "Shard shop"]].map(function (t) { return '<button class="btn small ' + (cmd.tab === t[0] ? "" : "ghost") + '" data-cmd-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (cmd.tab === "shop") {
-    h += '<p class="hint left">New offers in ⏱ ' + cdSpan(C.shop.nextMs - (Date.now() - cmd.at), "cmd") + ". Shards cost Space-Cash. " + C.shop.stock[0].need + " shards of one commander fuse into it, or raise its rank if you already own it.</p>";
+    h += '<p class="hint left">New offers in ⏱ ' + cdSpan(C.shop.nextMs - (Date.now() - cmd.at), "cmd") + ". Shards cost Space-Cash. " + C.shop.stock[0].need + " shards of one commander fuse into a new copy of it. Spare copies can be merged to raise a rank, or sold in the auction.</p>";
     C.shop.all.forEach(function (o) {
-      var buy = o.offer && !o.maxed && o.left > 0;
+      var buy = o.offer && o.left > 0;
       h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " · " + o.shards + "/" + C.shop.stock[0].need + "</small></b><small title='" + esc(o.quip) + "'>" + esc(o.effect) + "</small></div>";
-      h += o.maxed ? "<small>top rank</small>" : !o.offer ? "<small>not in stock · 💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>" + (o.capped ? "daily limit reached" : "sold out") + "</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.total > 1 ? " · " + o.left + " left" : "") + "</button>";
+      h += !o.offer ? "<small>not in stock · 💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>" + (o.capped ? "daily limit reached" : "sold out") + "</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.total > 1 ? " · " + o.left + " left" : "") + "</button>";
       h += "</div>";
     });
   } else {
     if (C.swapBlock) h += '<p class="hint left">' + esc(C.swapBlock) + "</p>";
-    C.cards.forEach(function (c) {
+    var firstAt = {};
+    C.cards.forEach(function (c, i) { if (firstAt[c.key] === undefined) firstAt[c.key] = i; });
+    var sorted = C.cards.slice().sort(function (a, b) { return firstAt[a.key] - firstAt[b.key] || b.rank - a.rank || (b.tier || 0) - (a.tier || 0); });
+    sorted.forEach(function (c) {
       var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0;
+      var up = null; // a copy of the same shiny tier: together they become one of the next tier
+      C.cards.forEach(function (o) { if (o.id !== c.id && o.key === c.key && (o.tier || 0) === (c.tier || 0) && (c.tier || 0) < SHINY_NAMES.length - 1 && (!up || o.rank > up.rank)) up = o; });
+      var into = null; // the copy this one can join without passing the top rank
+      C.cards.forEach(function (o) { if (o.id !== c.id && o.key === c.key && o.rank + c.rank <= c.maxRank && (!into || o.rank > into.rank)) into = o; });
       h += '<div class="cmd-row card' + (on ? " on" : "") + (c.tier ? " sh-" + c.tier : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + (c.tier ? '<i class="sh-t' + c.tier + '">' + c.tierName + "</i> " : "") + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + Math.round(c.rate * 24 * 10) / 10 + "/day · helper +" + c.help + "% attack</small>" + (c.quip ? '<small class="quip">“' + esc(c.quip) + "”</small>" : "") + "</div>";
-      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '"' + (C.swapBlock ? ' disabled title="' + esc(C.swapBlock) + '"' : "") + '>Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button></div>";
+      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '"' + (C.swapBlock ? ' disabled title="' + esc(C.swapBlock) + '"' : "") + '>Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button>" + (into ? '<button class="btn small ghost" data-cmd-merge="' + c.id + "," + into.id + '" title="This copy joins the other one: ranks add up, the better shiny tier stays">Merge into rank ' + into.rank + "</button>" : "") + (up ? '<button class="btn small ghost" data-cmd-upgrade="' + c.id + "," + up.id + '" title="Both copies become one ' + SHINY_NAMES[(c.tier || 0) + 1] + ' copy, with the higher rank of the two">✨ Make ' + SHINY_NAMES[(c.tier || 0) + 1] + "</button>" : "") + "</div>";
       h += "</div>";
     });
     if (C.shards.length) {
       h += '<p class="hint left"><b>Shards</b></p>';
       C.shards.forEach(function (sh) {
         h += '<div class="cmd-row"><span class="cmd-ic">' + sh.icon + '</span><div><b><span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b>" + heroBar("xp", Math.min(sh.count, sh.need), sh.need) + "<small>" + sh.count + " / " + sh.need + " shards</small></div>";
-        h += sh.maxed ? "<small>top rank</small>" : sh.count >= sh.need ? '<button class="btn small" data-cmd-fuse="' + sh.key + '">' + (sh.owned ? "Rank up" : "Fuse") + "</button>" : "";
+        h += sh.count >= sh.need ? '<button class="btn small" data-cmd-fuse="' + sh.key + '">Fuse</button>' : "";
         h += "</div>";
       });
     }
@@ -38414,12 +38507,12 @@ function aucPost(path, body, msg) {
   post(path, body, function () { if (msg) toast(msg, true); openAuction(); });
 }
 function aucName(it) {
-  return it.kind === "shard" || it.kind === "creature" || it.kind === "consumable" ? it.icon + ' <span class="cmd-rar r-' + it.rarity + '">' + esc(it.name) + "</span>" : it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span>";
+  return it.kind === "shard" || it.kind === "creature" || it.kind === "consumable" || it.kind === "commander" ? it.icon + ' <span class="cmd-rar r-' + it.rarity + '">' + esc(it.name) + "</span>" : it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span>";
 }
 function aucRow(a, A) {
-  var it = a.item, shard = it.kind === "shard", crea = it.kind === "creature", cons = it.kind === "consumable", noHero = shard || crea;
-  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (cons ? "<small>" + it.rarity + " supplies" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : crea ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " each" : "") + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + "</div>";
-  h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>" + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids yet") + "</small><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + esc(a.seller) + "</small>";
+  var it = a.item, shard = it.kind === "shard", crea = it.kind === "creature", cons = it.kind === "consumable", comm = it.kind === "commander", noHero = shard || crea || comm;
+  var h = '<div class="auc-row' + (a.leading ? " lead" : "") + (a.mine ? " mine" : "") + '"><div class="auc-item"><b>' + aucName(it) + "</b>" + (cons ? "<small>" + it.rarity + " supplies" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : comm ? "<small>" + it.rarity + " commander · rank " + it.rank + "/5 · " + esc(it.trait || "") + "</small>" : crea ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " · " + shortNum(Math.round(a.price / it.n)) + " each" : "") + "</small>" : shard ? "<small>" + it.rarity + " commander shards · " + Math.round(a.price / it.n * 10) / 10 + " each</small>" : heroGearLine(it, true)) + (a.mine ? "" : '<small class="auc-by">by ' + esc(a.seller) + "</small>") + "</div>";
+  h += '<div class="auc-side"><b>' + A.currency.icon + " " + shortNum(a.price) + "</b><small>⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + " · " + (a.bids ? a.bids + (a.bids === 1 ? " bid" : " bids") + " · " + esc(a.leader) : "no bids") + "</small>";
   if (a.mine) h += a.bids ? '<small class="ok">Your item, bids are in</small>' : '<button class="btn small ghost" data-auc-cancel="' + a.id + '">Take it back</button>';
   else {
     if (a.leading) h += '<small class="ok">You lead</small>';
@@ -38428,19 +38521,23 @@ function aucRow(a, A) {
   return h + "</div></div>";
 }
 function aucMine(a, A) {
-  var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + aucName(it) + '</b>' + (it.kind === "creature" ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " each" : "") + "</small>" : "") + '</div><div class="auc-side">';
-  if (a.status === "active") h += "<small>" + (a.mine ? "Your auction" : "You lead") + " · " + A.currency.icon + " " + shortNum(a.price) + " · ⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + "</small>";
+  var it = a.item, h = '<div class="auc-row"><div class="auc-item"><b>' + aucName(it) + '</b>' + (it.kind === "commander" ? "<small>" + it.rarity + " commander · rank " + it.rank + "/5 · " + esc(it.trait || "") + "</small>" : it.kind === "creature" ? "<small>" + it.rarity + " creature · 💲 " + (Math.round((it.cash || 0) * 10) / 10) + "/s" + (it.n > 1 ? " each" : "") + "</small>" : "") + '</div><div class="auc-side">';
+  if (a.status === "active") h += "<small>" + (a.mine ? "" : "You lead · ") + A.currency.icon + " " + shortNum(a.price) + " · ⏳ " + shortTime(Math.max(0, a.endsAt - serverNow())) + "</small>";
   else if (a.outcome === "sold") h += "<small>" + (a.mine ? "Sold for " + A.currency.icon + " " + shortNum(a.sold) + " (fee " + shortNum(a.fee) + ")" : "You won it for " + A.currency.icon + " " + shortNum(a.sold)) + "</small>";
   else h += "<small>" + (a.outcome === "cancelled" ? "Taken back" : "Nobody bid") + "</small>";
-  if (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))) h += '<button class="btn small" data-auc-claim="' + a.id + '">Collect ' + (a.item.kind === "creature" ? (A.huntFull ? "(inventory full)" : "") : A.bagFull && a.item.kind !== "shard" ? "(bag full)" : "") + "</button>";
+  if (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))) h += '<button class="btn small" data-auc-claim="' + a.id + '">Collect ' + (a.item.kind === "creature" ? (A.huntFull ? "(inventory full)" : "") : A.bagFull && ["shard", "commander", "consumable"].indexOf(a.item.kind) < 0 ? "(bag full)" : "") + "</button>";
   return h + "</div></div>";
 }
 function auctionSheet() {
   var A = auc.data, h = "";
   h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
   var open = A.mine.filter(function (a) { return a.status === "active" || (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))); }).length;
-  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], ["sell", "Sell gear"], ["shards", "Sell shards"], ["creatures", "Sell creatures"], ["cons", "Sell supplies"], ["mine", "My auctions" + (open ? " · " + open : "")]];
-  h += '<div class="auc-tabs">' + tabs.map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+  var cats = [["sell", "Gear"], ["commanders", "Commanders"], ["shards", "Shards"], ["creatures", "Creatures"], ["cons", "Supplies"]];
+  var inSell = cats.some(function (c) { return c[0] === auc.tab; });
+  if (inSell) auc.lastSell = auc.tab;
+  var tabs = [["browse", "Browse" + (A.active.length ? " · " + A.active.length : "")], [auc.lastSell || "sell", "Sell", inSell], ["mine", "My auctions" + (open ? " · " + open : "")]];
+  h += '<div class="auc-tabs">' + tabs.map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] || t[2] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
+  if (inSell) h += '<div class="auc-tabs sub">' + cats.map(function (t) { return '<button class="btn small ' + (auc.tab === t[0] ? "" : "ghost") + '" data-auc-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (!A.hasHero) h += '<p class="hint left">🎖️ Browsing is open to everyone. To bid on or sell gear you need a commander to carry it.</p>';
   if (auc.tab === "browse") {
     if (!A.active.length) h += '<p class="empty">No auctions right now. Be the first: sell a piece of gear from your commander’s bag.</p>';
@@ -38453,6 +38550,13 @@ function auctionSheet() {
         '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + sh.count + '" value="' + sh.count + '" id="auc-n-' + sh.key + '" aria-label="How many shards"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + sh.key + '" aria-label="Start price"><select id="auc-h-' + sh.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-lot="' + sh.key + '">Sell</button></div></div></div>';
     });
     h += '<p class="hint left">Pick how many shards go into the lot (the number field first), the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. Shards nobody bids on come back to you.</p>";
+  } else if (auc.tab === "commanders") {
+    if (!A.commanders.length) h += '<p class="empty">No spare commanders to sell. The active commander is not for sale; fuse shards from the shop to get more.</p><p class="hint left"><button class="btn small ghost" data-cmd-open="1">🎫 Open commanders</button></p>';
+    A.commanders.forEach(function (co) {
+      h += '<div class="auc-row stack"><div class="auc-item"><b>' + co.icon + ' <span class="cmd-rar r-' + co.rarity + '">' + esc(co.name) + "</span></b><small>" + co.rarity + " commander · rank " + co.rank + "/5 · " + esc(co.trait) + " · 🎫 +" + Math.round(co.rate * 10) / 10 + "/h</small></div>" +
+        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + A.rules.priceMax + '" value="1000000" id="auc-mp-' + co.id + '" aria-label="Start price"><select id="auc-mh-' + co.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-cmd="' + co.id + '">Auction</button></div></div></div>';
+    });
+    if (A.commanders.length) h += '<p class="hint left">Start price in ' + esc(A.currency.name) + ". Same rules and fee as gear. The winner gets it as a commander of its own, with its rank and shiny tier. Commanders nobody bids on come back to you.</p>";
   } else if (auc.tab === "creatures") {
     if (!A.creatures.length) h += '<p class="empty">No creatures to sell. Creatures in a hunt slot are not for sale: take them out first.</p><p class="hint left"><button class="btn small ghost" data-hunt-open="1">🐾 Open the hunt</button></p>';
     A.creatures.forEach(function (cr) {
@@ -39273,11 +39377,11 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-cmd-upgrade],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
-    "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
+    "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
     "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
@@ -39378,6 +39482,16 @@ document.addEventListener("click", function (e) {
     post("/api/adventure", { id: attr("data-adv-go").split(":")[0],route:attr("data-adv-go").split(":")[1]||"safe" }, function () { toast("🧭 Off it goes!"); });
   } else if (has("data-adv-cancel")) {
     post("/api/adventure", { cancel: true }, function () { toast("Your commander is coming back"); });
+  } else if (has("data-bag-open")) {
+    var bo = attr("data-bag-open");
+    heroBagOpen = String(heroBagOpen) === bo ? 0 : bo;
+    renderSheet();
+  } else if (has("data-bag-filter")) {
+    heroBagFilter = attr("data-bag-filter");
+    renderSheet();
+  } else if (has("data-cons-pick")) {
+    heroConsPick = heroConsPick === attr("data-cons-pick") ? "" : attr("data-cons-pick");
+    renderSheet();
   } else if (has("data-hero-tab")) {
     heroTab = attr("data-hero-tab");
     renderSheet();
@@ -39468,6 +39582,12 @@ document.addEventListener("click", function (e) {
     cmdPost({ action: "helper", id: attr("data-cmd-helper") }, "");
   } else if (has("data-cmd-fuse")) {
     post("/api/commanders", { action: "fuse", key: attr("data-cmd-fuse") }, function (j) { toast(j && j.shiny ? "✨ " + SHINY_NAMES[j.shiny] + "! The commander came out shiny" : "🎖️ Commander fused", true); openCommanders(); });
+  } else if (has("data-cmd-upgrade")) {
+    var ug = attr("data-cmd-upgrade").split(",");
+    cmdPost({ action: "upgrade", id: ug[0], into: ug[1] }, "✨ Next shiny tier made");
+  } else if (has("data-cmd-merge")) {
+    var mg = attr("data-cmd-merge").split(",");
+    cmdPost({ action: "merge", id: mg[0], into: mg[1] }, "🎖️ Copies merged");
   } else if (has("data-cmd-switch")) {
     cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
   } else if (has("data-hero-collect")) {
@@ -39774,6 +39894,9 @@ document.addEventListener("click", function (e) {
   } else if (has("data-auc-cons")) {
     var ok2 = attr("data-auc-cons"), on2 = document.getElementById("auc-sn-" + ok2), op2 = document.getElementById("auc-sp-" + ok2), oh2 = document.getElementById("auc-sh-" + ok2);
     aucPost("/api/auction/list", { consumable: ok2, count: on2 ? on2.value : 1, price: op2 ? op2.value : 0, hours: oh2 ? oh2.value : 24 }, "🏛️ Auction started");
+  } else if (has("data-auc-cmd")) {
+    var mk = attr("data-auc-cmd"), mp = document.getElementById("auc-mp-" + mk), mh = document.getElementById("auc-mh-" + mk);
+    aucPost("/api/auction/list", { commander: mk, price: mp ? mp.value : 0, hours: mh ? mh.value : 24 }, "🏛️ Auction started");
   } else if (has("data-auc-crea")) {
     var ck = attr("data-auc-crea"), cn = document.getElementById("auc-cn-" + ck), cp = document.getElementById("auc-cp-" + ck), ch = document.getElementById("auc-ch-" + ck);
     aucPost("/api/auction/list", { creature: ck, count: cn ? cn.value : 1, price: cp ? cp.value : 0, hours: ch ? ch.value : 24 }, "🏛️ Auction started");
