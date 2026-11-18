@@ -16318,8 +16318,15 @@ function jobLeft(job, now) {
 function jobBase(job) {
   return job.full || job.duration;
 }
+// Expansion buildings (the hub: Expansion Office, Nest Bureau, ...) always take their full time: no overtime, helping hands,
+// alliance help, tribe power, free finish or Star Credits. Only the permanent build-speed bonuses (HQ and so on) apply to them.
+const NO_SPEEDUP_BUILDINGS = ["hub"];
+function noSpeedup(job) {
+  return !!job && job.kind === "building" && NO_SPEEDUP_BUILDINGS.includes(job.type);
+}
 // how much free help this job can still take
 function freeRoom(job, now) {
+  if (noSpeedup(job)) return 0;
   return Math.max(0, Math.min(Math.floor(jobBase(job) * BOOST_FREE_MAX) - (job.cut || 0), jobLeft(job, now)));
 }
 function cutJob(job, ms, now) {
@@ -16424,8 +16431,9 @@ function jobBoostView(s, q, now) {
     allyMaxMs: Math.round(base * ALLY_HELP_MAX),
     helpers: (q.helpers || []).length,
     asked: s.askJob === q.id,
-    freeNow: !!q.finishAt && left <= freeFinishMs(),
-    creditCost: q.finishAt && left > 0 ? creditFinishCost(left) : 0,
+    locked: noSpeedup(q),
+    freeNow: !noSpeedup(q) && !!q.finishAt && left <= freeFinishMs(),
+    creditCost: !noSpeedup(q) && q.finishAt && left > 0 ? creditFinishCost(left) : 0,
   };
 }
 function boostView(s, userId, colonyId, now) {
@@ -16664,6 +16672,7 @@ app.post("/api/boost", requireLogin, (req, res) => {
     if (!job) return "That job is already done";
     const how = String(body.how || "");
     const day = serverDayNo(now);
+    if (noSpeedup(job) && how !== "unask") return "Expansion buildings always take their full time";
     if (how === "overtime") {
       if (s.overtimeDay === day) return "Overtime is used up for today";
       const ms = overtimeMs(job, now);
@@ -17044,7 +17053,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]]]},
+  {v:"1.0.411",date:"2026-11-18",title:"Star Credits are rarer",groups:[["🎫 Star Credits",["Finishing a job at once costs more: 45 Star Credits an hour for the first hour, 60 up to 4 hours, 100 up to 12 hours and 200 beyond. Every use costs at least 45. Prices: 1 hour 45, 4 hours 225, 12 hours 1,025, a day 3,425.","Higher commanders earn less than before: epic 14% to 31% less, legendary 5% to 21% less and Mythic 25% to 45% less. The best commander of each rarity still earns more than the best one below it, so a Mythic commander earns about 260 to 330 a day at rank 1.","Rank adds +15% income per rank instead of +25% (rank 5: 1.6 times instead of 2 times).","Credits you already have stay as they are."]],["🏢 Expansion buildings",["The expansion building (the hub, for example the Nest Bureau) can no longer be sped up: no overtime, helping hands, alliance help, tribe power, free finish or Star Credits. It always takes its full time. The permanent build-speed bonuses such as the HQ still apply."]]]},
   {v:"1.0.410",date:"2026-11-18",title:"Time away, in two steps",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first hour, then half speed for the next 6 hours, nothing after 7 hours. At most 4 hours of income pile up, as before; it just takes 7 hours away to get there.","After a longer time away, your Star Credits wait in the commander pile instead of being paid out in the background. Open the commander page, see the pile filled and tap Collect (the toast shows how many you got). While you play they still flow in on their own.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
   {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
   {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 30 Star Credits an hour for the first hour, 45 up to 4 hours, 80 up to 12 hours and 160 beyond. Every use costs at least 30, so quick jobs are not cheap to skip: 5 minutes to 1 hour cost 30, 2 hours 75, 4 hours 165, 12 hours 805 and a day 2,725.","That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits, while mid-length jobs cost about a fifth less than before (12 hours 805 instead of 1,010).","On faster servers the 30 Star Credit minimum shrinks (10 on a ×10 server, 2 on the fastest), because jobs are much shorter there. The wiki now also says correctly that the free finish covers the last 3 minutes on a ×1 server."]]]},
@@ -29683,6 +29692,7 @@ function crewQueueHtml(d) {
 
 // ⚡ speed up, or (in its last minute on ×10, 5 on ×1) finish for free
 function boostOrFree(q) {
+  if (q.locked) return "";
   return q.freeNow ? '<button class="x freefin" data-free-job="' + q.id + '" title="Finish now, for free"><span class="fin-i">⚡</span>Finish</button>' : '<button class="x boost" data-boost="' + q.id + '" title="Speed up">⚡</button>';
 }
 // 🏘️ a slot lent to another colony of mine
@@ -37484,7 +37494,7 @@ function wikiMore(W, tab, cards) {
         ["🎫 Finish with Star Credits", "A job that is being built, at any time, in the queue or by the crew. The price is per hour left and rises in steps: " + X.creditSteps.map(function (c, i) { return c[1] + " 🎫 an hour " + (c[0] ? (i ? "up to " + c[0] + " h" : "for the first hour") : "beyond that"); }).join(", ") + ". So " + X.creditFinish.map(function (c) { return (c[0] < 1 ? c[0] * 60 + " min" : c[0] + " h") + " " + c[1] + " 🎫"; }).join(", ") + ". Every use costs at least " + X.creditMin + " 🎫 (45 on a ×1 server, less on faster ones), so quick early jobs cannot be rushed in bulk; the less time is left, the cheaper it gets. It is not limited like the free help", "Finishes it at once"],
         ["🤝 Alliance help", "Pick one job and ask; allies help from their alliance page (2 helps per ally per " + dayLenText() + ")", "−" + Bo.ally + "% per ally, up to " + Bo.allyMax + "%"],
       ],
-    }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job.")));
+    }) + wkNote("Tap ⚡ next to a job in the build queue. Overtime, helping hands and alliance help together skip at most <b>" + Bo.free + "%</b> of a job. The expansion building (hub) is the exception: it always takes its full time, with none of these speed-ups.")));
     var Mk = X.market;
     cards.push(wkCard("offers", "📋", "Market offers", wkList([
       "In the market’s 📋 Offers tab you post an offer: one resource you give, one you want. Ask for " + Mk.ratioMin + "× to " + Mk.ratioMax + "× of what you give, at least " + Mk.min + " on each side.",
