@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.418";
+const GAME_VERSION = "1.0.419";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -14900,26 +14900,26 @@ const HELPER_POWER = { common: 0.08, uncommon: 0.15, rare: 0.3, epic: 0.55, lege
 const HELPER_RANK = [1, 1.5, 2, 2.5, 3.5];
 function helperScale(rank, tier) { return HELPER_RANK[Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1] * shinyMult(tier); }
 const COMMANDERS = {
-  recruit: { name: "Private Pip", icon: "🎖️", rarity: "common", rate: 1.7, starter: true, quip: "Eager, enthusiastic and wearing a helmet three sizes too big." },
-  drillmaster: { name: "Sergeant Stompy", icon: "🥁", rarity: "common", rate: 1.4, trait: { atk: 1 }, quip: "Marches so loudly the enemy has time to panic." },
-  warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1.4, trait: { def: 1 }, quip: "Pads every wall with pillows, for safety." },
-  courier: { name: "Pocket Pete", icon: "🧦", rarity: "common", rate: 1.7, trait: { carry: 4 }, quip: "Has pockets inside his pockets and won't say what is in them." },
-  chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1.7, trait: { cash: 5 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
-  forager: { name: "Granny Greenthumb", icon: "🌻", rarity: "uncommon", rate: 3.5, trait: { prod: 2 }, quip: "Shouts at the fields until they grow out of embarrassment." },
-  vanguard: { name: "Sir Charge-a-Lot", icon: "🐴", rarity: "uncommon", rate: 2.8, trait: { atk: 2 }, quip: "Rides a hobby horse and always charges first, usually the wrong way." },
-  steward: { name: "Penny the Tally-Penguin", icon: "🐧", rarity: "uncommon", rate: 4.9, quip: "Counts everything twice, just to be sure." },
-  nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 3.5, trait: { spawn: 5 }, quip: "Keeps strange hours, and so do the monsters around her." },
-  bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 4.2, trait: { def: 3 }, quip: "Stands very still until the problem goes away." },
-  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 7.7, trait: { shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
-  tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.2, trait: { tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
-  professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 5.6, trait: { xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
-  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 5.4, trait: { atk: 5 }, quip: "Every plan ends in an explosion, usually a planned one." },
-  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 8.2, trait: { fee: 1.5 }, quip: "Bids on things he is already holding." },
-  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 7.4, trait: { cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
+  recruit: { name: "Private Pip", icon: "🎖️", rarity: "common", rate: 1.7, trait: { atk: 0.5, def: 0.5 }, starter: true, quip: "Eager, enthusiastic and wearing a helmet three sizes too big." },
+  drillmaster: { name: "Sergeant Stompy", icon: "🥁", rarity: "common", rate: 1.4, trait: { atk: 1.5, def: 0.5 }, quip: "Marches so loudly the enemy has time to panic." },
+  warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1.4, trait: { atk: 0.5, def: 1.5 }, quip: "Pads every wall with pillows, for safety." },
+  courier: { name: "Pocket Pete", icon: "🧦", rarity: "common", rate: 1.7, trait: { atk: 0.5, def: 0.5, carry: 4 }, quip: "Has pockets inside his pockets and won't say what is in them." },
+  chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1.7, trait: { atk: 0.5, def: 0.5, cash: 5 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
+  forager: { name: "Granny Greenthumb", icon: "🌻", rarity: "uncommon", rate: 3.5, trait: { atk: 1, def: 1, prod: 2 }, quip: "Shouts at the fields until they grow out of embarrassment." },
+  vanguard: { name: "Sir Charge-a-Lot", icon: "🐴", rarity: "uncommon", rate: 2.8, trait: { atk: 3, def: 1 }, quip: "Rides a hobby horse and always charges first, usually the wrong way." },
+  steward: { name: "Penny the Tally-Penguin", icon: "🐧", rarity: "uncommon", rate: 4.9, trait: { atk: 1, def: 1 }, quip: "Counts everything twice, just to be sure." },
+  nightowl: { name: "Nelly Nightowl", icon: "🦉", rarity: "uncommon", rate: 3.5, trait: { atk: 1, def: 1, spawn: 5 }, quip: "Keeps strange hours, and so do the monsters around her." },
+  bulwark: { name: "Big Barry", icon: "🧱", rarity: "rare", rate: 4.2, trait: { atk: 1.5, def: 4.5 }, quip: "Stands very still until the problem goes away." },
+  banker: { name: "Madame Moneybags", icon: "🦚", rarity: "rare", rate: 7.7, trait: { atk: 1.5, def: 1.5, shop: 6 }, quip: "Haggles with her own reflection and still gets a discount." },
+  tinkerer: { name: "Gadget Gus", icon: "🔧", rarity: "rare", rate: 4.2, trait: { atk: 1.5, def: 1.5, tap: 16 }, quip: "His gloves have one button too many. Nobody knows what it does, but Strike hits harder." },
+  professor: { name: "Professor Pebbles", icon: "🪨", rarity: "rare", rate: 5.6, trait: { atk: 1.5, def: 1.5, xp: 4 }, quip: "Teaches rocks to read. The commander learns faster too." },
+  warlord: { name: "General Kaboom", icon: "🧨", rarity: "epic", rate: 5.4, trait: { atk: 7, def: 2 }, quip: "Every plan ends in an explosion, usually a planned one." },
+  tycoon: { name: "Baron Bidwell", icon: "🎩", rarity: "epic", rate: 8.2, trait: { atk: 2, def: 2, fee: 1.5 }, quip: "Bids on things he is already holding." },
+  cashcow: { name: "Duchess Dividend", icon: "🐄", rarity: "epic", rate: 7.4, trait: { atk: 2, def: 2, cash: 10 }, quip: "Her cow gives milk, money and the occasional opinion." },
   starmarshal: { name: "Admiral Sparkle-Pants", icon: "✨", rarity: "legendary", rate: 10.0, trait: { atk: 4, def: 4, cash: 5 }, quip: "Glitter in the beard, and nobody dares mention it." },
-  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 9.9, trait: { tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
+  trickster: { name: "Madam Mayhem", icon: "🎪", rarity: "legendary", rate: 9.9, trait: { atk: 4, def: 4, tap: 24, xp: 5, spawn: 5 }, quip: "Juggles three monsters at once and sends the bill to the circus." },
   voidsovereign: { name: "The Void Sovereign", icon: "🕳️", rarity: "mythic", rate: 11.0, trait: { atk: 6, def: 6, prod: 4 }, quip: "Rules the abyss, mostly by asking it to please keep it down." },
-  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 13.9, trait: { cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
+  cosmiccat: { name: "Meowthulhu", icon: "🐈‍⬛", rarity: "mythic", rate: 13.9, trait: { atk: 5, def: 5, cash: 10, shop: 6, xp: 5, fee: 1.5 }, quip: "Sleeps sixteen hours a day, then knocks a planet off the shelf." },
 };
 // what each effect does; the value is per rank 1 and grows with the rank
 const TRAIT_TEXT = {
@@ -17128,6 +17128,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.419",date:"2026-11-18",title:"Every commander fights",groups:[["🎖️ Commanders",["Every commander now grants some attack and defense, not just the fighters. All-rounders give a base amount that grows with rarity (common 0.5%, uncommon 1%, rare 1.5%, epic 2%, legendary 4%, Mythic 5 to 6%), and the fighting specialists keep a clear edge in their own stat (Sergeant Stompy, Captain Cushion, Sir Charge-a-Lot, Big Barry, General Kaboom). Rank and shiny tier scale it as before, and the 30% cap on attack and defense from all sources still applies."]]]},
   {v:"1.0.418",date:"2026-11-18",title:"Compact inventory",groups:[["🎖️ Commander",["Inventory: supplies are now small chips with their count (tap one to read what it does and use it). Gear in the bag is one line each, best first, showing what changes against what you wear; tap a line for its full stats and the upgrade, XP and auction buttons. With gear in more than one slot, filter chips by slot appear above the list."]]]},
   {v:"1.0.417",date:"2026-11-18",title:"Equipped gear in the inventory",groups:[["🎖️ Commander",["The equipped gear and the stats it adds now sit at the top of the Inventory tab, right above the supplies and the gear in your bag, so you can compare and swap in one place. The Skills tab keeps only skills, quirk and stance."]]]},
   {v:"1.0.416",date:"2026-11-18",title:"Adventure count on the tab",groups:[["🎖️ Commander",["The Adventures tab shows a small number in its left corner with how many adventures are on the board."]]]},
