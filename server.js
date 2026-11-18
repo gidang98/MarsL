@@ -541,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.435";
+const GAME_VERSION = "1.0.437";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17263,6 +17263,8 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.437",date:"2026-11-18",title:"Bigger resource fields",groups:[["🌾 Fields",["The twelve resource fields and your mascot are drawn larger on the clay slab, so less space is wasted around them."]]]},
+  {v:"1.0.436",date:"2026-11-18",title:"Shards from adventures",groups:[["🧩 Adventures",["An adventure sometimes brings home commander shards (about one trip in five, one in three on the dangerous route). Which commander follows the shop\u2019s odds, so a Mythic shard is as rare as in the shop, and the amounts are the same. The shop\u2019s daily limits do not apply. The trip report and the commander sheet show what was found."]]]},
   {v:"1.0.435",date:"2026-11-18",title:"Research rush price: 6 times the time left",groups:[["🎫 Star Credits",["Finishing a research with Star Credits is now priced as if it took 6 times as long (was 9). The raider and all air units of a Human colony cost about 250 credits to finish at lab level 5, instead of about 370. The price still falls as the research gets shorter and with every lab level."]]]},
   {v:"1.0.434",date:"2026-11-18",title:"Labs speed research up by 3% per level",groups:[["🔬 Research",["Every lab level now makes research 3% faster (was 10%), so a high lab level saves much less time. A Human raider and all air units take about 48 minutes at lab level 5 instead of 33.","The Star Credit price to finish research follows the time left, so it rises a little with the longer times."]]]},
   {v:"1.0.433",date:"2026-11-18",title:"Shorter research, same rush price",groups:[["🔬 Research",["Research takes 9 times less time: 6.7 times a unit\u2019s training time instead of 60. A Human raider and all air units take about 33 minutes at lab level 5.","Finishing a research with Star Credits costs the same as before: it is priced as if the research still took 9 times as long."]]]},
@@ -19247,6 +19249,26 @@ function advView(h, now) {
   };
 }
 
+// 🧩 an adventure sometimes brings home commander shards. Which commander and how many follows the shop:
+// the same rarity odds (a Mythic is as rare as in the shop) and the same amounts. The shop's daily limits do not apply.
+const ADV_SHARD_CHANCE = 0.2; // of an adventure (x1.5 on the dangerous route)
+function advShardDrop(userId, route, now) {
+  if (Math.random() >= ADV_SHARD_CHANCE * (route === "danger" ? 1.5 : 1)) return null;
+  const pool = Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter);
+  const per = {};
+  pool.forEach((k) => { per[COMMANDERS[k].rarity] = (per[COMMANDERS[k].rarity] || 0) + 1; });
+  const wt = (k) => SHARD_WEIGHT[COMMANDERS[k].rarity] / per[COMMANDERS[k].rarity];
+  let x = Math.random() * pool.reduce((n, k) => n + wt(k), 0), key = pool[pool.length - 1];
+  for (const k of pool) { x -= wt(k); if (x < 0) { key = k; break; } }
+  const d = COMMANDERS[key], [lo, hi] = SHARD_AMOUNT[d.rarity];
+  const n = lo + Math.floor(Math.random() * (hi - lo + 1));
+  const r = rosterOf(userId, now);
+  if (!r) return null;
+  r.shards[key] = (r.shards[key] || 0) + n;
+  db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
+  return { key, icon: d.icon, name: d.name, rarity: d.rarity, count: n };
+}
+
 // Back home: what did it bring? (called lazily from heroOf)
 function advFinish(userId, h) {
   const a = h.adv;
@@ -19272,7 +19294,8 @@ function advFinish(userId, h) {
   }
   if (!h.advEvent) h.advEvent = { id: ADV_EVENTS[Math.floor(Math.random() * ADV_EVENTS.length)].id, kind: a.kind, at: a.until };
   const consumable=heroConsumableDrop(h,a.kind,a.route);
-  h.advLast = { consumable, kind: a.kind, at: a.until, xp: note.xp, levelUp: note.levelUp || 0, res: note.stash || null, hp: note.hpLost || 0, found: found && !note.bagFull ? { icon: found.icon, name: found.name, tier: found.tier } : null };
+  const shard = advShardDrop(userId, a.route, a.until);
+  h.advLast = { shard, consumable, kind: a.kind, at: a.until, xp: note.xp, levelUp: note.levelUp || 0, res: note.stash || null, hp: note.hpLost || 0, found: found && !note.bagFull ? { icon: found.icon, name: found.name, tier: found.tier } : null };
   heroSave(userId, h);
   addReport(userId, a.until, A.icon, tt("{0} is back", shortColonyName(h.name)), Object.assign({ mission: "adventure", flavor: roll > 1.15 ? "A lucky trip!" : roll < 0.8 ? "Not much out there this time." : "A good trip." }, h.advLast, { name: h.name, bagFull: note.bagFull ? { icon: note.bagFull.icon, name: note.bagFull.name } : null }));
 }
@@ -30184,11 +30207,11 @@ function fieldScene(d, order) {
   var g = '<defs><filter id="fxsoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>' +
     '<filter id="fxgrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" values="0 0 0 0 .55 0 0 0 0 .25 0 0 0 0 .18 0 0 0 .55 -.18"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs>';
   // an oval clay slab; the 12 fields stand on a ring around your mascot in the middle
-  var CX = 190, CY = 124, RX = 152, RY = 82, W0 = 54;
+  var CX = 190, CY = 124, RX = 157, RY = 85, W0 = 61;
   g += '<ellipse cx="' + (CX + 10) + '" cy="' + (CY + 30) + '" rx="186" ry="104" fill="rgba(150,70,60,.16)" filter="url(#fxsoft)"/>';
   g += '<path d="M' + (CX - 182) + " " + CY + "v12a182 104 0 0 0 364 0v-12z" + '" fill="#D27358"/>';
   g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#F7C4A5"/><ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#fff" filter="url(#fxgrain)" opacity=".5"/>';
-  g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="62" ry="32" fill="rgba(255,255,255,.35)"/>';
+  g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="70" ry="36" fill="rgba(255,255,255,.35)"/>';
   // equal spacing along the oval, so the fields on the sides never touch
   var pts = [], L = 0, N = 720, a0 = -75 * Math.PI / 180, prev = null;
   for (var q = 0; q <= N; q++) { var an = a0 + q * 2 * Math.PI / N, pt = [CX + RX * Math.cos(an), CY + RY * Math.sin(an)]; if (prev) L += Math.hypot(pt[0] - prev[0], pt[1] - prev[1]); pts.push([pt, L]); prev = pt; }
@@ -30206,7 +30229,7 @@ function fieldScene(d, order) {
   }
   cells.filter(function (c) { return c.y <= CY + 20; }).forEach(function (c) { g += tile(c); });
   // the centre: your tribe's mascot on its own clay disc, never covered by a field
-  var mk = "mascot-" + d.tribe.key, WM = d.tribe.key === "human" ? 86 : 74;
+  var mk = "mascot-" + d.tribe.key, WM = d.tribe.key === "human" ? 98 : 84;
   g += '<g class="fx-dome" data-view="buildings" role="button" tabindex="0" aria-label="' + (curLang() === "en" ? "Enter " + esc(d.colony) : trf("Enter {0}", esc(trStr(d.colony)))) + '"><title>' + (curLang() === "en" ? "Enter " + esc(d.colony) : trf("Enter {0}", esc(trStr(d.colony)))) + "</title>";
   if (FX_ART.t[mk]) g += fxShadow(CX, CY, WM) + fxImg(mk, CX, CY, WM);
   else g += '<g class="fx-mascot"><svg x="' + (CX - 26) + '" y="' + (CY - 56) + '" width="52" height="60" viewBox="0 0 80 92">' + (FX_MASCOT[d.tribe.key] || FX_MASCOT.human) + "</svg></g>";
@@ -33021,6 +33044,7 @@ function renderReportBody(r) {
     h += '<div class="side"><h4>' + (d.side === "attacker" ? "💥 " : "🏚️ ") + esc(d.defender.name) + " (" + d.defender.x + "|" + d.defender.y + ")</h4>" + (d.side === "attacker" ? "Bombed down to 0 points and wiped off the map. The land is free again." : trf("Bombed down to 0 points by {0}. The colony and everything in it is gone.", esc(d.by))) + "</div>";
   } else if (d.mission === "adventure") {
     if(d.consumable)h+='<p>'+esc(d.consumable.icon)+' '+esc(d.consumable.name)+' ×'+d.consumable.count+' · Commander inventory</p>';
+    if(d.shard)h+='<p>🧩 '+esc(d.shard.icon)+' '+esc(d.shard.name)+' shard ×'+d.shard.count+' · '+esc(d.shard.rarity)+'</p>';
     h += '<div class="side"><h4>🎖️ ' + esc(d.name) + "</h4>+" + d.xp + " xp" + (d.levelUp ? " · ⬆️ level " + d.levelUp : "") + (d.hp ? " · ❤️ −" + d.hp : "") + (d.res ? "<br>📦 " + resLine(d.res) : "") + (d.found ? '<br><span class="rar t' + (d.found.tier || 1) + '">' + d.found.icon + " " + (d.found.tier ? RARITY[d.found.tier - 1] + " " : "") + esc(d.found.name) + "</span>" : "") + (d.bagFull ? "<br><small" + '🎒' + "+ ' Inventory full: " + d.bagFull.icon + " " + esc(d.bagFull.name) + " was left behind</small>" : "") + "</div>";
   } else if (d.mission === "offer") {
     h += '<div class="side"><h4>' + trf("🤝 {0} took your offer", esc(d.by)) + "</h4>" + RES_ICON[d.giveRes] + " " + d.giveAmt + " → " + RES_ICON[d.wantRes] + " " + d.wantAmt + "<br><small>Both loads are on the way.</small></div>";
@@ -35046,7 +35070,7 @@ function advPanel(H) {
   }
   if (A.last) {
     var L = A.last;
-    h += '<h4 class="sidesub">Last trip</h4><p class="stat">+' + L.xp + " xp" + (L.levelUp ? " · ⬆️ level " + L.levelUp : "") + (L.hp ? " · ❤️ −" + L.hp : "") + (L.res ? " · " + resLine(L.res) : "") + (L.found ? ' · <span class="rar t' + (L.found.tier || 1) + '">' + L.found.icon + " " + esc(L.found.name) + "</span>" : "") + "</p>";
+    h += '<h4 class="sidesub">Last trip</h4><p class="stat">+' + L.xp + " xp" + (L.levelUp ? " · ⬆️ level " + L.levelUp : "") + (L.hp ? " · ❤️ −" + L.hp : "") + (L.res ? " · " + resLine(L.res) : "") + (L.found ? ' · <span class="rar t' + (L.found.tier || 1) + '">' + L.found.icon + " " + esc(L.found.name) + "</span>" : "") + (L.shard ? " · 🧩 " + L.shard.icon + " " + esc(L.shard.name) + " shard ×" + L.shard.count : "") + "</p>";
   }
   return h;
 }
@@ -37909,6 +37933,7 @@ function wikiMore(W, tab, cards) {
       "Experience grows by " + Ad.xpLvl + "% per commander level, much slower than the levels themselves: early on adventures carry it quickly, later battles count most. It also brings resources for its 📦 bounty stash and sometimes gear. Every trip has some luck in it. It never falls on an adventure.",
       "The listed time is the whole round trip: it walks out (" + Ad.kinds.map(function (k) { return wkDur(k.walk); }).join(" / ") + " for the three trips), is on site, and walks back the same way. You can follow it in Troop Traffic. Rewards come when it is home again.",
       "While it is away it doesn’t defend, lead or produce. Calling it back makes it turn around and walk home without reward.",
+      "🧩 A trip sometimes brings home <b>commander shards</b>: about one in five (one in three on the dangerous route). Which commander follows the shop’s odds, so a Mythic shard is as rare as in the shop, with the same amounts. The shop’s daily limits don’t apply.",
       "🐐 <b>On the way home</b> something happens: a little event with two choices, waiting in 🧭 Adventures. Each choice shows its cost and its odds before you pick. Health lost there never makes it fall. Only one event waits at a time.",
     ]) + (He.events ? kt({ head: ["Event", "Choice A", "Choice B"], left: 3, rows: He.events.map(function (e) { return [e.icon + " " + esc(e.text), esc(e.a), esc(e.b)]; }) }) : "")));
     cards.push(wkCard("siege", "💥", "Bombards and envoys", wkList([
