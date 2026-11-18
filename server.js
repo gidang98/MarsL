@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.427";
+const GAME_VERSION = "1.0.428";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -612,7 +612,7 @@ const BUILDING_TYPES = {
     cost: { wood: 110, stone: 140, metal: 130, food: 50 },
     time: 70,
     requires: { hq: 3, wall: 1 },
-    info: "Catches attacking ground troops before the fight. They stay as prisoners until you let them go or their owner wins an attack here.",
+    info: "Catches a share of the attacking ground troops before the fight (more per level), up to its free cells. Prisoners stay for 3 days: let them go, strip them for resources, or they break out. Their owner wins an attack here to free them.",
   },
   lab: {
     cost: { wood: 220, stone: 160, metal: 240, food: 90 },
@@ -3039,7 +3039,7 @@ function upkeep(s, tribe, includeTraining) {
       if (tribe.units[key]) total += group[key] * tribe.units[key].upkeep * k;
     }
   }
-  if (hp && hp.glutton && hp.home === s._cid) total *= 1.05; // 🍗 a glutton at home
+  if (hp && hp.upkeep !== 1 && hp.home === s._cid) total *= hp.upkeep; // 🍗 quirks that eat or save food at home
   if (s.spec === "breadbasket") total *= 1 - COLONY_SPECS.breadbasket.eat - 0.01 * levelOf(s, "ration"); // 🌾 fed well here
   if (includeTraining) {
     for (const t of allTraining(s)) total += t.remaining * tribe.units[t.unit].upkeep;
@@ -3244,6 +3244,7 @@ const TRIBE_GAG = {
 };
 function update(s, tribe, now) {
   if (now === undefined) now = Date.now();
+  trapSweep(s, now); // 🪤 prisoners held too long break out
   // 🐔 the panicked chickens find their way home
   if (s.panic && s.panic.length) {
     s.panic = s.panic.filter((p) => { if (p.at <= now) { addTroops(s.troops, p.troops); return false; } return true; });
@@ -4403,7 +4404,8 @@ function resolveArrival(m) {
     }
   } else {
     // 🪤 traps catch ground troops before the fight
-    const trapped = trapArmy(def, att, troops, survivors, atkTribe, T);
+    const dStance = defStance(def, T), dTrapper = heroDefending(def, T);
+    const trapped = trapArmy(def, att, troops, survivors, atkTribe, T, { order: m.hero && heroOf(att.userId, T) ? m.orders : "", stance: dStance ? dStance.key : "", pts: quirkFx(dTrapper).trap });
     if (trapped && countUnits(troops) === 0) {
       const tdata = { mission: "trapped", attacker, defender, trapped: unitList(trapped, atkTribe, null) };
       addReport(att.userId, T, "🪤", tt("Caught at {0}", shortColonyName(def.name)), Object.assign({ side: "attacker", flavor: "Not a single one got through. They are waiting in the traps." }, tdata));
@@ -5201,7 +5203,7 @@ function effectText(type, level, tk) {
     case "weaponry":
       return level === 0 ? "No upgrades" : "Upgrades up to Lv " + Math.min(level, UPGRADE_MAX) + " · upgrade time " + faster(WEAPONRY_SPEEDUP);
     case "trap":
-      return level === 0 ? "No traps" : "Catches " + Math.round(TRAP_PER_LEVEL * level * speedScale()) + " attackers";
+      return level === 0 ? "No traps" : "Holds " + Math.round(TRAP_PER_LEVEL * level * speedScale()) + ", catches " + Math.round(Math.min(TRAP_SHARE_MAX, TRAP_SHARE_BASE + TRAP_SHARE_PER_LEVEL * level) * 100) + "% of the ground troops";
     case "hospital":
       return level === 0 ? "No beds" : "Saves " + perkOf(tk, "hospital") * level + "% of the fallen · " + hospitalBeds(level) + " beds · healing time " + faster(HOSPITAL_SPEEDUP);
     case "sawmill":
@@ -5684,7 +5686,7 @@ function movementsFor(userId, now) {
       cloaked: !stay && m.power === "alien",
       seen: !stay && !friendly && m.mission !== "trade" ? seenUnits(m, from, sight(m.target_id)) : null,
       // 🎺 a show-off commander can't hide that it is coming
-      showoff: !stay && !friendly && m.hero && from && heroReady && !BOT_IDS.has(from.user_id) ? (heroOf(from.user_id, now) || {}).quirk === "showoff" : false,
+      showoff: !stay && !friendly && m.hero && from && heroReady && !BOT_IDS.has(from.user_id) ? hasQuirk(heroOf(from.user_id, now), "showoff") : false,
       spottedAt: !stay && !friendly && m.mission !== "trade" ? spottedAt(userId, m) : null,
       canRecall: stay,
       // Stationed ally troops defending you: you can redirect them onward
@@ -14290,13 +14292,58 @@ function heroSkillLimit(h, k) {
   if (h.arch === undefined) return k === "haul" || k === "prod" ? sk.max : 0;
   return h.arch === sk.arch ? sk.max : 0;
 }
-// 🎲 quirks: one per commander from level 5, rerolled once per round
+// 🎲 quirks: a commander's habits. Slot 1 opens at level 5, slot 2 at level 30. Every quirk is a real
+// trade: numbers (fx, in percent) that grow with the commander's level, up to +50% at level 100.
+// A roll leans towards the quirks that fit the archetype. Rerolling is once per round and slot.
 const HERO_QUIRK_LEVEL = 5;
+const HERO_QUIRK2_LEVEL = 30;
+const HERO_QUIRK_FX = { atk: ["attack for the army it leads", 1], def: ["defense at home", 1], carry: ["carry", 1], xp: ["experience", 1], regen: ["health regeneration", 1], dmg: ["health lost in fights", -1], upkeep: ["food upkeep at home", -1], trap: ["trap catch chance at home", 1], charge: ["Charge attack", 1] };
 const HERO_QUIRKS = {
-  glutton: { icon: "🍗", name: "Glutton", up: "+10% health regeneration", down: "+5% food upkeep in its home colony" },
-  showoff: { icon: "🎺", name: "Show-off", up: "Charge gives +5% more attack", down: "the target always sees the commander coming" },
-  coward: { icon: "🐔", name: "Coward", up: "never falls in a lost fight", down: "−5% attack for the army it leads" },
+  glutton: { icon: "🍗", name: "Glutton", fx: { regen: 10, upkeep: 5 }, fits: ["quartermaster"] },
+  stubborn: { icon: "🐂", name: "Stubborn", fx: { def: 5, regen: -10 }, fits: ["warlord"] },
+  hothead: { icon: "🔥", name: "Hothead", fx: { atk: 4, dmg: 10 }, fits: ["warlord"] },
+  showoff: { icon: "🎺", name: "Show-off", fx: { charge: 5 }, down: "the target always sees the commander coming", fits: ["warlord"] },
+  coward: { icon: "🐔", name: "Coward", fx: { atk: -5 }, up: "never falls in a lost fight: it runs with 1 health", fits: ["quartermaster"] },
+  scavenger: { icon: "🎒", name: "Scavenger", fx: { carry: 10, atk: -3 }, fits: ["quartermaster", "explorer"] },
+  bookworm: { icon: "📚", name: "Bookworm", fx: { xp: 10, def: -4 }, fits: ["explorer"] },
+  paranoid: { icon: "🪤", name: "Paranoid", fx: { trap: 8, atk: -3 }, fits: ["warlord"] },
+  thick: { icon: "🦏", name: "Thick-skinned", fx: { dmg: -12, carry: -6 }, fits: ["explorer", "warlord"] },
 };
+function heroQuirkList(h) {
+  const l = [];
+  if (h && HERO_QUIRKS[h.quirk]) l.push(h.quirk);
+  if (h && h.level >= HERO_QUIRK2_LEVEL && HERO_QUIRKS[h.quirk2]) l.push(h.quirk2);
+  return l;
+}
+function hasQuirk(h, k) { return !!h && heroQuirkList(h).indexOf(k) >= 0; }
+// level scaling: x1 at level 5, x1.5 at level 100
+function quirkScale(h) { return 1 + Math.min(1, Math.max(0, (h.level - HERO_QUIRK_LEVEL) / (HERO_MAX_LEVEL - HERO_QUIRK_LEVEL))) * 0.5; }
+// everything the quirks add up to, in percent (negative = a cost)
+function quirkFx(h) {
+  const t = { atk: 0, def: 0, carry: 0, xp: 0, regen: 0, dmg: 0, upkeep: 0, trap: 0, charge: 0 };
+  if (!h) return t;
+  const k = quirkScale(h);
+  for (const q of heroQuirkList(h)) for (const f in HERO_QUIRKS[q].fx) t[f] += HERO_QUIRKS[q].fx[f] * k;
+  return t;
+}
+function quirkText(key, h) {
+  const Q = HERO_QUIRKS[key], k = h ? quirkScale(h) : 1;
+  const up = [], down = [];
+  for (const f in Q.fx) {
+    const v = Math.round(Q.fx[f] * k * 10) / 10, F = HERO_QUIRK_FX[f];
+    (v * F[1] > 0 ? up : down).push((v > 0 ? "+" : "−") + Math.abs(v) + "% " + F[0]);
+  }
+  if (Q.up) up.push(Q.up);
+  if (Q.down) down.push(Q.down);
+  return { up: up.join(", "), down: down.join(", ") };
+}
+function quirkRoll(h, not) {
+  const pool = Object.keys(HERO_QUIRKS).filter((q) => not.indexOf(q) < 0);
+  const w = pool.map((q) => (HERO_QUIRKS[q].fits.indexOf(h.arch) >= 0 ? 3 : 1));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r < 0) return pool[i]; }
+  return pool[0];
+}
 // "⚔️" battle orders (attacker) and 🛡️ stances (defender)
 const HERO_ORDERS = {
   charge: { icon: "⚔️", name: "Charge", up: "+15% attack", down: "+10% own losses", beats: "evacuate", loses: "fortify" },
@@ -14427,7 +14474,7 @@ function heroHp(h, now) {
   return Math.min(HERO_HP, h.hp + Math.max(0, ((now - from) / serverDayMs()) * heroRegen(h)));
 }
 function heroRegen(h) {
-  return Math.round((HERO_HP_DAY + heroGearStats(h).regen + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.per) * (h.quirk === "glutton" ? 1.1 : 1) * 10) / 10;
+  return Math.round((HERO_HP_DAY + heroGearStats(h).regen + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.per) * (1 + quirkFx(h).regen / 100) * 10) / 10;
 }
 // everything the equipped gear adds up to
 function heroGearStats(h) {
@@ -14533,7 +14580,10 @@ function heroOf(userId, now) {
   h.lockUntil = h.lockUntil || 0;
   if (h.away && !db.prepare("SELECT 1 FROM movements WHERE id = ?").get(h.away)) h.away = 0;
   h.stats = Object.assign({ fights: 0, wins: 0, xp: 0, adv: 0 }, h.stats || {});
-  if (h.level >= HERO_QUIRK_LEVEL && !HERO_QUIRKS[h.quirk]) { const qk = Object.keys(HERO_QUIRKS); h.quirk = qk[Math.floor(Math.random() * qk.length)]; h.quirkNew = 1; }
+  if (h.quirk && !HERO_QUIRKS[h.quirk]) h.quirk = "";
+  if (h.quirk2 && !HERO_QUIRKS[h.quirk2]) h.quirk2 = "";
+  if (h.level >= HERO_QUIRK_LEVEL && !h.quirk) { h.quirk = quirkRoll(h, [h.quirk2]); h.quirkNew = 1; }
+  if (h.level >= HERO_QUIRK2_LEVEL && !h.quirk2) { h.quirk2 = quirkRoll(h, [h.quirk]); h.quirkNew = 1; }
   if (h.stance && !HERO_STANCES[h.stance]) h.stance = "";
   if (h.adv && now >= h.adv.until) advFinish(userId, h); // back from an adventure
   if (advSync(h, now)) heroSave(userId, h);
@@ -14567,9 +14617,9 @@ function heroBonus(h) {
   return {
     def: Math.min(HERO_BONUS_CAP, heroGearStats(h).defPct + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0)),
     mend: heroMend(h) * 100,
-    atk: layered(heroAtkRaw(h), personaBonus(h).atk, HERO_BONUS_CAP),
-    def: layered(heroGearStats(h).defPct + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0), personaBonus(h).def, HERO_BONUS_CAP),
-    carry: heroGearStats(h).carry + personaBonus(h).carry,
+    atk: Math.round((layered(heroAtkRaw(h), personaBonus(h).atk, HERO_BONUS_CAP) + quirkFx(h).atk) * 10) / 10,
+    def: Math.round((layered(heroGearStats(h).defPct + (h.pts.haul || 0) * HERO_SKILLS.haul.per + (h.tribe === "human" ? (h.pts.path || 0) * HERO_PATHS.human.per * (1+heroGearStats(h).identity/100) : 0), personaBonus(h).def, HERO_BONUS_CAP) + quirkFx(h).def) * 10) / 10,
+    carry: heroGearStats(h).carry + personaBonus(h).carry + quirkFx(h).carry,
     prod: Math.round(h.pts.prod * HERO_SKILLS.prod.per * PRODUCTION_SPEED * 10) / 10, // real per hour, like the fields
     prodPct: Math.min(25, h.pts.prod * HERO_SKILLS.prod.pct + heroGearStats(h).prod + personaBonus(h).prod), // and a share of the colony's own production
   };
@@ -14595,7 +14645,7 @@ function heroPerks(userId) {
     c = {
       until: now + 20000,
       home: h ? h.home : 0,
-      glutton: !!h && h.quirk === "glutton",
+      upkeep: h ? 1 + quirkFx(h).upkeep / 100 : 1,
       qm25: heroRule(h, "quartermaster", 25),
       qm50: heroRule(h, "quartermaster", 50),
       qm75: heroRule(h, "quartermaster", 75),
@@ -14676,7 +14726,7 @@ function battleMods(order, aHero, st) {
   const k = 1 + (aHero ? (aHero.pts.orders || 0) * HERO_SKILLS.orders.per / 100 : 0);
   const ks = (1 + (st ? (st.h.pts.bulwark || 0) * HERO_SKILLS.bulwark.per / 100 : 0)) * (aHero && heroRule(aHero, "warlord", 100) && O ? 0.5 : 1);
   if (O === "charge") {
-    M.atk *= 1 + 0.15 * k + (aHero.quirk === "showoff" ? 0.05 : 0);
+    M.atk *= 1 + 0.15 * k + quirkFx(aHero).charge / 100;
     if (!heroRule(aHero, "warlord", 25)) M.loss *= 1.1;
   } else if (O === "pillage") {
     M.carry *= 1 + 0.3 * k;
@@ -14704,7 +14754,7 @@ function lossWith(frac, mul) {
 }
 // attack (ground + air) of an army led by the commander
 function heroLead(attack, h) {
-  const k = (1 + heroBonus(h).atk / 100) * (h.quirk === "coward" ? 0.95 : 1);
+  const k = 1 + heroBonus(h).atk / 100;
   return { g: attack.g * k + heroPoints(h).atk, a: attack.a * k };
 }
 // The defending commander (only at home and healthy)
@@ -14748,7 +14798,7 @@ function heroAfterFight(userId, h, o) {
   const cap = h.level >= HERO_MAX_LEVEL ? 0 : heroNeed(h.level);
   const G = heroGearStats(h);
   const note = { name: h.name, level: h.level, bonus: o.bonus, xp: Math.max(0, Math.min(cap, Math.round(o.xp * (o.scrap ? 1 : 1 + G.xp / 100)))) };
-  if (o.dmg > 0) o.dmg *= 1 - Math.min(HERO_CAPS.ward, G.ward + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.ward) / 100;
+  if (o.dmg > 0) o.dmg *= (1 - Math.min(HERO_CAPS.ward, G.ward + ((h.pts && h.pts.vit) || 0) * HERO_SKILLS.vit.ward) / 100) * (1 + quirkFx(h).dmg / 100);
   const huntPct = h.arch === "explorer" ? (h.pts.hunter || 0) * HERO_SKILLS.hunter.per : 0;
   if (o.bounty && (G.bounty || huntPct)) {
     const b = {};
@@ -14761,7 +14811,7 @@ function heroAfterFight(userId, h, o) {
     if (o.won || (o.won === undefined && !o.beaten)) h.stats.wins++;
   }
   if(o.campTier===2)note.xp=Math.round(note.xp*(1+heroGearStats(h).frontier/100));
-  note.xp = Math.round(note.xp * (1 + personaBonus(h).xp / 100));
+  note.xp = Math.round(note.xp * (1 + (personaBonus(h).xp + quirkFx(h).xp) / 100));
   h.stats.xp += note.xp;
   // ❤️ what the fight or the trip cost
   if (o.dmg > 0) {
@@ -14773,7 +14823,7 @@ function heroAfterFight(userId, h, o) {
     else heroSetHp(h, Math.max(1, left), o.at);
   }
   // 🐔 a coward runs before it can fall
-  if (o.beaten && !o.safe && h.quirk === "coward") { o.beaten = false; if (o._left !== undefined && o._left <= 0) heroSetHp(h, 1, o.at); note.ranAway = true; }
+  if (o.beaten && !o.safe && hasQuirk(h, "coward")) { o.beaten = false; if (o._left !== undefined && o._left <= 0) heroSetHp(h, 1, o.at); note.ranAway = true; }
   h.xp += note.xp;
   while (h.level < HERO_MAX_LEVEL && h.xp >= heroNeed(h.level)) {
     h.xp -= heroNeed(h.level);
@@ -15512,8 +15562,8 @@ function heroView(userId, colonyId, now) {
     stance: h.stance || "",
     stances: Object.keys(HERO_STANCES).map((k) => Object.assign({ key: k }, HERO_STANCES[k])),
     orders: Object.keys(HERO_ORDERS).map((k) => Object.assign({ key: k }, HERO_ORDERS[k])),
-    quirk: HERO_QUIRKS[h.quirk] ? Object.assign({ key: h.quirk, reroll: h.quirkRound !== roundNumber() }, HERO_QUIRKS[h.quirk]) : null,
-    quirkLevel: HERO_QUIRK_LEVEL,
+    quirks: [[h.quirk, "quirkRound", HERO_QUIRK_LEVEL], [h.quirk2, "quirk2Round", HERO_QUIRK2_LEVEL]].map((x, i) => HERO_QUIRKS[x[0]] && h.level >= x[2] ? Object.assign({ key: x[0], slot: i + 1, reroll: h[x[1]] !== roundNumber(), icon: HERO_QUIRKS[x[0]].icon, name: HERO_QUIRKS[x[0]].name }, quirkText(x[0], h)) : null).filter(Boolean),
+    quirkNext: h.level < HERO_QUIRK_LEVEL ? HERO_QUIRK_LEVEL : h.level < HERO_QUIRK2_LEVEL ? HERO_QUIRK2_LEVEL : 0,
   };
 }
 
@@ -15558,14 +15608,15 @@ app.post("/api/hero", requireLogin, (req, res) => {
       if (k && !HERO_STANCES[k]) return "Unknown stance";
       h.stance = k;
     } else if (b.action === "quirk") {
-      if (!HERO_QUIRKS[h.quirk]) return "Your commander gets a quirk at level " + HERO_QUIRK_LEVEL;
-      if (h.quirkRound === roundNumber()) return "The quirk can be rerolled once per round";
+      const slot = Number(b.slot) === 2 ? 2 : 1;
+      const f = slot === 2 ? "quirk2" : "quirk", rf = f + "Round";
+      if (!HERO_QUIRKS[h[f]] || h.level < (slot === 2 ? HERO_QUIRK2_LEVEL : HERO_QUIRK_LEVEL)) return "That quirk opens at level " + (slot === 2 ? HERO_QUIRK2_LEVEL : HERO_QUIRK_LEVEL);
+      if (h[rf] === roundNumber()) return "Each quirk can be rerolled once per round";
       heroSettleAll(req.user.id, now);
       heroGearChange(h, now);
-      const others = Object.keys(HERO_QUIRKS).filter((q) => q !== h.quirk);
-      h.quirk = others[Math.floor(Math.random() * others.length)];
-      h.quirkRound = roundNumber();
-      req.extra = { quirk: HERO_QUIRKS[h.quirk].name };
+      h[f] = quirkRoll(h, [h.quirk, h.quirk2]);
+      h[rf] = roundNumber();
+      req.extra = { quirk: HERO_QUIRKS[h[f]].name };
     } else if (b.action === "collect") {
       const got = commanderCollect(req.user.id, now);
       if (!got) return "No Star Credits to collect yet";
@@ -16898,7 +16949,7 @@ function wikiExtra() {
       roster: { shards: SHARDS_PER_COMMANDER, dayCap: SHARD_DAY_CAP, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, slots: HUNT_SLOTS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
-      orders: HERO_ORDERS, stances: HERO_STANCES, quirks: HERO_QUIRKS, quirkLevel: HERO_QUIRK_LEVEL,
+      orders: HERO_ORDERS, stances: HERO_STANCES, quirks: Object.keys(HERO_QUIRKS).reduce((o, k) => { o[k] = Object.assign({ icon: HERO_QUIRKS[k].icon, name: HERO_QUIRKS[k].name, fits: HERO_QUIRKS[k].fits.map((a) => HERO_ARCHES[a].icon + " " + HERO_ARCHES[a].name).join(", ") }, quirkText(k, null)); return o; }, {}), quirkLevel: HERO_QUIRK_LEVEL, quirk2Level: HERO_QUIRK2_LEVEL,
       events: ADV_EVENTS.map((e) => ({ icon: e.icon, text: e.text, a: e.a.label, b: e.b.label })),
       gear: HERO_SLOTS.map((k) => ({ slot: k, name: HERO_GEAR[k].name, tiers: HERO_GEAR[k].tiers.map((t) => ({ name: t[0], icon: t[1] })), main: HERO_GEAR[k].main })),
       stats: HERO_STATS, affix: HERO_AFFIX, affixN: HERO_AFFIX_N, caps: HERO_CAPS,
@@ -17129,6 +17180,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.428",date:"2026-11-18",title:"Quirks and traps, properly",groups:[["🎲 Commander quirks",["Nine quirks, each a real trade of numbers (for example Stubborn: +5% defense at home, −10% regeneration; Hothead: +4% attack, +10% health lost; Scavenger: +10% carry, −3% attack; Paranoid: better traps, −3% attack).","A second quirk slot opens at level 30. The numbers grow with the commander\u2019s level, up to +50% at level 100.","Rolls lean towards quirks that fit the archetype. Each quirk can be rerolled once per round, into one you do not have."]],["🪤 Traps",["A trap level catches a share of the attacking ground troops (35% at level 1, 85% at level 10), up to its free cells, instead of swallowing a whole army. The rest fight on.","Charge storms past the traps (25% fewer caught); an Ambush stance at home sets them better (25% more).","Prisoners break out after 3 days and walk home. New: Strip them, the troops are lost for good and you keep 25% of their cost. Let go and the owner winning an attack still free them."]]]},
   {v:"1.0.427",date:"2026-11-18",title:"Permanent specialisations",groups:[["🏷️ Colonies",["A colony\u2019s specialisation can no longer be switched: once chosen, it stays for the life of the colony. The choice button now says it is permanent and asks for a second tap. Colonies that already have a specialisation keep it, and it is now locked."]]]},
   {v:"1.0.426",date:"2026-11-18",title:"Readable archetypes in the wiki",groups:[["📖 Wiki",["The Archetypes and Quirks cards now show one block per entry (skills and rules as short lists) instead of a squeezed table, so they read well on a phone."]]]},
   {v:"1.0.425",date:"2026-11-18",title:"Hunt health bar",groups:[["🐾 Hunt",["The opponent now has a health bar that empties (❤️ 581 / 680 HP, green, then yellow, then red) instead of a damage bar that fills. The Strike button shows how much health a hit takes away."]]]},
@@ -19270,6 +19322,13 @@ app.get("/api/players/suggest", requireLogin, (req, res) => {
 //  A ⭐ main colony can never be taken.
 // =====================================================================
 const TRAP_PER_LEVEL = 10;
+// 🪤 traps v2: a trap never swallows a whole army. Each level catches a bigger share of the ground troops,
+// up to the free cells; the rest fights on. Charge storms past (-25%), an Ambush stance sets them better
+// (+25%), a Paranoid commander at home adds points. Prisoners are held for PRISON_DAYS, then they break out.
+const TRAP_SHARE_BASE = 0.3, TRAP_SHARE_PER_LEVEL = 0.055, TRAP_SHARE_MAX = 0.85, TRAP_SHARE_HARD = 0.95;
+const TRAP_CHARGE = 0.75, TRAP_AMBUSH = 1.25;
+const PRISON_DAYS = 3;
+const TRAP_SALVAGE = 0.25; // of the troops' cost when the trapper strips them
 const BOMBARD_PER_LEVEL = 2;
 const LOYALTY_MAX = 100;
 const LOYALTY_HIT = [20, 30]; // per envoy
@@ -19332,18 +19391,38 @@ function setLoyalty(s, v, now) {
 function trapCap(s) {
   return Math.round(TRAP_PER_LEVEL * levelOf(s, "trap") * speedScale());
 }
-function trapUsed(s) {
-  return (s.prisoners || []).reduce((n, p) => n + countUnits(p.t), 0);
+function prisonMs() { return PRISON_DAYS * serverDayMs(); }
+function trapShare(level, o) {
+  o = o || {};
+  let sh = Math.min(TRAP_SHARE_MAX, TRAP_SHARE_BASE + TRAP_SHARE_PER_LEVEL * level) + (o.pts || 0) / 100;
+  if (o.order === "charge") sh *= TRAP_CHARGE;
+  if (o.stance === "ambush") sh *= TRAP_AMBUSH;
+  return Math.max(0, Math.min(TRAP_SHARE_HARD, sh));
+}
+function trapUsed(s, now) {
+  now = now || Date.now();
+  return (s.prisoners || []).filter((p) => p.at + prisonMs() > now).reduce((n, p) => n + countUnits(p.t), 0);
+}
+// prisoners held too long break out and walk home (a colony state update calls this)
+function trapSweep(s, now) {
+  if (!s.prisoners || !s.prisoners.length || !s._cid) return;
+  const gone = s.prisoners.filter((p) => p.at + prisonMs() <= now);
+  if (!gone.length) return;
+  const c = db.prepare("SELECT id, x, y FROM colonies WHERE id = ?").get(s._cid);
+  if (c) for (const p of gone) prisonersHome({ id: c.id, x: c.x, y: c.y }, p, now);
+  s.prisoners = s.prisoners.filter((p) => gone.indexOf(p) < 0);
 }
 // Before a fight: catch what fits. Changes "troops" and "survivors", not the owner's "away"
-function trapArmy(def, att, troops, survivors, atkTribe, T) {
+function trapArmy(def, att, troops, survivors, atkTribe, T, opt) {
   if (def.userId === att.userId) return null;
-  let free = trapCap(def.state) - trapUsed(def.state);
+  trapSweep(def.state, T);
+  let free = trapCap(def.state) - trapUsed(def.state, T);
   if (free <= 0) return null;
   const keys = Object.keys(troops).filter((k) => troops[k] > 0 && atkTribe.units[k] && atkTribe.units[k].type === "ground");
   const ground = keys.reduce((n, k) => n + troops[k], 0);
   if (!ground) return null;
-  const take = Math.min(free, ground);
+  const take = Math.min(free, ground, Math.round(ground * trapShare(levelOf(def.state, "trap"), opt)));
+  if (take <= 0) return null;
   const caught = {};
   let got = 0;
   const rest = [];
@@ -19362,7 +19441,7 @@ function trapArmy(def, att, troops, survivors, atkTribe, T) {
   subtractTroops(troops, caught);
   subtractTroops(survivors, caught);
   def.state.prisoners = def.state.prisoners || [];
-  let p = def.state.prisoners.find((x) => x.c === att.id);
+  let p = def.state.prisoners.find((x) => x.c === att.id && T - x.at < 3600000);
   if (!p) {
     p = { u: att.userId, c: att.id, tribe: att.tribe, t: {}, at: T };
     def.state.prisoners.push(p);
@@ -19396,12 +19475,16 @@ function freePrisoners(def, userId, T) {
 function trapView(s, now) {
   const cap = trapCap(s);
   if (!cap && !(s.prisoners || []).length) return null;
+  const hero = heroDefending({ userId: s._uid, id: s._cid }, now);
   return {
     cap,
-    used: trapUsed(s),
+    used: trapUsed(s, now),
+    share: Math.round(trapShare(levelOf(s, "trap"), { pts: quirkFx(hero).trap }) * 100),
+    days: PRISON_DAYS,
+    salvage: Math.round(TRAP_SALVAGE * 100),
     prisoners: (s.prisoners || []).map((p, i) => {
       const c = db.prepare("SELECT name, x, y FROM colonies WHERE id = ?").get(p.c);
-      return { i, owner: usernameOf(p.u) || "???", colony: c ? c.name : "???", x: c ? c.x : null, y: c ? c.y : null, at: p.at, units: unitList(p.t, tribeOf(p.tribe), null) };
+      return { i, owner: usernameOf(p.u) || "???", colony: c ? c.name : "???", x: c ? c.x : null, y: c ? c.y : null, at: p.at, until: p.at + prisonMs(), units: unitList(p.t, tribeOf(p.tribe), null) };
     }),
   };
 }
@@ -19416,6 +19499,28 @@ app.post("/api/traps/release", requireLogin, (req, res) => {
     const def = { id: colony.id, x: colony.x, y: colony.y, state: s };
     for (const p of pick) prisonersHome(def, p, now);
     s.prisoners = list.filter((p) => pick.indexOf(p) < 0);
+    return null;
+  });
+});
+
+// Strip the prisoners of their kit: the troops are gone for good, the trapper keeps a share of their cost
+app.post("/api/traps/strip", requireLogin, (req, res) => {
+  withColony(req, res, (s, tribe, colony) => {
+    const list = s.prisoners || [];
+    const i = Number((req.body || {}).i);
+    const pick = (req.body || {}).all ? list.slice() : list[i] ? [list[i]] : [];
+    if (!pick.length) return "Nobody to strip";
+    const gain = { wood: 0, stone: 0, metal: 0, food: 0 };
+    for (const p of pick) {
+      const pt = tribeOf(p.tribe);
+      for (const k in p.t) {
+        const u = pt.units[k];
+        if (u) for (const r of RESOURCES) gain[r] += Math.floor(u.cost[r] * p.t[k] * TRAP_SALVAGE);
+      }
+    }
+    refund(s, gain);
+    s.prisoners = list.filter((p) => pick.indexOf(p) < 0);
+    req.extra = { salvage: gain };
     return null;
   });
 });
@@ -19603,7 +19708,7 @@ function loyaltyView(s, now) {
 }
 
 function wikiConquest() {
-  return { trapPer: Math.round(TRAP_PER_LEVEL * speedScale()), bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs() };
+  return { trapPer: Math.round(TRAP_PER_LEVEL * speedScale()), trapShares: [1, 5, 10].map((l) => [l, Math.round(trapShare(l) * 100)]), trapCharge: Math.round((1 - TRAP_CHARGE) * 100), trapAmbush: Math.round((TRAP_AMBUSH - 1) * 100), prisonDays: PRISON_DAYS, trapSalvage: Math.round(TRAP_SALVAGE * 100), bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs() };
 }
 
 // =====================================================================
@@ -25218,6 +25323,7 @@ const PAGE = `<!DOCTYPE html>
 .hquirk > span { font-size: 22px; }
 .hquirk div { flex: 1; min-width: 0; }
 .hquirk small { display: block; color: #7d6f64; }
+.hquirk-next { display: block; margin: -4px 0 8px; color: #7d6f64; font-size: 12px; }
 .advev { margin: 8px 0; padding: 10px 12px; border-radius: var(--radius-sm); background: #eef4ff; font-size: 13px; }
 .advev p { margin: 0 0 8px; }
 .advev-o { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -34834,11 +34940,15 @@ function heroSheet(d) {
   return h;
 }
 
-// 🎲 the quirk: one upside, one downside
+// 🎲 quirks: each one an upside and a downside; the second slot opens at level 30
 function heroQuirkHtml(H) {
-  if (!H.quirk) return H.level < H.quirkLevel ? "" : "";
-  var Q = H.quirk;
-  return '<div class="hquirk"><span>' + Q.icon + "</span><div><b>" + esc(Q.name) + "</b><small>👍 " + esc(Q.up) + " · 👎 " + esc(Q.down) + "</small></div>" + (Q.reroll ? '<button class="btn small ghost" data-hero-quirk="1" title="Once per round">🎲 Reroll</button>' : "") + helpBtn("troops:quirks", "About quirks") + "</div>";
+  if (!H.quirks || !H.quirks.length) return "";
+  var h = "";
+  H.quirks.forEach(function (Q) {
+    h += '<div class="hquirk"><span>' + Q.icon + "</span><div><b>" + esc(Q.name) + "</b><small>👍 " + esc(Q.up || "–") + "</small><small>👎 " + esc(Q.down || "–") + "</small></div>" + (Q.reroll ? '<button class="btn small ghost" data-hero-quirk="' + Q.slot + '" title="Once per round">🎲 Reroll</button>' : "") + (Q.slot === 1 ? helpBtn("troops:quirks", "About quirks") : "") + "</div>";
+  });
+  if (H.quirkNext) h += '<small class="hquirk-next">🎲 Next quirk slot at level ' + H.quirkNext + "</small>";
+  return h;
 }
 // 🛡️ the stance at home: counts when an attack lands while the commander is home
 function heroStanceHtml(H) {
@@ -34913,9 +35023,11 @@ function advPanel(H) {
 function trapPanel(d) {
   var T = d.traps;
   if (!T) return "";
-  var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.cap + ' traps in use</b><div class="meter thin"><i style="width:' + (T.cap ? Math.min(100, Math.round((T.used / T.cap) * 100)) : 0) + '%"></i></div></div>';
+  var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.cap + ' cells in use</b><small> · catches ' + T.share + '% of an attacking ground army</small><div class="meter thin"><i style="width:' + (T.cap ? Math.min(100, Math.round((T.used / T.cap) * 100)) : 0) + '%"></i></div></div>';
+  var now = serverNow();
   T.prisoners.forEach(function (p) {
-    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return u.icon + " " + u.count; }).join(" ") + '</small></div><button class="btn small ghost" data-trap-free="' + p.i + '">Let go</button></div>';
+    var left = p.until - now;
+    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return u.icon + " " + u.count; }).join(" ") + " · " + (left > 0 ? "breaks out in " + fmt(left) : "breaking out") + '</small></div><button class="btn small ghost" data-trap-free="' + p.i + '">Let go</button><button class="btn small ghost" data-trap-strip="' + p.i + '" title="The troops are lost for good; you keep ' + T.salvage + '% of their cost">Strip</button></div>';
   });
   return h;
 }
@@ -37721,7 +37833,12 @@ function wikiMore(W, tab, cards) {
         var ru = a.rules.map(function (r) { return "<li><b>" + r.at + " pts</b> " + esc(r.text) + "</li>"; }).join("");
         return '<div class="wk-arch"><h4>' + a.icon + " " + esc(a.name) + "</h4><p>" + esc(a.text) + "</p><h5>Skills</h5><ul>" + sk + "</ul><h5>Rules</h5><ul>" + ru + "</ul></div>";
       }).join("") + wkNote("Commanders from before the archetypes keep their Logistics and Foreman points until they choose. Choosing another archetype gives those points back as free points.")));
-      cards.push(wkCard("quirks", "🎲", "Quirks", wkP("At level " + He.quirkLevel + " every commander rolls one quirk: an upside with a downside. It can be rerolled once per round (into one of the other two).") + Object.keys(He.quirks).map(function (k) { var q = He.quirks[k]; return '<div class="wk-arch"><h4>' + q.icon + " " + esc(q.name) + "</h4><ul><li>👍 " + esc(q.up) + "</li><li>👎 " + esc(q.down) + "</li></ul></div>"; }).join("")));
+      cards.push(wkCard("quirks", "🎲", "Quirks", wkList([
+        "A commander has habits: at level " + He.quirkLevel + " it rolls its first quirk, at level " + He.quirk2Level + " a second one. Each quirk is a trade, an upside with a downside.",
+        "The numbers grow with the commander’s level: +50% at level 100 (the values below are for level " + He.quirkLevel + ").",
+        "A roll leans towards quirks that fit the archetype (three times as likely). You can <b>reroll</b> each quirk once per round, into one you do not have yet.",
+        "Quirks add to the commander’s own attack and defense, so they count on top of gear and skills. A quirk’s defense counts only while the commander is home and healthy.",
+      ]) + Object.keys(He.quirks).map(function (k) { var q = He.quirks[k]; return '<div class="wk-arch"><h4>' + q.icon + " " + esc(q.name) + "</h4><ul><li>👍 " + esc(q.up) + "</li><li>👎 " + esc(q.down) + "</li></ul><p><small>Fits: " + esc(q.fits) + "</small></p></div>"; }).join("")));
     }
     var LvP = W.extra && W.extra.living;
     if (LvP) {
@@ -37773,9 +37890,10 @@ function wikiMore(W, tab, cards) {
 
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
-      "Every level of the trap building holds " + Cq.trapPer + " attacking <b>ground</b> troops. Flyers pass over. They are caught before the fight, so they don’t fight.",
-      "Prisoners stay in the traps; their owner still feeds them. Open the trap building to let them go home.",
-      "If their owner wins an <b>attack</b> (not a raid) on that colony, all of their prisoners are free and walk home.",
+      "Every level of the trap building has " + Cq.trapPer + " cells. Before the fight it catches a <b>share</b> of the attacking <b>ground</b> troops (flyers pass over): " + Cq.trapShares.map(function (x) { return x[1] + "% at level " + x[0]; }).join(", ") + ". Only as many as there are free cells. The rest fight on, so traps wear an army down instead of stopping it.",
+      "⚔️ Charge storms past: " + Cq.trapCharge + "% fewer caught. 🌵 An Ambush stance at home sets them better: " + Cq.trapAmbush + "% more. A 🪤 Paranoid commander at home adds points to the share.",
+      "Prisoners fill the cells and no longer fight. Their owner still feeds them. After " + Cq.prisonDays + " days they break out and walk home, which also frees the cells.",
+      "Three ways out: <b>Let go</b> (they walk home, a gesture), <b>Strip</b> (the troops are lost for good, you keep " + Cq.trapSalvage + "% of their cost), or their owner wins an <b>attack</b> (not a raid) on that colony and frees them all.",
     ])));
     cards.push(wkCard("bombard", "💥", "Bombarding buildings", wkList([
       "Bombards that survive a won <b>attack</b> (never a raid) knock levels off buildings and resource fields, like rams do with the wall: a level L needs " + Cq.bombardPer + " × L bombards (upgrades count).",
@@ -39459,7 +39577,7 @@ document.addEventListener("click", function (e) {
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
-    "[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
+    "[data-trap-strip],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
     "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
@@ -39554,6 +39672,8 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-open")) {
     heroTab = "skills";
     openSheet("hero", null);
+  } else if (has("data-trap-strip")) {
+    post("/api/traps/strip", { i: Number(attr("data-trap-strip")) }, function () { toast("🪤 Stripped for resources"); });
   } else if (has("data-trap-free")) {
     post("/api/traps/release", { i: Number(attr("data-trap-free")) }, function () { toast("They are walking home"); });
   } else if (has("data-adv-go")) {
@@ -39673,7 +39793,7 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-stance")) {
     post("/api/hero", { action: "stance", key: attr("data-hero-stance") }, function () { toast("🛡️ Stance set"); });
   } else if (has("data-hero-quirk")) {
-    if (confirm("Reroll the quirk? You can do this once per round.")) post("/api/hero", { action: "quirk" }, function (r) { toast("🎲 New quirk: " + (r && r.quirk || ""), true); });
+    if (confirm("Reroll this quirk? Each quirk can be rerolled once per round.")) post("/api/hero", { action: "quirk", slot: Number(attr("data-hero-quirk")) || 1 }, function (r) { toast("🎲 New quirk: " + (r && r.quirk || ""), true); });
   } else if (has("data-adv-pick")) {
     post("/api/hero", { action: "event", pick: attr("data-adv-pick") }, function (r) { toast(r && r.eventText || "Done", true); });
   } else if (has("data-send-order")) {
