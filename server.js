@@ -6188,7 +6188,7 @@ function snapshot(user, colony) {
     crown: s.crown,
     zone: zoneInfo(user.id, now),
     relic: s.relic && landmarkByKey(s.relic) ? { icon: landmarkByKey(s.relic).icon, name: landmarkByKey(s.relic).name, bonus: relicText(landmarkByKey(s.relic)), ready: s.relicReady || 0, x: landmarkByKey(s.relic).x, y: landmarkByKey(s.relic).y, building: relicHomeOf(landmarkByKey(s.relic)), scope: relicTierDef().scope, scopeText: relicTierDef().scopeText, tier: relicTierDef().n } : null,
-    credits: (commanderCollect(user.id, now), creditsOf(user.id)), // earned credits arrive while you play
+    credits: (commanderFlow(user.id, now), creditsOf(user.id)), // earned credits arrive while you play; after a long absence they wait in the pile
     creditRate: creditFlow(user.id, now).rate, creditFrac: creditFlow(user.id, now).frac, // so the wallet can tick them up live
     cash: cashOf(user.id), cashRate: cashInfo(user.id, now).cashRate, cashFrac: cashInfo(user.id, now).cashFrac,
     relicShared: (function () { const t = relicTierDef(); if (t.scope === "colony") return []; return relicHoldings(user.id).filter((h) => h.key !== s.relic).map((h) => { const l = landmarkByKey(h.key); return l ? { icon: l.icon, name: l.name, bonus: relicText(l), ready: h.ready } : null; }).filter(Boolean); })(),
@@ -14950,6 +14950,14 @@ function commanderCollect(userId, now) {
   addCredits(userId, inc.pending);
   return inc.pending;
 }
+// While you play, earned credits flow into the wallet by themselves. After a longer absence (more than AWAY_HOLD_MS since the last
+// payout) they wait in the commander pile instead, so coming back shows the pile filled and Collect pays it out.
+const AWAY_HOLD_MS = 30 * 60000;
+function commanderFlow(userId, now) {
+  const inc = commanderIncome(userId, now);
+  if (inc && inc.real > AWAY_HOLD_MS) return 0;
+  return commanderCollect(userId, now);
+}
 // for the wallet on the screen: Star Credits per hour and how far the next whole credit has come (0 to 1), so it can tick up live
 function creditFlow(userId, now) {
   const inc = commanderIncome(userId, now);
@@ -15484,7 +15492,9 @@ app.post("/api/hero", requireLogin, (req, res) => {
       h.quirkRound = roundNumber();
       req.extra = { quirk: HERO_QUIRKS[h.quirk].name };
     } else if (b.action === "collect") {
-      if (!commanderCollect(req.user.id, now)) return "No Star Credits to collect yet";
+      const got = commanderCollect(req.user.id, now);
+      if (!got) return "No Star Credits to collect yet";
+      req.extra = { collected: got };
     } else if (b.action === "quirk-seen") {
       h.quirkNew = 0;
     } else if (b.action === "event") {
@@ -16440,7 +16450,7 @@ function boostView(s, userId, colonyId, now) {
     pct: { overtime: Math.round(OVERTIME_CUT * 100), hands: Math.round(HANDS_CUT * 100), ally: Math.round(ALLY_HELP_CUT * 100), allyMax: Math.round(ALLY_HELP_MAX * 100), free: Math.round(BOOST_FREE_MAX * 100) },
     overtimeMaxMs: Math.round((OVERTIME_MAX_MIN * 60000) / BUILD_SPEED),
     freeFinishMs: freeFinishMs(),
-    credits: (commanderCollect(userId, now), creditsOf(userId)),
+    credits: (commanderFlow(userId, now), creditsOf(userId) + ((commanderIncome(userId, now) || {}).pending || 0)), // spending pays out the pile first, so it counts
   };
 }
 
@@ -17035,7 +17045,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.410",date:"2026-11-18",title:"A night away still pays",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first 4 hours, then half speed for the next 8 hours. Before, everything after 4 hours was lost, so a night away barely paid.","A night away (8 hours) now pays 6 hours of income, 12 hours or more pays 8. The commander pile shows the new, larger limit.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full."]]]},
+  {v:"1.0.410",date:"2026-11-18",title:"A night away still pays",groups:[["🌙 Time away",["Star Credits and Space-Cash from your creature slots now count time away in two steps: full speed for the first 4 hours, then half speed for the next 8 hours. Before, everything after 4 hours was lost, so a night away barely paid.","A night away (8 hours) now pays 6 hours of income, 12 hours or more pays 8. The commander pile shows the new, larger limit.","Resources in your colony were not affected: they keep growing while you are away, until the storage is full.","After a longer time away, your Star Credits now wait in the commander pile instead of being paid out in the background. Open the commander page, see the pile filled and tap Collect (the toast shows how many you got). While you play they still flow in on their own."]]]},
   {v:"1.0.409",date:"2026-11-17",title:"Star Credits you can watch",groups:[["🎫 Star Credits",["The 🎫 in the top bar now counts up on its own: every credit your commander earns appears the moment it is ready, with a small +1 and a bump, instead of only when the page refreshes.","A thin bar under the 🎫 fills toward the next credit. In the wallet window the same bar shows the speed (an hour and a day) and a countdown to the next credit, so even the slowest commander shows progress.","Spending credits counts what you have just earned, so the number you see is always the number you can use."]]]},
   {v:"1.0.408",date:"2026-11-17",title:"A fairer instant-finish price",groups:[["🎫 Star Credits",["The instant-finish price is now charged per hour left and rises in steps: 30 Star Credits an hour for the first hour, 45 up to 4 hours, 80 up to 12 hours and 160 beyond. Every use costs at least 30, so quick jobs are not cheap to skip: 5 minutes to 1 hour cost 30, 2 hours 75, 4 hours 165, 12 hours 805 and a day 2,725.","That keeps the quick early levels (the first ten levels of a field take about 2 hours in all) from being rushed with a pile of credits, while mid-length jobs cost about a fifth less than before (12 hours 805 instead of 1,010).","On faster servers the 30 Star Credit minimum shrinks (10 on a ×10 server, 2 on the fastest), because jobs are much shorter there. The wiki now also says correctly that the free finish covers the last 3 minutes on a ×1 server."]]]},
   {v:"1.0.407",date:"2026-11-17",title:"Hunt luck grows with the acts",groups:[["🍀 Hunt",["Every time a new act starts and the monster camps get stronger, the hunt gets luckier too: ×1.25 from Discovery, ×1.5 in the Storm Season, ×1.75 in the Relic Hunt and ×2 in the Aurora.","Luck gives every rarity above common that much more weight (above-common opponents go from about 35% to about 52% in the Aurora), and multiplies the shiny chances for creatures and for fusing commanders (creatures: 7.1% of opponents at the start, 14.2% in the Aurora).","The share of opponents that show up while you are away also rises by 5 points per act, from 50% to 70%."]],["🎓 Graduation",["The one-time graduation gift is now 100 Star Credits (was 500), in line with the faster Star Credit income."]]]},
@@ -39404,7 +39414,7 @@ document.addEventListener("click", function (e) {
   } else if (has("data-cmd-switch")) {
     cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
   } else if (has("data-hero-collect")) {
-    post("/api/hero", { action: "collect" }, function () { toast("🎫 Star Credits collected"); });
+    post("/api/hero", { action: "collect" }, function (r) { toast("🎫 +" + ((r && r.collected) || 0).toLocaleString("en-US") + " Star Credits collected"); });
   } else if (has("data-hero-stance")) {
     post("/api/hero", { action: "stance", key: attr("data-hero-stance") }, function () { toast("🛡️ Stance set"); });
   } else if (has("data-hero-quirk")) {
