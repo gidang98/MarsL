@@ -540,7 +540,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.424";
+const GAME_VERSION = "1.0.425";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17141,6 +17141,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.425",date:"2026-11-18",title:"Hunt health bar",groups:[["🐾 Hunt",["The opponent now has a health bar that empties (❤️ 581 / 680 HP, green, then yellow, then red) instead of a damage bar that fills. The Strike button shows how much health a hit takes away."]]]},
   {v:"1.0.424",date:"2026-11-18",title:"Faster hunt",groups:[["🐾 Hunt",["Strike as fast as you can tap, up to 6 times a second (it used to be once every 20 seconds). Every strike lands on the opponent's health bar at once, with a little hit effect, and a fast tapper deals up to about twice the damage of the commander alone in the same time.","The opponent's health bar now moves smoothly all the time instead of jumping every few seconds, also when only the commander is fighting."]]]},
   {v:"1.0.423",date:"2026-11-18",title:"Every production is different",groups:[["🎖️ Commanders",["No two commanders of the same rarity earn the same Star Credits any more: common 1.4 to 1.8, uncommon 2.8 to 4.9 and rare 4.2 to 7.7 per hour, each one different."]],["🐾 Hunt",["No two creatures of the same rarity earn the same Space-Cash per second any more (common 1 to 2, uncommon 3 to 5)."]]]},
   {v:"1.0.422",date:"2026-11-18",title:"Gear cap 35%",groups:[["🎖️ Commander",["The cap on attack and defense from gear and skills is 35% in fights between players and 50% in the hunt. With the commander's own bonus on top (up to 25%), the most a fully built army gets is about +69%."]]]},
@@ -24032,6 +24033,7 @@ const PAGE = `<!DOCTYPE html>
   .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
   .hunt-ic { font-size: 44px; line-height: 1; } .hunt-body { flex: 1; min-width: 0; } .hunt-body b, .hunt-body small { display: block; }
   .hunt-hp i { transition: width .12s linear; }
+  .hbar.hpg i { background: #3fae4f; } .hbar.hpy i { background: #e6a417; } .hbar.hpr i { background: #e0483d; }
   .hunt-card { position: relative; }
   .hunt-card.hit .hunt-ic { animation: hunt-hit .14s ease-out; }
   @keyframes hunt-hit { 0% { transform: scale(1); } 40% { transform: scale(.88) rotate(-4deg); } 100% { transform: scale(1); } }
@@ -38415,6 +38417,7 @@ function commanderSheet() {
 function cmdPost(body, msg) { post("/api/commanders", body, function () { if (msg) toast(msg, true); openCommanders(); }); }
 
 // ---------- the hunt ----------
+function huntHpClass(f) { return f > 0.5 ? "hpg" : f > 0.25 ? "hpy" : "hpr"; }
 function hitTxt(x) { return x < 1 ? x.toFixed(2) : String(Math.round(x * 10) / 10); }
 var hunt = { data: null, at: 0, timer: 0, view: "main", sel: {}, extra: 0, pend: 0, inflight: false, lastTap: 0, anim: 0 };
 // the hunt bar runs on this device between server answers: the commander's own damage grows every moment and every strike counts at once
@@ -38427,8 +38430,10 @@ function huntPaint() {
   var o = hunt.data.opponent, fill = document.getElementById("hunt-hpfill"), txt = document.getElementById("hunt-dmg");
   if (o.won || !fill) return;
   var d = huntDmgNow();
-  fill.style.width = (o.hp ? Math.min(100, (d / o.hp) * 100) : 100) + "%";
-  if (txt) txt.textContent = Math.floor(d) + " / " + o.hp + " damage";
+  var left = o.hp ? Math.max(0, 1 - d / o.hp) : 0;
+  fill.style.width = left * 100 + "%";
+  var bar = document.getElementById("hunt-hpbar"); if (bar) bar.className = "hbar hunt-hp " + huntHpClass(left);
+  if (txt) txt.textContent = "❤️ " + Math.max(0, Math.ceil(o.hp - d)) + " / " + o.hp + " HP";
   if (d >= o.hp && !hunt.inflight && !hunt.done) { hunt.done = true; huntFlush(); setTimeout(openHunt, 250); }
 }
 function huntFlush() {
@@ -38552,8 +38557,8 @@ function huntSheet() {
   var D = hunt.data, o = D.opponent, left = Math.max(0, D.nextMs - (Date.now() - hunt.at)), h = "";
   h += '<div class="sheet-head"><span class="hi">🐾</span><div><h3>Hunt</h3><b>' + D.total + (D.total === 1 ? " creature" : " creatures") + " caught</b></div></div>";
   h += '<div class="hunt-card rc-' + o.rarity + (o.tier ? " sh-" + o.tier : "") + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
-  h += '<div class="hbar hp hunt-hp"><i id="hunt-hpfill" style="width:' + (o.hp ? Math.min(100, (o.dmgExact / o.hp) * 100) : 100) + '%"></i></div><small id="hunt-dmg">' + (o.won ? "Caught!" : o.dmg + " / " + o.hp + " damage") + '</small>' + (o.won ? "" : '<small class="hunt-need' + (o.reach ? "" : " bad") + '">' + (o.reach ? "Catches by itself at " + o.need + " attack · yours " + D.atk : "Too strong: needs " + o.need + " attack · yours " + D.atk) + "</small>") + '</div><div class="hunt-cd"><small>next opponent</small>⏱ ' + cdSpan(left, "hunt") + "</div></div>";
-  h += '<div class="hunt-act"><button class="btn hunt-strike" data-hunt-tap="1"' + (o.won ? " disabled" : "") + ">⚔️ Strike +" + hitTxt(D.tap.dmg) + "</button><small>Tap as fast as you like, up to " + Math.round(1000 / D.tap.cd) + " strikes a second. Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
+  h += '<div class="hbar hunt-hp ' + huntHpClass(o.hp ? (o.hp - o.dmgExact) / o.hp : 0) + '" id="hunt-hpbar"><i id="hunt-hpfill" style="width:' + (o.won ? 0 : o.hp ? Math.max(0, (1 - o.dmgExact / o.hp) * 100) : 0) + '%"></i></div><small id="hunt-dmg">' + (o.won ? "Caught!" : "❤️ " + Math.max(0, Math.ceil(o.hp - o.dmgExact)) + " / " + o.hp + " HP") + '</small>' + (o.won ? "" : '<small class="hunt-need' + (o.reach ? "" : " bad") + '">' + (o.reach ? "Catches by itself at " + o.need + " attack · yours " + D.atk : "Too strong: needs " + o.need + " attack · yours " + D.atk) + "</small>") + '</div><div class="hunt-cd"><small>next opponent</small>⏱ ' + cdSpan(left, "hunt") + "</div></div>";
+  h += '<div class="hunt-act"><button class="btn hunt-strike" data-hunt-tap="1"' + (o.won ? " disabled" : "") + ">⚔️ Strike · −" + hitTxt(D.tap.dmg) + " HP</button><small>Tap as fast as you like, up to " + Math.round(1000 / D.tap.cd) + " strikes a second. Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
   if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + ' <span class="cmd-rar r-' + l.rarity + '">' + esc(l.name) + "</span>" + (l.lost ? " <small>(inventory full, got away)</small>" : l.sold ? " <small>(sold 💲" + shortNum(l.sold) + ")</small>" : ""); }).join(" · ") + "</p>";
   h += '<div class="hunt-cash"><span>💲</span><b id="hs-cash">' + cashText(Math.floor(walletNow())) + "</b><small>+" + shortNum(D.cash.cashRate) + "/s from the slotted creatures</small></div>";
   h += '<div class="hunt-slots">' + D.slots.map(function (sl, i) {
