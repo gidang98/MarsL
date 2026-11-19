@@ -614,7 +614,7 @@ const BUILDING_TYPES = {
     time: 70,
     max: 20, high: true, multi: true,
     requires: { hq: 3, wall: 1 },
-    info: "Catches attacking ground troops before the fight: 20 traps per level, 400 at level 20. At level 20 you may build another one. You can let prisoners go (the traps they filled are rebuilt for free, at half speed), let them starve, or wait: a won attack on this colony frees all of them. Raids free nobody.",
+    info: "Catches attacking ground troops before the fight: 20 traps per level, 400 at level 20. At level 20 you may build another one. You can let prisoners go or let them starve (either way the emptied traps are rebuilt for free, at half speed), or wait: a won attack on this colony frees all of them. Raids free nobody.",
   },
   lab: {
     cost: { wood: 220, stone: 160, metal: 240, food: 90 },
@@ -17263,7 +17263,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.438",date:"2026-11-19",title:"Release or starve prisoners",groups:[["🪤 Traps",["You can let trapped troops go from the trap building. They walk home, and the traps they filled are rebuilt for free, one at a time, at half speed.","Or let them starve: prisoners then die at the pace of troops in a colony with no food and an empty storage. Their owner stops feeding them as they die.","A won attack on the colony still frees every prisoner at once, with no rebuild."]]]},
+  {v:"1.0.438",date:"2026-11-19",title:"Release or starve prisoners",groups:[["🪤 Traps",["You can let trapped troops go from the trap building. They walk home, and the traps they filled are rebuilt for free, one at a time, at half speed.","Or let them starve: prisoners then die three times slower than troops in a colony with no food and an empty storage. Their owner stops feeding them as they die.","Every trap that empties, by release or by a death, is rebuilt for free at half speed.","One attack never loses more than half of its ground troops to traps.","A won attack on the colony still frees every prisoner at once, with no rebuild."]]]},
   {v:"1.0.437",date:"2026-11-18",title:"Bigger resource fields",groups:[["🌾 Fields",["The twelve resource fields and your mascot are drawn larger on the clay slab, so less space is wasted around them."]]]},
   {v:"1.0.436",date:"2026-11-18",title:"Shards from adventures",groups:[["🧩 Adventures",["An adventure sometimes brings home commander shards (about one trip in five, one in three on the dangerous route). Which commander follows the shop\u2019s odds, so a Mythic shard is as rare as in the shop, and the amounts are the same. The shop\u2019s daily limits do not apply. The trip report and the commander sheet show what was found."]]]},
   {v:"1.0.435",date:"2026-11-18",title:"Research rush price: 6 times the time left",groups:[["🎫 Star Credits",["Finishing a research with Star Credits is now priced as if it took 6 times as long (was 9). The raider and all air units of a Human colony cost about 250 credits to finish at lab level 5, instead of about 370. The price still falls as the research gets shorter and with every lab level."]]]},
@@ -19512,7 +19512,7 @@ function trapArmy(def, att, troops, survivors, atkTribe, T) {
   const keys = Object.keys(troops).filter((k) => troops[k] > 0 && atkTribe.units[k] && atkTribe.units[k].type === "ground");
   const ground = keys.reduce((n, k) => n + troops[k], 0);
   if (!ground) return null;
-  const take = Math.min(free, ground);
+  const take = Math.min(free, Math.ceil(ground * TRAP_CATCH_SHARE));
   const caught = {};
   let got = 0;
   const rest = [];
@@ -19565,7 +19565,9 @@ function freePrisoners(def, userId, T) {
 // 🔓 The trapper lets a group go: they walk home, and the traps they sat in are
 // rebuilt for free, one after the other, at half the usual speed.
 const TRAP_BUILD_SEC = 30; // one trap on a x1 server, before the half speed
-const TRAP_REBUILD_SLOW = 2; // released traps come back at half speed
+const TRAP_REBUILD_SLOW = 2; // emptied traps (released or starved) come back at half speed
+const TRAP_CATCH_SHARE = 0.5; // one attack never loses more than half of its ground troops to traps
+const TRAP_STARVE_SLOW = 3; // prisoners hold out three times as long as troops in a colony without food
 function trapMs() { return Math.max(1, Math.round((TRAP_BUILD_SEC * 1000 * TRAP_REBUILD_SLOW) / BUILD_SPEED)); }
 function trapRebuildLeft(s, now) {
   const r = s.trapRebuild;
@@ -19584,9 +19586,8 @@ function trapFree(s, now) {
   return Math.max(0, trapCap(s, now) - trapUsed(s) - trapRebuildLeft(s, now));
 }
 
-// ☠️ Starving prisoners die exactly like troops in a colony with no food
-// production and an empty storage: they miss their upkeep, and a unit dies each
-// time it has missed what it eats (see starve). The owner's colony keeps feeding
+// ☠️ Starving prisoners die like troops in a colony with no food production and
+// an empty storage (see starve), only TRAP_STARVE_SLOW times slower. The owner's colony keeps feeding
 // them until they die, so every death also leaves the owner's "away" list.
 const starvingTraps = new Set();
 for (const row of db.prepare("SELECT id FROM colonies WHERE state LIKE '%\"starve\":true%'").all()) starvingTraps.add(row.id);
@@ -19605,7 +19606,7 @@ function starvePrisoner(p, T) {
       if (!pick || tribe.units[k].upkeep * p.t[k] > tribe.units[pick].upkeep * p.t[pick]) pick = k;
     }
     if (!pick) { p.hunger = 0; break; }
-    const need = (tribe.units[pick].upkeep / PRODUCTION_SPEED) * starvePatience();
+    const need = (tribe.units[pick].upkeep / PRODUCTION_SPEED) * starvePatience() * TRAP_STARVE_SLOW;
     if (p.hunger < need) break;
     p.hunger -= need;
     p.t[pick] -= 1;
@@ -19620,12 +19621,18 @@ function trapStarveTick(now) {
     if (!c) { starvingTraps.delete(id); continue; }
     const s = c.state;
     const lostBy = {};
+    let dead = 0;
     s.prisoners = (s.prisoners || []).filter((p) => {
       if (!p.starve) return true;
       const died = starvePrisoner(p, now);
-      if (countUnits(died)) { lostBy[p.c] = lostBy[p.c] || {}; addTroops(lostBy[p.c], died); }
+      if (countUnits(died)) { lostBy[p.c] = lostBy[p.c] || {}; addTroops(lostBy[p.c], died); dead += countUnits(died); }
       return countUnits(p.t) > 0;
     });
+    if (dead > 0) { // every trap that empties has to be rebuilt
+      settleRebuild(s, now);
+      if (s.trapRebuild) s.trapRebuild.n += dead;
+      else s.trapRebuild = { n: dead, at: now };
+    }
     if (!s.prisoners.some((p) => p.starve)) starvingTraps.delete(id);
     saveColony(id, s);
     for (const cid of Object.keys(lostBy)) {
@@ -19872,7 +19879,7 @@ function loyaltyView(s, now) {
 }
 
 function wikiConquest() {
-  return { trapPer: TRAP_PER_LEVEL, trapMax: TRAP_PER_LEVEL * 20, bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs(), trapRebuildSec: Math.round(trapMs() / 1000) };
+  return { trapPer: TRAP_PER_LEVEL, trapMax: TRAP_PER_LEVEL * 20, bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs(), trapRebuildSec: Math.round(trapMs() / 1000), trapShare: Math.round(TRAP_CATCH_SHARE * 100), trapStarveSlow: TRAP_STARVE_SLOW };
 }
 
 // =====================================================================
@@ -38063,9 +38070,9 @@ function wikiMore(W, tab, cards) {
 
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
-      "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps, so they don’t fight. Flyers pass over.",
+      "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps and at most " + Cq.trapShare + "% of one attack, so they don’t fight. Flyers pass over.",
       "A 🪤 Paranoid commander adds to the traps while it is home and healthy. Prisoners stay in the traps, and their owner still feeds them.",
-      "You can <b>let a group go</b>: they walk home, and the traps they filled are rebuilt for free, one at a time, at half the usual speed (about " + Cq.trapRebuildSec + " s per trap here). Or you can let them <b>starve</b>: they die one by one, exactly as fast as troops in a colony with no food production and an empty storage. Their owner feeds them until they are gone.",
+      "You can <b>let a group go</b>: they walk home, and the traps they filled are rebuilt for free, one at a time, at half the usual speed (about " + Cq.trapRebuildSec + " s per trap here). Or you can let them <b>starve</b>: they die one by one, " + Cq.trapStarveSlow + " times slower than troops in a colony with no food and an empty storage. Their owner feeds them until they are gone. Every trap that empties, by release or by a death, is rebuilt the same way.",
       "A <b>won attack</b> (not a raid) on that colony frees <b>every</b> prisoner in it, yours or another player’s. They walk home.",
     ])));
     cards.push(wkCard("bombard", "💥", "Bombarding buildings", wkList([
