@@ -541,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.438";
+const GAME_VERSION = "1.0.439";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17263,6 +17263,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.439",date:"2026-11-19",title:"Cleaner header",groups:[["🧭 Header",["On tablets and desktops the colony name and details sit on the left and your money and buttons on the right, in a single slim row.","In a narrow window the buttons move under the name instead of squeezing it."]]]},
   {v:"1.0.438",date:"2026-11-19",title:"Release or starve prisoners",groups:[["🪤 Traps",["You can let trapped troops go from the trap building. They walk home, and the traps they filled are rebuilt for free, one at a time, at half speed.","Or let them starve: prisoners then die three times slower than troops in a colony with no food and an empty storage. Their owner stops feeding them as they die.","Every trap that empties, by release or by a death, is rebuilt for free at half speed.","One attack never loses more than half of its ground troops to traps.","A won attack on the colony still frees every prisoner at once, with no rebuild."]]]},
   {v:"1.0.437",date:"2026-11-18",title:"Bigger resource fields",groups:[["🌾 Fields",["The twelve resource fields and your mascot are drawn larger on the clay slab, so less space is wasted around them."]]]},
   {v:"1.0.436",date:"2026-11-18",title:"Shards from adventures",groups:[["🧩 Adventures",["An adventure sometimes brings home commander shards (about one trip in five, one in three on the dangerous route). Which commander follows the shop\u2019s odds, so a Mythic shard is as rare as in the shop, and the amounts are the same. The shop\u2019s daily limits do not apply. The trip report and the commander sheet show what was found."]]]},
@@ -25789,6 +25790,17 @@ const PAGE = `<!DOCTYPE html>
     body.in .topbar .build-badge { display:none; }
     body.in .topbar small { line-height:1.3; }
   }
+  @media(min-width:560px) {
+    /* tablet and desktop: name and details on the left, money and icon buttons on the right, all on one line when the panel is wide enough. In a narrow column the buttons drop under the name instead of squeezing it. The version sits last. */
+    body.in .topbar { flex-wrap:wrap; align-items:center; padding:8px 14px 8px 16px; gap:6px 14px; }
+    body.in .topbar > div:first-child { flex:1 1 250px; }
+    body.in .topbar .topbtns { flex:0 1 auto; flex-wrap:nowrap; max-width:none; margin-left:auto; gap:5px; }
+    body.in .topbar .topbtns .wallet { margin-right:6px; padding:5px 12px; font-size:14px; }
+    body.in .topbar .topbtns .btn { width:36px; height:36px; min-height:36px; font-size:16px; }
+    body.in .topbar .build-badge { order:9; font-size:11px; color:var(--muted); padding:0 0 0 4px; }
+    body.in .topbar small { font-size:12px; }
+  }
+  @media(min-width:560px) and (max-width:899px) { body.in .topbar .build-badge { display:none; } }
 
 .report.rep2 { border-radius:12px; margin:6px 0; }
 .report.rep2 .report-head,.report.rep2:not(.open) .report-head { display:grid; grid-template-columns:22px minmax(0,1fr) auto; padding:8px 10px; gap:4px 8px; min-height:96px; text-align:left; }
