@@ -1003,8 +1003,9 @@ const TRIBES = {
         quote: "Coo. (I am not a chicken. Don't tell anyone.)",
       },
       runner: {
-        name: "Dust Dasher", icon: "🐦", role: "Raider", type: "ground",
+        name: "Dust Dasher", icon: "🐦", role: "Raider", type: "ground", slip: 0.5,
         atk: 40, defG: 15, defA: 10, speed: 18, carry: 85, upkeep: 1,
+        special: { icon: "💨", name: "Slippery", text: "Traps catch it only half as often." },
         cost: { wood: 130, stone: 80, metal: 120, food: 60 }, time: 70, building: "barracks", level: 3, lab: 3,
         quote: "Zoom! Your resources? MY resources now.",
       },
@@ -1117,7 +1118,7 @@ const TRIBES = {
       },
       squid: {
         name: "Tunnel Worm", icon: "🚇", role: "Raider", type: "ground", trapProof: true, dig: true,
-        atk: 55, defG: 30, defA: 10, speed: 7, carry: 105, upkeep: 2,
+        atk: 55, defG: 30, defA: 10, speed: 10, carry: 105, upkeep: 2,
         cost: { wood: 130, stone: 220, metal: 170, food: 100 }, time: 120, building: "barracks", level: 3, lab: 3,
         special: { icon: "🚇", name: "Burrow", text: "Slips under traps and digs out up to half of what the bunker hides, in proportion to its share of the army's carry." },
         quote: "Your bunker is a nice hole. Mine is deeper.",
@@ -17278,7 +17279,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.440",date:"2026-11-19",title:"New raiders for humans and aliens",groups:[["🪂 Humans",["The Hover Bike is now the Drop Trooper: an air unit that flies over traps. It fights in the air phase, so flak and fighters can stop it. It carries less than the old bike. It comes with its own artwork."]],["🚇 Aliens",["The Squid Skimmer is now the Tunnel Worm: slow, hard to catch. Traps cannot hold it, and it digs out up to half of what the bunker hides, in proportion to its share of the army's carry. It has its own artwork too."]],["🐔 Chickens",["Chickens keep the Dust Dasher and stay the only tribe whose raiders loot fast on their own."]]]},
+  {v:"1.0.440",date:"2026-11-19",title:"New raiders for humans and aliens",groups:[["🪂 Humans",["The Hover Bike is now the Drop Trooper: an air unit that flies over traps. It fights in the air phase, so flak and fighters can stop it. It carries less than the old bike. It comes with its own artwork."]],["🚇 Aliens",["The Squid Skimmer is now the Tunnel Worm: slow, hard to catch. Traps cannot hold it, and it digs out up to half of what the bunker hides, in proportion to its share of the army's carry. It has its own artwork too."]],["🐔 Chickens",["Chickens keep the Dust Dasher and stay the only tribe whose raiders loot fast on their own. Traps catch it only half as often, because it is fast enough to slip away."]]]},
   {v:"1.0.439",date:"2026-11-19",title:"Cleaner header",groups:[["🧭 Header",["On tablets and desktops the colony name and details sit on the left and your money and buttons on the right, in a single slim row.","In a narrow window the buttons move under the name instead of squeezing it."]]]},
   {v:"1.0.438",date:"2026-11-19",title:"Release or starve prisoners",groups:[["🪤 Traps",["You can let trapped troops go from the trap building. They walk home, and the traps they filled are rebuilt for free, one at a time, at half speed.","Or let them starve: prisoners then die three times slower than troops in a colony with no food and an empty storage. Their owner stops feeding them as they die.","Every trap that empties, by release or by a death, is rebuilt for free at half speed.","One attack never loses more than half of its ground troops to traps.","A won attack on the colony still frees every prisoner at once, with no rebuild."]]]},
   {v:"1.0.437",date:"2026-11-18",title:"Bigger resource fields",groups:[["🌾 Fields",["The twelve resource fields and your mascot are drawn larger on the clay slab, so less space is wasted around them."]]]},
@@ -19527,14 +19528,16 @@ function trapArmy(def, att, troops, survivors, atkTribe, T) {
   let free = trapFree(def.state, T);
   if (free <= 0) return null;
   const keys = Object.keys(troops).filter((k) => troops[k] > 0 && atkTribe.units[k] && atkTribe.units[k].type === "ground" && !atkTribe.units[k].trapProof);
-  const ground = keys.reduce((n, k) => n + troops[k], 0);
+  // fast units slip away: a unit with `slip` counts for only part of its number
+  const wt = (k) => troops[k] * (atkTribe.units[k].slip || 1);
+  const ground = keys.reduce((n, k) => n + wt(k), 0);
   if (!ground) return null;
   const take = Math.min(free, Math.ceil(ground * TRAP_CATCH_SHARE));
   const caught = {};
   let got = 0;
   const rest = [];
   for (const k of keys) {
-    const exact = (troops[k] * take) / ground;
+    const exact = (wt(k) * take) / ground;
     caught[k] = Math.floor(exact);
     got += caught[k];
     rest.push([k, exact - caught[k]]);
@@ -38098,7 +38101,7 @@ function wikiMore(W, tab, cards) {
 
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
-      "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps and at most " + Cq.trapShare + "% of one attack, so they don’t fight. Flyers and Tunnel Worms pass them.",
+      "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps and at most " + Cq.trapShare + "% of one attack, so they don’t fight. Flyers and Tunnel Worms pass them, and Dust Dashers are caught only half as often.",
       "A 🪤 Paranoid commander adds to the traps while it is home and healthy. Prisoners stay in the traps, and their owner still feeds them.",
       "You can <b>let a group go</b>: they walk home, and the traps they filled are rebuilt for free, one at a time, at half the usual speed (about " + Cq.trapRebuildSec + " s per trap here). Or you can let them <b>starve</b>: they die one by one, " + Cq.trapStarveSlow + " times slower than troops in a colony with no food and an empty storage. Their owner feeds them until they are gone. Every trap that empties, by release or by a death, is rebuilt the same way.",
       "A <b>won attack</b> (not a raid) on that colony frees <b>every</b> prisoner in it, yours or another player’s. They walk home.",
