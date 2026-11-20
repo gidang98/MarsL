@@ -541,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.441";
+const GAME_VERSION = "1.0.442";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -878,7 +878,7 @@ const TRIBES = {
       },
       skyguard: {
         name: "Skyguard", icon: "📡", role: "Flak", type: "ground",
-        atk: 8, defG: 36, defA: 62, speed: 14, carry: 10, upkeep: 2,
+        atk: 8, defG: 28, defA: 62, speed: 14, carry: 10, upkeep: 2,
         cost: { wood: 85, stone: 70, metal: 130, food: 40 }, time: 75, building: "barracks", level: 2, lab: 2,
         quote: "Anything with wings is my business.",
       },
@@ -986,14 +986,14 @@ const TRIBES = {
       },
       rooster: {
         name: "Rooster Guard", icon: "🐓", role: "Defender", type: "ground",
-        atk: 9, defG: 52, defA: 36, speed: 7, carry: 15, upkeep: 2,
+        atk: 9, defG: 47, defA: 33, speed: 7, carry: 15, upkeep: 2,
         cost: { wood: 60, stone: 70, metal: 50, food: 30 }, time: 41, building: "barracks", level: 1, lab: 1,
         quote: "COCK-A-DOODLE-DON'T!",
       },
       hawk: {
         name: "Coop Hawk", icon: "🪃", role: "Interceptor", type: "ground",
         atk: 16, defG: 38, defA: 24, speed: 20, carry: 0, upkeep: 1,
-        cost: { wood: 70, stone: 40, metal: 55, food: 30 }, time: 40, building: "barracks", level: 3, lab: 2,
+        cost: { wood: 80, stone: 45, metal: 60, food: 35 }, time: 45, building: "barracks", level: 3, lab: 2,
         quote: "Raiders? I eat raiders for breakfast.",
       },
       pigeon: {
@@ -1024,7 +1024,7 @@ const TRIBES = {
       },
       owl: {
         name: "Emu Charger", icon: "🦩", role: "Striker", type: "ground",
-        atk: 80, defG: 28, defA: 12, speed: 18, carry: 70, upkeep: 2,
+        atk: 75, defG: 28, defA: 12, speed: 18, carry: 70, upkeep: 2,
         cost: { wood: 165, stone: 100, metal: 175, food: 90 }, time: 95, building: "barracks", level: 5, lab: 5,
         quote: "Can’t fly. Doesn’t need to.",
       },
@@ -1102,7 +1102,7 @@ const TRIBES = {
       blob: {
         name: "Goo Blob", icon: "🦠", role: "Defender", type: "ground",
         atk: 12, defG: 76, defA: 62, speed: 3, carry: 10, upkeep: 3,
-        cost: { wood: 120, stone: 145, metal: 135, food: 60 }, time: 94, building: "barracks", level: 1, lab: 1,
+        cost: { wood: 115, stone: 140, metal: 130, food: 55 }, time: 90, building: "barracks", level: 1, lab: 1,
         quote: "Blorp.",
       },
       spitter: {
@@ -17341,6 +17341,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.442",date:"2026-11-20",title:"Roster balance pass",groups:[["🐔 Chickens",["Rooster Guard defends 47 instead of 52 on the ground and 33 instead of 36 in the air: it was the cheapest defence in the game, so chicken garrisons were nearly unbreakable.","Coop Hawk is a little cheaper and Emu Charger attacks 75 instead of 80."]],["🧑‍🚀 Humans",["Skyguard defends 28 instead of 36 on the ground. It stays the air specialist, and mixed garrisons now want Shield Troopers too."]],["👽 Aliens",["Goo Blob is a little dearer in stone and metal but trains in 90 s, so the weakest defender per cost is less of a trap."]]]},
   {v:"1.0.441",date:"2026-11-20",title:"Three different armies",groups:[["🐔 Chickens",["The Owl Bomber is now the Emu Charger: a fast ground striker from the Barracks (level 5, lab 5). Its trait Charge gives +15% attack when the trip took less than an hour on a x1 server.","Chickens no longer have a bomber. Eagles fight for the sky alone, and the ground army gets the +15% when they win it.","Owl Bombers you already have, in training or on the road become Emu Chargers right away.","Coop Hawk and Eagle got a little cheaper. Peckling a little cheaper; Rooster Guard and Turkey Tank a little dearer."]],["👽 Aliens",["The Spore Cannon is gone. The Acid Slug is now the aliens' only siege unit: it breaks walls and, after a won attack, also knocks down buildings at half the strength of a bombard. It costs a bit more and needs 5 upkeep.","Every Spore Cannon became an Acid Slug, wherever it was. Its research and upgrades carry over, and a running Spore Cannon research or upgrade was refunded.","Tentacle Titan 15% cheaper, Space Jelly 5% cheaper; Grey Trooper 10% and Goo Blob 5% dearer."]],["🧑‍🚀 Humans",["Jet Fighter and Sky Bomber 10% cheaper, Wall Crusher and Crater Mortar 15% cheaper; Crater Grunt and Rover Tank 5% dearer.","The Skyguard defends 36 instead of 44 on the ground, so the Shield Trooper is worth building again."]],["📖 Wiki",["A new card, Tribe armies, compares the three rosters. New art: Emu Charger, the Charge trait, commander shards and the Stubborn and Bookworm quirks."]]]},
   {v:"1.0.440",date:"2026-11-19",title:"New raiders for humans and aliens",groups:[["🪂 Humans",["The Hover Bike is now the Drop Trooper: an air unit that flies over traps. It fights in the air phase, so flak and fighters can stop it. It carries less than the old bike. It comes with its own artwork."]],["🚇 Aliens",["The Squid Skimmer is now the Tunnel Worm: slow, hard to catch. Traps cannot hold it, and it digs out up to half of what the bunker hides, in proportion to its share of the army's carry. It has its own artwork too."]],["🐔 Chickens",["Chickens keep the Dust Dasher and stay the only tribe whose raiders loot fast on their own. Traps catch it only half as often, because it is fast enough to slip away."]]]},
   {v:"1.0.439",date:"2026-11-19",title:"Cleaner header",groups:[["🧭 Header",["On tablets and desktops the colony name and details sit on the left and your money and buttons on the right, in a single slim row.","In a narrow window the buttons move under the name instead of squeezing it."]]]},
