@@ -1,5 +1,8 @@
 # MarsL working handoff
 
+## 1.0.444 (merged, not deployed)
+Grok-improve-20261121. The first raid no longer uses the Classic clock on a fast server. `paceMs` keeps the lander at 30s and the Dust Scorpions at 90s when `MOVE_SPEED` is 1, and floors them at 8s and 15s when troops move faster. Live stays 1.0.443 until the owner asks for a deploy. Next free version after this merges: **1.0.445**.
+
 ## 1.0.443 release verification
 
 Built against 1315a25. Verified startup on new and existing test databases for OpenTest, Classic and Speed, including authenticated colony, onboarding, summary and report requests. A local raid completed through report and troop return. At 390 and 1280 CSS pixels the map loaded its artwork and accepted tile selection. The three presets handled 900 authenticated local requests with 50 simulated players per preset. The repository suite reported 213 passing tests after closing the WebSocket server in test teardown. The extracted combat module tests return early when their dependencies fail to load. Physical iPhone Safari and real-player production latency require separate observation. Consult the deployment workflow run for production status.
@@ -10,7 +13,7 @@ Built against 1315a25. Verified startup on new and existing test databases for O
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
 - Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.444**. 1.0.340 through 1.0.443 are taken.
+- Next game version is **1.0.445**. 1.0.340 through 1.0.444 are taken.
 
 ## Current release
 - **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.

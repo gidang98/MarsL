@@ -541,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.443";
+const GAME_VERSION = "1.0.444";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -8079,7 +8079,7 @@ function checkSend(req, s, tribe, colony, body, avail) {
 function launchSend(req, s, tribe, colony, c, now, lateMs, farm) {
   // attacking other players ends your own beginner protection
   if (c.pvp) endProtection(req.user.id);
-  const trip = c.kind === "lander" ? LANDER_TRIP_MS : travelMs(distance(colony.x, colony.y, c.x, c.y), c.solo ? HERO_SOLO_SPEED : slowestOf(c.send, tribe));
+  const trip = c.kind === "lander" ? paceMs(LANDER_TRIP_MS, 8000) : travelMs(distance(colony.x, colony.y, c.x, c.y), c.solo ? HERO_SOLO_SPEED : slowestOf(c.send, tribe));
   const depart = now;
   const arrive = now + trip + (lateMs || 0);
   subtractTroops(s.troops, c.send);
@@ -17270,7 +17270,7 @@ function wikiExtra() {
     ally: { officers: ALLY_OFFICERS_MAX, shared: SHARED_MAX },
     longterm: { acts: actsView(Date.now()), leagues: LEAGUES, contests: LEAGUE_CONTESTS, late: { day: LATE_DAY, days: LATE_DAYS, per: Math.round(LATE_PER_DAY * 1000) / 10, max: Math.round(LATE_MAX * 100) }, titles: LEGACY_TITLES.map((t) => ({ name: t.name, how: t.how })) },
     econ: { specs: COLONY_SPECS, specHq: SPEC_HQ, forecasts: FORECASTS.map((f) => ({ icon: f.icon, name: f.name, text: f.text, w: f.w })), rich: { pct: Math.round(RICH_BONUS * 100), per: RICH_PER_QUARTER, waves: RICH_WAVES.map((w, i) => ({ n: w.n, day: richWaveDay(i) })), ring: RICH_RING } },
-    newp: { gradGift: GRAD_GIFT, gradH: GRAD_WINDOW_MS / 3600000, raid: typicalRaidAttack(), insPct: Math.round(INS_SHARE * 100), insClaims: INS_CLAIMS, insHeavy: Math.round(INS_HEAVY * 100), insHour: INS_MORNING_UTC, scorp: SCORP_PACK, scorpS: SCORP_MS / 1000, planSlots: PLAN_SLOTS, allyGift: BOARD_ALLY_GIFT, badges: BOARD_BADGES.map((b) => [b.n, b.icon, b.title]) },
+    newp: { gradGift: GRAD_GIFT, gradH: GRAD_WINDOW_MS / 3600000, raid: typicalRaidAttack(), insPct: Math.round(INS_SHARE * 100), insClaims: INS_CLAIMS, insHeavy: Math.round(INS_HEAVY * 100), insHour: INS_MORNING_UTC, scorp: SCORP_PACK, scorpS: paceMs(SCORP_MS, 15000) / 1000, planSlots: PLAN_SLOTS, allyGift: BOARD_ALLY_GIFT, badges: BOARD_BADGES.map((b) => [b.n, b.icon, b.title]) },
     living: { daily: [1, 2, 3, 4, 5, 6, 7].map((n) => dailyAmount(n)), dailyMax: DAILY_MAX_STREAK, powers: TRIBE_POWERS, war: WAR_POWERS, warTwice: WAR_TWICE_LEVEL, lock: POWER_LOCK, rally: POWER_RALLY, mind: Math.round(POWER_MIND * 100), warLoot: Math.round(WAR_LOOT * 100), paths: HERO_PATHS, pathOpen: HERO_PATH_OPEN, road: HERO_ROAD, fxMin: Math.round(FX_SHOW_MS / 60000),
       trader: { range: TRADER_RANGE, max: Math.round(TRADER_BASE * 1.4 / 10) * 10, hours: Math.round(traderLifeMs() / 360000) / 10 },
       targetRange: TARGET_RANGE, firstColony: giftScale(R(FIRST_COLONY_GIFT, FIRST_COLONY_GIFT, FIRST_COLONY_GIFT, FIRST_COLONY_GIFT)).wood, firstLandmark: giftScale(R(FIRST_LANDMARK_GIFT, FIRST_LANDMARK_GIFT, FIRST_LANDMARK_GIFT, FIRST_LANDMARK_GIFT)).wood },
@@ -17481,6 +17481,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.444",date:"2026-11-21",title:"The first raid keeps up on a fast server",groups:[["Landing",["The wrecked lander and the Dust Scorpions still take 30 seconds and 90 seconds on a normal-speed server.","On a faster server they arrive on that server's clock instead, with enough time left to read the warning and open the report."]]]},
   {v:"1.0.443",date:"2026-11-20",title:"Faster maps and movement lookups",groups:[["Game updates",["Improved map and troop movement lookups and restored report replay, onboarding and player summaries."]]]},
   {v:"1.0.442",date:"2026-11-20",title:"Roster balance pass",groups:[["🐔 Chickens",["Rooster Guard defends 47 instead of 52 on the ground and 33 instead of 36 in the air: it was the cheapest defence in the game, so chicken garrisons were nearly unbreakable.","Coop Hawk is a little cheaper and Emu Charger attacks 75 instead of 80."]],["🧑‍🚀 Humans",["Skyguard defends 28 instead of 36 on the ground. It stays the air specialist, and mixed garrisons now want Shield Troopers too."]],["👽 Aliens",["Goo Blob is about 4% cheaper and trains a little faster, so the weakest defender per cost is less of a trap."]]]},
   {v:"1.0.441",date:"2026-11-20",title:"Three different armies",groups:[["🐔 Chickens",["The Owl Bomber is now the Emu Charger: a fast ground striker from the Barracks (level 5, lab 5). Its trait Charge gives +15% attack when the trip took less than an hour on a x1 server.","Chickens no longer have a bomber. Eagles fight for the sky alone, and the ground army gets the +15% when they win it.","Owl Bombers you already have, in training or on the road become Emu Chargers right away.","Coop Hawk and Eagle got a little cheaper. Peckling a little cheaper; Rooster Guard and Turkey Tank a little dearer."]],["👽 Aliens",["The Spore Cannon is gone. The Acid Slug is now the aliens' only siege unit: it breaks walls and, after a won attack, also knocks down buildings at half the strength of a bombard. It costs a bit more and needs 5 upkeep.","Every Spore Cannon became an Acid Slug, wherever it was. Its research and upgrades carry over, and a running Spore Cannon research or upgrade was refunded.","Tentacle Titan 15% cheaper, Space Jelly 5% cheaper; Grey Trooper 10% and Goo Blob 5% dearer."]],["🧑‍🚀 Humans",["Jet Fighter and Sky Bomber 10% cheaper, Wall Crusher and Crater Mortar 15% cheaper; Crater Grunt and Rover Tank 5% dearer.","The Skyguard defends 36 instead of 44 on the ground, so the Shield Trooper is worth building again."]],["📖 Wiki",["A new card, Tribe armies, compares the three rosters. New art: Emu Charger, the Charge trait, commander shards and the Stubborn and Bookworm quirks."]]]},
@@ -20126,7 +20127,11 @@ function onbFreeMs() {
   const sp = Math.max(1, BUILD_SPEED || 1);
   return Math.round(Math.min(ONB_FREE_BASE_MS, ONB_FREE_BASE_MS / Math.pow(sp, Math.log10(3))));
 }
-const LANDER_TRIP_MS = 30000; // the wreck lies right next door
+const LANDER_TRIP_MS = 30000; // the wreck lies right next door, on a x1 server
+// Fast servers squash travel. Keep the x1 beat, but never so short the warning cannot be read.
+function paceMs(ms, floor) {
+  return Math.max(floor, Math.round(ms / Math.max(1, MOVE_SPEED)));
+}
 const LANDER_LOOT = 250; // of every resource, always (the first raid is a sure win)
 const ONB_SQUAD = 5; // the squad the guide hands over on a normal server
 // the landing party: a few troops, as many as the speed of the server calls for
@@ -20358,7 +20363,7 @@ app.post("/api/onboard", requireLogin, (req, res) => {
 // Right after the first raid a small pack of Dust Scorpions comes for the
 // snacks. It is scripted to lose against anything the colony has, so the
 // new player reads their first defense report while nothing is at stake.
-const SCORP_MS = 90000; // they arrive 90 seconds after the guide says so
+const SCORP_MS = 90000; // 90 seconds on a x1 server; paceMs shortens this when troops move faster
 const SCORP_PACK = 4;
 function scorpSchedule(f, colony, now) {
   let from = null;
@@ -20366,7 +20371,7 @@ function scorpSchedule(f, colony, now) {
     const ang = Math.random() * Math.PI * 2;
     from = { x: Math.round(colony.x + Math.cos(ang) * r), y: Math.round(colony.y + Math.sin(ang) * r) };
   }
-  f.scorp = { at: now + SCORP_MS, start: now, colony: colony.id, x: from.x, y: from.y, n: SCORP_PACK };
+  f.scorp = { at: now + paceMs(SCORP_MS, 15000), start: now, colony: colony.id, x: from.x, y: from.y, n: SCORP_PACK };
   f.scorpPending = 1;
 }
 function scorpIncoming(userId, now) {
