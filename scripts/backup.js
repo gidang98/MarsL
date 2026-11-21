@@ -80,7 +80,12 @@ function backup() {
 
   // Verify backup integrity
   try {
-    execSync(`sqlite3 "${backupPath}" "PRAGMA integrity_check;"`, { timeout: 30000 });
+    const { DatabaseSync } = require('node:sqlite');
+    const copy = new DatabaseSync(backupPath, { readOnly: true });
+    try {
+      const result = copy.prepare('PRAGMA integrity_check').get();
+      if (Object.values(result)[0] !== 'ok') throw new Error('integrity_check: ' + Object.values(result)[0]);
+    } finally { copy.close(); }
   } catch (e) {
     fs.unlinkSync(backupPath);
     throw new Error('Backup integrity check failed');
