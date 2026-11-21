@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.445";
+const GAME_VERSION = "1.0.446";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -2598,11 +2598,22 @@ function merchantCarry(s) {
 function merchantCarryOf(tribeKey) {
   return Math.round(perkOf(tribeKey, "carry"));
 }
-function capacityAt(level) {
+// Level 3 storage targets for a Classic colony with level 5 fields and
+// eight hours of production. Storage at level 10 and up uses the regular curve.
+const CLASSIC_STORAGE_LEVEL_3 = { wood: 1320, stone: 1320, metal: 1056, food: 1509 };
+function baseCapacityAt(level) {
   if (level === 0) return Math.round(CAPACITY_LEVEL0 * STORAGE_CAPACITY_MULTIPLIER);
   const base = CAPACITY_BASE * Math.pow(CAPACITY_GROWTH, Math.min(level, MAX_LEVEL) - 1);
   const extra = Math.pow(HIGH_CAPACITY_GROWTH, Math.max(0, level - MAX_LEVEL));
   return Math.round(base * extra * STORAGE_CAPACITY_MULTIPLIER);
+}
+
+function capacityAt(level, resource = "wood") {
+  const base = baseCapacityAt(level);
+  if (THIS_SERVER !== "classic" || level >= MAX_LEVEL) return base;
+  const levelThreeShare = CLASSIC_STORAGE_LEVEL_3[resource] / baseCapacityAt(3);
+  const taper = (MAX_LEVEL - Math.max(3, level)) / (MAX_LEVEL - 3);
+  return Math.round(base * (1 - (1 - levelThreeShare) * taper));
 }
 // Levels above 10 count only half where a building adds a fixed amount per level
 function softLevel(level) {
@@ -2627,10 +2638,10 @@ function levelsOf(s, type) {
 }
 
 // Storage of several warehouses / granaries adds up
-function storageOf(s, type) {
+function storageOf(s, type, resource) {
   const levels = levelsOf(s, type);
-  if (!levels.length) return capacityAt(0);
-  return levels.reduce((n, l) => n + capacityAt(l), 0);
+  if (!levels.length) return capacityAt(0, resource);
+  return levels.reduce((n, l) => n + capacityAt(l, resource), 0);
 }
 
 // Hidden resources of all bunkers together
@@ -2957,8 +2968,13 @@ function terraPerHour(s) {
 }
 
 function capacities(s) {
-  const store = storageOf(s, "warehouse");
-  return { wood: store, stone: store, metal: store, food: Math.round(storageOf(s, "granary") * perk(s, "granary")) };
+  const store = storageOf(s, "warehouse", "wood");
+  return {
+    wood: store,
+    stone: store,
+    metal: storageOf(s, "warehouse", "metal"),
+    food: Math.round(storageOf(s, "granary", "food") * perk(s, "granary")),
+  };
 }
 
 function allTraining(s) {
@@ -5221,9 +5237,11 @@ function effectText(type, level, tk) {
     case "hq":
       return "Build time " + faster(HQ_SPEEDUP) + " · " + Math.round(MILITIA_BASE + MILITIA_PER_HQ * softLevel(level)) + " militia";
     case "warehouse":
-      return "Stores " + capacityAt(level) + " wood, stone & metal";
+      return capacityAt(level, "metal") === capacityAt(level)
+        ? "Stores " + capacityAt(level) + " wood, stone & metal"
+        : "Stores " + capacityAt(level) + " wood and stone each, " + capacityAt(level, "metal") + " metal";
     case "granary":
-      return "Stores " + Math.round(capacityAt(level) * perkOf(tk, "granary")) + " food";
+      return "Stores " + Math.round(capacityAt(level, "food") * perkOf(tk, "granary")) + " food";
     case "bunker":
       return "Hides " + Math.round(bunkerAt(level) * perkOf(tk, "bunker")) + " of each";
     case "barracks":
@@ -12538,7 +12556,11 @@ app.get("/api/wiki", requireLogin, (req, res) => {
       prod: levels(MAIN_FIELD_MAX, (l) => perHour(fieldProduction(l))),
       layout: { wood: 3, stone: 3, metal: 2, food: 4 },
     },
-    storage: { scale: 1, base: capacityAt(0), levels: levels(maxLevelOf("warehouse"), capacityAt), bunker: levels(MAX_LEVEL, bunkerAt), secondAt: maxLevelOf("warehouse"), bunkerSecondAt: SECOND_BUILDING_LEVEL },
+    storage: { scale: 1, base: capacityAt(0), levels: levels(maxLevelOf("warehouse"), (l) => capacityAt(l)),
+      metal: levels(maxLevelOf("warehouse"), (l) => capacityAt(l, "metal")),
+      food: levels(maxLevelOf("granary"), (l) => capacityAt(l, "food")),
+      starting: { wood: capacityAt(0), metal: capacityAt(0, "metal"), food: capacityAt(0, "food") },
+      bunker: levels(MAX_LEVEL, bunkerAt), secondAt: maxLevelOf("warehouse"), bunkerSecondAt: SECOND_BUILDING_LEVEL },
     boosters: { per: Math.round(BOOST_PER_LEVEL * 100), max: BOOST_MAX },
     combat: {
       traits: UNIT_TRAITS, moraleMax: Math.round(MORALE_MAX * 100),
@@ -17477,6 +17499,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.446",date:"2026-11-21",title:"Classic storage pacing",groups:[["Classic",["Low-level warehouses and granaries fill sooner. Level 10 and higher keep their standard capacity. Existing stored resources stay available to spend."]]]},
   {v:"1.0.445",date:"2026-11-21",title:"Lighter repeat visits",groups:[["Performance",["The browser can reuse the game scripts and styles on repeat visits. The colony refreshes less often while you play."]]]},
   {v:"1.0.444",date:"2026-11-21",title:"The first raid keeps up on a fast server",groups:[["Landing",["The wrecked lander and the Dust Scorpions still take 30 seconds and 90 seconds on a normal-speed server.","On a faster server they arrive on that server's clock instead, with enough time left to read the warning and open the report."]]]},
   {v:"1.0.443",date:"2026-11-20",title:"Faster maps and movement lookups",groups:[["Game updates",["Improved map and troop movement lookups and restored report replay, onboarding and player summaries."]]]},

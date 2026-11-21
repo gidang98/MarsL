@@ -16142,8 +16142,12 @@ function wikiChapter(W, tab) {
     var ftab = '<div class="wk-tribes">' + W.fields.types.map(function (f) { return '<button class="' + (wiki.ftype === f.key ? "on" : "") + '" data-wiki-ftype="' + f.key + '">' + RES_ICON[f.key] + " " + RES_NAME[f.key] + "</button>"; }).join("") + "</div>";
     var fcur = W.fields.types.filter(function (f) { return f.key === wiki.ftype; })[0] || W.fields.types[0];
     cards.push(wkCard("fields", "🌾", "Resource fields", ftab + wkP(esc(trStr(fcur.info)) + " " + trf("Every colony has 12 fields: {0}.", RES.map(function (k) { return W.fields.layout[k] + " " + RES_ICON[k]; }).join(" · "))) + wkP("On the Fields tab every field is a small clay model of your tribe that grows with its level: bare ground at level 0, then a small, a medium and a large stage (main colony: levels 1–6, 7–14 and 15–20; other colonies: 1–3, 4–7 and 8–10). Your tribe's mascot stands in the middle; tap it to enter the colony. A small white tag on the front rim of each field shows its level: with a mint arrow when you can upgrade it now, sunflower at max level, a dashed outline (and a dashed yellow ring on the field) while it is being built.") + wkLevelTable(W, "field-" + fcur.key)));
-    var st = W.storage.levels.map(function (v, i) { return [i + 1, wkN(v), wkN(W.storage.bunker[i])]; });
-    cards.push(wkCard("storage", "📦", "Storage & bunkers", kt({ head: ["Lv", "📦 Storage", "🕳️ Bunker"], rows: st }) + wkNote(trf("Without a building: {0}. More warehouses or granaries add up once the first is at level {1} (bunkers: {2}). Bunker contents can’t be stolen, and bunker size depends on the tribe (🚀 Basics → The three tribes). Each storage level holds the same amount at every game speed; faster production fills it sooner, so use the timer in the resource bar to plan upgrades.", wkN(W.storage.base), W.storage.secondAt, W.storage.bunkerSecondAt))));
+    var st = W.storage.levels.map(function (v, i) {
+      return [i + 1, wkN(v), wkN(W.storage.metal[i]), wkN(W.storage.food[i]), wkN(W.storage.bunker[i])];
+    });
+    var starting = W.storage.starting;
+    var storageNote = trf("Without a storage building: {0} wood and stone each, {1} metal, {2} food. Additional warehouses and granaries add capacity. Bunker size depends on your tribe.", wkN(starting.wood), wkN(starting.metal), wkN(starting.food));
+    cards.push(wkCard("storage", "📦", "Storage & bunkers", kt({ head: ["Lv", "Wood / stone each", "Metal", "Food", "Bunker"], rows: st }) + wkNote(storageNote)));
     var M = W.market;
     var mr = [];
     for (var ml = 1; ml <= 10; ml++) mr.push([ml, ml * M.perLevel, wkN(ml * M.perLevel * M.carry), (M.swapBase + M.swapPer * ml) + " per 100"]);
