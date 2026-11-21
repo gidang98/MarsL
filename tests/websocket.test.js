@@ -67,8 +67,9 @@ describe('websocket server integration', { skip: !DatabaseSync }, () => {
              INSERT INTO sessions VALUES ('tok1', 1, ${Date.now()});`);
 
     const server = http.createServer((req, res) => res.end('ok'));
-    ws.init(server, db);
+    const websocketServer = ws.init(server, db);
     assert.ok(true, 'init completed without error');
+    websocketServer.close();
     server.close();
     db.close();
   });

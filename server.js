@@ -541,7 +541,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.442";
+const GAME_VERSION = "1.0.443";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1616,7 +1616,15 @@ function rebuildCamps(seed, taken) {
   MAP_SEED = seed;
   for (const k in CAMP_KIND_AT) delete CAMP_KIND_AT[k];
   const rows = BASE_ROWS.map((r) => r.split(""));
-  const placed = [];
+  let placedCount = 0;
+  function nearPlacedCamp(p) {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (Object.hasOwn(CAMP_KIND_AT, (p.x + dx) + "|" + (p.y + dy))) return true;
+      }
+    }
+    return false;
+  }
   const rand = mulberry32(seed * 7919 + 13);
   // Irregular small groups, rotated for equal count, strength and reward access.
   CAMPS_PER_QUARTER.fill(0);
@@ -1664,21 +1672,21 @@ function rebuildCamps(seed, taken) {
     const orbit=[0,1,2,3].map(q=>group.map(p=>rotate(p.x,p.y,q)));
     const all=orbit.flat();
     if(!all.every(valid))continue;
-    if(all.some(p=>placed.some(w=>Math.hypot(w.x-p.x,w.y-p.y)<3)))continue;
+    if(all.some(nearPlacedCamp))continue;
     if(orbit.some((g,i)=>g.some(p=>orbit.slice(0,i).flat().some(w=>Math.hypot(w.x-p.x,w.y-p.y)<3))))continue;
     anchors.push(center);
     sizeIndex++;if(sizeIndex===sizes.length){sizeIndex=0;shuffleSizes();}
     group.forEach(p=>{
       const tier=campTier(p.x,p.y),kind=CAMPS_PER_QUARTER[tier]++ % CAMP_TIERS[tier].kinds.length;
       for(let q=0;q<4;q++){
-        const spot=rotate(p.x,p.y,q);placed.push(spot);
+        const spot=rotate(p.x,p.y,q);placedCount++;
         rows[MAP_RADIUS-spot.y][spot.x+MAP_RADIUS]="n";CAMP_KIND_AT[spot.x+"|"+spot.y]=kind;
       }
     });
   }
   if (LM_VISIBLE) for (const l of LANDMARKS) rows[MAP_RADIUS - l.y][l.x + MAP_RADIUS] = "l";
   for (let i = 0; i < rows.length; i++) MAP_ROWS[i] = rows[i].join("");
-  return placed.length;
+  return placedCount;
 }
 rebuildCamps(1);
 // The landmarks appear on the map (or vanish from it) together with the clock event
@@ -1906,6 +1914,11 @@ if (!columnsOf("colonies").includes("id")) {
 addColumn("movements", "target_kind", "TEXT NOT NULL DEFAULT 'colony'");
 addColumn("movements", "target_x", "INTEGER");
 addColumn("movements", "target_y", "INTEGER");
+db.exec(`
+  CREATE INDEX IF NOT EXISTS movements_attacker ON movements (attacker_id);
+  CREATE INDEX IF NOT EXISTS movements_target ON movements (target_id, phase);
+  CREATE INDEX IF NOT EXISTS movements_tile ON movements (target_x, target_y, phase);
+`);
 addColumn("stats", "crown_ms", "INTEGER NOT NULL DEFAULT 0");
 addColumn("sessions", "active_colony", "INTEGER");
 addColumn("sessions", "device", "TEXT");
@@ -3984,11 +3997,18 @@ function cleanOrphanCamps() {
   }
 }
 // Roll a new camp layout. seed = null: a fresh random one
+function rebuildCampsAroundColonies(seed) {
+  const occupied = new Set();
+  for (const row of db.prepare("SELECT x, y FROM colonies WHERE x IS NOT NULL AND y IS NOT NULL").iterate()) {
+    occupied.add(row.x + "|" + row.y);
+  }
+  return rebuildCamps(seed, (x, y) => occupied.has(x + "|" + y));
+}
 function rerollCamps(seed) {
   const s = seed || 1 + Math.floor(Math.random() * 900000);
   CAMP_LAYOUT = 2;
   db.prepare("INSERT INTO settings (key, value) VALUES ('camp_layout', '2') ON CONFLICT (key) DO UPDATE SET value = excluded.value").run();
-  rebuildCamps(s, (x,y) => !!db.prepare("SELECT 1 FROM colonies WHERE x=? AND y=?").get(x,y));
+  rebuildCampsAroundColonies(s);
   db.prepare("INSERT INTO settings (key, value) VALUES ('map_seed', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value").run(String(s));
   db.prepare("DELETE FROM camps").run();
   cleanOrphanCamps();
@@ -3997,7 +4017,7 @@ function rerollCamps(seed) {
 // a world that already has its camps keeps their layout until the next reroll or new round
 CAMP_LAYOUT = settingOfRaw("camp_layout") === "2" ? 2 : settingOfRaw("map_seed") || db.prepare("SELECT 1 FROM camps LIMIT 1").get() ? 1 : 2;
 if (!settingOfRaw("camp_layout")) db.prepare("INSERT INTO settings (key, value) VALUES ('camp_layout', ?) ON CONFLICT (key) DO NOTHING").run(String(CAMP_LAYOUT));
-rebuildCamps(savedMapSeed(), (x,y) => !!db.prepare("SELECT 1 FROM colonies WHERE x=? AND y=?").get(x,y));
+rebuildCampsAroundColonies(savedMapSeed());
 cleanOrphanCamps();
 
 // The camp as it is right now. Killed monsters grow back bit by bit and
@@ -4813,6 +4833,7 @@ function gazetteHeadlines(now) {
   const day = now - 86400000, week = weekStart(now);
   const rows = db.prepare("SELECT created_at, data FROM reports WHERE created_at > ? AND (data LIKE '%\"mission\":\"attack\"%' OR data LIKE '%\"mission\":\"raid\"%') AND data LIKE '%\"side\":\"attacker\"%' ORDER BY id DESC LIMIT 3000").all(Math.min(day, week));
   const siege = {}, failed = {}, wins = {}, tribeWins = {}, camps = {}, held = {};
+  const alliances = new Map();
   let raid = null;
   for (const r of rows) {
     let d; try { d = JSON.parse(r.data); } catch (e) { continue; }
@@ -4821,7 +4842,8 @@ function gazetteHeadlines(now) {
     const today = r.created_at > day;
     // lost siege engines this week, by alliance (or player)
     for (const u of A.units || []) if (u.lost && (GAZ_ROLE[u.key] === "Siege" || GAZ_ROLE[u.key] === "Bombard")) {
-      const a = allianceOfName(who), key = a ? a.name : who;
+      if (!alliances.has(who)) alliances.set(who, allianceOfName(who));
+      const a = alliances.get(who), key = a ? a.name : who;
       siege[key] = siege[key] || { n: 0, name: u.name, alliance: !!a };
       siege[key].n += u.lost;
     }
@@ -5538,9 +5560,11 @@ function movementsFor(userId, now) {
   const mineSet = new Set(myIds);
   const list = [];
   const marks = myIds.map(() => "?").join(",");
+  const coloniesById = new Map();
+  const colonyById = db.prepare("SELECT name, x, y, tribe, user_id FROM colonies WHERE id = ?");
   const nameOf = (id) => {
-    const c = db.prepare("SELECT name, x, y, tribe, user_id FROM colonies WHERE id = ?").get(id);
-    return c || null;
+    if (!coloniesById.has(id)) coloniesById.set(id, colonyById.get(id) || null);
+    return coloniesById.get(id);
   };
 
   const out = db.prepare("SELECT * FROM movements WHERE attacker_id IN (" + marks + ")").all(...myIds);
@@ -8282,6 +8306,122 @@ app.get("/api/time", (req, res) => {
 // =====================================================================
 //  API: REPORTS
 // =====================================================================
+app.get('/api/replay/:reportId', requireLogin, (req, res) => {
+  const reportId = parseInt(req.params.reportId, 10);
+  if (!reportId) return res.status(400).json({ error: 'Invalid report ID' });
+
+  const row = db.prepare(
+    'SELECT id, created_at, title, icon, data, seen FROM reports WHERE user_id = ? AND id = ?'
+  ).get(req.user.id, reportId);
+
+  if (!row) return res.status(404).json({ error: 'Report not found' });
+
+  let data;
+  try { data = JSON.parse(row.data); } catch (e) { data = {}; }
+
+  // Mark as seen when opened for replay
+  if (!row.seen) {
+    db.prepare('UPDATE reports SET seen = 1 WHERE user_id = ? AND id = ?').run(req.user.id, reportId);
+  }
+
+  res.json({
+    id: row.id,
+    at: row.created_at,
+    title: row.title,
+    icon: row.icon,
+    seen: true,
+    data,
+  });
+});
+
+// Get player onboarding / first-day progress
+app.get('/api/onboarding', requireLogin, (req, res) => {
+  const st = firstDayState(req.user.id);
+  const colony = db.prepare('SELECT name, x, y, tribe FROM colonies WHERE user_id = ? ORDER BY id LIMIT 1').get(req.user.id);
+
+  if (!st) return res.json({ active: false });
+
+  const onb = st.f.onb || {};
+  const stepIndex = onb.i || 0;
+  const totalSteps = ONB_STEPS ? ONB_STEPS.length : 0;
+  const progress = totalSteps > 0 ? Math.round((stepIndex / totalSteps) * 100) : 0;
+
+  res.json({
+    active: onbActive(req.user.id, st),
+    completed: !!onb.done,
+    skipped: !!onb.off,
+    stepIndex,
+    totalSteps,
+    progress,
+    startedAt: onb.at || null,
+    completedAt: onb.done || null,
+    kitRemaining: st.f.kit || 0,
+    hasLander: !!st.f.lander,
+    hasScorp: !!st.f.scorp,
+    colony: colony ? { name: colony.name, x: colony.x, y: colony.y, tribe: colony.tribe } : null,
+  });
+});
+
+// Get player summary stats and progress
+app.get('/api/player/summary', requireLogin, (req, res) => {
+  const userId = req.user.id;
+
+  // Basic user info
+  const user = db.prepare('SELECT username, created_at, last_seen FROM users WHERE id = ?').get(userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Colony count and total points
+  const colonies = db.prepare('SELECT id, name, x, y, tribe, state FROM colonies WHERE user_id = ?').all(userId);
+  let totalPoints = 0;
+  for (const c of colonies) {
+    try { totalPoints += colonyPoints(fixState(JSON.parse(c.state))); } catch (e) {}
+  }
+
+  // Battle stats
+  const stats = db.prepare('SELECT * FROM stats WHERE user_id = ?').get(userId) || {};
+
+  // Report counts
+  const reportCounts = db.prepare(
+    'SELECT COUNT(*) as total, SUM(seen) as seen FROM reports WHERE user_id = ?'
+  ).get(userId);
+
+  // Movement counts
+  const movements = db.prepare(
+    'SELECT mission, COUNT(*) as n FROM movements WHERE attacker_id IN (SELECT id FROM colonies WHERE user_id = ?) GROUP BY mission'
+  ).all(userId);
+  const movementSummary = {};
+  for (const m of movements) movementSummary[m.mission] = m.n;
+
+  // Alliance info
+  const alliance = db.prepare(
+    'SELECT a.id, a.name, a.tag FROM alliances a JOIN alliance_members am ON a.id = am.alliance_id WHERE am.user_id = ?'
+  ).get(userId);
+
+  // Badges
+  const badges = db.prepare('SELECT key, icon, title, earned_at FROM badges WHERE user_id = ? AND shown = 1 ORDER BY earned_at DESC LIMIT 10').all(userId);
+
+  res.json({
+    username: user.username,
+    createdAt: user.created_at,
+    lastSeen: user.last_seen,
+    colonies: colonies.map(c => ({ id: c.id, name: c.name, x: c.x, y: c.y, tribe: c.tribe })),
+    totalPoints,
+    stats: {
+      atkKills: stats.atk_kills || 0,
+      defKills: stats.def_kills || 0,
+      npcKills: stats.npc_kills || 0,
+      lost: stats.lost || 0,
+      loot: stats.loot || 0,
+      wins: stats.wins || 0,
+      battles: stats.battles || 0,
+    },
+    reports: { total: reportCounts.total || 0, unread: (reportCounts.total || 0) - (reportCounts.seen || 0) },
+    movements: movementSummary,
+    alliance: alliance ? { id: alliance.id, name: alliance.name, tag: alliance.tag } : null,
+    badges: badges || [],
+  });
+});
+
 app.get("/api/reports", requireLogin, (req, res) => {
   processMovements(Date.now());
   // a cheap fingerprint: the page asks every few seconds, and most of the time nothing changed
@@ -11060,7 +11200,6 @@ const AUCTION_MAX_ACTIVE = 5; // per seller
 const AUCTION_STEP = 0.05; // a new bid is at least 5% higher
 const AUCTION_SNIPE_MS = 10 * 60000; // a bid in the last 10 minutes adds this much time
 const AUCTION_PRICE_MAX = 1200000000;
-addColumn("auctions", "cash", "INTEGER NOT NULL DEFAULT 0"); // 0 = an old auction paid in Star Credits
 db.exec(`
   CREATE TABLE IF NOT EXISTS auctions (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -11078,6 +11217,7 @@ db.exec(`
     settled_at  INTEGER NOT NULL DEFAULT 0
   );
 `);
+addColumn("auctions", "cash", "INTEGER NOT NULL DEFAULT 0"); // 0 = an old auction paid in Star Credits
 // auctions that were running in Star Credits: bidders get their credits back and the auction restarts in Space-Cash
 for (const a of db.prepare("SELECT id, bid, bidder_id FROM auctions WHERE status = 'active' AND cash = 0").all()) {
   if (a.bidder_id && a.bid) db.prepare("UPDATE users SET credits = credits + ? WHERE id = ?").run(a.bid, a.bidder_id);
@@ -17341,6 +17481,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.443",date:"2026-11-20",title:"Faster maps and movement lookups",groups:[["Game updates",["Improved map and troop movement lookups and restored report replay, onboarding and player summaries."]]]},
   {v:"1.0.442",date:"2026-11-20",title:"Roster balance pass",groups:[["🐔 Chickens",["Rooster Guard defends 47 instead of 52 on the ground and 33 instead of 36 in the air: it was the cheapest defence in the game, so chicken garrisons were nearly unbreakable.","Coop Hawk is a little cheaper and Emu Charger attacks 75 instead of 80."]],["🧑‍🚀 Humans",["Skyguard defends 28 instead of 36 on the ground. It stays the air specialist, and mixed garrisons now want Shield Troopers too."]],["👽 Aliens",["Goo Blob is about 4% cheaper and trains a little faster, so the weakest defender per cost is less of a trap."]]]},
   {v:"1.0.441",date:"2026-11-20",title:"Three different armies",groups:[["🐔 Chickens",["The Owl Bomber is now the Emu Charger: a fast ground striker from the Barracks (level 5, lab 5). Its trait Charge gives +15% attack when the trip took less than an hour on a x1 server.","Chickens no longer have a bomber. Eagles fight for the sky alone, and the ground army gets the +15% when they win it.","Owl Bombers you already have, in training or on the road become Emu Chargers right away.","Coop Hawk and Eagle got a little cheaper. Peckling a little cheaper; Rooster Guard and Turkey Tank a little dearer."]],["👽 Aliens",["The Spore Cannon is gone. The Acid Slug is now the aliens' only siege unit: it breaks walls and, after a won attack, also knocks down buildings at half the strength of a bombard. It costs a bit more and needs 5 upkeep.","Every Spore Cannon became an Acid Slug, wherever it was. Its research and upgrades carry over, and a running Spore Cannon research or upgrade was refunded.","Tentacle Titan 15% cheaper, Space Jelly 5% cheaper; Grey Trooper 10% and Goo Blob 5% dearer."]],["🧑‍🚀 Humans",["Jet Fighter and Sky Bomber 10% cheaper, Wall Crusher and Crater Mortar 15% cheaper; Crater Grunt and Rover Tank 5% dearer.","The Skyguard defends 36 instead of 44 on the ground, so the Shield Trooper is worth building again."]],["📖 Wiki",["A new card, Tribe armies, compares the three rosters. New art: Emu Charger, the Charge trait, commander shards and the Stubborn and Bookworm quirks."]]]},
   {v:"1.0.440",date:"2026-11-19",title:"New raiders for humans and aliens",groups:[["🪂 Humans",["The Hover Bike is now the Drop Trooper: an air unit that flies over traps. It fights in the air phase, so flak and fighters can stop it. It carries less than the old bike. It comes with its own artwork."]],["🚇 Aliens",["The Squid Skimmer is now the Tunnel Worm: slow, hard to catch. Traps cannot hold it, and it digs out up to half of what the bunker hides, in proportion to its share of the army's carry. It has its own artwork too."]],["🐔 Chickens",["Chickens keep the Dust Dasher and stay the only tribe whose raiders loot fast on their own. Traps catch it only half as often, because it is fast enough to slip away."]]]},
@@ -21553,10 +21694,10 @@ app.get("/api/away", requireLogin, (req, res) => {
   const merged = [];
   for (const e of events) {
     const m = merged.find((x) => x.title === e.title && x.kind === e.kind);
-    if (m) m.n++; else merged.push(Object.assign({ n: 1 }, e));
+    if (m) m.n++; else if (merged.length < 6) merged.push(Object.assign({ n: 1 }, e));
   }
   db.prepare("UPDATE users SET away_seen = 1 WHERE id = ?").run(req.user.id); // shown once, however it gets closed
-  res.json({ since: r.away_since, now, count: rows.length, stats: S, events: merged.slice(0, 6) });
+  res.json({ since: r.away_since, now, count: rows.length, stats: S, events: merged });
 });
 app.post("/api/away/seen", requireLogin, (req, res) => {
   db.prepare("UPDATE users SET away_seen = 1 WHERE id = ?").run(req.user.id);
@@ -34733,7 +34874,7 @@ function onbTop() {
 }
 // keep the highlight on the right thing (sheets open and close all the time)
 setInterval(function () {
-  if (!data || !data.onboarding || tut.step >= 0) return;
+  if (document.hidden || !data || !data.onboarding || tut.step >= 0) return;
   var tb = document.getElementById("tut");
   if (tb && tb.classList.contains("onb")) tb.classList.toggle("top", onbTop());
   var el = onbSpot(data, data.onboarding);
@@ -36986,13 +37127,22 @@ function loadMinimap() {
   });
 }
 
-function colonyAt(x, y) {
-  if (!map.chunk) return null;
-  for (var i = 0; i < map.chunk.colonies.length; i++) {
-    var c = map.chunk.colonies[i];
-    if (c.x === x && c.y === y) return c;
+var chunkTileIndexes = new WeakMap();
+function chunkTileAt(tiles, x, y) {
+  if (!tiles || typeof x !== "number" || typeof y !== "number") return null;
+  var index = chunkTileIndexes.get(tiles);
+  if (!index) {
+    index = new Map();
+    tiles.forEach(function (tile) {
+      var key = tile.x + "|" + tile.y;
+      if (!index.has(key)) index.set(key, tile);
+    });
+    chunkTileIndexes.set(tiles, index);
   }
-  return null;
+  return index.get(x + "|" + y) || null;
+}
+function colonyAt(x, y) {
+  return chunkTileAt(map.chunk && map.chunk.colonies, x, y);
 }
 
 function landmarkAt(x, y) {
@@ -37014,12 +37164,7 @@ function meteorAt(x, y) {
 }
 
 function campAt(x, y) {
-  if (!map.chunk || !map.chunk.camps) return null;
-  for (var i = 0; i < map.chunk.camps.length; i++) {
-    var c = map.chunk.camps[i];
-    if (c.x === x && c.y === y) return c;
-  }
-  return null;
+  return chunkTileAt(map.chunk && map.chunk.camps, x, y);
 }
 
 // The field mix of a free tile (or null)
@@ -42987,9 +43132,11 @@ app.get('/activity',(req,res)=>{
     publicActivityCache={until:now+30000,html:'<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MarsL · Live activity</title><style>body{font:18px system-ui;background:#231822;color:#fff;max-width:700px;margin:40px auto;padding:20px}article{background:#44313e;padding:20px;border-radius:16px}a{color:#ffd18c}</style><h1>MarsL · Live activity</h1><article><p>'+players+' registered players · '+colonies+' colonies</p><p>'+fights+' battles in the past 24 hours</p><p>Updated '+new Date(now).toISOString()+'</p></article><p>Counts refresh when you reload, at most every 30 seconds.</p><a href="/">Play MarsL</a></html>'};
   }res.setHeader('Cache-Control','public,max-age=30');res.send(publicActivityCache.html);
 });
+let renderedGamePage;
 app.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
-  res.send(PAGE.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()).split("__TRIBES__").join(LANDING_TRIBES).split("__ART__").join(artJson()).split("__ARTV__").join(ART_VERSION));
+  if (!renderedGamePage) renderedGamePage = PAGE.split("__VER__").join(GAME_VERSION).split("__SRV__").join(thisServerName()).split("__TRIBES__").join(LANDING_TRIBES).split("__ART__").join(artJson()).split("__ARTV__").join(ART_VERSION);
+  res.send(renderedGamePage);
 });
 
 // ---------- "Add to Home Screen": MarsL opens like an app ----------
@@ -43288,7 +43435,9 @@ app.listen(PORT, HOST, () => {
   console.log("MarsL is running!");
   console.log("  On this computer:   http://localhost:" + PORT);
   // the addresses for phones and other computers in the same Wi-Fi
-  const nets = require("os").networkInterfaces();
+  let nets = {};
+  try { nets = require("os").networkInterfaces(); }
+  catch { console.warn("Local network addresses are unavailable."); }
   for (const name in nets) {
     for (const n of nets[name]) {
       if (n.family !== "IPv4" || n.internal || (HOST && HOST !== n.address)) continue;
