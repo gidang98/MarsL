@@ -97,9 +97,13 @@ async function restore() {
     // Create emergency backup of current DB
     const emergencyPath = DB_PATH + '.emergency-' + Date.now();
     fs.copyFileSync(DB_PATH, emergencyPath);
+    // keep the write-ahead log next to the copy so nothing written since the last checkpoint is lost
+    if (fs.existsSync(DB_PATH + '-wal')) fs.copyFileSync(DB_PATH + '-wal', emergencyPath + '-wal');
     console.log(`Emergency backup created: ${emergencyPath}`);
   }
 
+  // leftovers of the old database would be replayed onto the restored one
+  for (const extra of ['-wal', '-shm']) fs.rmSync(DB_PATH + extra, { force: true });
   fs.copyFileSync(sourcePath, DB_PATH);
   console.log(`Database restored from: ${sourcePath}`);
   console.log(`New DB size: ${(fs.statSync(DB_PATH).size / 1024 / 1024).toFixed(2)} MB`);

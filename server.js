@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.447";
+const GAME_VERSION = "1.0.448";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6305,6 +6305,18 @@ function dataDiskInfo() {
     return { name: known ? known[0] : "unknown (0x" + type.toString(16) + ")", network: known ? known[1] : null };
   } catch (e) { return null; }
 }
+// On a local disk the database runs in write-ahead mode: a save no longer waits for two disk flushes,
+// and readers never wait for a writer. Network or unknown disks stay on the plain journal, and
+// MARSL_WAL=0 switches it off.
+(function chooseJournalMode() {
+  const disk = dataDiskInfo();
+  if (process.env.MARSL_WAL === "0" || !disk || disk.network !== false) return;
+  try {
+    const mode = db.prepare("PRAGMA journal_mode = WAL").get();
+    db.exec("PRAGMA synchronous = NORMAL");
+    console.log("  🗄️  Database journal: " + (mode && (mode.journal_mode || Object.values(mode)[0])) + " on " + disk.name);
+  } catch (e) { console.warn("  Database stays on the default journal: " + e.message); }
+})();
 
 // Most of a colony snapshot repeats unchanged on every poll (quests, build list, unit list ...).
 // The browser tells us the fingerprints of the big sections it already holds (?h=key:hash,...);
@@ -17559,6 +17571,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.448",date:"2026-11-21",title:"Faster saving",groups:[["Performance",["The database now saves in write-ahead mode on local disks, so every save and refresh waits less on the disk and reading never waits for a writer. Servers on network disks keep the old mode."]]]},
   {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom.","Each refresh now sends only what changed. The quest list, build list, unit list and most of the commander data are reused from the last refresh, which cuts the download from about 65 KB to about 10 KB before compression. It helps most on slow phone connections."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
   {v:"1.0.446",date:"2026-11-21",title:"Classic storage pacing",groups:[["Classic",["Low-level warehouses and granaries fill sooner. Level 10 and higher keep their standard capacity. Existing stored resources stay available to spend."]]]},
   {v:"1.0.445",date:"2026-11-21",title:"Lighter repeat visits",groups:[["Performance",["The browser can reuse the game scripts and styles on repeat visits. The colony refreshes less often while you play."]]]},
@@ -22739,7 +22752,7 @@ function startsPanel() {
 
 function serverPanel() {
   var h = '<div class="panel"><h2>🧹 Housekeeping</h2><div class="row" style="margin-top:0"><a class="btn" href="/api/admin/backup">💾 Download backup</a><label style="margin:0">older than <input type="number" id="cleanDays" min="1" max="365" value="30" style="width:70px"> days</label><button class="btn ghost" data-act="cleanup">🧹 Clean old reports, mail and logins</button></div>';
-  h += '<p class="hint">A backup is a copy of marsl.db. To restore it, stop the server and replace marsl.db with it.</p></div>';
+  h += '<p class="hint">A backup is a copy of marsl.db. To restore it, stop the server, delete marsl.db-wal and marsl.db-shm if they exist, and replace marsl.db with it.</p></div>';
   h += '<div class="panel danger"><h2>⚠️ Reset the server</h2><p>Starts a new round: all troops, reports, mail, news, alliances, statistics, Mars events and server goals are deleted. The map is re-rolled, landmarks are sealed and the clock starts at day 1. Fake players are removed (they come back by themselves).</p>';
   h += '<div class="row"><label style="margin:0"><input type="radio" name="rmode" value="fresh" checked style="width:auto"> Keep all accounts, everybody gets a new colony</label></div>';
   h += '<div class="row" style="margin-top:2px"><label style="margin:0"><input type="radio" name="rmode" value="wipe" style="width:auto"> Delete every account except the owners</label></div>';
@@ -22890,7 +22903,7 @@ function render() {
     h += '<div class="stat"><small>' + x[0] + " " + x[2] + "</small><b>" + x[1] + "</b></div>";
   });
   h += '</div><div class="row"><a class="btn" href="/api/admin/backup">' + '💾' + ' Download backup</a><a class="btn ghost" href="/">' + '🎮' + ' Back to the game</a></div>';
-  h += '<p class="hint">The backup is a copy of marsl.db. To restore it, stop the server and replace marsl.db with it (rename it to marsl.db).</p></div>';
+  h += '<p class="hint">The backup is a copy of marsl.db. To restore it, stop the server, delete marsl.db-wal and marsl.db-shm if they exist, and replace marsl.db with it (rename it to marsl.db).</p></div>';
 
   h += '<div class="grid">';
   // invite

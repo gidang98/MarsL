@@ -71,13 +71,21 @@ function backup() {
     execSync(`sqlite3 "${DB_PATH}" ".backup '${backupPath}'"`, { timeout: 60000 });
   } catch (e) {
     // Fallback: simple file copy (database may be locked)
-    console.warn('SQLite backup API failed, falling back to file copy');
-    fs.copyFileSync(DB_PATH, backupPath);
+    // (a plain file copy would miss what still sits in the write-ahead log)
+    console.warn('sqlite3 command not available, copying with node:sqlite');
+    const { DatabaseSync } = require('node:sqlite');
+    const source = new DatabaseSync(DB_PATH);
+    try { source.exec("VACUUM INTO '" + backupPath.replace(/'/g, "''") + "'"); } finally { source.close(); }
   }
 
   // Verify backup integrity
   try {
-    execSync(`sqlite3 "${backupPath}" "PRAGMA integrity_check;"`, { timeout: 30000 });
+    const { DatabaseSync } = require('node:sqlite');
+    const copy = new DatabaseSync(backupPath, { readOnly: true });
+    try {
+      const result = copy.prepare('PRAGMA integrity_check').get();
+      if (Object.values(result)[0] !== 'ok') throw new Error('integrity_check: ' + Object.values(result)[0]);
+    } finally { copy.close(); }
   } catch (e) {
     fs.unlinkSync(backupPath);
     throw new Error('Backup integrity check failed');
