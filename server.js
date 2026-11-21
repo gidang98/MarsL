@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.446";
+const GAME_VERSION = "1.0.447";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1753,7 +1753,21 @@ function freshCamp(x, y) {
 // =====================================================================
 require("fs").mkdirSync(DATA_DIR, { recursive: true });
 const db = new DatabaseSync(path.join(DATA_DIR, "marsl.db"));
-db.exec("PRAGMA busy_timeout = 4000"); // wait a moment instead of failing when a backup or tool holds the file
+db.exec("PRAGMA busy_timeout = 4000");
+// Compiling SQL costs more than running it, and the colony poll repeats the same few hundred statements
+// every few seconds per player. Keep each compiled statement; statements built from changing text
+// (values pasted into the SQL) fall off the end of the cache instead of filling it.
+const prepareStatement = db.prepare.bind(db);
+const statementCache = new Map();
+db.prepare = function (sql) {
+  let statement = statementCache.get(sql);
+  if (!statement) {
+    statement = prepareStatement(sql);
+    if (statementCache.size < 1500) statementCache.set(sql, statement);
+  }
+  return statement;
+};
+ // wait a moment instead of failing when a backup or tool holds the file
 db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
 // A database belongs to one server. Two sites using the same folder (or the same
 // DATA_DIR) would be one world under two addresses, so a server refuses to start
@@ -17499,6 +17513,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
   {v:"1.0.446",date:"2026-11-21",title:"Classic storage pacing",groups:[["Classic",["Low-level warehouses and granaries fill sooner. Level 10 and higher keep their standard capacity. Existing stored resources stay available to spend."]]]},
   {v:"1.0.445",date:"2026-11-21",title:"Lighter repeat visits",groups:[["Performance",["The browser can reuse the game scripts and styles on repeat visits. The colony refreshes less often while you play."]]]},
   {v:"1.0.444",date:"2026-11-21",title:"The first raid keeps up on a fast server",groups:[["Landing",["The wrecked lander and the Dust Scorpions still take 30 seconds and 90 seconds on a normal-speed server.","On a faster server they arrive on that server's clock instead, with enough time left to read the warning and open the report."]]]},
@@ -21731,7 +21746,7 @@ app.post("/api/away/seen", requireLogin, (req, res) => {
 // =====================================================================
 //  WEB PAGE
 // =====================================================================
-const PAGE = require("./client/game-page")(TRIBES);
+const PAGE = require("./client/game-page")(TRIBES, MONSTERS);
 
 // =====================================================================
 //  ADMIN PAGE  (http://localhost:3000/admin) - only for server owners

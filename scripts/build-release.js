@@ -6,7 +6,7 @@ const root = path.resolve(__dirname, '..');
 const imports = new Map([
   ['const runtimeTiming = require("./lib/runtime-timing")();', 'const runtimeTiming = (' + require('../lib/runtime-timing').toString() + ')();'],
   ['const nextRouteTime = require("./game/trade-schedule");', 'const nextRouteTime = ' + require('../game/trade-schedule').toString() + ';'],
-  ['const PAGE = require("./client/game-page")(TRIBES);', 'const PAGE = (' + gamePageTemplate.toString() + ')(TRIBES);'],
+  ['const PAGE = require("./client/game-page")(TRIBES, MONSTERS);', 'const PAGE = (' + gamePageTemplate.toString() + ')(TRIBES, MONSTERS);'],
   ['const battleOdds = require("./game/battle-odds");', 'const battleOdds = ' + require('../game/battle-odds').toString() + ';'],
 ]);
 let source = fs.readFileSync(path.join(root, 'server.js'), 'utf8');

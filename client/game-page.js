@@ -1,4 +1,4 @@
-module.exports = function gamePageTemplate(TRIBES) {
+module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
