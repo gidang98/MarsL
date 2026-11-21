@@ -1,6 +1,6 @@
 # MarsL working handoff
 
-## 1.0.445 performance candidate
+## 1.0.445 performance release
 
 Visible colony polling now runs every three seconds. Actions still return fresh snapshots. The authenticated colony route exposes its processing time in a `Server-Timing` header. The browser receives the main CSS and JavaScript from content-hashed URLs. Gzipped HTML measured about 40 kB on OpenTest, down from 1.06 MB. Total cold HTML, JavaScript and CSS transfer was roughly 1.06 MB both ways.
 
@@ -10,11 +10,11 @@ Node 22 ran 215 passing tests. The bundle passed fresh startup, authenticated co
 
 In a 390 px Chromium touch viewport, the map opened and accepted a tile selection without JavaScript errors. Physical iPhone Safari still needs a device test.
 
-The owner-only System panel exposes call counts and recent p95 timings for colony refreshes, movements, trade routes and bots. Measurements reset on restart. The bundle smoke test checks authenticated access to these readings on all presets. Production still reported 1.0.443 when checked, so candidate timings are available locally.
+The owner-only System panel exposes call counts and recent p95 timings for colony refreshes, movements, trade routes and bots. Measurements reset on restart. The bundle smoke test checks authenticated access to these readings on all presets. Production has this System panel. Real-player latency has yet to be measured.
 
 Run `node scripts/build-release.js` and `node scripts/simulate-round.js` for the deterministic economy and raid scenario. One colony per tribe used the same starting fields and construction strategy through Aurora. All three ended at 130 points on every preset. In the fixed Aurora Scorpion Nest raid, loot minus replacement resources before bounty was 320 for Humans, 600 for Chickens and 205 for Aliens. This scenario does not cover alliances, contested landmarks, PvP or the Aurora win condition. Trade-route scheduling is now a shared module with tests for missed runs.
 
-The candidate remains local. An approved production roll-out is needed to collect the new metrics under real traffic.
+The three production servers received 1.0.445 in [OpenTest run 89](https://github.com/gidang98/MarsL/actions/runs/44877616144), [Classic run 90](https://github.com/gidang98/MarsL/actions/runs/44877679652), and [Speed run 91](https://github.com/gidang98/MarsL/actions/runs/44877683436).
 
 ## 1.0.444 (historical handoff)
 Grok-improve-20261121. The first raid no longer uses the Classic clock on a fast server. `paceMs` keeps the lander at 30s and the Dust Scorpions at 90s when `MOVE_SPEED` is 1, and floors them at 8s and 15s when troops move faster. Live stays 1.0.443 until the owner asks for a deploy. Next free version after this merges: **1.0.445**.
@@ -25,14 +25,13 @@ Built against 1315a25. Verified startup on new and existing test databases for O
 
 ## Read this first
 
-- Release work is on `codex/game-performance`, based on `8101e32` (1.0.444). The local candidate is 1.0.445. Refresh `origin/main` before integration.
-- The last verified production rollout for this handoff is [1.0.443 on all three servers](https://github.com/gidang98/MarsL/actions/runs/44874892685).
-- Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
-- Search server logic in `server.js` and browser code in `client/game-page.js` by symbol.
-- `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- The candidate uses **1.0.445**. Confirm the current GitHub version before cutting another release.
+- Refresh [GitHub main](https://github.com/gidang98/MarsL/tree/main) before editing and start from its current commit in a separate worktree. The latest production game code is 1.0.446 at `5780beb`. OpenTest, Classic and Speed each reported 1.0.446 after [deployment run 44879674631](https://github.com/gidang98/MarsL/actions/runs/44879674631).
+- See the [shared inbox](https://github.com/gidang98/MarsL/issues/1) for active work.
+- Run `npm ci` on Node 22 in a fresh worktree. Run `npm run check` for the same dependency, test, build and three-preset smoke checks used by deployment. Run `npm run check:release` to build and smoke-test the bundle alone. Migration and WebSocket tests use in-memory SQLite databases.
+- Search server logic in `server.js` and the active browser template in `client/game-page.js`. The generated `dist/server.js` is the standalone deployment file.
+- Local Commander and troop-name changes are on `codex/camp-bounty-stash` at `4dc3683` in the existing `marsl-perf` worktree. They are separate from the reviewed production release.
 
-## Current release
+## Earlier releases
 - **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.
 - **1.0.355** keeps the commander sheet open while scrolling (swipe-to-close only from the top of a sheet). PR #22, deploy run 43654774552. Upload and restarts succeeded; all three servers reported 1.0.355, but verify marked them failed because the version grep matched twice. Fixed in the workflow afterwards.
 - **1.0.354** fixes login and register labels that still showed raw `svgIconFor(...)` text after the emoji restore. Commit https://github.com/gidang98/MarsL/commit/784fedf853352442fff18dcacd2054f20fdc432d (PR #20).
@@ -96,7 +95,7 @@ The test runtime denied os.networkInterfaces(). A test-only preload returned an 
 ## Shared AI inbox
 https://github.com/gidang98/MarsL/issues/1
 
-Read only comments newer than **6873618887**. Post claims and handoffs there with a unique session ID. Keep detailed work in linked task issues and pull requests.
+The latest comment reviewed for this handoff is **7058663160**. Read newer comments and recheck relevant edits. Post claims and handoffs there with a unique session ID. Keep detailed work in linked task issues and pull requests.
 
 ## Active task ledger
 | Task | Owner | Branch/base | Areas | Status | Next step |
