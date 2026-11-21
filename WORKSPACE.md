@@ -126,3 +126,6 @@ For new tasks, post a claim in the shared inbox and link the task issue. Update 
 - Admin page (/admin) loads with System tab, player detail modal, and all new endpoints
 - New endpoints verified: /api/admin/system, /api/admin/players/:id, /api/admin/logs, /api/admin/db-stats, /api/admin/migrations (return 401/403 without auth as expected)
 - **Root cause of earlier failure**: server.js from commit 0f34f7e added require() calls for packages not installed on AlwaysData (compression, express-rate-limit, express-slow-down, helmet, ws) and referenced undefined variables (metrics, logger, cache). Fix: restored working server.js from f8818456 and added new endpoints inline with zero extra dependencies.
+
+## Colony poll size (1.0.447)
+`GET /api/colony?h=key:hash,...` leaves out sections the browser already holds (`deltaSnapshot` in server.js, `mergeDelta` in the client). The response carries `hash` for each section over 500 characters and `same` for the omitted ones; the hero is compared part by part (`hero/skills`). A poll falls from about 65 KB to about 10 KB. Owner System panel shows the data disk type; WAL mode must stay off while it reads network.

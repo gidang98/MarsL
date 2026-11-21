@@ -17811,7 +17811,11 @@ function loadColony(auto, startup) {
   var request = ++colonyRequest;
   var epoch = actionEpoch || 0;
   var sentAt = Date.now();
-  return (startup ? startupFetch("/api/colony", 3) : fetch("/api/colony")).then(function (r) {
+  // tell the server which big sections we already hold, so it only sends what changed
+  var held = {}, haveList = [];
+  Object.keys(deltaCache).forEach(function (k) { held[k] = deltaCache[k]; haveList.push(k + ":" + deltaCache[k].h); });
+  var colonyUrl = "/api/colony" + (haveList.length ? "?h=" + encodeURIComponent(haveList.join(",")) : "");
+  return (startup ? startupFetch(colonyUrl, 3) : fetch(colonyUrl)).then(function (r) {
     if (request !== colonyRequest || epoch !== actionEpoch) return;
     if (!r.ok && r.status !== 401 && r.status !== 409) throw new Error("Refresh failed");
     if (handle401(r)) return;
@@ -17826,6 +17830,7 @@ function loadColony(auto, startup) {
     }
     return r.json().then(function (d) {
       if (request !== colonyRequest || epoch !== actionEpoch) return;
+      mergeDelta(d, held);
       syncClock(d.serverNow, d.serverTz, sentAt);
       var first = !loggedIn;
       loggedIn = true;
@@ -17835,6 +17840,22 @@ function loadColony(auto, startup) {
       if (first && !d.tutorial && !d.onboarding && tut.step < 0) setTimeout(startTutorial, 600);
     });
   }).catch(function (err) { if (startup) throw err; if (!auto) toast('Could not refresh. Check your connection and try again.'); }).finally(function () { if (request === colonyRequest) colonyLoading = false; });
+}
+
+// Big colony sections the server only sends when they changed: kept as text so the screen can never edit the stored copy.
+var deltaCache = {};
+function mergeDelta(d, held) {
+  // a name like "hero/skills" is one part inside the section "hero"
+  var holderOf = function (k) { var i = k.indexOf("/"); return i < 0 ? [d, k] : [d[k.slice(0, i)] || (d[k.slice(0, i)] = {}), k.slice(i + 1)]; };
+  (d.same || []).forEach(function (k) { if (held[k]) { var at = holderOf(k); at[0][at[1]] = JSON.parse(held[k].s); } });
+  var hash = d.hash || {}, next = {};
+  Object.keys(hash).forEach(function (k) {
+    var at = holderOf(k);
+    next[k] = held[k] && held[k].h === hash[k] ? held[k] : (at[0][at[1]] !== undefined ? { h: hash[k], s: JSON.stringify(at[0][at[1]]) } : null);
+    if (!next[k]) delete next[k];
+  });
+  deltaCache = next;
+  delete d.same;
 }
 
 var reportsRequest = 0;

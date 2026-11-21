@@ -6296,6 +6296,51 @@ function snapshot(user, colony) {
   };
 }
 
+// What kind of disk holds marsl.db. Network disks cannot run SQLite in WAL mode, so the owner can check here before anyone switches it on.
+const DISK_TYPES = { 0xef53: ["ext4", false], 0x58465342: ["xfs", false], 0x9123683e: ["btrfs", false], 0x01021994: ["tmpfs", false], 0x6969: ["NFS", true], 0xff534d42: ["CIFS", true], 0x517b: ["SMB", true], 0x65735546: ["FUSE", true], 0x794c7630: ["overlayfs", false], 0xc36400: ["CephFS", true], 0x47504653: ["GPFS", true] };
+function dataDiskInfo() {
+  try {
+    const type = require("fs").statfsSync(DATA_DIR).type;
+    const known = DISK_TYPES[type];
+    return { name: known ? known[0] : "unknown (0x" + type.toString(16) + ")", network: known ? known[1] : null };
+  } catch (e) { return null; }
+}
+
+// Most of a colony snapshot repeats unchanged on every poll (quests, build list, unit list ...).
+// The browser tells us the fingerprints of the big sections it already holds (?h=key:hash,...);
+// those that still match are left out and named in "same" so the browser reuses its copy.
+const DELTA_MIN_CHARS = 500;
+function deltaSnapshot(snap, req) {
+  if (req.path !== "/api/colony" || req.method !== "GET") return;
+  const have = {};
+  String(req.query.h || "").slice(0, 2000).split(",").forEach((pair) => {
+    const i = pair.indexOf(":");
+    if (i > 0) have[pair.slice(0, i)] = pair.slice(i + 1);
+  });
+  const hash = {};
+  const same = [];
+  const section = (holder, key, name) => {
+    const value = holder[key];
+    if (!value || typeof value !== "object") return false;
+    const text = JSON.stringify(value);
+    if (text.length < DELTA_MIN_CHARS) return false;
+    const h = crypto.createHash("md5").update(text).digest("base64url").slice(0, 12);
+    hash[name] = h;
+    if (have[name] === h) { same.push(name); delete holder[key]; }
+    return true;
+  };
+  for (const key of Object.keys(snap)) {
+    // the hero changes a little every few seconds (wallet, shop timer), so its big parts are compared one by one
+    if (key === "hero" && snap.hero && typeof snap.hero === "object" && !Array.isArray(snap.hero)) {
+      for (const part of Object.keys(snap.hero)) section(snap.hero, part, "hero/" + part);
+      continue;
+    }
+    section(snap, key, key);
+  }
+  snap.hash = hash;
+  if (same.length) snap.same = same;
+}
+
 // Load the active colony, bring it up to date, run "action", save, send snapshot
 function withColony(req, res, action) {
   const started = performance.now();
@@ -6320,6 +6365,7 @@ function withColony(req, res, action) {
     runtimeTiming.record("colony", duration);
     res.setHeader("Server-Timing", "colony;dur=" + duration.toFixed(2));
   }
+  deltaSnapshot(snap, req);
   res.json(snap);
 }
 
@@ -17513,7 +17559,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
+  {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom.","Each refresh now sends only what changed. The quest list, build list, unit list and most of the commander data are reused from the last refresh, which cuts the download from about 65 KB to about 10 KB before compression. It helps most on slow phone connections."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
   {v:"1.0.446",date:"2026-11-21",title:"Classic storage pacing",groups:[["Classic",["Low-level warehouses and granaries fill sooner. Level 10 and higher keep their standard capacity. Existing stored resources stay available to spend."]]]},
   {v:"1.0.445",date:"2026-11-21",title:"Lighter repeat visits",groups:[["Performance",["The browser can reuse the game scripts and styles on repeat visits. The colony refreshes less often while you play."]]]},
   {v:"1.0.444",date:"2026-11-21",title:"The first raid keeps up on a fast server",groups:[["Landing",["The wrecked lander and the Dust Scorpions still take 30 seconds and 90 seconds on a normal-speed server.","On a faster server they arrive on that server's clock instead, with enough time left to read the warning and open the report."]]]},
@@ -22071,6 +22117,7 @@ app.get("/api/admin/system", requireOwner, (req, res) => {
       websocket: { totalConnections: 0, authenticatedUsers: 0 },
       cache: { backend: 'none' },
       timing: runtimeTiming.snapshot(),
+      dataDisk: dataDiskInfo(),
       dbSize: 0,
     });
   } catch (e) {
@@ -22748,6 +22795,7 @@ function systemPanel() {
   h += '<div class="stat"><small>' + '🔌' + ' WS connections</small><b>' + S.websocket.totalConnections + '</b></div>';
   h += '<div class="stat"><small>' + '🔐' + ' WS auth users</small><b>' + S.websocket.authenticatedUsers + '</b></div>';
   h += '<div class="stat"><small>' + '💾' + ' Cache backend</small><b>' + esc(S.cache.backend) + '</b></div>';
+  if (S.dataDisk) h += '<div class="stat"><small>' + '🗄️' + ' Data disk</small><b>' + esc(S.dataDisk.name) + (S.dataDisk.network ? ' (network)' : '') + '</b></div>';
   h += '</div></div>';
   if (S.timing && Object.keys(S.timing).length) {
     h += '<div class="panel"><h2>Server timing</h2><p>95th percentile for up to 256 recent calls</p><div class="tablewrap"><table><tr><th>Work</th><th>Calls since restart</th><th>Samples</th><th>p95 (ms)</th></tr>';
