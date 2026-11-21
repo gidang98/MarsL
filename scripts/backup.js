@@ -71,8 +71,11 @@ function backup() {
     execSync(`sqlite3 "${DB_PATH}" ".backup '${backupPath}'"`, { timeout: 60000 });
   } catch (e) {
     // Fallback: simple file copy (database may be locked)
-    console.warn('SQLite backup API failed, falling back to file copy');
-    fs.copyFileSync(DB_PATH, backupPath);
+    // (a plain file copy would miss what still sits in the write-ahead log)
+    console.warn('sqlite3 command not available, copying with node:sqlite');
+    const { DatabaseSync } = require('node:sqlite');
+    const source = new DatabaseSync(DB_PATH);
+    try { source.exec("VACUUM INTO '" + backupPath.replace(/'/g, "''") + "'"); } finally { source.close(); }
   }
 
   // Verify backup integrity
