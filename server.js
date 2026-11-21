@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.449";
+const GAME_VERSION = "1.0.450";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -16547,6 +16547,44 @@ setInterval(() => {
   db.prepare("DELETE FROM battle_log WHERE at < ?").run(Date.now() - 60 * 86400000);
 }, 3600000);
 
+// How far players have come in the hunt: income, best creatures, meter and shinies, by commander level
+app.get("/api/admin/hunt", requireOwner, (req, res) => {
+  const now = Date.now();
+  const rows = db.prepare("SELECT roster, hero, last_seen FROM users WHERE bot = 0 AND roster IS NOT NULL AND last_seen > ?").all(now - 14 * 86400000);
+  const bands = [[1, 9], [10, 29], [30, 59], [60, 99], [100, 100]].map(([lo, hi]) => ({ lo, hi, rates: [], caught: [], meter: [], best: {} }));
+  const median = (a) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)] : 0);
+  const shiny = [0, 0, 0, 0], slotRarity = {};
+  let players = 0, halfway = 0, full = 0;
+  for (const row of rows) {
+    let r = null, h = null;
+    try { r = JSON.parse(row.roster); h = row.hero ? JSON.parse(row.hero) : null; } catch (e) { continue; }
+    const hu = r && r.hunt;
+    if (!hu) continue;
+    players++;
+    const level = (h && h.level) || 1;
+    const band = bands.find((b) => level >= b.lo && level <= b.hi) || bands[0];
+    const slotted = (hu.slots || []).filter((k) => CREATURES[k]);
+    const rate = huntCashRate(hu, r);
+    band.rates.push(rate);
+    band.caught.push(Object.values(hu.kills || {}).reduce((n, v) => n + v, 0));
+    band.meter.push(Math.min(1, (hu.meter || 0) / RAINBOW_METER));
+    const top = slotted.reduce((m, k) => Math.max(m, CREATURE_RARITIES.indexOf(CREATURES[k].rarity)), -1);
+    if (top >= 0) band.best[CREATURE_RARITIES[top]] = (band.best[CREATURE_RARITIES[top]] || 0) + 1;
+    slotted.forEach((k) => { slotRarity[CREATURES[k].rarity] = (slotRarity[CREATURES[k].rarity] || 0) + 1; });
+    Object.keys(hu.found || {}).forEach((k) => { const c = CREATURES[k]; if (c && c.tier) shiny[c.tier - 1]++; });
+    if ((hu.meter || 0) >= RAINBOW_METER) full++; else if ((hu.meter || 0) >= RAINBOW_METER / 2) halfway++;
+  }
+  res.json({
+    players, days: 14, meterOf: RAINBOW_METER, halfway, full, shiny: shiny.map((n, i) => ({ name: SHINY[i + 1].name, n })),
+    slotRarity: CREATURE_RARITIES.map((k) => ({ rarity: k, n: slotRarity[k] || 0 })),
+    bands: bands.map((b) => ({
+      from: b.lo, to: b.hi, players: b.rates.length, medianRate: Math.round(median(b.rates) * 10) / 10,
+      topRate: b.rates.length ? Math.round(Math.max(...b.rates) * 10) / 10 : 0,
+      caught: Math.round(median(b.caught)), meter: b.meter.length ? Math.round(100 * b.meter.reduce((n, v) => n + v, 0) / b.meter.length) : 0,
+      best: CREATURE_RARITIES.filter((k) => b.best[k]).map((k) => ({ rarity: k, n: b.best[k] })),
+    })),
+  });
+});
 app.get("/api/admin/balance", requireOwner, (req, res) => {
   const days = Math.max(1, Math.min(60, Number(req.query.days) || 7));
   const bots = req.query.bots === "1";
@@ -17606,6 +17644,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.450",date:"2026-11-22",title:"Hunt progress in the admin page",groups:[["🛠️ Admin",["The Balance tab shows how far players have come in the hunt: income, best creatures in the slots, creatures caught, the Rainbow meter and shinies found, by commander level."]]]},
   {v:"1.0.449",date:"2026-11-21",title:"Rainbow meter",groups:[["🌈 Hunt",["A new meter under the opponent fills with every hunt window (half while you are away). When it holds 15,000, the next opponent is a Rainbow of the best kind your commander can beat, never a Mythic, so a first Rainbow is no longer a matter of luck alone.","Beating it, or a Rainbow of that kind or better that shows up by luck, empties the meter again."]]]},
   {v:"1.0.448",date:"2026-11-21",title:"Faster saving",groups:[["Performance",["The database now saves in write-ahead mode on local disks, so every save and refresh waits less on the disk and reading never waits for a writer. Servers on network disks keep the old mode."]]]},
   {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom.","Each refresh now sends only what changed. The quest list, build list, unit list and most of the commander data are reused from the last refresh, which cuts the download from about 65 KB to about 10 KB before compression. It helps most on slow phone connections."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
@@ -22510,7 +22549,9 @@ var LOADS = [
   ["/api/admin/moderation", function (d) { modState = d; }],
   ["/api/admin/translations", function (d) { trState = d; }],
   ["/api/admin/system", function (d) { sysState = d; }],
+  ["/api/admin/hunt", function (d) { huntAdmin = d; }],
 ];
+var huntAdmin = null;
 var modState = { reports: [], appeals: [], open: 0, now: 0 };
 var trState = { pending: [], counts: {}, langs: [], seen: 0, total: 0 };
 var sysState = null;
@@ -22748,6 +22789,22 @@ function moderationPanel() {
 }
 
 // ---------- 📊 balance: real battles ----------
+function huntAdminPanel() {
+  var H = huntAdmin;
+  var h = '<div class="panel"><h2>🐾 Hunt progress</h2>';
+  if (!H) return h + '<p class="hint">Loading…</p></div>';
+  if (!H.players) return h + '<p class="hint">Nobody has played the hunt in the last ' + H.days + " days.</p></div>";
+  h += '<p class="hint" style="margin-top:0">' + H.players + " players online in the last " + H.days + " days, grouped by commander level. Income is Space-Cash a second from the slots.</p>";
+  h += '<div class="tablewrap"><table><tr><th>Level</th><th>Players</th><th>Median 💲/s</th><th>Best 💲/s</th><th>Caught (median)</th><th>Best creature in slots</th><th>Meter (average)</th></tr>';
+  H.bands.forEach(function (b) {
+    h += "<tr><td>" + (b.from === b.to ? b.from : b.from + "–" + b.to) + "</td><td>" + b.players + "</td><td>" + (b.players ? b.medianRate : "–") + "</td><td>" + (b.players ? b.topRate : "–") + "</td><td>" + (b.players ? b.caught : "–") + "</td><td>" +
+      (b.best.length ? b.best.map(function (x) { return esc(x.rarity) + " " + x.n; }).join(", ") : "–") + "</td><td>" + (b.players ? b.meter + "%" : "–") + "</td></tr>";
+  });
+  h += "</table></div>";
+  h += "<p>🌈 Meter: " + H.full + " full, " + H.halfway + " past half (of " + H.meterOf.toLocaleString("en-US") + " windows). Shinies found: " + H.shiny.map(function (s) { return esc(s.name) + " " + s.n; }).join(", ") + ".</p>";
+  h += '<p class="hint">Creatures in slots: ' + H.slotRarity.map(function (s) { return esc(s.rarity) + " " + s.n; }).join(", ") + ".</p></div>";
+  return h;
+}
 function balancePanel() {
   var B = balState;
   var h = '<div class="panel"><h2>📊 Battles</h2><div class="row" style="margin-top:0">';
@@ -23010,7 +23067,7 @@ function render() {
   });
   h += "</table></div></div>";
   parts.players = h;
-  parts.balance = balancePanel();
+  parts.balance = balancePanel() + huntAdminPanel();
   parts.languages = translationsPanel();
   if (tab === "balance" && !balState) setTimeout(loadBalance, 0);
   var TABS = [["overview", "📊 Overview"], ["events", "🗓️ Events"], ["world", "🗺️ World"], ["players", "👥 Players" + (modState.open ? " 🚩" + modState.open : "")], ["balance", "⚖️ Balance"], ["languages", "🌍 Languages" + (trState.pending.length ? " " + trState.pending.length : "")], ["messages", "📰 News & mail"], ["server", "⚙️ Server"], ["system", "🖥️ System"]];
