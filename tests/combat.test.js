@@ -1,30 +1,25 @@
-// Combat tests
 const { describe, it } = require('node:test');
-const assert = require('node:assert');
-const { mockTribe, mockTroops } = require('./helper');
-
-const { safeRequire } = require('./helper');
-const combat = safeRequire('../game/combat');
+const assert = require('node:assert/strict');
+const { battleOdds, fight, traitOf } = require('../game/combat');
+const { UNIT_TRAITS } = require('../config/units');
 
 describe('Combat module', () => {
-  it('exports battleOdds function', () => {
-    if (!combat) {
-      console.warn('Skipping: combat module has extraction dependencies');
-      return;
-    }
-    assert.strictEqual(typeof combat.battleOdds, 'function');
+  it('splits raid losses and wipes the losing army in an attack', () => {
+    const raid = battleOdds('raid', 80, 40);
+    assert.equal(raid.attackerWins, true);
+    assert.ok(raid.atkFrac > 0 && raid.atkFrac < raid.defFrac);
+    assert.equal(raid.atkFrac + raid.defFrac, 1);
+    assert.equal(battleOdds('attack', 80, 40).defFrac, 1);
   });
 
-  it('exports fight function', () => {
-    if (!combat) return;
-    assert.strictEqual(typeof combat.fight, 'function');
+  it('exports the fight calculator', () => {
+    assert.equal(typeof fight, 'function');
   });
-});
 
-describe('Combat: traitOf', () => {
-  it('returns null for invalid unit', () => {
-    if (!combat) return;
-    assert.strictEqual(combat.traitOf(null), null);
-    assert.strictEqual(combat.traitOf({ role: 'Invalid' }), null);
+  it('looks up known traits and handles missing units', () => {
+    const [role, trait] = Object.entries(UNIT_TRAITS)[0];
+    assert.equal(traitOf({ role }), trait);
+    assert.equal(traitOf(null), null);
+    assert.equal(traitOf({ role: 'Invalid' }), null);
   });
 });

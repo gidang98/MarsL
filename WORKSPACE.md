@@ -1,6 +1,22 @@
 # MarsL working handoff
 
-## 1.0.444 (merged, not deployed)
+## 1.0.445 performance candidate
+
+Visible colony polling now runs every three seconds. Actions still return fresh snapshots. The authenticated colony route exposes its processing time in a `Server-Timing` header. The browser receives the main CSS and JavaScript from content-hashed URLs. Gzipped HTML measured about 40 kB on OpenTest, down from 1.06 MB. Total cold HTML, JavaScript and CSS transfer was roughly 1.06 MB both ways.
+
+The source server is about 2.53 MB. The deployment build bundles the active page and battle-odds module into `dist/server.js`, roughly 5.68 MB. Dependencies install from the lockfile. No vendored dependency files are needed.
+
+Node 22 ran 215 passing tests. The bundle passed fresh startup, authenticated colony access, and cache checks on all three presets. An upgrade from 1.0.444 preserved the saved colony and session on each preset. The extracted battle-odds function matched 882 cases from 1.0.444. Each version served 900 authenticated requests in the same local burst workload. Fixed-rate p95 latency was mixed, so there is no verified per-request speedup.
+
+In a 390 px Chromium touch viewport, the map opened and accepted a tile selection without JavaScript errors. Physical iPhone Safari still needs a device test.
+
+The owner-only System panel exposes call counts and recent p95 timings for colony refreshes, movements, trade routes and bots. Measurements reset on restart. The bundle smoke test checks authenticated access to these readings on all presets. Production still reported 1.0.443 when checked, so candidate timings are available locally.
+
+Run `node scripts/build-release.js` and `node scripts/simulate-round.js` for the deterministic economy and raid scenario. One colony per tribe used the same starting fields and construction strategy through Aurora. All three ended at 130 points on every preset. In the fixed Aurora Scorpion Nest raid, loot minus replacement resources before bounty was 320 for Humans, 600 for Chickens and 205 for Aliens. This scenario does not cover alliances, contested landmarks, PvP or the Aurora win condition. Trade-route scheduling is now a shared module with tests for missed runs.
+
+The candidate remains local. An approved production roll-out is needed to collect the new metrics under real traffic.
+
+## 1.0.444 (historical handoff)
 Grok-improve-20261121. The first raid no longer uses the Classic clock on a fast server. `paceMs` keeps the lander at 30s and the Dust Scorpions at 90s when `MOVE_SPEED` is 1, and floors them at 8s and 15s when troops move faster. Live stays 1.0.443 until the owner asks for a deploy. Next free version after this merges: **1.0.445**.
 
 ## 1.0.443 release verification
@@ -8,12 +24,13 @@ Grok-improve-20261121. The first raid no longer uses the Classic clock on a fast
 Built against 1315a25. Verified startup on new and existing test databases for OpenTest, Classic and Speed, including authenticated colony, onboarding, summary and report requests. A local raid completed through report and troop return. At 390 and 1280 CSS pixels the map loaded its artwork and accepted tile selection. The three presets handled 900 authenticated local requests with 50 simulated players per preset. The repository suite reported 213 passing tests after closing the WebSocket server in test teardown. The extracted combat module tests return early when their dependencies fail to load. Physical iPhone Safari and real-player production latency require separate observation. Consult the deployment workflow run for production status.
 
 ## Read this first
-- Repo: https://github.com/gidang98/MarsL — `main` @ `fc078d9` (1.0.356). Refresh `origin/main` before editing. Compare the `server.js` blob SHA before reusing any local copy.
-- `main` has **1.0.387** (outpost sight of small incoming armies, camp art fix; troop traffic card with red/green swords and two shields; restyled free Finish button; icon polish: outlines for line icons, re-centred and resized icons; Star Credits icon, graduation pays 500 Star Credits, unique troop icons; protection extension scales with speed; beginner protection 6 days, alt-account rules; player-chosen protection extension; fairer beginner protection; relic hold time and auction durations scale with game speed; gear auction with Star Credits) (Dust Titan, gear meteors) (relics are carried home and stolen by attacking the holder, three Relic Hunts with a 🗿 Relics page, then six acts with the Storm Season; a day is 24 h on Classic; Classic round of about a year: landmarks day 30, Storm Season day 118, Relic Hunt day 250, Aurora day 340). Live now: **1.0.377** on OpenTest (`open-test`), Classic (`classic`) and Speed (`speed-test`). 1.0.378 is merged only after its PR; deploy only when the owner asks. A live server's own clock settings (admin, `server_clock`) override the preset days.
+
+- Release work is on `codex/game-performance`, based on `8101e32` (1.0.444). The local candidate is 1.0.445. Refresh `origin/main` before integration.
+- The last verified production rollout for this handoff is [1.0.443 on all three servers](https://github.com/gidang98/MarsL/actions/runs/44874892685).
 - Inbox: https://github.com/gidang98/MarsL/issues/1. Last processed comment: **6873618887** (2026-11-14, claim Grok-coord-20261114). Fetch only `id > 6873618887`.
-- Do not load `server.js` whole. It is about 5 MB. Search by symbol, then read nearby lines.
+- Search server logic in `server.js` and browser code in `client/game-page.js` by symbol.
 - `gh` can post issue comments. Use the inbox for claims and handoffs. Keep this file to release facts only.
-- Next game version is **1.0.445**. 1.0.340 through 1.0.444 are taken.
+- The candidate uses **1.0.445**. Confirm the current GitHub version before cutting another release.
 
 ## Current release
 - **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.
@@ -65,11 +82,12 @@ Verify each response reports the intended version and server ID:
 
 **Workflow behavior:**
 - **Validate dependencies** — `.github/scripts/validate-deps.js` checks every `require()` in `server.js` against `package.json` and Node.js built-ins.
-- **Extract version** — reads `GAME_VERSION` from `server.js`.
+- **Build and smoke test** — install from the lockfile, run the test suite, bundle with `node scripts/build-release.js`, and boot the bundle on each preset with `node scripts/smoke-release.js`.
+- **Extract version** — reads `GAME_VERSION` from `dist/server.js`.
 - **Verify deployment** — polls each `/api/config` up to 20 times, every 10s, after a 15s pause. Fails if a server does not recover. If the run is cancelled but live `/api/config` already matches, record that and stop. Do not deploy again.
 - **Verify access** — `target=verify` checks SFTP and API read access without deploying.
 
-The workflow uploads only `server.js` and requests AlwaysData restarts. Never add `mkdir` or extra `put` commands.
+The workflow uploads `dist/server.js` as `server.js` and restarts AlwaysData. The generated file includes the active client template and battle-odds module.
 
 ## Verification already performed for 1.0.339
 Syntax check and embedded-script parsing passed. Temporary local instances of all three presets passed homepage/config, authenticated colony, storage and Swap/Balance checks for all tribes. Client logic checks passed traffic counts and return-to-build behavior.
@@ -94,7 +112,7 @@ Read only comments newer than **6873618887**. Post claims and handoffs there wit
 - Post a claim before editing shared files. Re-read comments with `id` greater than the one in "Read this first" after claiming.
 - One integrator per release. Integrate against fresh `main`. `server.js` conflicts are reviewed, not overwritten.
 - Docs-only handoff updates do not need a deploy. Deploy only `server.js` changes the owner asked to publish.
-- `routes/`, `lib/`, `game/`, `config/` and `migrations/` are not loaded by the live server. Do not require them from `server.js`.
+- The production bundle inlines the client template and battle-odds module. Include any new server-side module in the release build and verify it with the packaged-server smoke test before deploying.
 - Remote servers have the packages in `package.json` (`express`, and `ws` for dev). Do not add a new `require()` without adding the dependency the deploy validator accepts.
 
 For new tasks, post a claim in the shared inbox and link the task issue. Update the "Read this first" section at release or handoff. Record a concrete blocker and continuation step whenever work is interrupted.

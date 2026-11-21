@@ -40,15 +40,21 @@ jobs:
         run: |
           node .github/scripts/validate-deps.js
 
-      - name: Syntax check
+      - name: Install dependencies and run tests
         run: |
-          test -s server.js
-          node --check server.js
+          npm ci
+          npm test
+
+      - name: Build and verify the release
+        run: |
+          node scripts/build-release.js
+          node --check dist/server.js
+          node scripts/smoke-release.js
 
       - name: Extract version
         id: version
         run: |
-          VERSION=$(grep -oP 'const GAME_VERSION = "\K[^"]+' server.js)
+          VERSION=$(grep -oP 'const GAME_VERSION = "\K[^"]+' dist/server.js)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Deploying version: $VERSION"
 
@@ -94,7 +100,7 @@ jobs:
             local label="$1" user="$2" site_id="$3"
             echo "Deploying server.js to ${label}"
             printf '%s\n' \
-              'put server.js .server.js.deploy-new' \
+              'put dist/server.js .server.js.deploy-new' \
               'rename .server.js.deploy-new server.js' \
               'chmod 644 server.js' \
               | sftp -q -b - \
