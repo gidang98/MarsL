@@ -4,7 +4,7 @@
 1. Read WORKSPACE.md and the latest comments in https://github.com/gidang98/MarsL/issues/1 before starting or resuming. This issue is the shared AI inbox.
 2. Use gidang98/MarsL on GitHub as the source of truth. Inspect the current branch, HEAD and working changes before editing. Preserve unfinished work.
 3. Read the user's complete requested batch. Track each item through implementation, verification and deployment when requested. A follow-up adds to the active batch unless the user cancels it.
-4. Retrieve only the source sections needed with rg and bounded reads. server.js is about 5 MB and contains the server, HTML, CSS and client JavaScript.
+4. Use rg and bounded reads. Server logic is in server.js and the active game page template is in client/game-page.js. Build the standalone deployment file in dist/ from these sources.
 
 ## Coordinate concurrent work
 - Each independent AI uses its own branch and git worktree when git authentication is available. Avoid editing another AI's working copy.
@@ -29,7 +29,7 @@
 - Keep focused changes in server.js unless a separate module or asset is needed.
 - Read the route, client handler and state/schema code together. Preserve supported saved states, environment variables and database migrations.
 - Keep GAME_VERSION and the newest PATCH_NOTES entry aligned for player-visible releases.
-- Run npm run check when defined, otherwise node --check server.js. The current repository test script is a placeholder.
+- Run npm ci in a fresh worktree and npm run check before release. For a bundle-only check, use npm run check:release.
 - Parse the JavaScript rendered in HTML and exercise affected API/client paths. For releases, check startup, /, /api/config and authenticated /api/colony on applicable server presets.
 - Use isolated temporary DATA_DIR and local ports for tests. Live databases contain player data.
 - Keep credentials, SQLite databases and production logs out of commits.

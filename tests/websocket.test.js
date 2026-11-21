@@ -1,8 +1,6 @@
 // tests/websocket.test.js - WebSocket module tests
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
-const path = require('path');
-const fs = require('fs');
 
 // Skip if node:sqlite unavailable (Node <22)
 let DatabaseSync;
@@ -11,8 +9,6 @@ try {
 } catch (e) {
   // Node <22
 }
-
-const TEST_DB = path.join(__dirname, '../test-ws.sqlite');
 
 describe('websocket module', () => {
   test('exports all required functions', () => {
@@ -56,11 +52,11 @@ describe('websocket module', () => {
 describe('websocket server integration', { skip: !DatabaseSync }, () => {
   const http = require('http');
 
-  test('init attaches to HTTP server', () => {
+  test('init attaches to HTTP server', t => {
     delete require.cache[require.resolve('../lib/websocket')];
     const ws = require('../lib/websocket');
-    if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
-    const db = new DatabaseSync(TEST_DB);
+    const db = new DatabaseSync(':memory:');
+    t.after(() => db.close());
     db.exec(`CREATE TABLE sessions (token TEXT, user_id INTEGER, created_at INTEGER);
              CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, banned INTEGER, last_seen INTEGER);
              INSERT INTO users VALUES (1, 'tester', 0, 0);
@@ -68,9 +64,7 @@ describe('websocket server integration', { skip: !DatabaseSync }, () => {
 
     const server = http.createServer((req, res) => res.end('ok'));
     const websocketServer = ws.init(server, db);
-    assert.ok(true, 'init completed without error');
-    websocketServer.close();
-    server.close();
-    db.close();
+    t.after(() => websocketServer.close());
+    assert.equal(server.listenerCount('upgrade'), 1);
   });
 });

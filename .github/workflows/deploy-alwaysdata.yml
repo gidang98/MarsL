@@ -36,20 +36,11 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Validate dependencies
-        run: |
-          node .github/scripts/validate-deps.js
+      - name: Install locked dependencies
+        run: npm ci
 
-      - name: Install dependencies and run tests
-        run: |
-          npm ci
-          npm test
-
-      - name: Build and verify the release
-        run: |
-          node scripts/build-release.js
-          node --check dist/server.js
-          node scripts/smoke-release.js
+      - name: Verify and build the release
+        run: npm run check
 
       - name: Extract version
         id: version
