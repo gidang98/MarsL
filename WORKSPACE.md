@@ -1,5 +1,21 @@
 # MarsL working handoff
 
+## Read this first
+
+- Refresh [GitHub main](https://github.com/gidang98/MarsL/tree/main) before editing and start from its current commit in a separate worktree. The latest production game code is 1.0.446 at `5780beb`. OpenTest, Classic and Speed each reported 1.0.446 after [deployment run 44879674631](https://github.com/gidang98/MarsL/actions/runs/44879674631).
+- See the [shared inbox](https://github.com/gidang98/MarsL/issues/1) for active work.
+- Run `npm ci` on Node 22 in a fresh worktree. Run `npm run check` for the same dependency, test, build and three-preset smoke checks used by deployment. Run `npm run check:release` to build and smoke-test the bundle alone. Migration and WebSocket tests use in-memory SQLite databases.
+- Search server logic in `server.js` and the active browser template in `client/game-page.js`. The generated `dist/server.js` is the standalone deployment file.
+- Local Commander and troop-name changes are on `codex/camp-bounty-stash` at `4dc3683` in the existing `marsl-perf` worktree. They are separate from the reviewed production release.
+- Next free game version: **1.0.447**. Deploy only when the owner says so.
+
+## Tribe rosters and balance (1.0.440 to 1.0.442)
+- Each tribe has its own roster. Humans: Drop Trooper (`bike`), Skyguard, Shield Trooper, Rover Tank, Jet Fighter, Sky Bomber. Chickens: Emu Charger (`owl`, Charge trait), Eagle (no chicken bomber), Coop Hawk, Rooster Guard, Dust Dasher (`slip`). Aliens: Tunnel Worm (`squid`, `trapProof`, `dig`), Acid Slug (`ram`, the only siege unit, `bombard` 0.5). Units live in `TRIBES.<tribe>.units`; traits in `traitOf` and `UNIT_TRAITS`.
+- Migrations convert removed units (Owl Bomber, Spore Cannon) in place, including queues, research and movements.
+- Balance check: a defender-commits, attacker-best-response search over all 9 tribe pairs (pure, pair and random unit mixes). A ratio below 1.0 means the defender wins. After 1.0.442 all pairs sit between 0.74 and 0.93; the lowest is chicken vs chicken, the highest humans vs chicken. Lowering Rooster Guard ground defence below 47 lifts chicken vs chicken but breaks chicken vs human.
+- Traps: `TRAP_PER_LEVEL`, `trapArmy` (catches at most half the weighted ground troops), `trapProof` and `slip` units, owner release or starve, rebuild at half speed after a release.
+- Open ideas, not requested: trap rebuild speed scaling with trap buildings, a report for starving prisoners, a daily limit on credit-skipped time.
+
 ## 1.0.445 performance release
 
 Visible colony polling now runs every three seconds. Actions still return fresh snapshots. The authenticated colony route exposes its processing time in a `Server-Timing` header. The browser receives the main CSS and JavaScript from content-hashed URLs. Gzipped HTML measured about 40 kB on OpenTest, down from 1.06 MB. Total cold HTML, JavaScript and CSS transfer was roughly 1.06 MB both ways.
@@ -16,49 +32,11 @@ Run `node scripts/build-release.js` and `node scripts/simulate-round.js` for the
 
 The three production servers received 1.0.445 in [OpenTest run 89](https://github.com/gidang98/MarsL/actions/runs/44877616144), [Classic run 90](https://github.com/gidang98/MarsL/actions/runs/44877679652), and [Speed run 91](https://github.com/gidang98/MarsL/actions/runs/44877683436).
 
-## 1.0.444 (historical handoff)
-Grok-improve-20261121. The first raid no longer uses the Classic clock on a fast server. `paceMs` keeps the lander at 30s and the Dust Scorpions at 90s when `MOVE_SPEED` is 1, and floors them at 8s and 15s when troops move faster. Live stays 1.0.443 until the owner asks for a deploy. Next free version after this merges: **1.0.445**.
-
-## 1.0.443 release verification
-
-Built against 1315a25. Verified startup on new and existing test databases for OpenTest, Classic and Speed, including authenticated colony, onboarding, summary and report requests. A local raid completed through report and troop return. At 390 and 1280 CSS pixels the map loaded its artwork and accepted tile selection. The three presets handled 900 authenticated local requests with 50 simulated players per preset. The repository suite reported 213 passing tests after closing the WebSocket server in test teardown. The extracted combat module tests return early when their dependencies fail to load. Physical iPhone Safari and real-player production latency require separate observation. Consult the deployment workflow run for production status.
-
-## Read this first
-
-- Refresh [GitHub main](https://github.com/gidang98/MarsL/tree/main) before editing and start from its current commit in a separate worktree. The latest production game code is 1.0.446 at `5780beb`. OpenTest, Classic and Speed each reported 1.0.446 after [deployment run 44879674631](https://github.com/gidang98/MarsL/actions/runs/44879674631).
-- See the [shared inbox](https://github.com/gidang98/MarsL/issues/1) for active work.
-- Run `npm ci` on Node 22 in a fresh worktree. Run `npm run check` for the same dependency, test, build and three-preset smoke checks used by deployment. Run `npm run check:release` to build and smoke-test the bundle alone. Migration and WebSocket tests use in-memory SQLite databases.
-- Search server logic in `server.js` and the active browser template in `client/game-page.js`. The generated `dist/server.js` is the standalone deployment file.
-- Local Commander and troop-name changes are on `codex/camp-bounty-stash` at `4dc3683` in the existing `marsl-perf` worktree. They are separate from the reviewed production release.
-
-## Earlier releases
-- **1.0.356** readable dark mode (own design tokens, light gradients removed, hard-coded light elements restyled), welcome card layering and phone clearance, Mission Board title wrap on desktop, larger phone tab labels. PR #24, deploy run 43669483921: all steps including verify succeeded.
-- **1.0.355** keeps the commander sheet open while scrolling (swipe-to-close only from the top of a sheet). PR #22, deploy run 43654774552. Upload and restarts succeeded; all three servers reported 1.0.355, but verify marked them failed because the version grep matched twice. Fixed in the workflow afterwards.
-- **1.0.354** fixes login and register labels that still showed raw `svgIconFor(...)` text after the emoji restore. Commit https://github.com/gidang98/MarsL/commit/784fedf853352442fff18dcacd2054f20fdc432d (PR #20).
-- **1.0.353** stops the startup crash (`svgIconFor is not defined` inside `newsTicker`). Homepage cache is revalidate, not `no-store`. The blocked Google Fonts stylesheet is gone. PR #19.
-- Deploy run https://github.com/gidang98/MarsL/actions/runs/43532892971 was **cancelled during verify**. The upload had already landed. All three `/api/config` responses are 1.0.354. A cancelled verify is not a failed release when the live version already matches.
-- Verify polls 20 times, 10s apart, after a 15s wait (about 3.5 min worst case). The job timeout is 10 minutes. Wait for that step. Do not paste the watch log into chat.
-
-## Discord bot
-`discord-bot/` is a separate discord.js bot (server layout via `/setup`, `/status`, `/patchnotes`, `/bug`, patch-note announcer). Not loaded by `server.js`, not deployed by the workflow. Setup steps are in `discord-bot/README.md`. Untested against real Discord until the owner adds the token.
-
 ## Icons
 Emoji in rendered text are swapped for drawn icons by `giWalk` (`GI_MAP`, `GI_RE`, `GI_RE_G`, sprite `#gi-sprite`). Since 1.0.360 each `gi-*` symbol holds an outline copy (`<use class="gio">`) under a `<g id="gib-*">` body; new symbols must follow that shape. To cover another emoji, add a symbol and add the emoji to all three of `GI_MAP`, `GI_RE` and `GI_RE_G`.
 
-## Do not redo
-- The blank "Warming up the rockets…" screen and the broken auth labels are fixed on `main`.
-- Codex claims for farm delete (called 1.0.340), dark mode (1.0.341), UI (1.0.342) and mobile were local work on pre-1.0.340 history. Those numbers now belong to other releases. Rebase onto `784fedf` and take 1.0.355 or later. `REBASE.md` still says main is 1.0.340; use this section as the base instead.
-
-## Source and older releases
-- Repository: https://github.com/gidang98/MarsL
-- Older scratch copies include unfinished and obsolete releases. Compare Git blob hashes before reusing one.
-- A connector fetch of this large `server.js` may return empty content with a valid SHA. Obtain full bytes through an authenticated checkout or GitHub download.
-- **Rebase guide**: `REBASE.md`. Its recorded main SHA is stale; rebase onto `784fedf`.
-
-## Completed game batch
-1.0.339 reduces base, Warehouse and Granary capacities by one third. Existing excess stock remains spendable. Swap and Balance share a 46–55% base rate at market levels 1–10. Human market loss reduction is 5%. Cover with Market returns to the original build/upgrade. Troop traffic has one compact summary with counts by movement type opening full details.
-
-Earlier releases include partial farmlist dispatch, Start all, target Select all, Send troops repair and troop upkeep independent of game speed. Verify source behavior when changing these features.
+## Discord bot
+`discord-bot/` is a separate discord.js bot (server layout via `/setup`, `/status`, `/patchnotes`, `/bug`, patch-note announcer). Not loaded by `server.js`, not deployed by the workflow. Setup steps are in `discord-bot/README.md`. Untested against real Discord until the owner adds the token.
 
 ## Source navigation
 Search server.js by symbol, then read nearby lines.
@@ -88,24 +66,10 @@ Verify each response reports the intended version and server ID:
 
 The workflow uploads `dist/server.js` as `server.js` and restarts AlwaysData. The generated file includes the active client template and battle-odds module.
 
-## Verification already performed for 1.0.339
-Syntax check and embedded-script parsing passed. Temporary local instances of all three presets passed homepage/config, authenticated colony, storage and Swap/Balance checks for all tribes. Client logic checks passed traffic counts and return-to-build behavior.
-The test runtime denied os.networkInterfaces(). A test-only preload returned an empty interface list. Live deployment succeeded with the original startup code.
-
 ## Shared AI inbox
 https://github.com/gidang98/MarsL/issues/1
 
 The latest comment reviewed for this handoff is **7058663160**. Read newer comments and recheck relevant edits. Post claims and handoffs there with a unique session ID. Keep detailed work in linked task issues and pull requests.
-
-## Active task ledger
-| Task | Owner | Branch/base | Areas | Status | Next step |
-| --- | --- | --- | --- | --- | --- |
-| Handoff sync | Grok-coord-20261114 | this commit on main | WORKSPACE.md, REBASE.md header | Done | None. Next AI reads "Read this first" |
-| Game load + labels 1.0.353–354 | Grok-loadfix-20261114 | main / 784fedf | server.js startup and auth labels | Live 1.0.354 | None |
-| Codex farm, dark mode, UI, mobile | Codex, unpushed | old base, version numbers collide | server.js | Not on main | Rebase onto 784fedf, renumber from 1.0.357; 1.0.356 already restyles dark mode, so check overlap first |
-| Shared AI workspace setup | Completed | main | AGENTS.md, CLAUDE.md, WORKSPACE.md | Completed | Incoming AI reads "Read this first" |
-| Queued game changes through 1.0.339 | Completed | main | server.js | Deployed and verified | None |
-| Admin Dashboard v2.1 | Kimi | main | server.js admin block | Deployed in an earlier release | None |
 
 ## Multi-AI coordination notes
 - Post a claim before editing shared files. Re-read comments with `id` greater than the one in "Read this first" after claiming.
@@ -115,13 +79,3 @@ The latest comment reviewed for this handoff is **7058663160**. Read newer comme
 - Remote servers have the packages in `package.json` (`express`, and `ws` for dev). Do not add a new `require()` without adding the dependency the deploy validator accepts.
 
 For new tasks, post a claim in the shared inbox and link the task issue. Update the "Read this first" section at release or handoff. Record a concrete blocker and continuation step whenever work is interrupted.
-
-## Verification: Admin Dashboard v2.1 (2026-11-13)
-- Syntax: `node --check server.js` passed
-- Tests: `npm test` — 200 pass, 0 fail, 0 skip
-- GAME_VERSION bumped to 1.0.340, PATCH_NOTES aligned
-- Deployed via GitHub Actions run #19 (workflow dispatch, target all)
-- Live verification at that time: all three servers responded with version 1.0.340
-- Admin page (/admin) loads with System tab, player detail modal, and all new endpoints
-- New endpoints verified: /api/admin/system, /api/admin/players/:id, /api/admin/logs, /api/admin/db-stats, /api/admin/migrations (return 401/403 without auth as expected)
-- **Root cause of earlier failure**: server.js from commit 0f34f7e added require() calls for packages not installed on AlwaysData (compression, express-rate-limit, express-slow-down, helmet, ws) and referenced undefined variables (metrics, logger, cache). Fix: restored working server.js from f8818456 and added new endpoints inline with zero extra dependencies.
