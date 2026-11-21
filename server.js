@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.450";
+const GAME_VERSION = "1.0.451";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15597,9 +15597,9 @@ const HUNT_TAP = HUNT_TAP_DPS / HUNT_TAP_RATE; // one tapped strike
 const HUNT_TAP_CD = Math.round(1000 / HUNT_TAP_RATE);
 const HUNT_TAP_BURST = 12; // strikes the server banks while taps are on their way (2 seconds' worth)
 const HUNT_TAP_REACH_S = 150; // "reachable" counts half a window of tapping
-// 🌈 Rainbow meter: every window adds to it (a window you were away for counts half). When it is full, the next opponent is a
-// Rainbow of the best rarity this commander can beat (never a Mythic). Catching a Rainbow of that rarity or better empties it.
-const RAINBOW_METER = 15000;
+// 🎯 Hunt meter: every window adds to it (a window you were away for counts half). When it is full, the next opponent is a
+// random creature of the best rarity this commander can beat; shinies come at their normal odds. Catching it empties the meter.
+const HUNT_METER = 15000;
 const CREATURE_HP = { common: 140, uncommon: 340, rare: 800, epic: 1900, legendary: 4600, mythic: 11000 }; // 1.0.397: tiers need levels, strength, gear and helpers
 const CREATURES = {
   // cash = Space-Cash per real SECOND while the creature sits in a slot.
@@ -15670,20 +15670,21 @@ function huntRng(userId, slot, salt) {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 function huntTapDmg(S) { return Math.max(0.01, Math.round(S.base * HUNT_TAP * (1 + Math.min(100, cmdPerk(S.r, "tap") + (S.h ? heroGearStats(S.h).tap : 0)) / 100) * 100) / 100); }
-// the best rarity (not Mythic) this commander can beat as a Rainbow with this much damage, and the creature picked for it
-function huntRainbowRarity(dmg) {
+// the best rarity this commander can beat with this much damage, and the creature picked for it
+const CREATURE_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
+function huntPrizeRarity(dmg) {
   let best = -1;
-  CREATURE_BASE.forEach((k) => { const c = CREATURES[k], i = CREATURE_RARITIES.indexOf(c.rarity); if (i < 4 && i > best && creatureHp(k + "@" + SHINY[4].id) <= dmg) best = i; });
+  CREATURE_BASE.forEach((k) => { const i = CREATURE_RARITIES.indexOf(CREATURES[k].rarity); if (i > best && creatureHp(k) <= dmg) best = i; });
   return best;
 }
-const CREATURE_RARITIES = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
-function huntRainbowPick(userId, slot, dmg) {
-  const best = huntRainbowRarity(dmg);
+function huntPrizePick(userId, slot, dmg) {
+  const best = huntPrizeRarity(dmg);
   if (best < 0) return null;
-  const opts = CREATURE_BASE.filter((k) => CREATURES[k].rarity === CREATURE_RARITIES[best] && creatureHp(k + "@" + SHINY[4].id) <= dmg);
-  let x = huntRng(userId, slot, 13) * opts.reduce((n, k) => n + CREATURES[k].w, 0);
-  for (const k of opts) { x -= CREATURES[k].w; if (x < 0) return k + "@" + SHINY[4].id; }
-  return opts[opts.length - 1] + "@" + SHINY[4].id;
+  const opts = CREATURE_BASE.filter((k) => CREATURES[k].rarity === CREATURE_RARITIES[best] && creatureHp(k) <= dmg);
+  let x = huntRng(userId, slot, 13) * opts.reduce((n, k) => n + CREATURES[k].w, 0), key = opts[opts.length - 1];
+  for (const k of opts) { x -= CREATURES[k].w; if (x < 0) { key = k; break; } }
+  const t = rollShiny(shinyChances(SHINY_CREATURE_CHANCE), () => huntRng(userId, slot, 11));
+  return t ? key + "@" + SHINY[t].id : key;
 }
 function huntOpponent(userId, slot) {
   const keys = CREATURE_BASE;
@@ -15724,22 +15725,22 @@ function huntSync(userId, now, hero) {
     earned += sold;
     hu.log.unshift({ key, at: now, sold, lost });
     hu.log.length = Math.min(hu.log.length, 8);
-    if (cr.tier === 4 && CREATURE_RARITIES.indexOf(cr.rarity) >= bestRainbow) { hu.meter = 0; hu.meterZero = slot; } // a Rainbow of the best kind empties the meter
+    if (hu.pity && hu.pity.slot === slot) { hu.meter = 0; hu.meterZero = slot; } // catching the meter's own prize empties it
   };
-  // what you could beat with a good round of tapping: decides which Rainbow the full meter brings
+  // what you could beat with a good round of tapping: decides which rarity the full meter brings
   const tapPerk = Math.min(100, cmdPerk(r, "tap") + heroGearStats(h).tap);
   const reach = atk * HUNT_AUTO + base * HUNT_TAP_DPS * (1 + tapPerk / 100) * HUNT_TAP_REACH_S;
-  const bestRainbow = huntRainbowRarity(reach);
+  const bestPrize = huntPrizeRarity(reach);
   if (typeof hu.meter !== "number") { hu.meter = 0; dirty = true; }
   const opponentFor = (slot, online) => {
     if (hu.pity && hu.pity.slot === slot) return hu.pity.key; // fixed once chosen, also after the catch
-    if (hu.meter >= RAINBOW_METER) {
-      const k = huntRainbowPick(userId, slot, online ? reach : atk * HUNT_AUTO);
+    if (hu.meter >= HUNT_METER) {
+      const k = huntPrizePick(userId, slot, online ? reach : atk * HUNT_AUTO);
       if (k) { hu.pity = { slot, key: k }; dirty = true; return k; }
     }
     return huntOpponent(userId, slot);
   };
-  const windowDone = (slot, online) => { if (hu.meterZero !== slot) { hu.meter = Math.min(RAINBOW_METER, hu.meter + (online ? 1 : 0.5)); dirty = true; } };
+  const windowDone = (slot, online) => { if (hu.meterZero !== slot) { hu.meter = Math.min(HUNT_METER, hu.meter + (online ? 1 : 0.5)); dirty = true; } };
   for (let slot = Math.max(hu.lastSlot + 1, cur - HUNT_BACK_SLOTS); slot < cur; slot++) {
     const online = slot === hu.seenSlot;
     if (hu.wonSlot === slot) { windowDone(slot, online); continue; }
@@ -15757,7 +15758,7 @@ function huntSync(userId, now, hero) {
   if (hu.wonSlot !== cur && dmg >= hp) award(key, cur);
   if (dirty) db.prepare("UPDATE users SET roster = ? WHERE id = ?").run(JSON.stringify(r), userId);
   if (earned) addCash(userId, earned);
-  return { r, h, hu, atk, base, cur, key, hp, bestRainbow, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
+  return { r, h, hu, atk, base, cur, key, hp, bestPrize, dmg: hu.wonSlot === cur ? hp : dmg, won: hu.wonSlot === cur, nextMs: (cur + 1) * HUNT_MS - now };
 }
 // Space-Cash from the creatures in the slots flows into the balance second by second (worked out whenever
 // it is looked at). Time away counts in full for 4 hours, then at half speed for 8 more (awayMs). The part of a unit that has not
@@ -15795,7 +15796,7 @@ function huntView(userId, now) {
   return {
     opponent: { key: S.key, name: c.name, icon: c.icon, rarity: c.rarity, tier: c.tier || 0, hp: S.hp, dmg: Math.floor(S.dmg), won: S.won, need: Math.ceil(S.hp / HUNT_AUTO), dmgExact: Math.round(S.dmg * 100) / 100, autoRate: Math.round(S.atk * HUNT_AUTO / (HUNT_MS / 1000) * 1000) / 1000, reach: S.atk * HUNT_AUTO + HUNT_TAP_REACH_S * HUNT_TAP_RATE * huntTapDmg(S) >= S.hp },
     atk: S.atk,
-    meter: { n: Math.floor(S.hu.meter || 0), of: RAINBOW_METER, best: S.bestRainbow >= 0 ? CREATURE_RARITIES[S.bestRainbow] : null },
+    meter: { n: Math.floor(S.hu.meter || 0), of: HUNT_METER, best: S.bestPrize >= 0 ? CREATURE_RARITIES[S.bestPrize] : null },
     nextMs: S.nextMs, windowMs: HUNT_MS,
     tap: { cd: HUNT_TAP_CD, dmg: huntTapDmg(S) },
     auto: Math.round(S.atk * HUNT_AUTO), help: Math.round(helperPower(S.r) * 100),
@@ -16567,15 +16568,15 @@ app.get("/api/admin/hunt", requireOwner, (req, res) => {
     const rate = huntCashRate(hu, r);
     band.rates.push(rate);
     band.caught.push(Object.values(hu.kills || {}).reduce((n, v) => n + v, 0));
-    band.meter.push(Math.min(1, (hu.meter || 0) / RAINBOW_METER));
+    band.meter.push(Math.min(1, (hu.meter || 0) / HUNT_METER));
     const top = slotted.reduce((m, k) => Math.max(m, CREATURE_RARITIES.indexOf(CREATURES[k].rarity)), -1);
     if (top >= 0) band.best[CREATURE_RARITIES[top]] = (band.best[CREATURE_RARITIES[top]] || 0) + 1;
     slotted.forEach((k) => { slotRarity[CREATURES[k].rarity] = (slotRarity[CREATURES[k].rarity] || 0) + 1; });
     Object.keys(hu.found || {}).forEach((k) => { const c = CREATURES[k]; if (c && c.tier) shiny[c.tier - 1]++; });
-    if ((hu.meter || 0) >= RAINBOW_METER) full++; else if ((hu.meter || 0) >= RAINBOW_METER / 2) halfway++;
+    if ((hu.meter || 0) >= HUNT_METER) full++; else if ((hu.meter || 0) >= HUNT_METER / 2) halfway++;
   }
   res.json({
-    players, days: 14, meterOf: RAINBOW_METER, halfway, full, shiny: shiny.map((n, i) => ({ name: SHINY[i + 1].name, n })),
+    players, days: 14, meterOf: HUNT_METER, halfway, full, shiny: shiny.map((n, i) => ({ name: SHINY[i + 1].name, n })),
     slotRarity: CREATURE_RARITIES.map((k) => ({ rarity: k, n: slotRarity[k] || 0 })),
     bands: bands.map((b) => ({
       from: b.lo, to: b.hi, players: b.rates.length, medianRate: Math.round(median(b.rates) * 10) / 10,
@@ -17410,7 +17411,7 @@ function wikiExtra() {
     hero: {
       maxLevel: HERO_MAX_LEVEL, speed: Math.round(HERO_SPEED * MOVE_SPEED * 10) / 10, settleMs: heroLockMs(), recoverMs: heroRecoverMs(), reviveMs: heroReviveMs(),
       fallPct: Math.round(HERO_FALL_XP * 100), bag: HERO_BAG,
-      roster: { shards: SHARDS_PER_COMMANDER, dayCap: SHARD_DAY_CAP, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, rainbowMeter: RAINBOW_METER, slots: HUNT_SLOTS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
+      roster: { shards: SHARDS_PER_COMMANDER, dayCap: SHARD_DAY_CAP, maxRank: COMMANDER_MAX_RANK, helpers: HELPER_SLOTS, offers: SHOP_OFFERS, restockMs: SHOP_RESTOCK_MS, buyAmount: SHARD_AMOUNT, price: SHARD_PRICE, huntMs: HUNT_MS, huntMeter: HUNT_METER, slots: HUNT_SLOTS, backHours: HUNT_BACK_SLOTS * HUNT_MS / 3600000, offline: Math.round(HUNT_OFFLINE_SPAWN * 100), commanders: Object.keys(COMMANDERS).map((k) => ({ icon: COMMANDERS[k].icon, name: COMMANDERS[k].name, rarity: COMMANDERS[k].rarity, effect: commanderTraitText(COMMANDERS[k], 1), rate: COMMANDERS[k].rate, help: Math.round(HELPER_POWER[COMMANDERS[k].rarity] * 100), quip: COMMANDERS[k].quip || "" })), sell: CREATURE_SELL, bag: HUNT_BAG, auto: HUNT_AUTO, tap: HUNT_TAP, killXp: HERO_XP_KILL, hp: CREATURE_HP, luck: [1, 1, 1.25, 1.5, 1.75, 2], spawnAct: HUNT_SPAWN_ACT.map((x) => Math.round(x * 100)), shiny: SHINY.slice(1).map((t, i) => ({ name: t.name, mult: t.mult, creature: Math.round(SHINY_CREATURE_CHANCE[i] * 1000) / 10, commander: Math.round(SHINY_COMMANDER_CHANCE[i] * 1000) / 10 })), creatures: CREATURE_BASE.map((k) => ({ icon: CREATURES[k].icon, name: CREATURES[k].name, rarity: CREATURES[k].rarity, cash: CREATURES[k].cash, sell: creatureSell(k), hp: creatureHp(k), chance: creatureChance(k) })) },
       skills: Object.keys(HERO_SKILLS).map((k) => { const x = HERO_SKILLS[k]; return { arch: x.arch || "", icon: x.icon, name: x.name, per: k === "prod" ? Math.round(x.per * PRODUCTION_SPEED) : k === "str" ? Math.round(x.per * speedScale()) : x.per, max: x.max, unit: x.unit, text: x.text }; }),
       arches: Object.keys(HERO_ARCHES).map((k) => Object.assign({ key: k }, HERO_ARCHES[k])), archLevel: HERO_ARCH_LEVEL,
       orders: HERO_ORDERS, stances: HERO_STANCES, quirks: Object.keys(HERO_QUIRKS).reduce((o, k) => { o[k] = Object.assign({ icon: HERO_QUIRKS[k].icon, name: HERO_QUIRKS[k].name, fits: HERO_QUIRKS[k].fits.map((a) => HERO_ARCHES[a].icon + " " + HERO_ARCHES[a].name).join(", ") }, quirkText(k, null)); return o; }, {}), quirkLevel: HERO_QUIRK_LEVEL, quirk2Level: HERO_QUIRK2_LEVEL,
@@ -17644,7 +17645,8 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.450",date:"2026-11-22",title:"Hunt progress in the admin page",groups:[["🛠️ Admin",["The Balance tab shows how far players have come in the hunt: income, best creatures in the slots, creatures caught, the Rainbow meter and shinies found, by commander level."]]]},
+  {v:"1.0.451",date:"2026-11-22",title:"The hunt meter gives a regular creature",groups:[["🎯 Hunt",["The meter under the opponent now brings a random regular creature of the best rarity your commander can beat, instead of a Rainbow. Shinies still turn up at their normal odds.","Only catching that creature empties the meter. Strong catches by luck no longer reset it, so it keeps filling toward the guaranteed one."]]]},
+  {v:"1.0.450",date:"2026-11-22",title:"Hunt progress in the admin page",groups:[["🛠️ Admin",["The Balance tab shows how far players have come in the hunt: income, best creatures in the slots, creatures caught, the hunt meter and shinies found, by commander level."]]]},
   {v:"1.0.449",date:"2026-11-21",title:"Rainbow meter",groups:[["🌈 Hunt",["A new meter under the opponent fills with every hunt window (half while you are away). When it holds 15,000, the next opponent is a Rainbow of the best kind your commander can beat, never a Mythic, so a first Rainbow is no longer a matter of luck alone.","Beating it, or a Rainbow of that kind or better that shows up by luck, empties the meter again."]]]},
   {v:"1.0.448",date:"2026-11-21",title:"Faster saving",groups:[["Performance",["The database now saves in write-ahead mode on local disks, so every save and refresh waits less on the disk and reading never waits for a writer. Servers on network disks keep the old mode."]]]},
   {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom.","Each refresh now sends only what changed. The quest list, build list, unit list and most of the commander data are reused from the last refresh, which cuts the download from about 65 KB to about 10 KB before compression. It helps most on slow phone connections."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
@@ -22801,7 +22803,7 @@ function huntAdminPanel() {
       (b.best.length ? b.best.map(function (x) { return esc(x.rarity) + " " + x.n; }).join(", ") : "–") + "</td><td>" + (b.players ? b.meter + "%" : "–") + "</td></tr>";
   });
   h += "</table></div>";
-  h += "<p>🌈 Meter: " + H.full + " full, " + H.halfway + " past half (of " + H.meterOf.toLocaleString("en-US") + " windows). Shinies found: " + H.shiny.map(function (s) { return esc(s.name) + " " + s.n; }).join(", ") + ".</p>";
+  h += "<p>🎯 Meter: " + H.full + " full, " + H.halfway + " past half (of " + H.meterOf.toLocaleString("en-US") + " windows). Shinies found: " + H.shiny.map(function (s) { return esc(s.name) + " " + s.n; }).join(", ") + ".</p>";
   h += '<p class="hint">Creatures in slots: ' + H.slotRarity.map(function (s) { return esc(s.rarity) + " " + s.n; }).join(", ") + ".</p></div>";
   return h;
 }
