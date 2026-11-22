@@ -17850,6 +17850,7 @@ function loadColony(auto, startup) {
       loggedIn = true;
       if (first && view === "map") openMap();
       if (startup) startupStage = "game screen";
+      tickAt = Date.now();
       renderColony(d);
       if (first && !d.tutorial && !d.onboarding && tut.step < 0) setTimeout(startTutorial, 600);
     });
@@ -19935,6 +19936,44 @@ document.addEventListener("click", function (e) {
 // Nothing is loaded while the tab or app is in the background (saves the phone battery).
 function live() { return loggedIn && !document.hidden; }
 setInterval(function () { if (live()) loadColony(true); }, 3000);
+
+// Between two refreshes the countdowns run on this device: every second the time left of each job is moved forward and
+// the stored resources are projected, then the screen is drawn again. A job that reaches zero asks the server straight away.
+var tickAt = 0, tickPollAt = 0;
+var TICK_KEYS = { leftMs: 1, remainingMs: 1, nextMs: 1, trainLeftMs: 1 };
+function tickAge(o, ms, depth) {
+  var hit = false;
+  if (!o || typeof o !== "object" || depth > 6) return false;
+  if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) if (o[i] && typeof o[i] === "object" && tickAge(o[i], ms, depth + 1)) hit = true; return hit; }
+  var training = typeof o.nextMs === "number" && typeof o.eachMs === "number" && typeof o.totalMs === "number";
+  for (var k in o) {
+    var v = o[k];
+    if (TICK_KEYS[k] === 1 && typeof v === "number" && v > 0) { o[k] = Math.max(0, v - ms); if (o[k] === 0) hit = true; }
+    else if (v && typeof v === "object" && tickAge(v, ms, depth + 1)) hit = true;
+  }
+  if (training && o.totalMs > 0) o.totalMs = Math.max(0, o.totalMs - ms);
+  return hit;
+}
+function tickResources(d) {
+  if (!d.resExact || !d.production || !d.capacity || !d.res || !d.serverNow) return;
+  var since = Math.max(0, serverNow() - d.serverNow);
+  for (var i = 0; i < RES.length; i++) {
+    var k = RES[i], rate = d.production[k] - (k === "food" ? d.upkeep || 0 : 0);
+    d.res[k] = Math.max(0, Math.floor(Math.min(d.capacity[k], d.resExact[k] + (rate * since) / 3600000)));
+  }
+}
+setInterval(function () {
+  var now = Date.now();
+  var ms = tickAt ? Math.min(5000, now - tickAt) : 0;
+  tickAt = now;
+  if (!live() || !data || !ms || colonyLoading || hopState || pressing) return;
+  var a = document.activeElement;
+  if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT")) return;
+  var done = tickAge(data, ms, 0);
+  tickResources(data);
+  renderColony(data);
+  if (done && now - tickPollAt > 1500) { tickPollAt = now; loadColony(true); }
+}, 1000);
 setInterval(function () { if (live() && view === "map" && !map.anim) { loadChunk(true); loadMinimap(); } }, 10000);
 setInterval(function () { if (live() && view === "reports") loadReports(true); }, 4000);
 setInterval(function () { if (live() && view === "ranking") loadRanking(); }, 15000);
