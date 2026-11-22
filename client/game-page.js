@@ -4591,6 +4591,18 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
     .sheet-head h3 { font-size: 18px; }
     .sheet-close { top: 8px; }
   }
+  /* phones: the colony name gets its own line next to the small buttons, and the wallet moves down beside the player line */
+  @media (max-width: 559px) {
+    body.in .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+    body.in .topbar > div:first-child, body.in .topbar > .topbtns { display: contents !important; }
+    body.in .topbar b { order: 1; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body.in .topbar .edit { order: 2; }
+    body.in .topbtns .btn { order: 3; }
+    body.in .topbar::after { content: ""; order: 4; flex: 0 0 100%; height: 0; }
+    body.in .topbar small { order: 5; flex: 1 1 0; min-width: 0; white-space: normal; overflow: visible; }
+    body.in .topbtns .wallet { order: 6; margin-left: auto; }
+  }
+  @media (max-width: 360px) { body.in .topbar > div:first-child > b { white-space: normal; } }
 </style>
 </head>
 <body>
