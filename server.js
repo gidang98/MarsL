@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.452";
+const GAME_VERSION = "1.0.453";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17646,10 +17646,11 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.453",date:"2026-11-22",title:"Hunt meter icon",groups:[["🎯 Hunt",["The old rainbow icon on the hunt meter patch note is replaced by the target that the meter itself uses."]]]},
   {v:"1.0.452",date:"2026-11-22",title:"Drawn icons everywhere",groups:[["Icons",["The admin page and the server list now use the same drawn icons as the game instead of system emoji.","New drawn icons for coins, the inbox, the rainbow and the back/next arrows; the black flag is easier to see on dark backgrounds."]]]},
   {v:"1.0.451",date:"2026-11-22",title:"The hunt meter gives a regular creature",groups:[["🎯 Hunt",["The meter under the opponent now brings a random regular creature of the best rarity your commander can beat, instead of a Rainbow. Shinies still turn up at their normal odds.","Only catching that creature empties the meter. Strong catches by luck no longer reset it, so it keeps filling toward the guaranteed one."]]]},
   {v:"1.0.450",date:"2026-11-22",title:"Hunt progress in the admin page",groups:[["🛠️ Admin",["The Balance tab shows how far players have come in the hunt: income, best creatures in the slots, creatures caught, the hunt meter and shinies found, by commander level."]]]},
-  {v:"1.0.449",date:"2026-11-21",title:"Rainbow meter",groups:[["🌈 Hunt",["A new meter under the opponent fills with every hunt window (half while you are away). When it holds 15,000, the next opponent is a Rainbow of the best kind your commander can beat, never a Mythic, so a first Rainbow is no longer a matter of luck alone.","Beating it, or a Rainbow of that kind or better that shows up by luck, empties the meter again."]]]},
+  {v:"1.0.449",date:"2026-11-21",title:"Rainbow meter",groups:[["🎯 Hunt",["A new meter under the opponent fills with every hunt window (half while you are away). When it holds 15,000, the next opponent is a Rainbow of the best kind your commander can beat, never a Mythic, so a first Rainbow is no longer a matter of luck alone.","Beating it, or a Rainbow of that kind or better that shows up by luck, empties the meter again."]]]},
   {v:"1.0.448",date:"2026-11-21",title:"Faster saving",groups:[["Performance",["The database now saves in write-ahead mode on local disks, so every save and refresh waits less on the disk and reading never waits for a writer. Servers on network disks keep the old mode."]]]},
   {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom.","Each refresh now sends only what changed. The quest list, build list, unit list and most of the commander data are reused from the last refresh, which cuts the download from about 65 KB to about 10 KB before compression. It helps most on slow phone connections."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
   {v:"1.0.446",date:"2026-11-21",title:"Classic storage pacing",groups:[["Classic",["Low-level warehouses and granaries fill sooner. Level 10 and higher keep their standard capacity. Existing stored resources stay available to spend."]]]},
