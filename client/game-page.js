@@ -4576,6 +4576,21 @@ body .x.freefin:focus-visible, body .btn.finbtn:focus-visible { outline: 3px sol
 .report.rep2 .report-head .ri { display: block; position: absolute; grid-column: auto; grid-row: auto; left: 8px; top: 7px; width: 26px; font-size: 20px; line-height: 1; text-align: center; }
 .report.rep2 .report-head .ri .gi { width: 26px; height: 26px; vertical-align: top; }
 body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
+  /* touch screens: small round buttons get a bigger tap area without changing how they look */
+  @media (pointer: coarse) {
+    .qhelp, .edit, .wallet, .qs-all { position: relative; }
+    .qhelp::after, .edit::after, .wallet::after, .qs-all::after { content: ""; position: absolute; inset: -8px; }
+    .tf-sum, .qs-go { min-height: 40px; }
+    button, .btn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  }
+  /* a phone held sideways: popups use the full height and their header takes less room */
+  @media (max-height: 520px) and (orientation: landscape) {
+    .sheet { max-height: 96vh; max-height: 96dvh; }
+    .sheet-head { padding: 8px 52px 8px 16px; margin-bottom: 8px; }
+    .sheet-head .hi { width: 46px; height: 40px; font-size: 24px; }
+    .sheet-head h3 { font-size: 18px; }
+    .sheet-close { top: 8px; }
+  }
 </style>
 </head>
 <body>
