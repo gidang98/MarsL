@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.461";
+const GAME_VERSION = "1.0.462";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17648,6 +17648,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.462",date:"2026-11-22",title:"Phone controls",groups:[["📱 Mobile",["Map tools and protection controls wrap on small phones. Farm and inbox actions have larger tap targets.","Scroll freely through panels and swipe the handle to close. Newly opened panels start at the top.","Troop and resource quantities now request a numeric keypad."]]]},
   {v:"1.0.461",date:"2026-11-22",title:"Smoother map",groups:[["🗺️ Map",["Moving across the map no longer rebuilds the whole screen: only the tiles that are new or changed are redrawn, and the refresh every ten seconds leaves untouched tiles alone.","The next piece of the map is fetched while four tiles of land are still left off-screen, and it is sized to your screen and zoom, so full screen and zoomed out views have no blank edges.","The minimap redraws at most ten times a second while you drag."]]]},
   {v:"1.0.460",date:"2026-11-22",title:"Fewer shards from adventures",groups:[["🧩 Adventures",["An adventure now brings home commander shards about one trip in ten (one in seven on the dangerous route), down from one in five.","The piles are smaller too: one or two shards for common and uncommon commanders, always one for rare and above. Together that is roughly a third of the shards adventures gave before. The odds of which commander you get are unchanged."]]]},
   {v:"1.0.459",date:"2026-11-22",title:"Map full screen",groups:[["🗺️ Map",["New full screen button on the map toolbar: the map fills the whole screen and the buttons float on top. Leave it with the same button or the back gesture of your phone.","The map is taller on phones in normal view too."]]]},

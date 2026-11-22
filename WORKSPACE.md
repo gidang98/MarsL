@@ -1,5 +1,11 @@
 # MarsL working handoff
 
+## 1.0.462 mobile controls candidate
+
+Based on main at a7c97b4. The active client in client/game-page.js fixes narrow map and protection layouts, sheet gestures and scroll restoration, touch controls and quantity inputs. Rankings and mail retain their previous data on failed requests. server.js carries the version and patch notes.
+
+All 221 tests passed. The release bundle passed startup, asset caching and authenticated colony checks for OpenTest, Classic and Speed. Chromium checked all seven main views at 320, 390, 844 and 1280 CSS pixels. Field sheets, farm lists and full-screen map controls were exercised at all three phone sizes. Touch input verified sheet dismissal and scrolling. Physical iOS and Android device testing remains open. Next step is review before deployment.
+
 ## 1.0.445 performance candidate
 
 Visible colony polling now runs every three seconds. Actions still return fresh snapshots. The authenticated colony route exposes its processing time in a `Server-Timing` header. The browser receives the main CSS and JavaScript from content-hashed URLs. Gzipped HTML measured about 40 kB on OpenTest, down from 1.06 MB. Total cold HTML, JavaScript and CSS transfer was roughly 1.06 MB both ways.
