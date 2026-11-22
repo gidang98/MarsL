@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.455";
+const GAME_VERSION = "1.0.458";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17646,6 +17646,9 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.458",date:"2026-11-22",title:"Slimmer colony header on phones",groups:[["📱 Mobile",["The colony name now stays on one line next to the buttons, and the wallet sits beside the player line. The header is about a third shorter, with everything still in it."]]]},
+  {v:"1.0.457",date:"2026-11-22",title:"Easier to tap on phones",groups:[["📱 Mobile",["Small round buttons (help, edit, wallet and the quest shortcuts) have a larger tap area, and the quest bar and reward row are taller, without changing how they look.","Held sideways, popups use the full screen height and their header takes less room.","Long-pressing a button no longer selects its text."]]]},
+  {v:"1.0.456",date:"2026-11-22",title:"Timers tick every second again",groups:[["⏱️ Timers",["Build, training, research, healing and movement timers count down every second again, and stored resources climb smoothly between refreshes.","The countdowns run on your device, so the server is still asked only every three seconds. A job that finishes asks the server at once, so the result shows within a second."]]]},
   {v:"1.0.455",date:"2026-11-22",title:"Commander shop, collection and shiny safety net",groups:[["🎖️ Commanders",["The shard shop now shows everything a commander gives: its effect, Star Credits per day, helper attack, how many copies you own, and your shard progress. Offers in stock come first.","The collection groups copies of the same commander under one heading, with the active commander and helpers on top. Each copy keeps its rank, effect, credits and helper values.","Every copy that can be merged shows what the merge would give (rank, effect, credits per day, helper attack) before you tap. Merging away a shiny copy asks for confirmation.","Fusing shards has a safety net: after 15 fusings in a row without a shiny, the next commander comes out at least Silver."]]]},
   {v:"1.0.454",date:"2026-11-22",title:"Merging only raises the rank",groups:[["🎖️ Commanders",["Merging two copies of a commander now only adds their ranks. Two plain copies can no longer be turned into a Silver one; shiny tiers come from fusing shards only.","The Make Silver, Gold, Diamond and Rainbow buttons are gone."]]]},
   {v:"1.0.453",date:"2026-11-22",title:"Hunt meter icon",groups:[["🎯 Hunt",["The old rainbow icon on the hunt meter patch note is replaced by the target that the meter itself uses."]]]},

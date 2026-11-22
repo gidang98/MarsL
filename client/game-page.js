@@ -4576,6 +4576,33 @@ body .x.freefin:focus-visible, body .btn.finbtn:focus-visible { outline: 3px sol
 .report.rep2 .report-head .ri { display: block; position: absolute; grid-column: auto; grid-row: auto; left: 8px; top: 7px; width: 26px; font-size: 20px; line-height: 1; text-align: center; }
 .report.rep2 .report-head .ri .gi { width: 26px; height: 26px; vertical-align: top; }
 body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
+  /* touch screens: small round buttons get a bigger tap area without changing how they look */
+  @media (pointer: coarse) {
+    .qhelp, .edit, .wallet, .qs-all { position: relative; }
+    .qhelp::after, .edit::after, .wallet::after, .qs-all::after { content: ""; position: absolute; inset: -8px; }
+    .tf-sum, .qs-go { min-height: 40px; }
+    button, .btn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  }
+  /* a phone held sideways: popups use the full height and their header takes less room */
+  @media (max-height: 520px) and (orientation: landscape) {
+    .sheet { max-height: 96vh; max-height: 96dvh; }
+    .sheet-head { padding: 8px 52px 8px 16px; margin-bottom: 8px; }
+    .sheet-head .hi { width: 46px; height: 40px; font-size: 24px; }
+    .sheet-head h3 { font-size: 18px; }
+    .sheet-close { top: 8px; }
+  }
+  /* phones: the colony name gets its own line next to the small buttons, and the wallet moves down beside the player line */
+  @media (max-width: 559px) {
+    body.in .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+    body.in .topbar > div:first-child, body.in .topbar > .topbtns { display: contents !important; }
+    body.in .topbar b { order: 1; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    body.in .topbar .edit { order: 2; }
+    body.in .topbtns .btn { order: 3; }
+    body.in .topbar::after { content: ""; order: 4; flex: 0 0 100%; height: 0; }
+    body.in .topbar small { order: 5; flex: 1 1 0; min-width: 0; white-space: normal; overflow: visible; }
+    body.in .topbtns .wallet { order: 6; margin-left: auto; }
+  }
+  @media (max-width: 360px) { body.in .topbar > div:first-child > b { white-space: normal; } }
 </style>
 </head>
 <body>
@@ -17850,6 +17877,7 @@ function loadColony(auto, startup) {
       loggedIn = true;
       if (first && view === "map") openMap();
       if (startup) startupStage = "game screen";
+      tickAt = Date.now();
       renderColony(d);
       if (first && !d.tutorial && !d.onboarding && tut.step < 0) setTimeout(startTutorial, 600);
     });
@@ -19935,6 +19963,44 @@ document.addEventListener("click", function (e) {
 // Nothing is loaded while the tab or app is in the background (saves the phone battery).
 function live() { return loggedIn && !document.hidden; }
 setInterval(function () { if (live()) loadColony(true); }, 3000);
+
+// Between two refreshes the countdowns run on this device: every second the time left of each job is moved forward and
+// the stored resources are projected, then the screen is drawn again. A job that reaches zero asks the server straight away.
+var tickAt = 0, tickPollAt = 0;
+var TICK_KEYS = { leftMs: 1, remainingMs: 1, nextMs: 1, trainLeftMs: 1 };
+function tickAge(o, ms, depth) {
+  var hit = false;
+  if (!o || typeof o !== "object" || depth > 6) return false;
+  if (Array.isArray(o)) { for (var i = 0; i < o.length; i++) if (o[i] && typeof o[i] === "object" && tickAge(o[i], ms, depth + 1)) hit = true; return hit; }
+  var training = typeof o.nextMs === "number" && typeof o.eachMs === "number" && typeof o.totalMs === "number";
+  for (var k in o) {
+    var v = o[k];
+    if (TICK_KEYS[k] === 1 && typeof v === "number" && v > 0) { o[k] = Math.max(0, v - ms); if (o[k] === 0) hit = true; }
+    else if (v && typeof v === "object" && tickAge(v, ms, depth + 1)) hit = true;
+  }
+  if (training && o.totalMs > 0) o.totalMs = Math.max(0, o.totalMs - ms);
+  return hit;
+}
+function tickResources(d) {
+  if (!d.resExact || !d.production || !d.capacity || !d.res || !d.serverNow) return;
+  var since = Math.max(0, serverNow() - d.serverNow);
+  for (var i = 0; i < RES.length; i++) {
+    var k = RES[i], rate = d.production[k] - (k === "food" ? d.upkeep || 0 : 0);
+    d.res[k] = Math.max(0, Math.floor(Math.min(d.capacity[k], d.resExact[k] + (rate * since) / 3600000)));
+  }
+}
+setInterval(function () {
+  var now = Date.now();
+  var ms = tickAt ? Math.min(5000, now - tickAt) : 0;
+  tickAt = now;
+  if (!live() || !data || !ms || colonyLoading || hopState || pressing) return;
+  var a = document.activeElement;
+  if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT")) return;
+  var done = tickAge(data, ms, 0);
+  tickResources(data);
+  renderColony(data);
+  if (done && now - tickPollAt > 1500) { tickPollAt = now; loadColony(true); }
+}, 1000);
 setInterval(function () { if (live() && view === "map" && !map.anim) { loadChunk(true); loadMinimap(); } }, 10000);
 setInterval(function () { if (live() && view === "reports") loadReports(true); }, 4000);
 setInterval(function () { if (live() && view === "ranking") loadRanking(); }, 15000);
