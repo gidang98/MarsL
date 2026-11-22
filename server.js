@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.458";
+const GAME_VERSION = "1.0.460";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17646,6 +17646,8 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.460",date:"2026-11-22",title:"Fewer shards from adventures",groups:[["🧩 Adventures",["An adventure now brings home commander shards about one trip in ten (one in seven on the dangerous route), down from one in five.","The piles are smaller too: one or two shards for common and uncommon commanders, always one for rare and above. Together that is roughly a third of the shards adventures gave before. The odds of which commander you get are unchanged."]]]},
+  {v:"1.0.459",date:"2026-11-22",title:"Map full screen",groups:[["🗺️ Map",["New full screen button on the map toolbar: the map fills the whole screen and the buttons float on top. Leave it with the same button or the back gesture of your phone.","The map is taller on phones in normal view too."]]]},
   {v:"1.0.458",date:"2026-11-22",title:"Slimmer colony header on phones",groups:[["📱 Mobile",["The colony name now stays on one line next to the buttons, and the wallet sits beside the player line. The header is about a third shorter, with everything still in it."]]]},
   {v:"1.0.457",date:"2026-11-22",title:"Easier to tap on phones",groups:[["📱 Mobile",["Small round buttons (help, edit, wallet and the quest shortcuts) have a larger tap area, and the quest bar and reward row are taller, without changing how they look.","Held sideways, popups use the full screen height and their header takes less room.","Long-pressing a button no longer selects its text."]]]},
   {v:"1.0.456",date:"2026-11-22",title:"Timers tick every second again",groups:[["⏱️ Timers",["Build, training, research, healing and movement timers count down every second again, and stored resources climb smoothly between refreshes.","The countdowns run on your device, so the server is still asked only every three seconds. A job that finishes asks the server at once, so the result shows within a second."]]]},
@@ -19654,8 +19656,10 @@ function advView(h, now) {
 }
 
 // 🧩 an adventure sometimes brings home commander shards. Which commander and how many follows the shop:
-// the same rarity odds (a Mythic is as rare as in the shop) and the same amounts. The shop's daily limits do not apply.
-const ADV_SHARD_CHANCE = 0.2; // of an adventure (x1.5 on the dangerous route)
+// the same rarity odds (a Mythic is as rare as in the shop) with smaller piles (ADV_SHARD_AMOUNT). The shop's daily limits do not apply.
+const ADV_SHARD_CHANCE = 0.1; // of an adventure (x1.5 on the dangerous route)
+// smaller piles than the shop sells: an adventure is a bonus on top of the shop, not a second shop
+const ADV_SHARD_AMOUNT = { common: [1, 2], uncommon: [1, 2], rare: [1, 1], epic: [1, 1], legendary: [1, 1], mythic: [1, 1] };
 function advShardDrop(userId, route, now) {
   if (Math.random() >= ADV_SHARD_CHANCE * (route === "danger" ? 1.5 : 1)) return null;
   const pool = Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter);
@@ -19664,7 +19668,7 @@ function advShardDrop(userId, route, now) {
   const wt = (k) => SHARD_WEIGHT[COMMANDERS[k].rarity] / per[COMMANDERS[k].rarity];
   let x = Math.random() * pool.reduce((n, k) => n + wt(k), 0), key = pool[pool.length - 1];
   for (const k of pool) { x -= wt(k); if (x < 0) { key = k; break; } }
-  const d = COMMANDERS[key], [lo, hi] = SHARD_AMOUNT[d.rarity];
+  const d = COMMANDERS[key], [lo, hi] = ADV_SHARD_AMOUNT[d.rarity];
   const n = lo + Math.floor(Math.random() * (hi - lo + 1));
   const r = rosterOf(userId, now);
   if (!r) return null;
