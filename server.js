@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.453";
+const GAME_VERSION = "1.0.454";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15344,9 +15344,8 @@ function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1
 // ✨ shiny tiers for creatures and commanders: plain, silver, gold, diamond, rainbow. A tier multiplies strength
 // (a creature's HP and Space-Cash, a commander's effects and helper power). Star Credits are not multiplied.
 const SHINY = [{ id: "", name: "", mult: 1 }, { id: "s", name: "Silver", mult: 1.5 }, { id: "g", name: "Gold", mult: 2 }, { id: "d", name: "Diamond", mult: 2.5 }, { id: "r", name: "Rainbow", mult: 3 }];
-const TIER_MERGE_COPIES = 2; // copies of the same commander and tier that make one of the next tier
 const SHINY_CREATURE_CHANCE = [0.05, 0.02, 0.008, 0.003]; // per opponent: silver, gold, diamond, rainbow (7.1% in all)
-const SHINY_COMMANDER_CHANCE = [0.06, 0.02, 0.007, 0.0025]; // per fusing of shards (9.1% in all); two copies of one tier also merge up (TIER_MERGE_COPIES), so a lucky roll saves copies
+const SHINY_COMMANDER_CHANCE = [0.06, 0.02, 0.007, 0.0025]; // per fusing of shards (9.1% in all)
 function rollShiny(chances, rnd) {
   let x = rnd(), acc = 0;
   for (let t = 4; t >= 1; t--) { acc += chances[t - 1]; if (x < acc) return t; }
@@ -15560,19 +15559,6 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     r.helpers = (r.helpers || []).filter((id) => id !== from.id);
     save();
     if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier || 0 }; heroSave(uid, h); } }
-  } else if (b.action === "upgrade") { // two copies of one commander with the same shiny tier become one of the next tier (rank: the higher of the two)
-    const from = r.cards.find((c) => c.id === Number(b.id)), into = r.cards.find((c) => c.id === Number(b.into));
-    if (!from || !into || from.id === into.id || from.key !== into.key) return res.status(400).json({ error: "Pick two copies of the same commander" });
-    if ((from.tier || 0) !== (into.tier || 0)) return res.status(400).json({ error: "Both copies need the same shiny tier" });
-    if ((into.tier || 0) >= SHINY.length - 1) return res.status(400).json({ error: "Rainbow is the top tier" });
-    if (from.id === r.active) return res.status(400).json({ error: "The active commander cannot be used up. Make another copy active first" });
-    into.tier = (into.tier || 0) + 1;
-    into.rank = Math.max(into.rank, from.rank);
-    shinyGot = into.tier;
-    r.cards = r.cards.filter((c) => c.id !== from.id);
-    r.helpers = (r.helpers || []).filter((id) => id !== from.id);
-    save();
-    if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier }; heroSave(uid, h); } }
   } else return res.status(400).json({ error: "Unknown action" });
   res.json({ ok: true, shiny: shinyGot });
 });
@@ -17646,6 +17632,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.454",date:"2026-11-22",title:"Merging only raises the rank",groups:[["🎖️ Commanders",["Merging two copies of a commander now only adds their ranks. Two plain copies can no longer be turned into a Silver one; shiny tiers come from fusing shards only.","The Make Silver, Gold, Diamond and Rainbow buttons are gone."]]]},
   {v:"1.0.453",date:"2026-11-22",title:"Hunt meter icon",groups:[["🎯 Hunt",["The old rainbow icon on the hunt meter patch note is replaced by the target that the meter itself uses."]]]},
   {v:"1.0.452",date:"2026-11-22",title:"Drawn icons everywhere",groups:[["Icons",["The admin page and the server list now use the same drawn icons as the game instead of system emoji.","New drawn icons for coins, the inbox, the rainbow and the back/next arrows; the black flag is easier to see on dark backgrounds."]]]},
   {v:"1.0.451",date:"2026-11-22",title:"The hunt meter gives a regular creature",groups:[["🎯 Hunt",["The meter under the opponent now brings a random regular creature of the best rarity your commander can beat, instead of a Rainbow. Shinies still turn up at their normal odds.","Only catching that creature empties the meter. Strong catches by luck no longer reset it, so it keeps filling toward the guaranteed one."]]]},
