@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.451";
+const GAME_VERSION = "1.0.452";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -13673,6 +13673,7 @@ load();
 setInterval(tick, 1000);
 setInterval(load, 30000);
 </script>
+<script src="/icons.js?v=__VER__"></script>
 </body>
 </html>`;
 
@@ -17645,6 +17646,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.452",date:"2026-11-22",title:"Drawn icons everywhere",groups:[["Icons",["The admin page and the server list now use the same drawn icons as the game instead of system emoji.","New drawn icons for coins, the inbox, the rainbow and the back/next arrows; the black flag is easier to see on dark backgrounds."]]]},
   {v:"1.0.451",date:"2026-11-22",title:"The hunt meter gives a regular creature",groups:[["🎯 Hunt",["The meter under the opponent now brings a random regular creature of the best rarity your commander can beat, instead of a Rainbow. Shinies still turn up at their normal odds.","Only catching that creature empties the meter. Strong catches by luck no longer reset it, so it keeps filling toward the guaranteed one."]]]},
   {v:"1.0.450",date:"2026-11-22",title:"Hunt progress in the admin page",groups:[["🛠️ Admin",["The Balance tab shows how far players have come in the hunt: income, best creatures in the slots, creatures caught, the hunt meter and shinies found, by commander level."]]]},
   {v:"1.0.449",date:"2026-11-21",title:"Rainbow meter",groups:[["🌈 Hunt",["A new meter under the opponent fills with every hunt window (half while you are away). When it holds 15,000, the next opponent is a Rainbow of the best kind your commander can beat, never a Mythic, so a first Rainbow is no longer a matter of luck alone.","Beating it, or a Rainbow of that kind or better that shows up by luck, empties the meter again."]]]},
@@ -22866,7 +22868,7 @@ function newsPanel() {
   var n = newsState;
   var h = '<div class="panel"><h2>📰 Mars News</h2>';
   h += '<p class="hint" style="margin-top:0">Only big events land here automatically: the Landing Zone being conquered or lost, and server changes. The ticker shows at most ' + n.shownMax + " at the same time, newest first.</p>";
-  h += '<form id="newsadd"><label for="nt">New news</label><textarea id="nt" rows="2" maxlength="200" placeholder="e.g. ' + '🎉' + ' Double resources weekend starts now!"></textarea>';
+  h += '<form id="newsadd"><label for="nt">New news</label><textarea id="nt" rows="2" maxlength="200" placeholder="e.g. Double resources weekend starts now!"></textarea>';
   h += '<div class="row">Show for ' + hoursSelect('id="nh"', 24) + '<button class="btn" type="submit">' + '📰' + ' Publish</button></div></form>';
   if (!n.news.length) return h + '<p class="hint">No news yet.</p></div>';
   h += '<div class="newslist">';
@@ -23043,7 +23045,7 @@ function render() {
   h = moderationPanel() + linksPanel() + playerTools();
 
   // players
-  h += '<div class="panel"><h2>' + '👥' + ' Players</h2><input class="search" id="search" placeholder="🔎 Find a player" value="' + esc(search) + '">';
+  h += '<div class="panel"><h2>' + '👥' + ' Players</h2><input class="search" id="search" placeholder="Find a player" value="' + esc(search) + '">';
   h += '<div class="tablewrap"><table><tr><th>Name</th><th>Colonies</th><th>Points</th><th>Last online</th><th>Actions</th></tr>';
   // most recently online first
   var list = d.players.slice().sort(function (a, b) { return b.lastSeen - a.lastSeen || b.points - a.points; });
@@ -23313,6 +23315,7 @@ document.addEventListener("click", function (e) {
 
 start();
 </script>
+<script src="/icons.js?v=__VER__"></script>
 </body>
 </html>`;
 
@@ -23351,6 +23354,34 @@ function renderGamePage() {
   gamePage = { html, assets };
   return gamePage;
 }
+
+// The drawn icons for the pages that are not the game itself (admin page, server list): the same sprite and the same
+// emoji-to-icon swap as in the game, taken from the game page so there is only one copy to draw and fix.
+let iconKit = null;
+function renderIconKit() {
+  if (iconKit) return iconKit;
+  const page = PAGE;
+  const sprite = (page.match(/<svg id="gi-sprite"[\s\S]*?<\/svg>\s*<svg width="0" height="0"[\s\S]*?<\/svg>/) || [""])[0];
+  const mapStart = page.indexOf("var GI_MAP =");
+  const mapEnd = page.indexOf("// inline markup of a drawn icon", mapStart);
+  const walkStart = page.indexOf("function giNode(");
+  const walkEnd = page.indexOf("function setHTML(", walkStart);
+  if (!sprite || mapStart < 0 || mapEnd < 0 || walkStart < 0 || walkEnd < 0) { iconKit = { body: "" }; return iconKit; }
+  const css = ".gi{display:inline-block;width:1.2em;height:1.2em;vertical-align:-0.24em;flex:none;overflow:visible;pointer-events:none}.gio{stroke:var(--gi-ol,#5b2f16);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}";
+  const body = "(function(){var css=document.createElement('style');css.textContent=" + JSON.stringify(css) + ";document.head.appendChild(css);" +
+    "function boot(){document.body.insertAdjacentHTML('afterbegin'," + JSON.stringify(sprite) + ");\n" +
+    page.slice(mapStart, mapEnd) + page.slice(walkStart, walkEnd) + "}\n" +
+    "if(document.body)boot();else document.addEventListener('DOMContentLoaded',boot);})();";
+  iconKit = { body, etag: 'W/"' + crypto.createHash("sha256").update(body).digest("hex") + '"' };
+  return iconKit;
+}
+app.get("/icons.js", (req, res) => {
+  const kit = renderIconKit();
+  if (!kit.body) return res.sendStatus(404);
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.setHeader("ETag", kit.etag);
+  res.type("js").send(kit.body);
+});
 
 app.get("/game-assets/:filename", (req, res) => {
   const asset = renderGamePage().assets.get(req.params.filename);
