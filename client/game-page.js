@@ -2811,6 +2811,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .hcred .hc-btns { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .hcred .hc-btns .btn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cmd-row.card { flex-wrap: wrap; } .cmd-row.card > div:not(.cmd-btns) { flex: 1 1 0; } .cmd-row .cmd-btns { flex: 1 0 100%; display: flex; gap: 8px; justify-content: flex-end; align-items: center; } .cmd-row .cmd-btns small { display: block; font-weight: 700; }
+  .cmd-group { border-bottom: 1px solid rgba(0,0,0,.08); padding: 6px 0; } .cmd-gh { display: flex; align-items: center; gap: 10px; } .cmd-gh > div { flex: 1; min-width: 0; } .cmd-gh b, .cmd-gh small, .cmd-ci b, .cmd-ci small { display: block; } .cmd-gh .quip { font-style: italic; opacity: .6; font-size: 11.5px; }
+  .cmd-copy { margin: 4px 0 4px 46px; padding: 6px 8px; border-radius: 10px; background: rgba(0,0,0,.04); } .cmd-copy.on { background: rgba(80,160,90,.16); } .cmd-copy .cmd-btns { display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 6px; flex-wrap: wrap; } .cmd-mp { color: #2e8b57; }
   .cmd-row .quip { font-style: italic; opacity: .6; font-size: 11.5px; }
   .cmd-row.sm { padding: 3px 6px; gap: 8px; } .cmd-row.sm .cmd-ic { font-size: 20px; } .cmd-row.off { opacity: .5; } .cmd-row.in { background: rgba(80,160,90,.12); }
   .cmd-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,.08); } .cmd-row > div { flex: 1; min-width: 0; } .cmd-row b, .cmd-row small { display: block; } .cmd-row.on { background: rgba(0,0,0,.05); border-radius: 10px; }
@@ -17237,24 +17239,34 @@ function commanderSheet() {
   h += '<div class="sheet-head"><span class="hi">🎖️</span><div><h3>Commanders</h3><b>💲 ' + shortNum(C.cash) + " Space-Cash · 🎫 " + shortNum(C.credits) + " Star Credits</b></div></div>";
   h += '<div class="auc-tabs">' + [["mine", "Collection · " + C.cards.length], ["shop", "Shard shop"]].map(function (t) { return '<button class="btn small ' + (cmd.tab === t[0] ? "" : "ghost") + '" data-cmd-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (cmd.tab === "shop") {
-    h += '<p class="hint left">New offers in ⏱ ' + cdSpan(C.shop.nextMs - (Date.now() - cmd.at), "cmd") + ". Shards cost Space-Cash. " + C.shop.stock[0].need + " shards of one commander fuse into a new copy of it. Spare copies can be merged to raise a rank, or sold in the auction.</p>";
-    C.shop.all.forEach(function (o) {
-      var buy = o.offer && o.left > 0;
-      h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + " · " + o.shards + "/" + C.shop.stock[0].need + "</small></b><small title='" + esc(o.quip) + "'>" + esc(o.effect) + "</small></div>";
-      h += !o.offer ? "<small>not in stock · 💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>" + (o.capped ? "daily limit reached" : "sold out") + "</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.total > 1 ? " · " + o.left + " left" : "") + "</button>";
+    var need = C.shop.stock[0].need;
+    h += '<p class="hint left">New offers in ⏱ ' + cdSpan(C.shop.nextMs - (Date.now() - cmd.at), "cmd") + ". Shards cost Space-Cash. " + need + " shards of one commander fuse into a new copy of it. Spare copies can be merged to raise a rank, or sold in the auction.</p>";
+    var offers = C.shop.all.slice().sort(function (x, y) { return (y.offer ? 1 : 0) - (x.offer ? 1 : 0); });
+    offers.forEach(function (o) {
+      h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + (o.owned ? " · owned " + o.owned : "") + "</small></b>" +
+        "<small>" + esc(o.effect) + " · 🎫 +" + o.rate + "/day · helper +" + o.help + "% attack</small>" +
+        (o.quip ? '<small class="quip">“' + esc(o.quip) + "”</small>" : "") + heroBar("xp", Math.min(o.shards, need), need) + "<small>" + o.shards + " / " + need + " shards</small></div>";
+      h += !o.offer ? "<small>not in stock<br>💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>" + (o.capped ? "daily limit reached" : "sold out") + "</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.total > 1 ? " · " + o.left + " left" : "") + "</button>";
       h += "</div>";
     });
   } else {
     if (C.swapBlock) h += '<p class="hint left">' + esc(C.swapBlock) + "</p>";
-    var firstAt = {};
-    C.cards.forEach(function (c, i) { if (firstAt[c.key] === undefined) firstAt[c.key] = i; });
-    var sorted = C.cards.slice().sort(function (a, b) { return firstAt[a.key] - firstAt[b.key] || b.rank - a.rank || (b.tier || 0) - (a.tier || 0); });
-    sorted.forEach(function (c) {
-      var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0;
-      var into = null; // the copy this one can join without passing the top rank
-      C.cards.forEach(function (o) { if (o.id !== c.id && o.key === c.key && o.rank + c.rank <= c.maxRank && (!into || o.rank > into.rank)) into = o; });
-      h += '<div class="cmd-row card' + (on ? " on" : "") + (c.tier ? " sh-" + c.tier : "") + '"><span class="cmd-ic">' + c.icon + '</span><div><b><span class="cmd-rar r-' + c.rarity + '">' + (c.tier ? '<i class="sh-t' + c.tier + '">' + c.tierName + "</i> " : "") + esc(c.name) + "</span> <small>rank " + c.rank + "/" + c.maxRank + "</small></b><small>" + esc(c.trait) + " · 🎫 +" + Math.round(c.rate * 24 * 10) / 10 + "/day · helper +" + c.help + "% attack</small>" + (c.quip ? '<small class="quip">“' + esc(c.quip) + "”</small>" : "") + "</div>";
-      h += on ? '<div class="cmd-btns"><small>Active</small></div>' : '<div class="cmd-btns"><button class="btn small ghost" data-cmd-switch="' + c.id + '"' + (C.swapBlock ? ' disabled title="' + esc(C.swapBlock) + '"' : "") + '>Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button>" + (into ? '<button class="btn small ghost" data-cmd-merge="' + c.id + "," + into.id + '" title="This copy joins the other one: ranks add up, the better shiny tier stays">Merge into rank ' + into.rank + "</button>" : "") + "</div>";
+    // copies of one commander share a heading; the group with the active commander comes first, then the one with helpers
+    var groups = [], byKey = {};
+    C.cards.forEach(function (c) { if (!byKey[c.key]) { byKey[c.key] = { key: c.key, cards: [] }; groups.push(byKey[c.key]); } byKey[c.key].cards.push(c); });
+    function gRank(g) { return g.cards.some(function (c) { return c.id === C.active; }) ? 0 : g.cards.some(function (c) { return C.helpers.indexOf(c.id) >= 0; }) ? 1 : 2; }
+    groups.forEach(function (g, i) { g.i = i; g.cards.sort(function (a, b) { return (b.id === C.active) - (a.id === C.active) || (C.helpers.indexOf(b.id) >= 0) - (C.helpers.indexOf(a.id) >= 0) || (b.tier || 0) - (a.tier || 0) || b.rank - a.rank; }); });
+    groups.sort(function (x, y) { return gRank(x) - gRank(y) || x.i - y.i; });
+    groups.forEach(function (g) {
+      var f = g.cards[0];
+      h += '<div class="cmd-group"><div class="cmd-gh"><span class="cmd-ic">' + f.icon + '</span><div><b><span class="cmd-rar r-' + f.rarity + '">' + esc(f.name) + "</span> <small>" + f.rarity + (g.cards.length > 1 ? " · " + g.cards.length + " copies" : "") + "</small></b>" + (f.quip ? '<small class="quip">“' + esc(f.quip) + "”</small>" : "") + "</div></div>";
+      g.cards.forEach(function (c) {
+        var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0, m = c.merge;
+        h += '<div class="cmd-copy' + (on ? " on" : "") + (c.tier ? " sh-" + c.tier : "") + '"><div class="cmd-ci"><b>' + (c.tier ? '<i class="sh-t' + c.tier + '">' + c.tierName + "</i> " : "") + "rank " + c.rank + "/" + c.maxRank + "</b><small>" + esc(c.trait) + " · 🎫 +" + Math.round(c.rate * 24 * 10) / 10 + "/day · helper +" + c.help + "% attack</small>";
+        if (m) h += '<small class="cmd-mp">Merge → ' + (m.tier ? m.tierName + " " : "") + "rank " + m.rank + " · " + esc(m.trait) + " · 🎫 +" + m.rate + "/day · helper +" + m.help + "% attack</small>";
+        h += "</div>";
+        h += '<div class="cmd-btns">' + (on ? "<small>Active</small>" : '<button class="btn small ghost" data-cmd-switch="' + c.id + '"' + (C.swapBlock ? ' disabled title="' + esc(C.swapBlock) + '"' : "") + '>Make active</button><button class="btn small ' + (help ? "" : "ghost") + '" data-cmd-helper="' + c.id + '" title="Stands beside the active commander in the hunt">' + (help ? "✓ Helper" : "Helper") + "</button>" + (m ? '<button class="btn small ghost" data-cmd-merge="' + c.id + "," + m.into + '"' + (m.loses ? ' data-loses="' + esc(m.loses) + '"' : "") + ">Merge</button>" : "")) + "</div></div>";
+      });
       h += "</div>";
     });
     if (C.shards.length) {
@@ -17265,6 +17277,7 @@ function commanderSheet() {
         h += "</div>";
       });
     }
+    h += '<p class="hint left">Shiny safety net: ' + C.fusePity.n + ' / ' + C.fusePity.of + ' fusings without a shiny. At ' + C.fusePity.of + ' the next commander is at least Silver.</p>';
     h += '<p class="hint left">Only the active commander earns Star Credits and gives its bonus. Up to ' + C.helperSlots + ' other commanders can be helpers: in the hunt they add to its attack but produce nothing. Level, skills and gear stay with your commander whoever is active.</p>';
   }
   return h;
@@ -18549,6 +18562,8 @@ document.addEventListener("click", function (e) {
     post("/api/commanders", { action: "fuse", key: attr("data-cmd-fuse") }, function (j) { toast(j && j.shiny ? "✨ " + SHINY_NAMES[j.shiny] + "! The commander came out shiny" : "🎖️ Commander fused", true); openCommanders(); });
   } else if (has("data-cmd-merge")) {
     var mg = attr("data-cmd-merge").split(",");
+    var lose = el.getAttribute("data-loses");
+    if (lose && !confirm("This copy is " + lose + ". Merging uses it up and its tier is lost. Merge anyway?")) return;
     cmdPost({ action: "merge", id: mg[0], into: mg[1] }, "🎖️ Copies merged");
   } else if (has("data-cmd-switch")) {
     cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
