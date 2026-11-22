@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.452";
+const GAME_VERSION = "1.0.455";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15344,9 +15344,9 @@ function creditScale(rank) { return 1 + (Math.min(COMMANDER_MAX_RANK, Math.max(1
 // ✨ shiny tiers for creatures and commanders: plain, silver, gold, diamond, rainbow. A tier multiplies strength
 // (a creature's HP and Space-Cash, a commander's effects and helper power). Star Credits are not multiplied.
 const SHINY = [{ id: "", name: "", mult: 1 }, { id: "s", name: "Silver", mult: 1.5 }, { id: "g", name: "Gold", mult: 2 }, { id: "d", name: "Diamond", mult: 2.5 }, { id: "r", name: "Rainbow", mult: 3 }];
-const TIER_MERGE_COPIES = 2; // copies of the same commander and tier that make one of the next tier
 const SHINY_CREATURE_CHANCE = [0.05, 0.02, 0.008, 0.003]; // per opponent: silver, gold, diamond, rainbow (7.1% in all)
-const SHINY_COMMANDER_CHANCE = [0.06, 0.02, 0.007, 0.0025]; // per fusing of shards (9.1% in all); two copies of one tier also merge up (TIER_MERGE_COPIES), so a lucky roll saves copies
+const FUSE_PITY = 15; // fusings in a row without a shiny; the next one is at least Silver
+const SHINY_COMMANDER_CHANCE = [0.06, 0.02, 0.007, 0.0025]; // per fusing of shards (9.1% in all)
 function rollShiny(chances, rnd) {
   let x = rnd(), acc = 0;
   for (let t = 4; t >= 1; t--) { acc += chances[t - 1]; if (x < acc) return t; }
@@ -15463,7 +15463,7 @@ function shopView(now, roster) {
       const order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"], stock = shopStock(round);
       return Object.keys(COMMANDERS).filter((k) => !COMMANDERS[k].starter).sort((x, y) => order.indexOf(COMMANDERS[x].rarity) - order.indexOf(COMMANDERS[y].rarity)).map((k) => {
         const d = COMMANDERS[k];
-        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, effect: commanderTraitText(d, 1), quip: d.quip || "", offer: stock.includes(k), left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0 };
+        return { key: k, name: d.name, icon: d.icon, rarity: d.rarity, price: shardPrice(d, roster), shards: roster && roster.shards ? roster.shards[k] || 0 : 0, effect: commanderTraitText(d, 1), rate: Math.round(d.rate * 24 * 10) / 10, help: Math.round(HELPER_POWER[d.rarity] * helperScale(1, 0) * 100), owned: roster ? roster.cards.filter((c) => c.key === k).length : 0, quip: d.quip || "", offer: stock.includes(k), left: Math.min(Math.max(0, (amt[k] || 0) - (bought[k] || 0)), shardDayLeft(roster, d.rarity, now)), total: amt[k] || 0, capped: shardDayLeft(roster, d.rarity, now) <= 0 };
       });
     })(),
   };
@@ -15474,9 +15474,20 @@ function commandersView(userId, now) {
   const helpers = (r.helpers || []).filter((id) => id !== r.active && r.cards.some((c) => c.id === id)).slice(0, HELPER_SLOTS);
   return {
     credits: creditsOf(userId), cash: cashOf(userId), active: r.active, swapBlock: heroAwayWhy(heroOf(userId, now), now), shop: shopView(now, r), helpers, helperSlots: HELPER_SLOTS,
+    fusePity: { n: r.fusePity || 0, of: FUSE_PITY },
     cards: r.cards.map((c) => {
       const d = COMMANDERS[c.key] || COMMANDERS.recruit;
-      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, tier: c.tier || 0, tierName: SHINY[c.tier || 0].name, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * creditScale(c.rank) * 100) / 100, trait: commanderTraitText(d, c.rank, c.tier), quip: d.quip || "", help: Math.round(HELPER_POWER[d.rarity] * helperScale(c.rank, c.tier) * 100) };
+      // what merging this copy into its best partner would give: the partner keeps its place, the better tier stays
+      let merge = null;
+      if (c.id !== r.active) {
+        let into = null;
+        r.cards.forEach((o) => { if (o.id !== c.id && o.key === c.key && o.rank + c.rank <= COMMANDER_MAX_RANK && (!into || (o.tier || 0) > (into.tier || 0) || ((o.tier || 0) === (into.tier || 0) && o.rank > into.rank))) into = o; });
+        if (into) {
+          const rank = into.rank + c.rank, tier = Math.max(into.tier || 0, c.tier || 0);
+          merge = { into: into.id, rank, tier, tierName: SHINY[tier].name, trait: commanderTraitText(d, rank, tier), rate: Math.round(d.rate * creditScale(rank) * 24 * 10) / 10, help: Math.round(HELPER_POWER[d.rarity] * helperScale(rank, tier) * 100), loses: (c.tier || 0) > 0 && (c.tier || 0) <= (into.tier || 0) ? SHINY[c.tier].name : "" };
+        }
+      }
+      return { id: c.id, key: c.key, name: d.name, icon: d.icon, rarity: d.rarity, rank: c.rank, tier: c.tier || 0, tierName: SHINY[c.tier || 0].name, maxRank: COMMANDER_MAX_RANK, rate: Math.round(d.rate * creditScale(c.rank) * 100) / 100, trait: commanderTraitText(d, c.rank, c.tier), quip: d.quip || "", help: Math.round(HELPER_POWER[d.rarity] * helperScale(c.rank, c.tier) * 100), merge };
     }),
     shards: Object.keys(r.shards || {}).filter((k) => COMMANDERS[k] && r.shards[k] > 0).map((k) => {
       return { key: k, name: COMMANDERS[k].name, icon: COMMANDERS[k].icon, rarity: COMMANDERS[k].rarity, count: r.shards[k], need: SHARDS_PER_COMMANDER };
@@ -15545,7 +15556,9 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     if (!d || d.starter) return res.status(400).json({ error: "Unknown commander" });
     if ((r.shards[key] || 0) < SHARDS_PER_COMMANDER) return res.status(400).json({ error: "You need " + SHARDS_PER_COMMANDER + " shards" });
     r.shards[key] -= SHARDS_PER_COMMANDER;
-    const shiny = rollShiny(shinyChances(SHINY_COMMANDER_CHANCE), Math.random); // every fusing makes a new commander of its own, and can make it shiny
+    let shiny = rollShiny(shinyChances(SHINY_COMMANDER_CHANCE), Math.random); // every fusing makes a new commander of its own, and can make it shiny
+    if (!shiny && (r.fusePity || 0) + 1 >= FUSE_PITY) shiny = 1; // a long dry streak ends with Silver
+    r.fusePity = shiny ? 0 : (r.fusePity || 0) + 1;
     r.cards.push({ id: Math.max.apply(null, r.cards.map((c) => c.id)) + 1, key, rank: 1, tier: shiny });
     save();
     shinyGot = shiny;
@@ -15560,19 +15573,6 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     r.helpers = (r.helpers || []).filter((id) => id !== from.id);
     save();
     if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier || 0 }; heroSave(uid, h); } }
-  } else if (b.action === "upgrade") { // two copies of one commander with the same shiny tier become one of the next tier (rank: the higher of the two)
-    const from = r.cards.find((c) => c.id === Number(b.id)), into = r.cards.find((c) => c.id === Number(b.into));
-    if (!from || !into || from.id === into.id || from.key !== into.key) return res.status(400).json({ error: "Pick two copies of the same commander" });
-    if ((from.tier || 0) !== (into.tier || 0)) return res.status(400).json({ error: "Both copies need the same shiny tier" });
-    if ((into.tier || 0) >= SHINY.length - 1) return res.status(400).json({ error: "Rainbow is the top tier" });
-    if (from.id === r.active) return res.status(400).json({ error: "The active commander cannot be used up. Make another copy active first" });
-    into.tier = (into.tier || 0) + 1;
-    into.rank = Math.max(into.rank, from.rank);
-    shinyGot = into.tier;
-    r.cards = r.cards.filter((c) => c.id !== from.id);
-    r.helpers = (r.helpers || []).filter((id) => id !== from.id);
-    save();
-    if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier }; heroSave(uid, h); } }
   } else return res.status(400).json({ error: "Unknown action" });
   res.json({ ok: true, shiny: shinyGot });
 });
@@ -17646,10 +17646,13 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.455",date:"2026-11-22",title:"Commander shop, collection and shiny safety net",groups:[["🎖️ Commanders",["The shard shop now shows everything a commander gives: its effect, Star Credits per day, helper attack, how many copies you own, and your shard progress. Offers in stock come first.","The collection groups copies of the same commander under one heading, with the active commander and helpers on top. Each copy keeps its rank, effect, credits and helper values.","Every copy that can be merged shows what the merge would give (rank, effect, credits per day, helper attack) before you tap. Merging away a shiny copy asks for confirmation.","Fusing shards has a safety net: after 15 fusings in a row without a shiny, the next commander comes out at least Silver."]]]},
+  {v:"1.0.454",date:"2026-11-22",title:"Merging only raises the rank",groups:[["🎖️ Commanders",["Merging two copies of a commander now only adds their ranks. Two plain copies can no longer be turned into a Silver one; shiny tiers come from fusing shards only.","The Make Silver, Gold, Diamond and Rainbow buttons are gone."]]]},
+  {v:"1.0.453",date:"2026-11-22",title:"Hunt meter icon",groups:[["🎯 Hunt",["The old rainbow icon on the hunt meter patch note is replaced by the target that the meter itself uses."]]]},
   {v:"1.0.452",date:"2026-11-22",title:"Drawn icons everywhere",groups:[["Icons",["The admin page and the server list now use the same drawn icons as the game instead of system emoji.","New drawn icons for coins, the inbox, the rainbow and the back/next arrows; the black flag is easier to see on dark backgrounds."]]]},
   {v:"1.0.451",date:"2026-11-22",title:"The hunt meter gives a regular creature",groups:[["🎯 Hunt",["The meter under the opponent now brings a random regular creature of the best rarity your commander can beat, instead of a Rainbow. Shinies still turn up at their normal odds.","Only catching that creature empties the meter. Strong catches by luck no longer reset it, so it keeps filling toward the guaranteed one."]]]},
   {v:"1.0.450",date:"2026-11-22",title:"Hunt progress in the admin page",groups:[["🛠️ Admin",["The Balance tab shows how far players have come in the hunt: income, best creatures in the slots, creatures caught, the hunt meter and shinies found, by commander level."]]]},
-  {v:"1.0.449",date:"2026-11-21",title:"Rainbow meter",groups:[["🌈 Hunt",["A new meter under the opponent fills with every hunt window (half while you are away). When it holds 15,000, the next opponent is a Rainbow of the best kind your commander can beat, never a Mythic, so a first Rainbow is no longer a matter of luck alone.","Beating it, or a Rainbow of that kind or better that shows up by luck, empties the meter again."]]]},
+  {v:"1.0.449",date:"2026-11-21",title:"Rainbow meter",groups:[["🎯 Hunt",["A new meter under the opponent fills with every hunt window (half while you are away). When it holds 15,000, the next opponent is a Rainbow of the best kind your commander can beat, never a Mythic, so a first Rainbow is no longer a matter of luck alone.","Beating it, or a Rainbow of that kind or better that shows up by luck, empties the meter again."]]]},
   {v:"1.0.448",date:"2026-11-21",title:"Faster saving",groups:[["Performance",["The database now saves in write-ahead mode on local disks, so every save and refresh waits less on the disk and reading never waits for a writer. Servers on network disks keep the old mode."]]]},
   {v:"1.0.447",date:"2026-11-21",title:"Faster colony refresh",groups:[["Performance",["The colony refresh that runs every few seconds is about 40% faster on the server: repeated database lookups are now prepared once instead of on every call, so busy servers have more headroom.","Each refresh now sends only what changed. The quest list, build list, unit list and most of the commander data are reused from the last refresh, which cuts the download from about 65 KB to about 10 KB before compression. It helps most on slow phone connections."]],["Fixes",["Running the game from source with node server.js works again. The report unit list needed the monster table, which only the packaged build could see."]]]},
   {v:"1.0.446",date:"2026-11-21",title:"Classic storage pacing",groups:[["Classic",["Low-level warehouses and granaries fill sooner. Level 10 and higher keep their standard capacity. Existing stored resources stay available to spend."]]]},
