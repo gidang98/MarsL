@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.458";
+const GAME_VERSION = "1.0.459";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17646,6 +17646,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.459",date:"2026-11-22",title:"Map full screen",groups:[["🗺️ Map",["New full screen button on the map toolbar: the map fills the whole screen and the buttons float on top. Leave it with the same button or the back gesture of your phone.","The map is taller on phones in normal view too."]]]},
   {v:"1.0.458",date:"2026-11-22",title:"Slimmer colony header on phones",groups:[["📱 Mobile",["The colony name now stays on one line next to the buttons, and the wallet sits beside the player line. The header is about a third shorter, with everything still in it."]]]},
   {v:"1.0.457",date:"2026-11-22",title:"Easier to tap on phones",groups:[["📱 Mobile",["Small round buttons (help, edit, wallet and the quest shortcuts) have a larger tap area, and the quest bar and reward row are taller, without changing how they look.","Held sideways, popups use the full screen height and their header takes less room.","Long-pressing a button no longer selects its text."]]]},
   {v:"1.0.456",date:"2026-11-22",title:"Timers tick every second again",groups:[["⏱️ Timers",["Build, training, research, healing and movement timers count down every second again, and stored resources climb smoothly between refreshes.","The countdowns run on your device, so the server is still asked only every three seconds. A job that finishes asks the server at once, so the result shows within a second."]]]},
