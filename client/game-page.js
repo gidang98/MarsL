@@ -3,7 +3,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#f2784b">
 <script>try{var hh=new Date().getHours();document.documentElement.setAttribute("data-sky",hh>=20||hh<6?"night":"day")}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -4619,6 +4619,33 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   body.mapfull .mapview .p-n { top: calc(64px + env(safe-area-inset-top)); }
   body.mapfull .mapgrid .tileinfo { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); width: auto; max-width: 520px; margin: 0 auto; max-height: 46dvh; overflow-y: auto; z-index: 12; box-shadow: 0 16px 40px rgba(0, 0, 0, .45); }
   body.mapfull .mapgrid .tileinfo:not(.has) { display: none; }
+  @media (max-width: 559px) {
+    .protect { flex-wrap: wrap; }
+    .protect > div { flex: 1 1 140px; min-width: 0; }
+    .protect .btn { width: auto; }
+    .map-bar .tools { flex-wrap: wrap; max-width: 100%; }
+    .map-bar .tbtn, .mapgrid .ti-close { min-width: 44px; min-height: 44px; }
+    .goto { flex-wrap: wrap; }
+    .goto input { min-width: 0; flex: 1 1 40px; }
+    .farmlist .fl-fold, .farmlist .fl-top .btn, .fl-actions .btn,
+    body .fl-sort.repfilter button { min-height: 44px !important; }
+  }
+  @media (max-width: 420px) {
+    body.mapfull .mappanel .map-bar .tools { display: grid; grid-template-columns: repeat(4, 44px); }
+    body.mapfull .mapview .coords, body.mapfull .mapview .compass, body.mapfull .mapview .p-n {
+      top: calc(112px + env(safe-area-inset-top));
+    }
+  }
+  @media (max-width: 399px) {
+    body:not(.mapfull) .map-bar .tools {
+      display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    body:not(.mapfull) .map-bar .farmbtn span { display: none; }
+  }
+  @media (hover: none) {
+    .sheet-drag { position: relative; width: 80px; height: 24px; margin: 0 auto; background: none; touch-action: none; }
+    .sheet-drag::after { content: ""; position: absolute; inset: 10px 22px; border-radius: 3px; background: var(--line); }
+  }
 </style>
 </head>
 <body>
@@ -10257,7 +10284,7 @@ function farmSheet(d) {
       h += "</div>";
       h += '<details class="fl-editor"><summary>🪖 '+farmTroopCount(e)+' troops · edit</summary><div class="fl-troops">';
       fighters.forEach(function (u) {
-        h += '<label title="' + u.name + (l.colonyId === d.colonyId ? " · " + u.home + " at home" : "") + '">' + u.icon + '<input type="number" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
+        h += '<label title="' + u.name + (l.colonyId === d.colonyId ? " · " + u.home + " at home" : "") + '">' + u.icon + '<input type="number" inputmode="numeric" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
       });
       h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">' + "🗑️" + ' Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">' + "❌" + '</button></div>';
     });
@@ -10446,7 +10473,7 @@ function trainPanel(d, which) {
     } else {
       var val = trainCount[u.key] || "";
       h += '<div class="trainrow">';
-      h += '<input type="number" min="1" max="999" placeholder="0" data-count="' + u.key + '" value="' + val + '">';
+      h += '<input type="number" inputmode="numeric" min="1" max="999" placeholder="0" data-count="' + u.key + '" value="' + val + '">';
       h += '<button class="btn small ghost" data-max="' + u.key + '">Max ' + u.max + "</button>";
       h += '<button class="btn" data-train="' + u.key + '">Train</button></div>';
       // ⚖️ the market could turn the stock into the right mix for more of them
@@ -10542,11 +10569,12 @@ var RANK_SORTS = [
 function loadRanking() {
   fetch("/api/ranking").then(function (r) {
     if (handle401(r)) return;
+    if (!r.ok) throw new Error("Request failed");
     return r.json().then(function (d) {
       ranking = d;
       if (view === "ranking" && data) renderColony(data);
     });
-  });
+  }).catch(function () { if (view === "ranking") toast(trStr("Could not load ranking. Try again.")); });
 }
 
 // The weekly champions: top attacker, raider, defender and hunter
@@ -10695,12 +10723,12 @@ function allyTeamwork(M, lead) {
     }
     if (sel) {
       h += '<div class="abrow">';
-      RES.forEach(function (k) { h += "<label>" + RES_ICON[k] + '<input type="number" min="0" data-ally="proj_' + k + '" value="' + esc(allyForm["proj_" + k]) + '" placeholder="0"></label>'; });
+      RES.forEach(function (k) { h += "<label>" + RES_ICON[k] + '<input type="number" inputmode="numeric" min="0" data-ally="proj_' + k + '" value="' + esc(allyForm["proj_" + k]) + '" placeholder="0"></label>'; });
       h += '</div><div class="ap-acts"><button class="btn small ghost" data-ally-pfill="' + p.key + '">Fill in what is missing</button><button class="btn small" data-ally-pgive="' + p.key + '">' + '🎁' + ' Give from this colony</button>';
       if (lead) h += '<button class="btn small ghost" data-ally-pbank="' + p.key + '">' + '🏦' + ' Pay from bank</button>';
       h += "</div>";
       if (p.credit) {
-        h += '<div class="abrow"><label>🎫<input type="number" min="0" data-ally="proj_credits" value="' + esc(allyForm.proj_credits) + '" placeholder="0"></label><button class="btn small ghost" data-ally-pcredit="' + p.key + '"' + (p.credit.room < 1 ? " disabled" : "") + '>🎫 Give Star Credits</button></div>';
+        h += '<div class="abrow"><label>🎫<input type="number" inputmode="numeric" min="0" data-ally="proj_credits" value="' + esc(allyForm.proj_credits) + '" placeholder="0"></label><button class="btn small ghost" data-ally-pcredit="' + p.key + '"' + (p.credit.room < 1 ? " disabled" : "") + '>🎫 Give Star Credits</button></div>';
         h += '<small class="ap-don">1 🎫 fills ' + shortNum(p.credit.each) + " of every resource" + (p.credit.room < 1 ? " · credits cover their share of this level" : " · up to " + p.credit.room + " more 🎫 for this level") + "</small>";
       }
     }
@@ -10710,12 +10738,12 @@ function allyTeamwork(M, lead) {
   // bank
   h += '<section class="panel"><h2>' + '🏦' + ' Alliance bank</h2><div class="abank">' + RES.map(function (k) { return "<span>" + RES_ICON[k] + " <b>" + M.bank[k].toLocaleString() + "</b></span>"; }).join("") + "</div>";
   h += '<p class="hint" style="text-align:left">Put in from the colony you are in now:</p><div class="abrow">';
-  RES.forEach(function (k) { h += "<label>" + RES_ICON[k] + '<input type="number" min="0" data-ally="dep_' + k + '" value="' + esc(allyForm["dep_" + k]) + '" placeholder="0"></label>'; });
+  RES.forEach(function (k) { h += "<label>" + RES_ICON[k] + '<input type="number" inputmode="numeric" min="0" data-ally="dep_' + k + '" value="' + esc(allyForm["dep_" + k]) + '" placeholder="0"></label>'; });
   h += '</div><button class="btn small" data-ally-deposit="1">' + '🏦' + ' Put in</button>';
   if (lead) {
     h += '<p class="hint" style="text-align:left;margin-top:12px">' + '👑' + ' Pay out to a member (goes to their main colony):</p><div class="abrow">';
     h += '<select data-ally="giveTo"><option value="">Member…</option>' + M.members.map(function (m) { return '<option' + (allyForm.giveTo === m.name ? " selected" : "") + ">" + esc(m.name) + "</option>"; }).join("") + "</select>";
-    RES.forEach(function (k) { h += "<label>" + RES_ICON[k] + '<input type="number" min="0" data-ally="give_' + k + '" value="' + esc(allyForm["give_" + k]) + '" placeholder="0"></label>'; });
+    RES.forEach(function (k) { h += "<label>" + RES_ICON[k] + '<input type="number" inputmode="numeric" min="0" data-ally="give_' + k + '" value="' + esc(allyForm["give_" + k]) + '" placeholder="0"></label>'; });
     h += '</div><button class="btn small ghost" data-ally-give="1">' + '💸' + ' Pay out</button>';
   }
   if (M.log.length) h += '<div class="ablog">' + M.log.map(function (l) { return "<div><b>" + esc(l.by) + "</b> " + esc(l.text) + " <small>" + ago(M.now - l.at) + "</small></div>"; }).join("") + "</div>";
@@ -12269,7 +12297,7 @@ function sendSheet(d) {
     if (u.home === 0 && !sendCount[u.key]) return;
     any = true;
     h += '<div class="sendrow"><span class="big">' + u.icon + '</span><div class="grow"><b>' + u.name + "</b><small>" + typeIcon(u) + " ⚔️" + u.atkNow + " 🛡️" + u.defGNow + " 🎯" + u.defANow + "" + '💨' + "+ '" + u.speed + " ' + '🎒' + '" + u.carry + " · home: " + u.home + "</small></div>";
-    h += '<input type="number" min="0" max="' + u.home + '" placeholder="0" data-send-count="' + u.key + '" value="' + (sendCount[u.key] || "") + '">';
+    h += '<input type="number" inputmode="numeric" min="0" max="' + u.home + '" placeholder="0" data-send-count="' + u.key + '" value="' + (sendCount[u.key] || "") + '">';
     h += '<button class="btn small ghost" data-send-all="' + u.key + '">All</button></div>';
   });
   if (!any) {
@@ -12695,7 +12723,7 @@ function simSet(path, value) {
 }
 
 function simNum(path, value, label, max, title) {
-  return '<label class="simnum" title="' + title + '">' + label + '<input type="number" min="0" max="' + max + '" data-sim="' + path + '" value="' + (value || 0) + '"></label>';
+  return '<label class="simnum" title="' + title + '">' + label + '<input type="number" inputmode="numeric" min="0" max="' + max + '" data-sim="' + path + '" value="' + (value || 0) + '"></label>';
 }
 
 // one card per unit: icon · how many · upgrade level (not for monsters)
@@ -12704,7 +12732,7 @@ function simUnits(list, side, values, upsPath, ups) {
   list.forEach(function (u) {
     var stats = u.atk !== undefined ? " · ⚔️" + u.atk + " 🛡️" + u.defG + " 🎯" + u.defA : "";
     h += '<div class="simunit' + (parseInt(values[u.key], 10) > 0 ? " has" : "") + '" title="' + esc(u.name) + stats + '"><span class="su-i">' + u.icon + (u.type === "air" ? "<i>✈️</i>" : "") + "</span>";
-    h += '<input type="number" min="0" placeholder="0" aria-label="' + esc(u.name) + '" data-sim="' + side + "." + u.key + '" value="' + (values[u.key] || "") + '">';
+    h += '<input type="number" inputmode="numeric" min="0" placeholder="0" aria-label="' + esc(u.name) + '" data-sim="' + side + "." + u.key + '" value="' + (values[u.key] || "") + '">';
     if (upsPath) {
       var lv = parseInt((ups || {})[u.key], 10) || 0;
       h += '<select class="su-up' + (lv ? " on" : "") + '" data-sim="' + upsPath + "." + u.key + '" title="Upgrade level of ' + esc(u.name) + '">';
@@ -12965,11 +12993,12 @@ var compose = { to: "", subject: "", body: "" };
 function loadMessages() {
   fetch("/api/messages").then(function (r) {
     if (handle401(r)) return;
+    if (!r.ok) throw new Error("Request failed");
     return r.json().then(function (d) {
       msgs = d;
       if (data && view === "messages") renderColony(data);
     });
-  });
+  }).catch(function () { if (view === "messages") toast(trStr("Could not load messages. Try again.")); });
 }
 
 function writeTo(name, subject) {
@@ -13412,7 +13441,7 @@ function wavesSheet(d) {
     if (waves.list.length > 2) h += '<button class="mini" data-wv-del="' + i + '" title="Remove">' + "❌" + '</button>';
     h += '</div><div class="wave-units">';
     units.forEach(function (u) {
-      h += '<label class="wv-u" title="' + esc(u.name) + '"><span>' + u.icon + '</span><input type="number" min="0" placeholder="0" data-wv-n="' + i + ":" + u.key + '" value="' + (w.troops[u.key] || "") + '"></label>';
+      h += '<label class="wv-u" title="' + esc(u.name) + '"><span>' + u.icon + '</span><input type="number" inputmode="numeric" min="0" placeholder="0" data-wv-n="' + i + ":" + u.key + '" value="' + (w.troops[u.key] || "") + '"></label>';
     });
     h += '<button class="btn small ghost" data-wv-rest="' + i + '">Rest</button></div>';
     if (w.mission === "attack" && d.units.some(function (u) { return u.bombard && u.home > 0; })) {
@@ -13662,7 +13691,7 @@ function heroSheet(d) {
         var v = stashPick(H, r);
         var room = H.stashRoom ? H.stashRoom[r] : crate.res[r];
         h += '<div class="stash-l"><span>' + RES_ICON[r] + '</span><input type="range" min="0" max="' + crate.res[r] + '" step="1" data-hero-take="' + r + '" value="' + v + '">';
-        h += '<input type="number" min="0" max="' + crate.res[r] + '" data-hero-take="' + r + '" value="' + v + '"><small>/ ' + shortNum(crate.res[r]) + (room < crate.res[r] ? ' · <span title="Free storage in ' + esc(H.home) + '">fits ' + shortNum(room) + "</span>" : "") + "</small></div>";
+        h += '<input type="number" inputmode="numeric" min="0" max="' + crate.res[r] + '" data-hero-take="' + r + '" value="' + v + '"><small>/ ' + shortNum(crate.res[r]) + (room < crate.res[r] ? ' · <span title="Free storage in ' + esc(H.home) + '">fits ' + shortNum(room) + "</span>" : "") + "</small></div>";
       });
       h += '</div><div class="mkquick"><button type="button" class="chipbtn" data-stash-q="fit">' + '📦' + ' What fits</button><button type="button" class="chipbtn" data-stash-q="half">½ Half</button><button type="button" class="chipbtn" data-stash-q="none">0 None</button></div>';
       h += '<button class="btn" data-hero-open-crate="1">Collect</button></div>';
@@ -14218,9 +14247,9 @@ function routesPanel(d) {
   h += '<p class="hint">When enabled, each run sends as much wood, stone, metal and food as possible above your reserve. Cargo space is shared proportionally between resource types.</p>';
   h += '<div class="mkres"' + (rt.allSurplus ? ' style="opacity:.45;pointer-events:none"' : "") + '>';
   RES.forEach(function (k) {
-    h += '<label>' + RES_ICON[k] + '<input data-rt="' + k + '" type="number" min="0" placeholder="0" value="' + esc(rt[k]) + '"' + (rt.allSurplus ? " disabled" : "") + '></label>';
+    h += '<label>' + RES_ICON[k] + '<input data-rt="' + k + '" type="number" inputmode="numeric" min="0" placeholder="0" value="' + esc(rt[k]) + '"' + (rt.allSurplus ? " disabled" : "") + '></label>';
   });
-  h += '</div><div class="mkrow"><b>Every</b><input data-rt="every" type="number" min="' + m.intervalMin + '" max="' + m.intervalMax + '" step="1" value="' + esc(rt.every) + '" title="Interval in minutes"><b>min</b><b title="This share of the storage always stays here">keep</b><input data-rt="keep" type="number" min="0" max="90" value="' + esc(rt.keep) + '"><b>%</b></div>';
+  h += '</div><div class="mkrow"><b>Every</b><input data-rt="every" type="number" min="' + m.intervalMin + '" max="' + m.intervalMax + '" step="1" value="' + esc(rt.every) + '" title="Interval in minutes"><b>min</b><b title="This share of the storage always stays here">keep</b><input data-rt="keep" type="number" inputmode="numeric" min="0" max="90" value="' + esc(rt.keep) + '"><b>%</b></div>';
   h += '<label class="jp-l">' + '🕐' + ' Send first load at (optional)<input type="datetime-local" data-rt="startAt" value="' + esc(rt.startAt) + '"></label>';
   h += '<label class="jp-l">' + '🏁' + ' OR make first load land at (optional)<input type="datetime-local" data-rt="landAt" value="' + esc(rt.landAt) + '"></label>';
   h += '<p class="hint">Choose one time or leave both empty to send now. Landing time is calculated from the current travel duration. The route then repeats every ' + m.intervalMin + '–' + m.intervalMax + ' minutes.</p>';
@@ -14283,7 +14312,7 @@ function sendPanel(d) {
     var v = parseInt(mk[k], 10) || 0;
     var loads = v ? Math.round((v / m.carry) * 10) / 10 : 0;
     h += '<div class="mkc"><span class="mkc-i">' + RES_ICON[k] + "</span>";
-    h += '<input data-mk="' + k + '" type="number" min="0" max="' + d.res[k] + '" placeholder="0" value="' + esc(mk[k]) + '">';
+    h += '<input data-mk="' + k + '" type="number" inputmode="numeric" min="0" max="' + d.res[k] + '" placeholder="0" value="' + esc(mk[k]) + '">';
     h += '<button type="button" class="mkstep" id="mkm-' + k + '" data-mk-step="' + k + ':-1" title="One camel less"' + (v ? "" : " disabled") + ">−🐪</button>";
     h += '<button type="button" class="mkstep plus" data-mk-step="' + k + ':1" title="One more camel load (' + m.carry + ')">+' + '🐪' + '</button>';
     h += '<button type="button" class="mkhave" data-mk-all="' + k + '" title="Send as much as possible">' + shortNum(d.res[k]) + "</button>";
@@ -14301,7 +14330,7 @@ function swapPanel(d) {
   var m = d.market;
   var h = '<form id="swapform" class="mkform"><div class="mkrow">';
   h += '<select data-mk="give">' + RES.map(function (k) { return '<option value="' + k + '"' + (mk.give === k ? " selected" : "") + ">" + RES_ICON[k] + " " + RES_NAME[k] + "</option>"; }).join("") + "</select>";
-  h += '<input data-mk="amount" type="number" min="10" placeholder="100" value="' + esc(mk.amount) + '">';
+  h += '<input data-mk="amount" type="number" inputmode="numeric" min="10" placeholder="100" value="' + esc(mk.amount) + '">';
   h += "<b>→</b>";
   h += '<select data-mk="get">' + RES.map(function (k) { return '<option value="' + k + '"' + (mk.get === k ? " selected" : "") + ">" + RES_ICON[k] + " " + RES_NAME[k] + "</option>"; }).join("") + "</select></div>";
   h += '<p class="stat" id="mkswap"></p><p class="hint">Rate: 100 → ' + m.rate + "</p>";
@@ -14481,7 +14510,7 @@ function npcPanel(d) {
   var h = '<p class="hint">Hand out your stock again: what you give away comes back at ' + d.market.rate + '%.</p><div class="npc">';
   RES.forEach(function (k) {
     h += '<div class="npc-row"><span class="npc-i">' + RES_ICON[k] + '</span><button type="button" class="npc-lock' + (nd.lock[k] ? " on" : "") + '" id="ndl-' + k + '" data-nd-lock="' + k + '" title="Lock: keep this amount">' + (nd.lock[k] ? "🔒" : "🔓") + "</button>";
-    h += '<input type="number" min="0" id="ndn-' + k + '" data-nd="' + k + '" value="' + nd.t[k] + '"><b class="npc-chg" id="ndc-' + k + '"></b>';
+    h += '<input type="number" inputmode="numeric" min="0" id="ndn-' + k + '" data-nd="' + k + '" value="' + nd.t[k] + '"><b class="npc-chg" id="ndc-' + k + '"></b>';
     h += '<input type="range" class="npc-slider" min="0" max="' + ndCap(d, k) + '" id="ndr-' + k + '" data-ndr="' + k + '" value="' + nd.t[k] + '"' + (nd.lock[k] ? " disabled" : "") + "></div>";
   });
   h += '<div class="npc-foot"><span>Total after <b id="nd-sum"></b></span><span>Rest <b id="nd-rest"></b></span></div>';
@@ -14541,7 +14570,7 @@ function recallSheet(m) {
   if (!m.units || !m.units.length) return h + '<p class="empty">Nobody there.</p>';
   m.units.forEach(function (u) {
     h += '<div class="sendrow recallrow"><span class="big">' + u.icon + '</span><div class="grow"><b>' + u.name + "</b><small>there: " + u.count + "</small></div>";
-    h += '<input type="number" min="0" max="' + u.count + '" placeholder="0" data-recall-count="' + u.key + '" value="' + (recallCount[u.key] || "") + '">';
+    h += '<input type="number" inputmode="numeric" min="0" max="' + u.count + '" placeholder="0" data-recall-count="' + u.key + '" value="' + (recallCount[u.key] || "") + '">';
     h += '<button class="btn small ghost" data-recall-all="' + u.key + ":" + u.count + '">All</button></div>';
   });
   h += '<div class="btnrow"><button class="btn" data-recall-go="' + m.id + '">' + (out ? "🏡 Call these home" : "👋 Send these home") + "</button>";
@@ -14721,7 +14750,7 @@ function stashTransferSheet(d) {
     var max = Math.min(have, room);
     heroTake[r] = Math.min(max, Math.max(0, Math.floor(heroTake[r] || 0)));
     var stillMissing = Math.max(0, Math.floor((heroNeed[r] || 0) - heroTake[r]));
-    h += '<div class="st-row"><span>' + RES_ICON[r] + ' ' + shortNum(have) + (stillMissing ? '<small class="stash-short" data-stash-short="' + r + '">Still missing ' + shortNum(stillMissing) + '</small>' : '<small class="stash-short" data-stash-short="' + r + '" hidden></small>') + '</span><input aria-label="' + esc(RES_NAME[r]) + ' transfer" type="number" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"><b data-stash-result="' + r + '">' + Math.floor(d.res[r] + heroTake[r]).toLocaleString() + '</b><input aria-label="' + esc(RES_NAME[r]) + ' transfer slider" type="range" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"></div>';
+    h += '<div class="st-row"><span>' + RES_ICON[r] + ' ' + shortNum(have) + (stillMissing ? '<small class="stash-short" data-stash-short="' + r + '">Still missing ' + shortNum(stillMissing) + '</small>' : '<small class="stash-short" data-stash-short="' + r + '" hidden></small>') + '</span><input aria-label="' + esc(RES_NAME[r]) + ' transfer" type="number" inputmode="numeric" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"><b data-stash-result="' + r + '">' + Math.floor(d.res[r] + heroTake[r]).toLocaleString() + '</b><input aria-label="' + esc(RES_NAME[r]) + ' transfer slider" type="range" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"></div>';
   });
   var transferable = RES.some(function(r) { return (H.stash && H.stash[r] || 0) > 0 && d.capacity[r] > d.res[r]; });
   return h + '</div><p class="dim">' + (transferable ? 'Amounts are limited by available inventory and free storage.' : 'Your inventory is empty or this colony has no free storage. Claim a quest reward or make room in storage, then return here.') + '</p><button class="btn small" data-hero-open-crate="1"' + (transferable ? '' : ' disabled') + '>Transfer selected</button>';
@@ -14732,7 +14761,7 @@ try { if (darkModeOn()) { document.documentElement.classList.add("dark-mode"); d
 function renderSheet() {
   var box = document.getElementById("sheet");
   if (!sheet || !data) { setHTML(box, ""); return; }
-  var oldPanel = box.querySelector(".sheet"), oldScrollTop = oldPanel ? oldPanel.scrollTop : 0;
+  var oldPanel = box.querySelector(".sheet"), oldScrollTop = oldPanel && !sheetAnim ? oldPanel.scrollTop : 0;
   var d = data;
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
   sheetAnim = false;
@@ -15415,7 +15444,7 @@ function mapShell() {
   h += '<button class="pan p-n" data-pan="0,3">▲</button><button class="pan p-s" data-pan="0,-3">▼</button>';
   h += '<button class="pan p-w" data-pan="-3,0">◀</button><button class="pan p-e" data-pan="3,0">▶</button></div>';
   h += '<div class="maptools"><canvas id="minimap" width="61" height="61" title="Click to jump"></canvas><div class="side-tools">';
-  h += '<form class="goto" id="gotoform"><b>Go to</b><input id="gx" type="number" placeholder="X"><input id="gy" type="number" placeholder="Y"><button class="btn small" type="submit">' + '🔭' + '</button></form>';
+  h += '<form class="goto" id="gotoform"><b>Go to</b><input aria-label="X coordinate" id="gx" type="number" placeholder="X"><input aria-label="Y coordinate" id="gy" type="number" placeholder="Y"><button aria-label="Go to coordinates" class="btn small" type="submit">' + '🔭' + '</button></form>';
   h += '<div class="legend"><span>🧑‍🚀 Human</span><span>' + '🐔' + ' Chicken</span><span>' + '👽' + ' Alien</span><span>' + '🦂' + ' Monster camp</span><span>' + '🚩' + ' Landing Zone</span><span>❄️ Ice</span><span>' + '🌋' + ' Volcano</span><span>' + '🗿' + ' Landmark</span></div>';
   h += '<small>Drag to move · scroll or ' + '➕➖' + ' to zoom · arrow keys work too</small>';
   h += "</div></div></section></div>";
@@ -17590,21 +17619,21 @@ function auctionSheet() {
     if (!A.shards.length) h += '<p class="empty">You have no commander shards to sell. Shards come from the commander shop.</p><p class="hint left"><button class="btn small ghost" data-cmd-open="1">🎫 Open commanders</button></p>';
     A.shards.forEach(function (sh) {
       h += '<div class="auc-row stack"><div class="auc-item"><b>' + sh.icon + ' <span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b><small>" + sh.count + " shards</small></div>" +
-        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + sh.count + '" value="' + sh.count + '" id="auc-n-' + sh.key + '" aria-label="How many shards"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + sh.key + '" aria-label="Start price"><select id="auc-h-' + sh.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-lot="' + sh.key + '">Sell</button></div></div></div>';
+        '<div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + sh.count + '" value="' + sh.count + '" id="auc-n-' + sh.key + '" aria-label="How many shards"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + sh.key + '" aria-label="Start price"><select id="auc-h-' + sh.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-lot="' + sh.key + '">Sell</button></div></div></div>';
     });
     h += '<p class="hint left">Pick how many shards go into the lot (the number field first), the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. Shards nobody bids on come back to you.</p>";
   } else if (auc.tab === "commanders") {
     if (!A.commanders.length) h += '<p class="empty">No spare commanders to sell. The active commander is not for sale; fuse shards from the shop to get more.</p><p class="hint left"><button class="btn small ghost" data-cmd-open="1">🎫 Open commanders</button></p>';
     A.commanders.forEach(function (co) {
       h += '<div class="auc-row stack"><div class="auc-item"><b>' + co.icon + ' <span class="cmd-rar r-' + co.rarity + '">' + esc(co.name) + "</span></b><small>" + co.rarity + " commander · rank " + co.rank + "/5 · " + esc(co.trait) + " · 🎫 +" + Math.round(co.rate * 10) / 10 + "/h</small></div>" +
-        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + A.rules.priceMax + '" value="1000000" id="auc-mp-' + co.id + '" aria-label="Start price"><select id="auc-mh-' + co.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-cmd="' + co.id + '">Auction</button></div></div></div>';
+        '<div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="1000000" id="auc-mp-' + co.id + '" aria-label="Start price"><select id="auc-mh-' + co.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-cmd="' + co.id + '">Auction</button></div></div></div>';
     });
     if (A.commanders.length) h += '<p class="hint left">Start price in ' + esc(A.currency.name) + ". Same rules and fee as gear. The winner gets it as a commander of its own, with its rank and shiny tier. Commanders nobody bids on come back to you.</p>";
   } else if (auc.tab === "creatures") {
     if (!A.creatures.length) h += '<p class="empty">No creatures to sell. Creatures in a hunt slot are not for sale: take them out first.</p><p class="hint left"><button class="btn small ghost" data-hunt-open="1">🐾 Open the hunt</button></p>';
     A.creatures.forEach(function (cr) {
       h += '<div class="auc-row stack"><div class="auc-item"><b>' + cr.icon + ' <span class="cmd-rar r-' + cr.rarity + '">' + esc(cr.name) + "</span></b><small>" + cr.count + " in your inventory · 💲 " + (Math.round((cr.cash || 0) * 10) / 10) + "/s each</small></div>" +
-        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + cr.count + '" value="1" id="auc-cn-' + cr.key + '" aria-label="How many"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-cp-' + cr.key + '" aria-label="Start price"><select id="auc-ch-' + cr.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-crea="' + cr.key + '">Sell</button></div></div></div>';
+        '<div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + cr.count + '" value="1" id="auc-cn-' + cr.key + '" aria-label="How many"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-cp-' + cr.key + '" aria-label="Start price"><select id="auc-ch-' + cr.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-crea="' + cr.key + '">Sell</button></div></div></div>';
     });
     h += '<p class="hint left">Pick how many go into the lot, the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. A winner needs room in the creature inventory; creatures nobody bids on come back to you.</p>";
   } else if (auc.tab === "cons") {
@@ -17612,14 +17641,14 @@ function auctionSheet() {
     else if (!A.consumables.length) h += '<p class="empty">No supplies to sell. Dressings, medkits, journals, recovery kits and Insight tokens drop on your commander’s adventures.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
     A.consumables.forEach(function (co) {
       h += '<div class="auc-row stack"><div class="auc-item"><b>' + co.icon + ' <span class="cmd-rar r-' + co.rarity + '">' + esc(co.name) + "</span></b><small>" + co.count + " in your supplies · " + esc(co.text) + "</small></div>" +
-        '<div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + co.count + '" value="1" id="auc-sn-' + co.key + '" aria-label="How many"><input type="number" min="1" max="' + A.rules.priceMax + '" value="10000" id="auc-sp-' + co.key + '" aria-label="Start price"><select id="auc-sh-' + co.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-cons="' + co.key + '">Sell</button></div></div></div>';
+        '<div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + co.count + '" value="1" id="auc-sn-' + co.key + '" aria-label="How many"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="10000" id="auc-sp-' + co.key + '" aria-label="Start price"><select id="auc-sh-' + co.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-cons="' + co.key + '">Sell</button></div></div></div>';
     });
     if (A.consumables.length) h += '<p class="hint left">Pick how many go into the lot, the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. Supplies nobody bids on come back to you.</p>";
   } else if (auc.tab === "sell") {
     if (!A.hasHero) h += '<p class="empty">Gear comes from your commander’s bag. Get a commander first.</p>';
     else if (!A.items.length) h += '<p class="empty">Your bag has no gear to sell yet. Gear drops when your commander leads attacks on monster camps; equipped gear can’t be sold, take it off first.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
     A.items.forEach(function (it) {
-      h += '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
+      h += '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
     });
     h += '<p class="hint left">Start price in ' + esc(A.currency.name) + ". Up to " + A.rules.maxActive + " auctions at once. The sale costs a " + A.rules.fee + "% fee. Gear nobody bids on comes back to your bag.</p>";
   } else {
@@ -18316,30 +18345,23 @@ document.addEventListener("input", function (e) {
   }
 });
 
-/* Swipe-to-close sheets on mobile */
+/* The handle owns the dismiss gesture. Sheet content keeps native scrolling. */
 (function () {
-  var startY = 0, startX = 0, tracking = false, scroller = null;
-  document.addEventListener("touchstart", function (e) {
-    var sheet = e.target.closest(".sheet");
-    if (!sheet || e.target.closest(".sheet-head") || e.target.closest("input") || e.target.closest("textarea") || e.target.closest("select")) return;
-    // a sheet that is scrolled down (the commander, long reports) must scroll, not close
-    if (sheet.scrollTop > 0) return;
-    var t = e.touches[0];
-    startY = t.clientY; startX = t.clientX; tracking = true; scroller = sheet;
-  }, { passive: true });
-  document.addEventListener("touchmove", function (e) {
-    if (!tracking) return;
-    // the content started scrolling during this gesture: leave it alone
-    if (scroller && scroller.scrollTop > 0) { tracking = false; return; }
-    var t = e.touches[0];
-    var dy = t.clientY - startY, dx = t.clientX - startX;
-    // Only close on downward swipe (>40px down, not horizontal)
-    if (dy > 40 && Math.abs(dy) > Math.abs(dx) * 1.5) {
-      tracking = false;
-      closeSheet();
-    }
-  }, { passive: true });
-  document.addEventListener("touchend", function () { tracking = false; });
+  var drag = null;
+  document.addEventListener("pointerdown", function (e) {
+    if (!e.isPrimary || !e.target.closest(".sheet-drag")) return;
+    e.target.setPointerCapture(e.pointerId);
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, panel: sheet };
+  });
+  document.addEventListener("pointerup", function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dy = e.clientY - drag.y;
+    if (drag.panel === sheet && dy > 48 && dy > Math.abs(e.clientX - drag.x) * 1.5) closeSheet();
+    drag = null;
+  });
+  document.addEventListener("lostpointercapture", function (e) {
+    if (drag && e.pointerId === drag.id) drag = null;
+  });
 })();
 
 document.addEventListener("submit", function (e) {
