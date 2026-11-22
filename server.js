@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.460";
+const GAME_VERSION = "1.0.461";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1356,7 +1356,8 @@ for (const t in TRIBES) TRIBES[t].key = t;
 //  from fixed "noise", so the planet looks the same every time.
 // =====================================================================
 const MAP_RADIUS = 100;
-const CHUNK_RADIUS = 12; // the browser loads 25 x 25 tiles at a time
+const CHUNK_RADIUS = 12; // the browser loads at least 25 x 25 tiles at a time
+const CHUNK_RADIUS_MAX = 24; // a big screen zoomed out asks for more (?r=)
 const SAFE_RADIUS = 4; // calm land in the middle for new players
 
 const TERRAIN = {
@@ -8627,7 +8628,8 @@ app.get("/api/map", requireLogin, (req, res) => {
   let cy = parseInt(req.query.y, 10);
   cx = clamp(Number.isNaN(cx) ? me.x : cx);
   cy = clamp(Number.isNaN(cy) ? me.y : cy);
-  const R = CHUNK_RADIUS;
+  const rq = parseInt(req.query.r, 10);
+  const R = Number.isNaN(rq) ? CHUNK_RADIUS : Math.max(CHUNK_RADIUS, Math.min(CHUNK_RADIUS_MAX, rq));
 
   const rows = [];
   const camps = [];
@@ -17646,6 +17648,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.461",date:"2026-11-22",title:"Smoother map",groups:[["🗺️ Map",["Moving across the map no longer rebuilds the whole screen: only the tiles that are new or changed are redrawn, and the refresh every ten seconds leaves untouched tiles alone.","The next piece of the map is fetched while four tiles of land are still left off-screen, and it is sized to your screen and zoom, so full screen and zoomed out views have no blank edges.","The minimap redraws at most ten times a second while you drag."]]]},
   {v:"1.0.460",date:"2026-11-22",title:"Fewer shards from adventures",groups:[["🧩 Adventures",["An adventure now brings home commander shards about one trip in ten (one in seven on the dangerous route), down from one in five.","The piles are smaller too: one or two shards for common and uncommon commanders, always one for rare and above. Together that is roughly a third of the shards adventures gave before. The odds of which commander you get are unchanged."]]]},
   {v:"1.0.459",date:"2026-11-22",title:"Map full screen",groups:[["🗺️ Map",["New full screen button on the map toolbar: the map fills the whole screen and the buttons float on top. Leave it with the same button or the back gesture of your phone.","The map is taller on phones in normal view too."]]]},
   {v:"1.0.458",date:"2026-11-22",title:"Slimmer colony header on phones",groups:[["📱 Mobile",["The colony name now stays on one line next to the buttons, and the wallet sits beside the player line. The header is about a third shorter, with everything still in it."]]]},

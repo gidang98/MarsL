@@ -15442,33 +15442,42 @@ function openMap() {
   map.sel = map.pending ? { x: start.x, y: start.y } : null; // no info popup when the map just opens
   map.pending = null;
   map.chunk = null;
+  map.tiles = null;
   setupMapInput();
   loadChunk(true);
   loadMinimap();
 }
 
+// how many tiles around the middle the loaded piece needs: the view plus room to move before the next piece arrives
+function chunkRadius() {
+  return Math.max(12, Math.min(24, Math.ceil(Math.max(ZOOMS[map.zoom] / 2, viewHalfRows())) + 8));
+}
 function loadChunk(force) {
   if (map.loading) return;
   var cx = Math.round(map.cam.x);
   var cy = Math.round(map.cam.y);
+  var rad = chunkRadius();
   if (!force && map.chunk) {
-    var c = map.chunk.center;
-    var marginX = (map.chunk.size - 1) / 2 - ZOOMS[map.zoom] / 2 - 1;
-    var marginY = (map.chunk.size - 1) / 2 - viewHalfRows() - 1;
-    if (Math.abs(map.cam.x - c.x) < marginX && Math.abs(map.cam.y - c.y) < marginY) return;
+    var c = map.chunk.center, half = (map.chunk.size - 1) / 2;
+    // fetch the next piece while 4 tiles of land are still left beyond the edge of the screen
+    var marginX = half - ZOOMS[map.zoom] / 2 - 4;
+    var marginY = half - viewHalfRows() - 4;
+    if (half >= rad && Math.abs(map.cam.x - c.x) < Math.max(1, marginX) && Math.abs(map.cam.y - c.y) < Math.max(1, marginY)) return;
   }
   map.loading = true;
-  fetch("/api/map?x=" + cx + "&y=" + cy).then(function (r) {
+  fetch("/api/map?x=" + cx + "&y=" + cy + "&r=" + rad).then(function (r) {
     map.loading = false;
     if (handle401(r)) return;
     return r.json().then(function (m) {
-      if (view !== "map") return;
+      if (view === "map" && (!m || !m.rows)) setTimeout(function () { if (view === "map") loadChunk(false); }, 2000); // refused for now: try again shortly
+      if (view !== "map" || !m || !m.rows) return;
       map.chunk = m;
       drawTiles();
       positionWorld();
       renderTileInfo();
+      loadChunk(false); // the map may have moved on while this piece was on its way
     });
-  }).catch(function () { map.loading = false; });
+  }).catch(function () { map.loading = false; setTimeout(function () { if (view === "map") loadChunk(false); }, 2000); });
 }
 
 function loadMinimap() {
@@ -15568,7 +15577,7 @@ function canyonRim(o) {
 }
 function drawTiles() {
   var ch = map.chunk;
-  var h = "";
+  var MR = ch.mapRadius || 100, strs = [], keys = [];
   for (var j = 0; j < ch.size; j++) {
     for (var i = 0; i < ch.size; i++) {
       var x = ch.origin.x + i;
@@ -15633,11 +15642,34 @@ function drawTiles() {
         var nb = function (di, dj) { var r = ch.rows[j + dj]; var cc = r ? r[i + di] : undefined; return cc === undefined || cc === code; };
         cls += " rg" + (nb(0, -1) ? "" : " eN") + (nb(0, 1) ? "" : " eS") + (nb(-1, 0) ? "" : " eW") + (nb(1, 0) ? "" : " eE");
       }
-      h += '<div class="' + cls + " g" + gv + '" style="left:calc(var(--T)*' + i + ");top:calc(var(--T)*" + j + ");--gx:" + gx + ";--gy:" + gy + rim + '">' + inner + "</div>";
+      // positions count from the corner of the whole planet, so a tile keeps its style when the loaded piece moves
+      strs.push('<div data-k="' + x + "|" + y + '" class="' + cls + " g" + gv + '" style="left:calc(var(--T)*' + (x + MR) + ");top:calc(var(--T)*" + (MR - y) + ");--gx:" + gx + ";--gy:" + gy + rim + '">' + inner + "</div>");
+      keys.push(x + "|" + y);
     }
   }
-  setHTML(document.getElementById("tiles"), h);
+  // only tiles that are new or changed are rebuilt; the rest of the screen stays untouched
+  var box = document.getElementById("tiles"), locale = localeRenderKey();
+  if (!map.tiles || box._tilesLocale !== locale || !box.firstChild) { map.tiles = new Map(); box.innerHTML = ""; box._tilesLocale = locale; }
+  var fresh = [], freshKeys = [], keep = new Set(keys);
+  for (var n = 0; n < strs.length; n++) {
+    var had = map.tiles.get(keys[n]);
+    if (!had || had.html !== strs[n]) { fresh.push(strs[n]); freshKeys.push(n); }
+  }
+  map.tiles.forEach(function (t, k) { if (!keep.has(k)) { if (t.el.parentNode) t.el.parentNode.removeChild(t.el); map.tiles.delete(k); } });
+  if (fresh.length) {
+    morphTpl.innerHTML = fresh.join("");
+    trWalk(morphTpl.content);
+    giWalk(morphTpl.content);
+    var made = Array.prototype.slice.call(morphTpl.content.children);
+    made.forEach(function (el, m) {
+      var k = keys[freshKeys[m]], old = map.tiles.get(k);
+      if (old && old.el.parentNode === box) box.replaceChild(el, old.el); else box.appendChild(el);
+      map.tiles.set(k, { el: el, html: strs[freshKeys[m]] });
+    });
+  }
+  box._html = null;
 }
+
 
 // The little sign on a map tile that my troops or merchants are heading to
 var MOVE_MARK = { attack: ["⚔️", "Your troops attack here"], raid: ["💰", "Your troops raid here"], scout: ["🔍", "Your spies are on the way"], adventure: ["🧭", "Your commander is on an adventure"], trade: ["🐪", "Your merchants are on the way"], reinforce: ["🛡️", "Your troops come to help"], settle: ["🏳️", "Your settlers are on the way"], move: ["🚶", "Your commander is restationing here"] };
@@ -15660,22 +15692,27 @@ function positionWorld() {
   var t = T();
   var W = view_.clientWidth;
   var H = view_.clientHeight;
-  var o = map.chunk.origin;
-  world.style.setProperty("--T", t + "px");
-  var tx = W / 2 - (map.cam.x - o.x + 0.5) * t;
-  var ty = H / 2 - (o.y - map.cam.y + 0.5) * t;
+  var MR = map.chunk.mapRadius || 100;
+  if (world._t !== t) { world._t = t; world.style.setProperty("--T", t + "px"); }
+  var tx = W / 2 - (map.cam.x + MR + 0.5) * t;
+  var ty = H / 2 - (MR - map.cam.y + 0.5) * t;
   world.style.transform = "translate3d(" + tx + "px," + ty + "px,0)";
-  world.classList.toggle("labels", ZOOMS[map.zoom] <= 9);
+  var lab = ZOOMS[map.zoom] <= 9;
+  if (world._lab !== lab) { world._lab = lab; world.classList.toggle("labels", lab); }
   var sel = document.getElementById("selbox");
   if (map.sel) {
     sel.style.display = "block";
-    sel.style.left = "calc(var(--T)*" + (map.sel.x - o.x) + ")";
-    sel.style.top = "calc(var(--T)*" + (o.y - map.sel.y) + ")";
+    sel.style.left = "calc(var(--T)*" + (map.sel.x + MR) + ")";
+    sel.style.top = "calc(var(--T)*" + (MR - map.sel.y) + ")";
   } else {
     sel.style.display = "none";
   }
-  document.getElementById("coords").textContent = "📍 " + Math.round(map.cam.x) + " | " + Math.round(map.cam.y);
-  drawMinimap();
+  var ct = "📍 " + Math.round(map.cam.x) + " | " + Math.round(map.cam.y), ce = document.getElementById("coords");
+  if (ce.textContent !== ct) ce.textContent = ct;
+  // the minimap is drawn at most about ten times a second while the map moves
+  var now = Date.now();
+  if (now - (map.miniAt || 0) > 100) { map.miniAt = now; drawMinimap(); }
+  else if (!map.miniTimer) map.miniTimer = setTimeout(function () { map.miniTimer = 0; map.miniAt = Date.now(); drawMinimap(); }, 110);
 }
 
 var TERRAIN_COLORS = {
