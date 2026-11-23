@@ -4207,6 +4207,7 @@ function resolveCamp(m) {
     if (titanHere) titanHit(titanHere, att.userId, campLost.titan || 0);
 
     colonyStat(att, "npc", countUnits(campLost));
+    codexRecord(att.userId, campLost);
     if(f.attackerWins && countUnits(campLost)>0){ communityAdd(att.userId,true,T);colonyStat(att,"campWins",1); }
     if (campLost.kraken) giveBadge(att.userId, "kraken", "🐙", "Kraken Slayer", T);
     if (f.attackerWins) colonyStat(att, "wins", 1);
@@ -6567,6 +6568,54 @@ function questInventoryReward(userId, resources) {
   heroSave(userId, hero);
   return true;
 }
+
+// ---------- 📖 the codex: every creature you have beaten ----------
+// Kills are counted per creature, from the first fight after this page appeared.
+// Three milestones per creature pay a bounty into the commander inventory.
+const CODEX_TIERS = [1, 25, 250];
+const CODEX_PAY = [120, 480, 1800];
+function codexPay(kind, tier) {
+  const m = MONSTERS[kind];
+  return QR(Math.round(CODEX_PAY[tier] * (1 + Math.min(m.defG + m.defA, 1200) / 300)), "even");
+}
+function codexRecord(userId, lost) {
+  if (!lost) return;
+  const r = retentionOf(userId);
+  r.codex = r.codex || { kills: {}, claimed: {} };
+  let any = false;
+  for (const kind of Object.keys(MONSTERS)) {
+    const n = lost[kind] || 0;
+    if (n > 0) { r.codex.kills[kind] = (r.codex.kills[kind] || 0) + n; any = true; }
+  }
+  if (any) saveRetention(userId, r);
+}
+function codexView(userId) {
+  const c = retentionOf(userId).codex || { kills: {}, claimed: {} };
+  const list = Object.keys(MONSTERS).map((kind) => {
+    const m = MONSTERS[kind], kills = c.kills[kind] || 0;
+    return {
+      id: kind, kills, met: kills > 0,
+      name: kills > 0 ? m.name : "Unknown creature", icon: m.icon,
+      ground: kills > 0 ? m.defG : null, air: kills > 0 ? m.defA : null,
+      steps: CODEX_TIERS.map((need, i) => ({ need, reward: codexPay(kind, i), claimed: !!(c.claimed || {})[kind + ":" + i], ready: kills >= need })),
+    };
+  });
+  return { met: list.filter((x) => x.met).length, total: list.length, list };
+}
+app.get("/api/codex", requireLogin, (req, res) => res.json(codexView(req.user.id)));
+app.post("/api/codex/claim", requireLogin, (req, res) => {
+  const b = req.body || {}, kind = String(b.id || ""), tier = parseInt(b.tier, 10);
+  if (!MONSTERS[kind] || !(tier >= 0 && tier < CODEX_TIERS.length)) return res.status(400).json({ error: "Unknown entry" });
+  const r = retentionOf(req.user.id);
+  const c = r.codex = r.codex || { kills: {}, claimed: {} };
+  c.claimed = c.claimed || {};
+  if (c.claimed[kind + ":" + tier]) return res.status(400).json({ error: "Already claimed" });
+  if ((c.kills[kind] || 0) < CODEX_TIERS[tier]) return res.status(400).json({ error: "Not done yet!" });
+  if (!questInventoryReward(req.user.id, codexPay(kind, tier))) return res.status(400).json({ error: "Commander inventory unavailable" });
+  c.claimed[kind + ":" + tier] = Date.now();
+  saveRetention(req.user.id, r);
+  res.json({ ok: true, reward: codexPay(kind, tier) });
+});
 
 // Quests that were claimed in THIS colony
 function claimedQuests(colony) {
@@ -12645,6 +12694,7 @@ app.get("/api/wiki", requireLogin, (req, res) => {
       cancel: Math.round(CANCEL_WINDOW_MS / 1000), 
       spyDetect: SPY_DETECT, spyWipe: SPY_WIPE, research: RESEARCH_COST,
     },
+    codexTiers: CODEX_TIERS,
     monsters: Object.keys(MONSTERS).map((k) => Object.assign({ key: k }, MONSTERS[k], { bounty: Object.fromEntries(RESOURCES.map((r) => [r, Math.round((MONSTERS[k].bounty[r] || 0) * campBountyScale())])) })),
     campScale: 1, campLoot: campLootScale(), campTrophy: campBountyScale(),
     camps: CAMP_TIERS.map((t, i) => ({ tier: i + 1, maxDist: t.maxDist === Infinity ? null : t.maxDist, kinds: t.kinds.map((c) => {
@@ -17650,6 +17700,7 @@ function escHtml(t) {
 const PATCH_NOTES = [
   {v:"1.0.463",date:"2026-11-24",title:"Clearer troop names",groups:[["Army",["Humans: Space-Soldier, Spy and Mortar.","Chickens: Hawk Interceptor and Dust Raider.","Aliens: Goo Guard, Spore Flak, Saucer Fighter and Jelly Bomber."]]]},
   {v:"1.0.462",date:"2026-11-22",title:"Phone controls",groups:[["📱 Mobile",["Map tools and protection controls wrap on small phones. Farm and inbox actions have larger tap targets.","Scroll freely through panels and swipe the handle to close. Newly opened panels start at the top.","Troop and resource quantities now request a numeric keypad."]]]},
+  {v:"1.0.462",date:"2026-11-23",title:"The Codex",groups:[["📖 Codex",["A new Codex lists every monster type and how many of each you have beaten. Open it from the wallet.","Monsters you have not met yet show as a dark shape. Beat one in a camp to learn its name and defence.","Each monster pays a bounty into your commander inventory at 1, 25 and 250 beaten; tougher monsters pay more.","Counting starts with this version, so earlier kills are not included."]]]},
   {v:"1.0.461",date:"2026-11-22",title:"Smoother map",groups:[["🗺️ Map",["Moving across the map no longer rebuilds the whole screen: only the tiles that are new or changed are redrawn, and the refresh every ten seconds leaves untouched tiles alone.","The next piece of the map is fetched while four tiles of land are still left off-screen, and it is sized to your screen and zoom, so full screen and zoomed out views have no blank edges.","The minimap redraws at most ten times a second while you drag."]]]},
   {v:"1.0.460",date:"2026-11-22",title:"Fewer shards from adventures",groups:[["🧩 Adventures",["An adventure now brings home commander shards about one trip in ten (one in seven on the dangerous route), down from one in five.","The piles are smaller too: one or two shards for common and uncommon commanders, always one for rare and above. Together that is roughly a third of the shards adventures gave before. The odds of which commander you get are unchanged."]]]},
   {v:"1.0.459",date:"2026-11-22",title:"Map full screen",groups:[["🗺️ Map",["New full screen button on the map toolbar: the map fills the whole screen and the buttons float on top. Leave it with the same button or the back gesture of your phone.","The map is taller on phones in normal view too."]]]},
