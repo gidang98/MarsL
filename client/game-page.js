@@ -14887,6 +14887,9 @@ function renderSheet() {
   } else if (sheet.kind === "commanders") {
     if (!cmd.data) { closeSheet(); return; }
     h += commanderSheet();
+  } else if (sheet.kind === "codex") {
+    if (!codex.data) { closeSheet(); return; }
+    h += codexSheet();
   } else if (sheet.kind === "auction") {
     if (!auc.data) { closeSheet(); return; }
     h += auctionSheet();
@@ -16406,7 +16409,7 @@ function wikiChapter(W, tab) {
     cards.push(wkCard("monsters", "👾", "Monsters", kt({
       head: ["Monster", "🛡️", "🎯", "Send"].concat(RES_HEAD, ["🏅 Σ"]), cls: "big",
       rows: W.monsters.map(function (m) { return [m.icon + " " + m.name, m.defG, m.defA, m.defA < m.defG ? "✈️" : m.defG < m.defA ? "🪖" : "both"].concat(resCells(m.bounty), [wkN(wkSum(m.bounty))]); }),
-    }) + wkNote("🛡️ Infantry defense, 🎯 Air defense. Send = the weaker side. 🏅 trophies per monster killed.")));
+    }) + wkNote("🛡️ Infantry defense, 🎯 Air defense. Send = the weaker side. 🏅 trophies per monster killed.") + wkNote("📖 The Codex (wallet → Codex) counts every monster you beat. At " + W.codexTiers.join(", ") + " beaten, each type pays a bounty into the commander inventory; tougher monsters pay more.")));
     var camps = [];
     W.camps.forEach(function (t) {
       t.kinds.forEach(function (c) {
@@ -17403,6 +17406,30 @@ function commanderSheet() {
   }
   return h;
 }
+// ---------- codex: every creature you have beaten ----------
+var codex = { data: null };
+function openCodex() {
+  fetch("/api/codex").then(function (r) { return r.json(); }).then(function (j) {
+    codex.data = j;
+    if (sheet && sheet.kind === "codex") renderSheet(); else openSheet("codex", null);
+  }).catch(function () { toast("⚠️ The server does not answer"); });
+}
+function codexSheet() {
+  var C = codex.data, h = "";
+  h += '<div class="sheet-head"><span class="hi">📖</span><div><h3>Codex</h3><b>' + C.met + " / " + C.total + " creatures met</b></div></div>";
+  C.list.forEach(function (m) {
+    var next = null;
+    m.steps.forEach(function (st) { if (!next && !st.claimed) next = st; });
+    h += '<div class="cmd-row sm' + (m.met ? " in" : " off") + '"><span class="cmd-ic"' + (m.met ? "" : ' style="filter:brightness(0) opacity(.3)"') + ">" + m.icon + "</span><div><b>" + esc(m.name) + "</b>";
+    h += m.met ? "<small>" + m.kills.toLocaleString() + " beaten · defence " + m.ground + " ground, " + m.air + " air</small>" : "<small>Beat one in a camp to meet it</small>";
+    if (next && m.met) h += heroBar("xp", Math.min(m.kills, next.need), next.need) + "<small>" + Math.min(m.kills, next.need).toLocaleString() + " / " + next.need.toLocaleString() + "</small>" + mbReward(next.reward);
+    h += "</div>";
+    var ready = m.steps.map(function (st, i) { return st.ready && !st.claimed ? i : -1; }).filter(function (i) { return i >= 0; })[0];
+    if (ready !== undefined) h += '<button class="btn small" data-codex-claim="' + m.id + ":" + ready + '">' + ico("gift", "sm") + " Claim</button>";
+    h += "</div>";
+  });
+  return h;
+}
 function cmdPost(body, msg) { post("/api/commanders", body, function () { if (msg) toast(msg, true); openCommanders(); }); }
 
 // ---------- the hunt ----------
@@ -17467,7 +17494,7 @@ function walletSheet() {
   h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
   var cr = wallet.crRate, cfr = walletCr() % 1;
   h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + Math.floor(walletCr()).toLocaleString("en-US") + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
-  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button></div>';
+  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button></div>';
   return h;
 }
 function openHunt() {
@@ -18465,7 +18492,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -18628,6 +18655,11 @@ document.addEventListener("click", function (e) {
     if (confirm("Choose this archetype? Changing it later means resetting all skill points.")) post("/api/hero", { action: "arch", key: ak }, function (r) { confetti(); toast("🎭 " + (r && r.archPicked || "Archetype") + " it is!", true); });
   } else if (has("data-wallet-open")) {
     openSheet("wallet", null);
+  } else if (has("data-codex-open")) {
+    openCodex();
+  } else if (has("data-codex-claim")) {
+    var cx = attr("data-codex-claim").split(":");
+    post("/api/codex/claim", { id: cx[0], tier: cx[1] }, function () { toast("📖 Bounty sent to your commander inventory", true); openCodex(); });
   } else if (has("data-hunt-open")) {
     openHunt();
   } else if (has("data-hunt-index")) {
