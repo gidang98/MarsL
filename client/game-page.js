@@ -4429,6 +4429,15 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 #tut, #tut.onb.top { z-index: 9; }
 @media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); max-height: 40vh; overflow-y: auto; border-radius: var(--radius-md); } }
 .dark-mode .tut-card { background: #3a3220; color: var(--ink); border-color: #5a4b2c; }
+/* the tour is told by Beppo in a speech bubble */
+.tut-card.tut-say { display: flex; gap: 10px; align-items: flex-end; padding: 0; background: none; border: 0; box-shadow: none; }
+.tut-beppo { flex: none; width: 64px; text-align: center; }
+.tut-beppo img { display: block; width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(90,40,30,.3)); }
+.tut-beppo b { display: block; font-size: 11px; opacity: .75; }
+.tut-bub { position: relative; flex: 1; min-width: 0; padding: 12px 16px; background: #fffbe6; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.tut-bub::before { content: ""; position: absolute; left: -8px; bottom: 26px; width: 14px; height: 14px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+.dark-mode .tut-bub, .dark-mode .tut-bub::before { background: #3a3220; border-color: #5a4b2c; }
+.tut-say .tut-p { cursor: pointer; }
 .dark-mode .panel, .dark-mode .lead, .dark-mode .card, .dark-mode .sheet { background-image: none !important; }
 .dark-mode .verfoot { background: rgba(40,35,45,.86) !important; color: var(--muted) !important; }
 .dark-mode h2.section, .dark-mode .build-advice, .dark-mode .fx-core { background: rgba(40,35,45,.9) !important; color: var(--ink) !important; }
@@ -8835,7 +8844,7 @@ function renderQueue(d) {
     h += '<div class="qitem"><span class="big">' + q.icon + "</span>";
     h += '<div class="qbody"><b>' + q.name + "</b> → Level " + q.targetLevel;
     h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
-    h += "<small>" + (q.active ? "🤖 " + fmt(q.remainingMs) + " left" : "💤 Waiting · takes " + fmt(q.durationMs)) + " · ready at " + clockText(serverNow() + sum) + (q.asked ? " ·" + '🤝' + "+ ' " + q.helpers : "") + "</small></div>";
+    h += "<small>" + (q.active ? "🤖 " + fmt(q.remainingMs) + " left" : "💤 Waiting · takes " + fmt(q.durationMs)) + " · ready at " + clockText(serverNow() + sum) + (q.asked ? " · 🤝 " + q.helpers : "") + "</small></div>";
     h += boostOrFree(q);
     if (q.canCancel) h += cancelBtn(q, 'data-cancel="1"');
     h += "</div>";
@@ -9934,15 +9943,15 @@ function bubble(mood) {
   return '<div class="bubble"><span class="bi">' + face + "</span><div><b>" + esc(c.name) + "</b><p>" + esc(L.text) + "</p></div></div>";
 }
 // a short beep for every letter, a little different for every speaker
-function blip(pitch) {
+function blip(pitch, soft) {
   if (!sound.on) return;
   var ctx = audio();
   if (!ctx) return;
   var t = ctx.currentTime + 0.005, o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = "square";
+  o.type = soft ? "sine" : "square";
   o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
-  g.gain.setValueAtTime(0.04, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  g.gain.setValueAtTime(soft ? 0.05 : 0.04, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (soft ? 0.07 : 0.05));
   o.connect(g); g.connect(ctx.destination);
   o.start(t); o.stop(t + 0.06);
 }
@@ -10814,7 +10823,7 @@ function buildHelpPanel(M) {
     h += '<div class="stayrow"><div><b>' + r.icon + " " + esc(r.name) + " → Lv " + r.level + "</b><small>" + esc(r.owner) + " · " + esc(r.colonyName) + " · " + (r.running ? fmt(r.leftMs) + " left" : "waiting") + " · −" + r.allyPct + "/" + r.maxPct + "%</small></div>";
     if (r.mine) h += '<small class="muted">yours</small>';
     else if (r.helped) h += '<small class="muted">' + '✅' + ' helped</small>';
-    else h += '<button class="btn small" data-build-help="' + r.colony + '"' + (r.left > 0 ? "" : " disabled") + ">🤝 −" + B.per + "%" + (r.left > 0 ? "" : "" + '✓' + "+ '") + "</button>";
+    else h += '<button class="btn small" data-build-help="' + r.colony + '"' + (r.left > 0 ? "" : " disabled") + ">🤝 −" + B.per + "%" + (r.left > 0 ? "" : " ✓") + "</button>";
     h += "</div>";
   });
   return h + "</section>";
@@ -11895,10 +11904,10 @@ function renderReportBody(r) {
     h += '<div class="side"><h4>⛰️ Monsters at ' + placeLink(d.defender) + " (" + d.defender.x + "|" + d.defender.y + ")</h4>";
     h += d.intel.monsters.length ? unitTable(d.intel.monsters, false) : '<p class="empty">Nobody home. The camp is empty!</p>';
     if (d.intel.defG !== undefined) h += "<p>🛡️ Infantry defense <b>" + d.intel.defG + "</b> · 🎯 Air defense <b>" + d.intel.defA + "</b></p>";
-    h += "<p>💎 Treasure: " + resLine(d.intel.treasure) + "</p>" + (d.intel.fullAt ? "<p" + '🌱' + "+ ' Monsters full again at " + clockText(d.intel.fullAt) + "</p>" : "") + "</div>";
+    h += "<p>💎 Treasure: " + resLine(d.intel.treasure) + "</p>" + (d.intel.fullAt ? "<p>🌱 Monsters full again at " + clockText(d.intel.fullAt) + "</p>" : "") + "</div>";
   } else if (d.mission === "meteor") {
     var mg = d.loot ? sumRes(d.loot) : 0;
-    h += '<div class="rout">' + (mg ? '<span class="win">' + (d.drain ? "🔌" : "☄️") + " +" + mg + (d.carry ? " / " + d.carry : "") + "</span>" : "<span" + '💨' + "+ ' Nothing left</span>") + "</div>";
+    h += '<div class="rout">' + (mg ? '<span class="win">' + (d.drain ? "🔌" : "☄️") + " +" + mg + (d.carry ? " / " + d.carry : "") + "</span>" : "<span>💨 Nothing left</span>") + "</div>";
     if (d.loot) h += '<div class="rloot">' + resLine(d.loot) + "</div>";
   } else if (d.mission === "aurora") {
     if (d.goods) {
@@ -11919,7 +11928,7 @@ function renderReportBody(r) {
   } else if (d.mission === "adventure") {
     if(d.consumable)h+='<p>'+esc(d.consumable.icon)+' '+esc(d.consumable.name)+' ×'+d.consumable.count+' · Commander inventory</p>';
     if(d.shard)h+='<p>🧩 '+esc(d.shard.icon)+' '+esc(d.shard.name)+' shard ×'+d.shard.count+' · '+esc(d.shard.rarity)+'</p>';
-    h += '<div class="side"><h4>🎖️ ' + esc(d.name) + "</h4>+" + d.xp + " xp" + (d.levelUp ? " · ⬆️ level " + d.levelUp : "") + (d.hp ? " · ❤️ −" + d.hp : "") + (d.res ? "<br>📦 " + resLine(d.res) : "") + (d.found ? '<br><span class="rar t' + (d.found.tier || 1) + '">' + d.found.icon + " " + (d.found.tier ? RARITY[d.found.tier - 1] + " " : "") + esc(d.found.name) + "</span>" : "") + (d.bagFull ? "<br><small" + '🎒' + "+ ' Inventory full: " + d.bagFull.icon + " " + esc(d.bagFull.name) + " was left behind</small>" : "") + "</div>";
+    h += '<div class="side"><h4>🎖️ ' + esc(d.name) + "</h4>+" + d.xp + " xp" + (d.levelUp ? " · ⬆️ level " + d.levelUp : "") + (d.hp ? " · ❤️ −" + d.hp : "") + (d.res ? "<br>📦 " + resLine(d.res) : "") + (d.found ? '<br><span class="rar t' + (d.found.tier || 1) + '">' + d.found.icon + " " + (d.found.tier ? RARITY[d.found.tier - 1] + " " : "") + esc(d.found.name) + "</span>" : "") + (d.bagFull ? "<br><small>🎒 Inventory full: " + d.bagFull.icon + " " + esc(d.bagFull.name) + " was left behind</small>" : "") + "</div>";
   } else if (d.mission === "offer") {
     h += '<div class="side"><h4>' + trf("🤝 {0} took your offer", esc(d.by)) + "</h4>" + RES_ICON[d.giveRes] + " " + d.giveAmt + " → " + RES_ICON[d.wantRes] + " " + d.wantAmt + "<br><small>Both loads are on the way.</small></div>";
   } else if (d.mission === "trade") {
@@ -11938,7 +11947,7 @@ function renderReportBody(r) {
     h += '<div class="side"><h4>' + '🔍' + ' Your spies</h4>' + unitTable(d.attacker.units, true) + "</div>";
     if (d.intel) {
       h += '<div class="side"><h4>' + '📦' + ' Resources at ' + placeLink(d.defender) + "</h4>" + resLine(d.intel.res);
-      h += "<br>" + trf("🧱 Wall Lv {0} ·" + '🔒' + "+ ' Bunker hides {1} each", d.intel.wall, d.intel.bunker);
+      h += "<br>" + trf("🧱 Wall Lv {0} · 🔒 Bunker hides {1} each", d.intel.wall, d.intel.bunker);
       if (d.intel.defG !== undefined) h += "<br>🛡️ Infantry defense <b>" + d.intel.defG + "</b> · 🎯 Air defense <b>" + d.intel.defA + "</b>";
       var canTake = RES.reduce(function (n, k) { return n + Math.max(0, d.intel.res[k] - d.intel.bunker); }, 0);
       h += "<br>💰 Up for grabs: <b>" + canTake + "</b> resources</div>";
@@ -11973,7 +11982,7 @@ function renderReportBody(r) {
     h += '<div class="side"><h4>🛡️ Reinforcements</h4>' + unitTable(d.units, false) + "</div>";
   } else if (d.mission === "spotted") {
     if (d.attacker && d.attacker.x !== undefined && d.caught !== undefined && d.defender) {
-      h += "<p>" + trf("{0} ({1}|{2}) sent spies. {3}", placeLink(d.attacker), d.attacker.x, d.attacker.y, d.caught ? trf("Your guards caught them all! 🎉") : trf("They got away with some secrets." + '😬' + "+ '")) + "</p>";
+      h += "<p>" + trf("{0} ({1}|{2}) sent spies. {3}", placeLink(d.attacker), d.attacker.x, d.attacker.y, d.caught ? trf("Your guards caught them all! 🎉") : trf("They got away with some secrets. 😬")) + "</p>";
     }
   } else {
     // ---- a real battle: result first, then both armies side by side ----
@@ -12394,12 +12403,12 @@ function sendSheet(d) {
     var smix = mixAt(t.x, t.y);
     if (smix) h += mixBox(smix);
     if (fc.needed === null) h += '<p class="reason">You already have the most colonies one player can handle.</p>';
-    else h += '<p class="stat">' + '🌱' + ' Terra <b>' + fc.terra + " / " + fc.needed + "</b>" + (fc.terra >= fc.needed ? " ✅" : "" + '❌' + "+ ' not enough yet") + "<" + '👷' + ") + ' Send exactly <b>" + fc.settlersNeeded + "</b> settlers. They become the new colony.</p>";
+    else h += '<p class="stat">' + '🌱' + ' Terra <b>' + fc.terra + " / " + fc.needed + "</b>" + (fc.terra >= fc.needed ? " ✅" : " ❌ not enough yet") + "<br>👷 Send exactly <b>" + fc.settlersNeeded + "</b> settlers. They become the new colony.</p>";
   } else if (t.meteor) {
     h = '<div class="sheet-head t-food"><span class="hi">' + (t.info.lander ? "🛸" : "☄️") + "</span><div><h3>" + (t.info.lander ? "Wrecked lander" : "Meteor crate") + "</h3><b>💎 " + t.info.total + " inside · (" + t.x + "|" + t.y + ")</b></div></div>";
   } else if (t.camp) {
     h = '<div class="sheet-head t-war"><span class="hi">⛰️</span><div><h3>' + t.name + "</h3><b>Tier " + t.tier + " monster camp · (" + t.x + "|" + t.y + ")</b></div></div>";
-    h += '<p class="stat">' + (t.units.length ? t.units.map(function (u) { return UI(u) + " " + u.count; }).join(" · ") + " · 🛡️ <b>" + t.defG + "</b> · 🎯 <b>" + t.defA + "</b>" : "💤 No monsters") + "<br" + '💎' + "+ ' Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + t.treasure[k]; }).join(" ") + "</p>";
+    h += '<p class="stat">' + (t.units.length ? t.units.map(function (u) { return UI(u) + " " + u.count; }).join(" · ") + " · 🛡️ <b>" + t.defG + "</b> · 🎯 <b>" + t.defA + "</b>" : "💤 No monsters") + "<br>💎 Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + t.treasure[k]; }).join(" ") + "</p>";
   } else {
     h = '<div class="sheet-head ' + (sendMission === "reinforce" ? "t-wood" : "t-war") + '"><span class="hi">' + t.home + "</span><div><h3>" + esc(t.name) + "</h3><b>" + esc(t.owner) + " · " + t.tribeIcon + " " + t.tribe + " · (" + t.x + "|" + t.y + ")</b></div></div>";
   }
@@ -12427,7 +12436,7 @@ function sendSheet(d) {
     if (!sendable(u)) return;
     if (u.home === 0 && !sendCount[u.key]) return;
     any = true;
-    h += '<div class="sendrow"><span class="big">' + UI(u) + '</span><div class="grow"><b>' + u.name + "</b><small>" + typeIcon(u) + " ⚔️" + u.atkNow + " 🛡️" + u.defGNow + " 🎯" + u.defANow + "" + '💨' + "+ '" + u.speed + " ' + '🎒' + '" + u.carry + " · home: " + u.home + "</small></div>";
+    h += '<div class="sendrow"><span class="big">' + UI(u) + '</span><div class="grow"><b>' + u.name + "</b><small>" + typeIcon(u) + " ⚔️" + u.atkNow + " 🛡️" + u.defGNow + " 🎯" + u.defANow + " 💨" + u.speed + " 🎒" + u.carry + " · home: " + u.home + "</small></div>";
     h += '<input type="number" inputmode="numeric" min="0" max="' + u.home + '" placeholder="0" data-send-count="' + u.key + '" value="' + (sendCount[u.key] || "") + '">';
     h += '<button class="btn small ghost" data-send-all="' + u.key + '">All</button></div>';
   });
@@ -13341,7 +13350,7 @@ function renderOnb(d) {
   if (O.final) {
     var S = O.summary;
     h += "<h3>" + trStr("🎖️ Landing complete, Commander!") + "</h3><ul class='onb-sum'>";
-    h += "<li>✅ <b>" + esc(S.name) + "</b> " + trStr("is yours") + "</li><li" + '✅' + "+ ' " + S.fields + " " + trStr(S.fields === 1 ? "field" : "fields") + " " + trStr("upgraded") + ", " + S.buildings + " " + trStr(S.buildings === 1 ? "building" : "buildings") + "</li>";
+    h += "<li>✅ <b>" + esc(S.name) + "</b> " + trStr("is yours") + "</li><li>✅ " + S.fields + " " + trStr(S.fields === 1 ? "field" : "fields") + " " + trStr("upgraded") + ", " + S.buildings + " " + trStr(S.buildings === 1 ? "building" : "buildings") + "</li>";
     h += "<li>" + (S.troops ? "✅ " + S.troops + " " + trStr("troops") : trStr("⬜ no troops yet")) + "</li><li>" + trStr(S.raided ? "✅ first raid won" : "⬜ no raid yet") + "</li><li>" + trStr(S.alliance ? "✅ in an alliance" : "⬜ no alliance yet") + "</li></ul>";
     h += "<p class='tut-p'><b>" + trStr("Next goals") + "</b></p><ol class='onb-goals'>" + onbNextGoals(d, S).map(function (g) { return "<li>" + g + "</li>"; }).join("") + "</ol>";
     h += '<div class="onb-kit"><button class="' + (onbKit === "builder" ? "on" : "") + '" data-onb-kit="builder">' + '🌾' + ' +' + S.builder.wood + " " + trStr("of each") + "</button>";
@@ -13428,9 +13437,33 @@ function startTutorial() {
   showTutorial();
 }
 
+// types an HTML text out letter by letter (tags stay in place), with a soft blip; tap the text to show it all
+function typeHtml(el, pitch) {
+  if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  el.style.minHeight = el.offsetHeight + "px"; // the bubble keeps its final size while the text types
+  var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), nodes = [], n;
+  while ((n = w.nextNode())) { nodes.push({ node: n, full: n.nodeValue }); n.nodeValue = ""; }
+  var ni = 0, ci = 0, tick = 0;
+  function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; }
+  tut.finish = finish;
+  tut.timer = setInterval(function () {
+    for (var k = 0; k < 2 && ni < nodes.length; k++) {
+      var x = nodes[ni];
+      ci++;
+      x.node.nodeValue = x.full.slice(0, ci);
+      if (x.full.charAt(ci - 1).trim() && ++tick % 2) blip(pitch || 380, true);
+      if (ci >= x.full.length) { ni++; ci = 0; }
+    }
+    if (ni >= nodes.length) finish();
+  }, 24);
+}
+var TUT_MOOD = { 0: "happy", 6: "surprised", 7: "worried", 11: "happy" };
+
 function showTutorial() {
   var box = document.getElementById("tut");
   if (tut.step < 0 || tut.step >= TUTORIAL.length) {
+    if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
     box.innerHTML = "";
     box.className = "";
     document.body.removeAttribute("data-tut");
@@ -13447,14 +13480,18 @@ function showTutorial() {
   var spot = tutSpot();
   var dots = "";
   for (var di = 0; di < TUTORIAL.length; di++) dots += '<i class="' + (di < tut.step ? "done" : di === tut.step ? "on" : "") + '"></i>';
-  var h = '<div class="tut-card"><div class="tut-dots">' + dots + '</div><div class="tut-step">' + (tut.step + 1) + " / " + TUTORIAL.length + "</div>";
+  var bk = "beppo-" + (TUT_MOOD[tut.step] || "neutral");
+  var face = FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : CAST.beppo.icon;
+  var h = '<div class="tut-card tut-say"><div class="tut-beppo">' + face + "<b>" + CAST.beppo.name + '</b></div><div class="tut-bub"><div class="tut-dots">' + dots + '</div><div class="tut-step">' + (tut.step + 1) + " / " + TUTORIAL.length + "</div>";
   var txt = typeof s.text === "function" ? s.text(data) : s.text;
   h += "<h3>" + s.title + "</h3><div class='tut-p'>" + txt + "</div><div class='tut-btns'>";
   h += '<button class="btn small ghost" data-tut="skip">Skip tour</button>';
   if (tut.step > 0) h += '<button class="btn small ghost" data-tut="back">⬅ Back</button>';
-  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! 🚀" : "Next" + '➡' + "+ '") + "</button></div></div>";
+  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! 🚀" : "Next ➡") + "</button></div></div></div>";
   box.innerHTML = h;
   box.className = "on";
+  var tp = box.querySelector(".tut-p");
+  if (tp) { typeHtml(tp, CAST.beppo.pitch); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
   setTimeout(function () { var el = tutSpot(); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
 }
 // light up the step's place (again after every refresh, which redraws the page)
@@ -13636,7 +13673,7 @@ function updateWaveInfo() {
   });
   var h = "";
   if (T.empty >= 0) h += "<p>⚠️ Wave " + (T.empty + 1) + " has no troops yet.</p>";
-  else h += "<p>🚀 All waves leave now. Waves with the same pace land together: the first two in the same second, any more only with luck " + '🍀' + "+ ').</p>";
+  else h += "<p>🚀 All waves leave now. Waves with the same pace land together: the first two in the same second, any more only with luck 🍀.</p>";
   h += "<p" + (over ? ' class="loss"' : "") + ">🏠 Left at home: " + (left.join(" · ") || "nobody") + "</p>";
   if (box._html !== h) { box._html = h; box.innerHTML = h; }
 }
@@ -14429,7 +14466,7 @@ function offersPanel(d) {
   if (!list.length) h += '<p class="empty">No offers right now.</p>';
   list.forEach(function (o) {
     var can = Math.floor(d.res[o.want]) >= o.wantAmt;
-    h += '<div class="ofrow"><span>' + offerLine(o) + (o.allyOnly ? " 🤝" : "") + "<small>" + esc(o.owner) + " · " + o.dist + " tiles ·" + '🐪' + "+ ' " + shortTime(o.tripMs) + '</small></span><button class="btn small" data-of-take="' + o.id + '"' + (can && d.market.free ? "" : " disabled") + ">Take</button></div>";
+    h += '<div class="ofrow"><span>' + offerLine(o) + (o.allyOnly ? " 🤝" : "") + "<small>" + esc(o.owner) + " · " + o.dist + " tiles · 🐪 " + shortTime(o.tripMs) + '</small></span><button class="btn small" data-of-take="' + o.id + '"' + (can && d.market.free ? "" : " disabled") + ">Take</button></div>";
   });
   return h;
 }
@@ -16091,7 +16128,7 @@ function renderTileInfo() {
     ]);
     h += farmPickRow(x, y);
   } else if (c) {
-    h += tipHead(c.home, esc(c.name), "👤 " + playerLink(c.owner, c.tag) + (c.ally ? "" + '🤝' + "+ '" : "") + " · " + c.tribeIcon + " " + c.tribe);
+    h += tipHead(c.home, esc(c.name), "👤 " + playerLink(c.owner, c.tag) + (c.ally ? " 🤝" : "") + " · " + c.tribeIcon + " " + c.tribe);
     h += tipFacts([
       fact("⭐ " + c.points + " pts"),
       fact(where(x, y, dist, c.active)),
@@ -17124,7 +17161,7 @@ function wikiUnit(W, t, u) {
   var wp = t.names.weaponry;
   var h = '<div class="wk-ud"><p class="wk-q">“' + esc(u.quote || "") + "”</p>";
   if (u.trait) h += '<p class="wk-trait"><span class="tchip">' + u.trait.icon + " " + esc(u.trait.name) + "</span> " + esc(u.trait.text) + "</p>";
-  h += '<div class="wk-facts"><span>' + wkKind(u) + "</span><span>🏗️ " + (b ? b.icon + " " + b.name : u.building) + " " + u.level + "</span>" + (u.lab ? "<span>🔬 " + lab.icon + " " + lab.name + " " + u.lab + "</span>" : "<span" + '🔬' + "+ ' No research needed</span>") + "</div>";
+  h += '<div class="wk-facts"><span>' + wkKind(u) + "</span><span>🏗️ " + (b ? b.icon + " " + b.name : u.building) + " " + u.level + "</span>" + (u.lab ? "<span>🔬 " + lab.icon + " " + lab.name + " " + u.lab + "</span>" : "<span>🔬 No research needed</span>") + "</div>";
   if (!u.settler) {
     var rows = [];
     if (u.lab) {
@@ -17452,7 +17489,7 @@ function auroraBar(se) {
   if (se.standings.length) {
     h += '<div class="sb-teams">';
     se.standings.forEach(function (t) {
-      h += '<span class="' + (t.key === se.myKey ? "me" : "") + '">' + esc(t.name) + " ⚡" + t.charged + "/4" + '🔗' + "+ '" + t.linked + "/4" + (t.zone ? " ' + '🚩' + '" : "") + "</span>";
+      h += '<span class="' + (t.key === se.myKey ? "me" : "") + '">' + esc(t.name) + " ⚡" + t.charged + "/4 🔗" + t.linked + "/4" + (t.zone ? " 🚩" : "") + "</span>";
     });
     h += "</div>";
   }

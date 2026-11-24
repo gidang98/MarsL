@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.487";
+const GAME_VERSION = "1.0.488";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.488",date:"2026-11-24",title:"Beppo guides you",groups:[["✨ New",["The start tour is now told by Beppo in a speech bubble. His mood changes with the step and the text types out with a soft blip. Tap the text to show it all at once."]],["🛠️ Fixes",["Stray \"+ '\" characters no longer show up after some icons: on the tour's Next button, in monster camp, report and market texts, and on the terra and settler line."]]]},
   {v:"1.0.487",date:"2026-11-24",title:"Icons mixed up",groups:[["🎨 Art",["About 25 painted icons that had swapped names are right again: the burger, syringe, bandage, bin, snowflake, pill and more.","The bird, hen, nest, drumstick, camel and skull are no longer cut off at the sides.","Troop pictures in Troops at home use the same icons as battle reports when a unit has no painted picture."]]]},
   {v:"1.0.486",date:"2026-11-24",title:"Last painted icons",groups:[["🎨 Art",["Painted icons for the ticket folder, the dice wheel, the flying money, the hatching chick and the nest of eggs.","Painted icons whose names contain an underscore now load too."]]]},
   {v:"1.0.485",date:"2026-11-24",title:"Painted icons everywhere",groups:[["🎨 Art",["Wood, stone, metal, food, gifts, the rocket, map, star, flag, shield, coin, bell, flask, hammer, inbox and moon now show your painted icons on every screen instead of the old drawn ones.","The building markers on the colony plate use the painted icons too."]]]},
