@@ -3861,6 +3861,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .mixdot { position: absolute; right: 6%; bottom: 6%; font-size: calc(var(--T) * 0.26); opacity: .55; filter: none; }
   .mixdot .gi { width: 1em; height: 1em; }
   .col.clay, .lmk.clay { width: calc(var(--T) * 1.18); height: calc(var(--T) * 1.18); z-index: 2; }
+  .col.clay { width: calc(var(--T) * var(--cs, 1.18)); height: calc(var(--T) * var(--cs, 1.18)); left: 50%; top: calc(var(--T) * 0.8 - var(--T) * var(--cs, 1.18) * var(--cb, .9)); transform: translate(calc(var(--cx, .5) * -100%), 0); }
+  .col.clay .col-name { left: calc(var(--cx, .5) * 100%); top: calc(var(--cb, .9) * 100% - 2px); bottom: auto; transform: translateX(-50%); }
   .camp.clay { width: calc(var(--T) * 1.1); height: calc(var(--T) * 1.1); z-index: 2; }
   .t-n:has(.camp.clay), .t-n.alt:has(.camp.clay) { background: #DD8460; }
   .col-name { z-index: 3; }
@@ -8976,10 +8978,17 @@ function fieldScene(d, order) {
     '<filter id="fxgrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" values="0 0 0 0 .55 0 0 0 0 .25 0 0 0 0 .18 0 0 0 .55 -.18"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs>';
   // an oval clay slab; the 12 fields stand on a ring around your mascot in the middle
   var CX = 190, CY = 124, RX = 157, RY = 85, W0 = 61;
-  g += '<ellipse cx="' + (CX + 10) + '" cy="' + (CY + 30) + '" rx="186" ry="104" fill="rgba(150,70,60,.16)" filter="url(#fxsoft)"/>';
-  g += '<path d="M' + (CX - 182) + " " + CY + "v12a182 104 0 0 0 364 0v-12z" + '" fill="#D27358"/>';
-  g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#F7C4A5"/><ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#fff" filter="url(#fxgrain)" opacity=".5"/>';
-  g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="70" ry="36" fill="rgba(255,255,255,.35)"/>';
+  var sl = FX_ART.t["colony-slab"];
+  if (sl) {
+    // the same painted slab as the colony, a little wider for the field ring
+    var sc = 1.09, Ws = 404 * sc, Hs = Ws * sl.h / sl.w;
+    g += '<ellipse cx="' + (CX + 8) + '" cy="' + (CY + 52) + '" rx="190" ry="84" fill="rgba(150,70,60,.18)" filter="url(#fxsoft)"/><image href="/art/colony-slab.webp?v=' + FX_ART.v + '" x="' + (CX - Ws / 2) + '" y="' + (CY - 16 * sc - Hs * 0.35).toFixed(1) + '" width="' + Ws + '" height="' + Hs.toFixed(1) + '"/>';
+  } else {
+    g += '<ellipse cx="' + (CX + 10) + '" cy="' + (CY + 30) + '" rx="186" ry="104" fill="rgba(150,70,60,.16)" filter="url(#fxsoft)"/>';
+    g += '<path d="M' + (CX - 182) + " " + CY + "v12a182 104 0 0 0 364 0v-12z" + '" fill="#D27358"/>';
+    g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#F7C4A5"/><ellipse cx="' + CX + '" cy="' + CY + '" rx="182" ry="104" fill="#fff" filter="url(#fxgrain)" opacity=".5"/>';
+    g += '<ellipse cx="' + CX + '" cy="' + CY + '" rx="70" ry="36" fill="rgba(255,255,255,.35)"/>';
+  }
   // equal spacing along the oval, so the fields on the sides never touch
   var pts = [], L = 0, N = 720, a0 = -75 * Math.PI / 180, prev = null;
   for (var q = 0; q <= N; q++) { var an = a0 + q * 2 * Math.PI / N, pt = [CX + RX * Math.cos(an), CY + RY * Math.sin(an)]; if (prev) L += Math.hypot(pt[0] - prev[0], pt[1] - prev[1]); pts.push([pt, L]); prev = pt; }
@@ -10446,8 +10455,8 @@ function renderTroops(d) {
   // one small table: rows = attack / defense, columns = ground / air
   h += '<div class="powertable">';
   h += '<span></span><small title="Infantry: troops on the ground">🪖 Infantry</small><small title="Air: flying troops">✈️ Air</small>';
-  h += '<b title="How hard your troops at home hit when you send them">' + "⚔️" + ' Attack</b><span>' + d.army.atkGround + "</span><span>" + d.army.atkAir + "</span>";
-  h += '<b title="How well this colony holds against infantry and air attackers">' + "🏠" + ' Defense</b><span>' + d.army.defG + "</span><span>" + d.army.defA + "</span></div>";
+  h += '<b title="How hard your troops at home hit when you send them">' + giSvg("swordG") + ' Attack</b><span>' + d.army.atkGround + "</span><span>" + d.army.atkAir + "</span>";
+  h += '<b title="How well this colony holds against infantry and air attackers">' + giSvg("shieldG") + ' Defense</b><span>' + d.army.defG + "</span><span>" + d.army.defA + "</span></div>";
   // where does the defense come from?
   var A = d.army;
   h += '<details class="defbox"><summary>How is my defense made up?</summary><div class="defsplit">';
@@ -15707,6 +15716,15 @@ var MAP_CAMP_ART = { "🦂": "scorpion", "🪷": "spore", "🧌": "troll", "🦇
 var MAP_LMK_ART = { "🚙": "rover", "🥔": "potato", "🦴": "bones", "🧦": "sock", "🗿": "face", "🛸": "ufo", "🥚": "egg", "🎸": "guitar" };
 var COLONY_SIZE_AT = [60, 120, 250]; // points: below each limit = that size, from there on the largest
 function mapArt(key) { return FX_ART.t[key] ? '<img class="mclay" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : ""; }
+// where the drawing sits inside each 200x200 colony picture [centre x, width, bottom], as fractions;
+// the early stages are small drawings, so each one is scaled to a minimum readable size on the map
+var COLONY_FIT = { "human-1": [.535, .385, .79], "human-2": [.55, .625, .82], "human-3": [.515, .775, .875], "human-4": [.525, .905, .945], "chicken-1": [.507, .45, .935], "chicken-2": [.458, .61, .99], "chicken-3": [.572, .73, .985], "chicken-4": [.5, .965, .975], "alien-1": [.542, .42, .865], "alien-2": [.46, .525, .88], "alien-3": [.528, .76, .925], "alien-4": [.52, .935, .945] };
+var COLONY_SHOW_W = [.84, 1.04, 1.24, 1.44]; // drawn width per stage, in tiles
+function colonySize(c) { return c.points < COLONY_SIZE_AT[0] ? 1 : c.points < COLONY_SIZE_AT[1] ? 2 : c.points < COLONY_SIZE_AT[2] ? 3 : 4; }
+function colonyFitStyle(c) {
+  var size = colonySize(c), f = COLONY_FIT[(c.tribeKey || "human") + "-" + size];
+  return f ? "--cs:" + (COLONY_SHOW_W[size - 1] / f[1]).toFixed(3) + ";--cx:" + f[0] + ";--cb:" + f[2] + ";" : "";
+}
 function colonyArt(c) {
   var size = c.points < COLONY_SIZE_AT[0] ? 1 : c.points < COLONY_SIZE_AT[1] ? 2 : c.points < COLONY_SIZE_AT[2] ? 3 : 4;
   return mapArt("map-colony-" + (c.tribeKey || "human") + "-" + size);
@@ -15770,7 +15788,7 @@ function drawTiles() {
       if (c) {
         var cgm = c.mine ? cgAt(x, y) : null;
         var cart2 = colonyArt(c);
-        inner = '<span class="col' + (cart2 ? " clay" : "") + (c.mine ? " mine" : "") + (c.ally ? " ally" : "") + (c.rel ? " rel-" + c.rel : "") + (c.targeted ? " target mv-" + c.targeted : "") + '"' + (cgm ? ' style="box-shadow:0 0 0 3px ' + cgm.color + ';border-radius:50%" title="' + esc(cgm.name) + '"' : "") + ">" + (cart2 || c.home) + (c.protected ? '<i class="prot">' + (c.vac ? "🏖️" : "🛡️") + "</i>" : "") + moveMark(c.targeted) + "</span>";
+        inner = '<span class="col' + (cart2 ? " clay" : "") + (c.mine ? " mine" : "") + (c.ally ? " ally" : "") + (c.rel ? " rel-" + c.rel : "") + (c.targeted ? " target mv-" + c.targeted : "") + '"' + (cart2 || cgm ? ' style="' + (cart2 ? colonyFitStyle(c) : "") + (cgm ? "box-shadow:0 0 0 3px " + cgm.color + ";border-radius:50%" : "") + '"' + (cgm ? ' title="' + esc(cgm.name) + '"' : "") : "") + ">" + (cart2 || c.home) + (c.protected ? '<i class="prot">' + (c.vac ? "🏖️" : "🛡️") + "</i>" : "") + moveMark(c.targeted) + "</span>";
         inner += '<span class="col-name">' + (c.tag ? "[" + esc(c.tag) + "] " : "") + esc(c.owner) + "</span>";
       }
       if ((ch.caravans || []).some(function(v){return v.x===x && v.y===y;})) inner += '<i class="mvmark mv-trade' + (mapArt("map-ev-caravan") ? " cv-art" : "") + '" title="NPC supply caravan">' + (mapArt("map-ev-caravan") || "🐪") + "</i>";

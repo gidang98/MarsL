@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.482";
+const GAME_VERSION = "1.0.483";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.483",date:"2026-11-24",title:"Bigger colonies on the map",groups:[["🎨 Art",["Colonies on the map are drawn larger, especially the early stages, so they are easy to see on a phone.","Your resource fields now stand on the same painted slab as your colony.","Attack and Defense in Troops at home use the sword and shield from battle reports."]]]},
   {v:"1.0.482",date:"2026-11-24",title:"Icons fix",groups:[["🛠️ Fixes",["Painted icons whose names contain capital letters (swords, shields, cash, helmets and more) now load instead of showing a broken picture."]]]},
   {v:"1.0.481",date:"2026-11-24",title:"New golem and octopus",groups:[["🎨 Art",["New painted golem and octopus icons."]]]},
   {v:"1.0.480",date:"2026-11-24",title:"Golem and octopus",groups:[["🎨 Art",["Painted icons for the golem and the octopus."]]]},
