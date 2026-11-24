@@ -1567,6 +1567,18 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-dots i.done { background: #f2a93b; }
   .tut-dots i.on { background: #e2574c; }
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
+  #beppo-say { position: fixed; left: 76px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(300px, calc(100% - 100px)); animation: tagpop 0.22s ease-out; }
+  #beppo-say.bye { opacity: 0; transition: opacity 0.2s; }
+  #beppo-say img { width: 56px; height: 56px; flex: none; }
+  .bs-bub { position: relative; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.4; }
+  .bs-bub::before { content: ""; position: absolute; left: -7px; bottom: 16px; width: 12px; height: 12px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+  .bs-bub b { display: block; font-size: 12px; opacity: 0.7; }
+  .dark-mode .bs-bub, .dark-mode .bs-bub::before { background: #3a3220; color: #f3e9d2; border-color: #5a4b2c; }
+  .tut-p.fin::after, .bs-t.fin::after { content: " ▼"; font-size: 10px; color: #e2574c; animation: tutblink 0.9s steps(2) infinite; }
+  @keyframes tutblink { 50% { opacity: 0; } }
+  .tut-btns .btn:hover::before { content: "♥ "; color: #e2574c; }
+  @keyframes quake { 0%, 100% { left: 0; } 20% { left: -7px; } 40% { left: 6px; } 60% { left: -4px; } 80% { left: 3px; } }
+  #app.quake { position: relative; animation: quake 0.35s linear; }
   #tut.tut-ok .tut-btns .btn:not(.ghost) { animation: tutpop 0.35s ease-out; }
   @keyframes tutpop { 50% { transform: scale(1.12); } }
   .tut-btns { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
@@ -4704,7 +4716,9 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   #app > .vfade { animation: vfade 0.15s ease-out; }
   @keyframes qin { from { opacity: 0; transform: translateY(14px); } }
   @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel, #app > .vin-r, #app > .vin-l, #app > .vfade { animation: none !important; }
-    .nav-glide { display: none; } }
+    .nav-glide { display: none; }
+    #app.quake, #beppo-say { animation: none !important; }
+    .tut-p.fin::after, .bs-t.fin::after { animation: none; } }
 </style>
 </head>
 <body>
@@ -13472,6 +13486,49 @@ var TUTORIAL = [
 ];
 var tut = { step: -1 };
 // steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
+// 💬 Beppo pops up once for the big firsts (a small bubble; tap to close; Settings turns it off)
+var BEPPO_SAY = {
+  built: ["happy", "Your first build is done! The colony is officially a place now."],
+  trained: ["happy", "Fresh troops! They eat a lot, so keep an eye on the food."],
+  report: ["surprised", "A report! Open your Inbox to see how it went."],
+  threat: ["worried", "Incoming! Hide the snacks and check the Army tab."],
+  robbed: ["worried", "Ouch, someone helped themselves. A bunker would hide some of it next time."]
+};
+function beppoSeen() { try { return JSON.parse(localStorage.getItem("marsl-beppo-seen") || "{}") || {}; } catch (e) { return {}; } }
+function beppoOn() { try { return localStorage.getItem("marsl-beppo-off") !== "1"; } catch (e) { return true; } }
+function beppoSay(id) {
+  var m = BEPPO_SAY[id];
+  if (!m || !beppoOn() || (tut.step >= 0 && tut.step < TUTORIAL.length) || document.getElementById("beppo-say")) return;
+  var seen = beppoSeen();
+  if (seen[id]) return;
+  seen[id] = 1;
+  try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
+  var bk = "beppo-" + m[0], el = document.createElement("div");
+  el.id = "beppo-say";
+  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : CAST.beppo.icon) + '<div class="bs-bub"><b>' + CAST.beppo.name + '</b><div class="bs-t">' + trStr(m[1]) + "</div></div>";
+  document.body.appendChild(el);
+  var t = el.querySelector(".bs-t"), gone = 0;
+  var bye = function () {
+    if (gone) return;
+    gone = 1;
+    if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
+    el.classList.add("bye");
+    setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
+  };
+  typeHtml(t, m[0] === "worried" ? 300 : m[0] === "surprised" ? 470 : CAST.beppo.pitch);
+  el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
+  setTimeout(bye, 9000);
+}
+// a short shake for hits
+function quake() {
+  if (calmMotion) return;
+  var app = document.getElementById("app");
+  if (!app) return;
+  app.classList.remove("quake");
+  void app.offsetWidth;
+  app.classList.add("quake");
+  setTimeout(function () { app.classList.remove("quake"); }, 400);
+}
 function tutTrained(d) {
   var n = 0;
   Object.keys(d.training || {}).forEach(function (w) { n += (d.training[w] || []).length; });
@@ -13499,12 +13556,13 @@ function startTutorial() {
 // types an HTML text out letter by letter (tags stay in place), with a soft blip; tap the text to show it all
 function typeHtml(el, pitch) {
   if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
-  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { el.classList.add("fin"); return; }
   el.style.minHeight = el.offsetHeight + "px"; // the bubble keeps its final size while the text types
+  el.classList.remove("fin");
   var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), nodes = [], n;
   while ((n = w.nextNode())) { nodes.push({ node: n, full: n.nodeValue }); n.nodeValue = ""; }
   var ni = 0, ci = 0, tick = 0;
-  function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; }
+  function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; el.classList.add("fin"); }
   tut.finish = finish;
   tut.timer = setInterval(function () {
     for (var k = 0; k < 2 && ni < nodes.length; k++) {
@@ -15051,7 +15109,7 @@ function renderSheet() {
     h += translateSheet();
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
-    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button><button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
+    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button><button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Beppo: on" : "💬 Beppo: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play
@@ -15266,6 +15324,7 @@ function noticeChanges(d) {
     if (!still) {
       toast("🎉 " + first.name + " reached level " + first.targetLevel + "!", true);
       popBuilt(first.name);
+      beppoSay("built");
       confetti();
       sfx("done");
     }
@@ -15276,7 +15335,7 @@ function noticeChanges(d) {
   if (d.training) {
     if (prevTrain && !justCancelledTrain) Object.keys(prevTrain).forEach(function (w) {
       var p = prevTrain[w][0], now = d.training[w] || [];
-      if (p && !now.some(function (t) { return t.name === p.name; })) { toast("🪖 " + p.name + ": training finished", true); sfx("done"); }
+      if (p && !now.some(function (t) { return t.name === p.name; })) { toast("🪖 " + p.name + ": training finished", true); sfx("done"); beppoSay("trained"); }
     });
     justCancelledTrain = false;
     prevTrain = {};
@@ -15285,6 +15344,7 @@ function noticeChanges(d) {
   if (prevUnread !== null && d.unread > prevUnread) {
     sfx("report");
     if (view !== "reports") toast("📬 New report in your Inbox", true);
+    beppoSay("report");
   }
   prevUnread = d.unread;
   if (prevMail !== null && d.unreadMessages > prevMail) {
@@ -15296,12 +15356,16 @@ function noticeChanges(d) {
   if (d.stolen && prevStolen !== null && d.stolen.id !== prevStolen) {
     toast("💸 " + d.stolen.from + " stole " + RES.map(function (k) { return RES_ICON[k] + d.stolen.loot[k]; }).join(" ") + " from you!");
     flashLoss(d.stolen.loot);
+    quake();
+    beppoSay("robbed");
   }
   prevStolen = d.stolen ? d.stolen.id : 0;
   var threats = d.movements.filter(isThreat).length;
   if (prevIncoming !== null && threats > prevIncoming) {
     toast("🚨 Incoming attack! Grab your frying pans!");
     sfx("alarm");
+    quake();
+    beppoSay("threat");
   }
   prevIncoming = threats;
 }
@@ -18836,7 +18900,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -19216,6 +19280,9 @@ document.addEventListener("click", function (e) {
     if (data) renderSheet();
   } else if (has("data-sound")) {
     toggleSound();
+  } else if (has("data-beppo")) {
+    try { localStorage.setItem("marsl-beppo-off", beppoOn() ? "1" : "0"); } catch (e) {}
+    if (data) renderSheet();
   } else if (has("data-tutorial")) {
     closeSheet();
     startTutorial();
