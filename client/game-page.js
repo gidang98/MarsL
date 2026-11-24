@@ -3800,6 +3800,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .say i { position: absolute; right: 12px; bottom: 5px; font-size: 11px; font-style: normal; opacity: .65; }
   .bubble { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px; border: 2px dashed var(--line); border-radius: var(--radius-sm); background: rgba(255,255,255,.35); }
   .bubble .bi { flex: none; font-size: 26px; line-height: 1.1; }
+  .bubble .bi img { display: block; width: 52px; height: 52px; }
   .bubble b { display: block; font-size: 12px; opacity: .75; }
   .bubble p { margin: 0; font-size: 14px; }
   .uic { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.3em; object-fit: contain; flex: none; pointer-events: none; }
@@ -9881,20 +9882,24 @@ function heroPic(cls) {
   return FX_ART.t[k] ? '<img class="' + (cls || "upic") + '" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" width="128" height="128">' : "🎖️";
 }
 // ---------- 🗣️ voices: a typed-out speech box and a small cast ----------
-var CAST = { beppo: { name: "Beppo", icon: "🧑‍🚀", pitch: 380 } };
+var CAST = { beppo: { name: "Beppo", icon: "🐶", pitch: 380 } };
 var BEPPO_LINES = {
-  base: ["Everything is under control. Mostly.", "I found a bolt. Nobody knows where it goes.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
-  camps: ["Ten camps cleared! I'd clap, but I'm holding a bolt."]
+  neutral: ["Everything is under control. Mostly.", "I sniffed around. Nothing suspicious. Except the cat.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
+  happy: ["Ten camps cleared! Good colony! Best colony!", "Did someone say walkies? No? Still a great day."],
+  worried: ["Ouch. I brought bandages. And my sad eyes."],
+  surprised: ["Did you hear that? Probably nothing. Probably."]
 };
-function castLine() {
-  var m = (data && data.mood) || {}, pool = BEPPO_LINES.base;
-  var tick = Math.floor(Date.now() / 600000);
-  if (m.camps >= 10 && tick % 3 === 0) pool = BEPPO_LINES.camps;
-  return pool[tick % pool.length];
+// a mood picks the picture and the lines; without one Beppo is relaxed (or happy after many cleared camps)
+function castLine(mood) {
+  var m = (data && data.mood) || {}, tick = Math.floor(Date.now() / 600000);
+  if (!mood) mood = m.camps >= 10 && tick % 3 === 0 ? "happy" : "neutral";
+  var pool = BEPPO_LINES[mood] || BEPPO_LINES.neutral;
+  return { mood: mood, text: pool[tick % pool.length] };
 }
-function bubble() {
-  var c = CAST.beppo;
-  return '<div class="bubble"><span class="bi">' + c.icon + "</span><div><b>" + esc(c.name) + "</b><p>" + esc(castLine()) + "</p></div></div>";
+function bubble(mood) {
+  var c = CAST.beppo, L = castLine(mood), key = "beppo-" + L.mood;
+  var face = FX_ART.t[key] ? '<img src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : c.icon;
+  return '<div class="bubble"><span class="bi">' + face + "</span><div><b>" + esc(c.name) + "</b><p>" + esc(L.text) + "</p></div></div>";
 }
 // a short beep for every letter, a little different for every speaker
 function blip(pitch) {
@@ -14232,7 +14237,7 @@ function hospitalPanel(d) {
   var hp = d.hospital;
   var colony = d.colonyId === undefined ? d.colony + "|" + d.x + "|" + d.y : d.colonyId;
   if (healColony !== colony) { healSelection = {}; healColony = colony; }
-  var h = bubble() + '<h4 class="sidesub">🛏️ Wounded troops <span class="count">' + hp.wounded.reduce(function(n,u){return n+u.count},0) + ' / ' + hp.beds + '</span></h4>';
+  var h = bubble(hp.wounded.length ? "worried" : "") + '<h4 class="sidesub">🛏️ Wounded troops <span class="count">' + hp.wounded.reduce(function(n,u){return n+u.count},0) + ' / ' + hp.beds + '</span></h4>';
   if (hp.job) h += jobPanel(hp.job, "heal");
   if (!hp.wounded.length) return h + '<p class="empty">No wounded troops.</p>';
   var cost={wood:0,stone:0,metal:0,food:0},ms=0,total=0;
