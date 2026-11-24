@@ -1568,6 +1568,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-dots i.on { background: #e2574c; }
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
   #beppo-say { position: fixed; left: 76px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(300px, calc(100% - 100px)); animation: tagpop 0.22s ease-out; }
+  #beppo-say.top { bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
   #beppo-say.bye { opacity: 0; transition: opacity 0.2s; }
   #beppo-say img { width: 56px; height: 56px; flex: none; }
   .bs-bub { position: relative; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.4; }
@@ -13495,11 +13496,25 @@ var BEPPO_SAY = {
   trained: ["happy", "Fresh troops! They eat a lot, so keep an eye on the food."],
   report: ["surprised", "A report! Open your Inbox to see how it went."],
   threat: ["worried", "Incoming! Hide the snacks and check the Army tab."],
-  robbed: ["worried", "Ouch, someone helped themselves. A bunker would hide some of it next time."]
+  robbed: ["worried", "Ouch, someone helped themselves. A bunker would hide some of it next time."],
+  codex: ["happy", "The Codex shows monster camps and commanders. Check it before you pick a fight."],
+  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first."],
+  hunt: ["happy", "Creatures in slots earn Space-Cash every second, also while you are away."],
+  cmd: ["neutral", "Fuse shards from the shop to get more commanders. Your active commander is never for sale."],
+  farm: ["surprised", "A farm list sends many raids with one tap. Test a fight in the simulator first."],
+  relics: ["surprised", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt."]
 };
+// first time a place is opened (the bubble sits at the top so it never covers the sheet)
+var BEPPO_OPEN = { "[data-codex-open]": "codex", "[data-auction]": "auction", "[data-hunt-open]": "hunt", "[data-cmd-open],[data-hero-open]": "cmd", "[data-farm-open]": "farm", "[data-relics]": "relics" };
+document.addEventListener("click", function (e) {
+  if (!e.target.closest) return;
+  Object.keys(BEPPO_OPEN).forEach(function (sel) {
+    if (e.target.closest(sel)) setTimeout(function () { beppoSay(BEPPO_OPEN[sel], true); }, 700);
+  });
+});
 function beppoSeen() { try { return JSON.parse(localStorage.getItem("marsl-beppo-seen") || "{}") || {}; } catch (e) { return {}; } }
 function beppoOn() { try { return localStorage.getItem("marsl-beppo-off") !== "1"; } catch (e) { return true; } }
-function beppoSay(id) {
+function beppoSay(id, top) {
   var m = BEPPO_SAY[id];
   if (!m || !beppoOn() || (tut.step >= 0 && tut.step < TUTORIAL.length) || document.getElementById("beppo-say")) return;
   var seen = beppoSeen();
@@ -13508,6 +13523,7 @@ function beppoSay(id) {
   try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
   var bk = "beppo-" + m[0], el = document.createElement("div");
   el.id = "beppo-say";
+  if (top) el.className = "top";
   el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : CAST.beppo.icon) + '<div class="bs-bub"><b>' + CAST.beppo.name + '</b><div class="bs-t">' + trStr(m[1]) + "</div></div>";
   document.body.appendChild(el);
   var t = el.querySelector(".bs-t"), gone = 0;
