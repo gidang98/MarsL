@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.480";
+const GAME_VERSION = "1.0.481";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.481",date:"2026-11-24",title:"New golem and octopus",groups:[["🎨 Art",["New painted golem and octopus icons."]]]},
   {v:"1.0.480",date:"2026-11-24",title:"Golem and octopus",groups:[["🎨 Art",["Painted icons for the golem and the octopus."]]]},
   {v:"1.0.479",date:"2026-11-24",title:"New commander look",groups:[["🎨 Art",["All 20 commanders have a new, friendlier look."]]]},
   {v:"1.0.478",date:"2026-11-24",title:"Commanders and 190 icons",groups:[["🎨 Art",["Painted portraits for all 20 commanders, from Private Pip to Meowthulhu.","About 190 more painted icons: tools and clothing, buildings and vehicles, creatures, food, nature and weather, faces and music, and documents and interface marks."]]]},
