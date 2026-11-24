@@ -2873,6 +2873,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .hunt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(86px, 30%), 1fr)); gap: 8px; margin: 10px 0; }
   .hunt-cell { text-align: center; padding: 8px 4px; border-radius: 12px; background: rgba(0,0,0,.05); position: relative; } .hunt-cell span { font-size: 28px; display: block; } .hunt-cell small { display: block; font-size: 11px; } .hunt-cell b { position: absolute; top: 4px; right: 6px; font-size: 11px; } .hunt-cell.none { opacity: .45; }
   .cmd-ic { font-size: 26px; width: 36px; text-align: center; }
+  .cmd-ic img { width: 100%; height: auto; display: block; }
+  .cmd-row.sm .cmd-ic { width: 32px; }
   .cmd-rar.r-common { color: #5f6670; } .cmd-rar.r-uncommon { color: #2e8b57; } .cmd-rar.r-rare { color: #2f6fbf; } .cmd-rar.r-epic { color: #8a45c4; } .cmd-rar.r-legendary { color: #d08a12; } .cmd-rar.r-mythic { color: #d6336c; text-shadow: 0 0 6px rgba(214,51,108,.45); }
   .fls-sw { display: inline-block; vertical-align: -3px; } .fls-sw .gi { width: 16px; height: 16px; }
   .mvsrc + .mvsrc { border-top: 1px solid var(--line, #d8d2c4); margin-top: 6px; padding-top: 6px; }
@@ -3792,6 +3794,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .cx-ic { font-size: 11px; }
   .bli-lv.up { background: var(--mint); color: #0f4a37; } .bli-lv.bld { box-shadow: inset 0 0 0 2px var(--accent); }
   /* ---------- the drawn icon set ---------- */
+  img.gi, img.ci { object-fit: contain; }
   .gi { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.24em; flex: none; overflow: visible; pointer-events: none; }
   .say { position: fixed; left: 8px; right: 8px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 9000; max-width: 560px; margin: 0 auto; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px 22px; background: #2a1b2e; color: #fff4e0; border: 3px solid #fff4e0; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.4); cursor: pointer; }
   .say .sp { flex: none; width: 44px; text-align: center; font-size: 34px; line-height: 1.1; }
@@ -4699,7 +4702,9 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
 var RES = ["wood", "stone", "metal", "food"];
 var RES_ICON = { wood: "🪵", stone: "🪨", metal: "🔩", food: "🥔" };
 // 🏺 clay icons (sprite in the page); text keeps its emoji
-function ico(n, c) { return '<svg class="ci ci-' + n + (c ? " " + c : "") + '" aria-hidden="true"><use href="#ci-' + n + '"/></svg>'; }
+// painted icon from the art folder when it exists, otherwise the built-in glyph
+function artIco(cls, key) { return FX_ART && FX_ART.t[key] ? '<img class="' + cls + '" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" width="64" height="64" draggable="false" aria-hidden="true">' : ""; }
+function ico(n, c) { return artIco("ci ci-" + n + (c ? " " + c : ""), "ci-" + n) || '<svg class="ci ci-' + n + (c ? " " + c : "") + '" aria-hidden="true"><use href="#ci-' + n + '"/></svg>'; }
 var RES_NAME = { wood: "Wood", stone: "Stone", metal: "Metal", food: "Food" };
 // Positions of the 12 fields in the 4x4 ring (row, column), clockwise
 var RING = [[1,1],[1,2],[1,3],[1,4],[2,4],[3,4],[4,4],[4,3],[4,2],[4,1],[3,1],[2,1]];
@@ -4921,6 +4926,7 @@ var GI_RE_G = /(🐈‍⬛|🪲|🐸|🐀|🦀|🦋|🐍|🐊|🐺|🕷|🐗|�
 var GI_SKIP = { SVG: 1, OPTION: 1, SELECT: 1, TEXTAREA: 1, TITLE: 1, SCRIPT: 1, STYLE: 1, text: 1 };
 // inline markup of a drawn icon, for strings that are built as HTML
 function giSvg(name) {
+  var pic = artIco("gi gi-" + name, "gi-" + name); if (pic) return pic;
   return '<svg class="gi gi-' + name + '" viewBox="0 0 40 40" aria-hidden="true"><use href="#gi-' + name + '"/></svg>';
 }
 // which result a battle report is: drives the coloured sword or shield in its title and the report filters
@@ -4942,6 +4948,7 @@ function repIconHtml(r) {
   return k ? giSvg(REP_FIGHT_ICON[k]) : r.icon;
 }
 function giNode(name) {
+  if (FX_ART && FX_ART.t["gi-" + name]) { var im = document.createElement("img"); im.className = "gi gi-" + name; im.src = "/art/gi-" + name + ".webp?v=" + FX_ART.v; im.alt = ""; im.width = 64; im.height = 64; im.draggable = false; return im; }
   var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   s.setAttribute("class", "gi gi-" + name);
   s.setAttribute("viewBox", "0 0 40 40");
@@ -17522,7 +17529,7 @@ function codexRow(m, unit, sub) {
   var next = null, h = "";
   m.steps.forEach(function (st) { if (!next && !st.claimed) next = st; });
   var have = m.kills !== undefined ? m.kills : m.wins;
-  h += '<div class="cmd-row sm' + (m.met ? " in" : " off") + '"><span class="cmd-ic"' + (m.met ? "" : ' style="filter:brightness(0) opacity(.3)"') + ">" + m.icon + "</span><div><b>" + esc(m.name) + "</b>";
+  h += '<div class="cmd-row sm' + (m.met ? " in" : " off") + '"><span class="cmd-ic"' + (m.met ? "" : ' style="filter:brightness(0) opacity(.3)"') + ">" + (m.kills !== undefined && FX_ART.t["monster-" + m.id] ? '<img src="/art/monster-' + m.id + '.webp?v=' + FX_ART.v + '" alt="" width="36" height="36" draggable="false" loading="lazy">' : m.icon) + "</span><div><b>" + esc(m.name) + "</b>";
   h += m.met ? "<small>" + have.toLocaleString() + " " + unit + sub + "</small>" : "<small>" + (m.kills !== undefined ? "Beat one in a camp to meet it" : "Win against one to find it") + "</small>";
   if (m.quip) h += '<small class="quip">“' + esc(m.quip) + '”</small>';
   if (next && m.met) h += heroBar("xp", Math.min(have, next.need), next.need) + "<small>" + Math.min(have, next.need).toLocaleString() + " / " + next.need.toLocaleString() + "</small>" + mbReward(next.reward);
