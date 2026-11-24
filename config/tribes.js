@@ -40,7 +40,7 @@ const TRIBES = {
     },
     units: {
       marine: {
-        name: "Crater Grunt", icon: "🪖", role: "Infantry", type: "ground",
+        name: "Space-Soldier", icon: "🪖", role: "Infantry", type: "ground",
         atk: 37, defG: 33, defA: 20, speed: 6, carry: 45, upkeep: 1,
         cost: { wood: 105, stone: 85, metal: 125, food: 50 }, time: 60, building: "barracks", level: 1, lab: 0,
         quote: "Helmet on, brain off!",
@@ -52,7 +52,7 @@ const TRIBES = {
         quote: "Nobody gets past me. Except through the back door.",
       },
       drone: {
-        name: "Recon Drone", icon: "🛰️", role: "Scout", type: "air",
+        name: "Spy", icon: "🛰️", role: "Scout", type: "air",
         atk: 0, defG: 10, defA: 10, speed: 18, carry: 0, upkeep: 1,
         cost: { wood: 60, stone: 40, metal: 90, food: 20 }, time: 45, building: "barracks", level: 2, lab: 1,
         quote: "Bzzzt. I see everything.",
@@ -88,7 +88,7 @@ const TRIBES = {
         quote: "Knock knock. Who's there? Not your wall anymore.",
       },
       catapult: {
-        name: "Crater Mortar", icon: "💥", role: "Bombard", type: "ground",
+        name: "Mortar", icon: "💥", role: "Bombard", type: "ground",
         atk: 75, defG: 20, defA: 8, speed: 3, carry: 0, upkeep: 6,
         cost: { wood: 520, stone: 480, metal: 560, food: 160 }, time: 320, building: "workshop", level: 10, lab: 10,
         quote: "I aim at buildings. Mostly.",
@@ -164,7 +164,7 @@ const TRIBES = {
         quote: "Coo. (I am not a chicken. Don't tell anyone.)",
       },
       runner: {
-        name: "Dust Dasher", icon: "🐦", role: "Raider", type: "ground",
+        name: "Dust Raider", icon: "🐦", role: "Raider", type: "ground",
         atk: 40, defG: 15, defA: 10, speed: 18, carry: 85, upkeep: 1,
         cost: { wood: 130, stone: 80, metal: 120, food: 60 }, time: 70, building: "barracks", level: 3, lab: 3,
         quote: "Zoom! Your resources? MY resources now.",
@@ -258,7 +258,7 @@ const TRIBES = {
         quote: "We come in peace. Just kidding.",
       },
       blob: {
-        name: "Goo Blob", icon: "🦠", role: "Defender", type: "ground",
+        name: "Goo Guard", icon: "🦠", role: "Defender", type: "ground",
         atk: 12, defG: 92, defA: 68, speed: 4, carry: 10, upkeep: 3,
         cost: { wood: 115, stone: 140, metal: 130, food: 55 }, time: 90, building: "barracks", level: 1, lab: 1,
         quote: "Blorp.",
@@ -282,13 +282,13 @@ const TRIBES = {
         quote: "Eight arms. Eight swords. No mercy.",
       },
       saucer: {
-        name: "Flying Saucer", icon: "🛸", role: "Fighter", type: "air",
+        name: "Saucer Fighter", icon: "🛸", role: "Fighter", type: "air",
         atk: 95, defG: 35, defA: 90, speed: 16, carry: 40, upkeep: 3,
         cost: { wood: 270, stone: 200, metal: 340, food: 95 }, time: 150, building: "hangar", level: 1, lab: 3,
         quote: "Beep boop. Prepare for abduction.",
       },
       jelly: {
-        name: "Space Jelly", icon: "🪼", role: "Bomber", type: "air",
+        name: "Jelly Bomber", icon: "🪼", role: "Bomber", type: "air",
         atk: 180, defG: 36, defA: 36, speed: 9, carry: 80, upkeep: 4,
         cost: { wood: 450, stone: 340, metal: 550, food: 160 }, time: 260, building: "hangar", level: 5, lab: 5,
         quote: "Wobble wobble, here comes trouble.",
