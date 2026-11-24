@@ -3795,6 +3795,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .bli-lv.up { background: var(--mint); color: #0f4a37; } .bli-lv.bld { box-shadow: inset 0 0 0 2px var(--accent); }
   /* ---------- the drawn icon set ---------- */
   img.gi, img.ci { object-fit: contain; }
+  img.gimg { width: 1.5em; height: 1.5em; vertical-align: -.4em; object-fit: contain; }
+  .hgear > span img.gimg { width: 1.8em; height: 1.8em; }
   .gi { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.24em; flex: none; overflow: visible; pointer-events: none; }
   .say { position: fixed; left: 8px; right: 8px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 9000; max-width: 560px; margin: 0 auto; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px 22px; background: #2a1b2e; color: #fff4e0; border: 3px solid #fff4e0; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.4); cursor: pointer; }
   .say .sp { flex: none; width: 44px; text-align: center; font-size: 34px; line-height: 1.1; }
@@ -4703,6 +4705,8 @@ var RES = ["wood", "stone", "metal", "food"];
 var RES_ICON = { wood: "🪵", stone: "🪨", metal: "🔩", food: "🥔" };
 // 🏺 clay icons (sprite in the page); text keeps its emoji
 // painted icon from the art folder when it exists, otherwise the built-in glyph
+// painted gear icon when it exists, otherwise the emoji
+function gearIc(slot, tier, icon) { return slot && tier && FX_ART && FX_ART.t["gear-" + slot + tier] ? '<img class="gimg" src="/art/gear-' + slot + tier + '.webp?v=' + FX_ART.v + '" alt="" width="48" height="48" draggable="false">' : icon; }
 function artIco(cls, key) { return FX_ART && FX_ART.t[key] ? '<img class="' + cls + '" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" width="64" height="64" draggable="false" aria-hidden="true">' : ""; }
 function ico(n, c) { return artIco("ci ci-" + n + (c ? " " + c : ""), "ci-" + n) || '<svg class="ci ci-' + n + (c ? " " + c : "") + '" aria-hidden="true"><use href="#ci-' + n + '"/></svg>'; }
 var RES_NAME = { wood: "Wood", stone: "Stone", metal: "Metal", food: "Food" };
@@ -13716,7 +13720,7 @@ function heroChip(d) {
 var SLOT_ICON = { weapon: "🗡️", armor: "🦺", helmet: "⛑️", boots: "👢", trinket: "🍀" };
 function heroGearHtml(it, slot, name) {
   if (!it) return '<div class="hgear empty"><span>' + SLOT_ICON[slot] + "</span><small>No " + esc(name.toLowerCase()) + "</small></div>";
-  return '<button class="hgear t' + it.tier + '" data-hero-off="' + slot + '" title="Take off"><span>' + it.icon + '</span><small><span class="rar t' + it.tier + '">' + esc(it.name) + "</span>" + heroGearLine(it) + "</small></button>";
+  return '<button class="hgear t' + it.tier + '" data-hero-off="' + slot + '" title="Take off"><span>' + gearIc(it.slot, it.tier, it.icon) + '</span><small><span class="rar t' + it.tier + '">' + esc(it.name) + "</span>" + heroGearLine(it) + "</small></button>";
 }
 var RARITY = ["Common", "Rare", "Epic", "Legendary"];
 // one stat, e.g. "⚔️ +7% army attack"
@@ -13833,7 +13837,7 @@ function heroSheet(d) {
       var open = String(heroBagOpen) === String(it.id);
       var armedScrap = heroScrapArm.id === it.id && Date.now() - heroScrapArm.at < 4000;
       var cost = Math.round(H.upgradeCash*it.tier*((it.rank||0)+1)*H.upgradeScale);
-      h += '<div class="bagcard' + (open ? " open" : "") + '"><div class="bc-top"><button type="button" class="bc-name" data-bag-open="' + it.id + '"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + '</span></b><small class="bc-cmp' + (worse ? " warn" : "") + '">' + (!equipped ? "Empty slot" : worse ? "Trade-off" : "Better or equal") + (diffs.length || down.length ? " · " + esc(diffs.concat(down).join(" · ")) : "") + '</small></button><button class="btn small" data-hero-equip="' + it.id + '">Equip</button></div>';
+      h += '<div class="bagcard' + (open ? " open" : "") + '"><div class="bc-top"><button type="button" class="bc-name" data-bag-open="' + it.id + '"><b>' + gearIc(it.slot, it.tier, it.icon) + ' <span class="rar t' + it.tier + '">' + esc(it.name) + '</span></b><small class="bc-cmp' + (worse ? " warn" : "") + '">' + (!equipped ? "Empty slot" : worse ? "Trade-off" : "Better or equal") + (diffs.length || down.length ? " · " + esc(diffs.concat(down).join(" · ")) : "") + '</small></button><button class="btn small" data-hero-equip="' + it.id + '">Equip</button></div>';
       if (open) {
         h += heroGearLine(it, true) + '<div class="bc-acts">';
         if ((it.rank||0) < 5) h += '<button class="btn small ghost" data-hero-upgrade="'+it.id+'">⬆️ +'+((it.rank||0)+1)+' · 💲 '+shortNum(cost)+'</button><button class="btn small ghost" data-hero-upgrade="'+it.id+':duplicate" title="Consumes an unupgraded item of the same slot and rarity">⬆️ With a spare · 💲 '+shortNum(Math.round(cost*.35))+'</button>';
@@ -16831,7 +16835,7 @@ function wikiMore(W, tab, cards) {
     cards.push(wkCard("gear", "💎", "Commander gear", wkP("Five slots: weapon, armor, helmet, boots and a trinket. Every item has the <b>main stats</b> of its slot. Rarer items have more, plus random <b>bonus stats ✦</b>: " + He.affixN.map(function (n, i) { return He.rarities[i] + " " + n; }).join(", ") + ".") + kt({
       head: ["Slot", "Items (Common → Legendary)", "Main stats (Common / Rare / Epic / Legendary)"],
       left: 3,
-      rows: He.gear.map(function (g) { return [trStr(g.name), g.tiers.map(function (t, i) { return '<span class="rar t' + (i + 1) + '">' + t.icon + " " + trStr(t.name) + "</span>"; }).join("<br>"), Object.keys(g.main).map(function (k) { return gstat(k) + ": " + g.main[k].map(function (v) { return v + GS[k].unit; }).join(" / "); }).join("<br>")]; }),
+      rows: He.gear.map(function (g) { return [trStr(g.name), g.tiers.map(function (t, i) { return '<span class="rar t' + (i + 1) + '">' + gearIc(g.slot, i + 1, t.icon) + " " + trStr(t.name) + "</span>"; }).join("<br>"), Object.keys(g.main).map(function (k) { return gstat(k) + ": " + g.main[k].map(function (v) { return v + GS[k].unit; }).join(" / "); }).join("<br>")]; }),
     }) + kt({
       head: ["Bonus stat ✦", "Common", "Rare", "Epic", "Legendary"],
       left: 1,
@@ -17802,7 +17806,7 @@ function auctionSheet() {
     if (!A.hasHero) h += '<p class="empty">Gear comes from your commander’s bag. Get a commander first.</p>';
     else if (!A.items.length) h += '<p class="empty">Your bag has no gear to sell yet. Gear drops when your commander leads attacks on monster camps; equipped gear can’t be sold, take it off first.</p><p class="hint left"><button class="btn small ghost" data-hero-open="1">🎖️ Open commander</button></p>';
     A.items.forEach(function (it) {
-      h += '<div class="auc-row"><div class="auc-item"><b>' + it.icon + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
+      h += '<div class="auc-row"><div class="auc-item"><b>' + gearIc(it.slot, it.tier, it.icon) + ' <span class="rar t' + it.tier + '">' + esc(it.name) + "</span></b>" + heroGearLine(it, true) + '</div><div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + it.id + '" aria-label="Start price"><select id="auc-h-' + it.id + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select></div><button class="btn small" data-auc-list="' + it.id + '">Start auction</button></div></div>';
     });
     h += '<p class="hint left">Start price in ' + esc(A.currency.name) + ". Up to " + A.rules.maxActive + " auctions at once. The sale costs a " + A.rules.fee + "% fee. Gear nobody bids on comes back to your bag.</p>";
   } else {
