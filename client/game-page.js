@@ -9970,7 +9970,15 @@ function heroPic(cls) {
   return FX_ART.t[k] ? '<img class="' + (cls || "upic") + '" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" width="128" height="128">' : "🎖️";
 }
 // ---------- 🗣️ voices: a typed-out speech box and a small cast ----------
-var CAST = { beppo: { name: "Beppo", icon: "🐶", pitch: 380 } };
+var CAST = {
+  beppo: { name: "Beppo", icon: "🐶", pitch: 380 },
+  steward: { name: "Steward", icon: "🧑‍💼", pitch: 330, art: "hero-steward" },
+  drill: { name: "Drillmaster", icon: "🪖", pitch: 250, art: "hero-drillmaster" },
+  banker: { name: "Banker", icon: "💼", pitch: 440, art: "hero-banker" },
+  forager: { name: "Forager", icon: "🌾", pitch: 400, art: "hero-forager" },
+  warden: { name: "Warden", icon: "🛡️", pitch: 280, art: "hero-warden" },
+  prof: { name: "Professor", icon: "🔬", pitch: 520, art: "hero-professor" }
+};
 var BEPPO_LINES = {
   neutral: ["Everything is under control. Mostly.", "I sniffed around. Nothing suspicious. Except the cat.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
   happy: ["Ten camps cleared! Good colony! Best colony!", "Did someone say walkies? No? Still a great day."],
@@ -12314,6 +12322,10 @@ function renderReports() {
 //  Popups (fields, lots, sending troops)
 // =====================================================================
 function openSheet(kind, slot) {
+  if (kind === "building" && data && typeof slot === "number") {
+    var ob = data.buildings.filter(function (x) { return x.slot === slot; })[0];
+    if (ob && BEPPO_SAY["b-" + ob.type]) setTimeout(function () { beppoSay("b-" + ob.type, true); }, 700);
+  }
   sheet = { kind: kind, slot: slot };
   sheetAnim = true;
   renderSheet();
@@ -13504,7 +13516,17 @@ var BEPPO_SAY = {
   hunt: ["happy", "Creatures in slots earn Space-Cash every second, also while you are away."],
   cmd: ["neutral", "Fuse shards from the shop to get more commanders. Your active commander is never for sale."],
   farm: ["surprised", "A farm list sends many raids with one tap. Test a fight in the simulator first."],
-  relics: ["surprised", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt."]
+  relics: ["surprised", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt."],
+  "b-hq": ["neutral", "The HQ unlocks everything else and makes every build faster. Upgrade it first, we will do the rest. Probably.", "steward"],
+  "b-barracks": ["neutral", "Infantry and scouts start here. Keep them fed, a hungry soldier is a loud soldier.", "drill"],
+  "b-workshop": ["neutral", "Siege machines come out of here. They are heavy, slow and very good at doors.", "drill"],
+  "b-hangar": ["neutral", "Fighters and bombers. Please do not park anything on the roof.", "drill"],
+  "b-market": ["neutral", "Merchants carry resources between colonies. I take no cut. Today.", "banker"],
+  "b-warehouse": ["neutral", "A full warehouse wastes production. Spend it, or build a bigger one.", "forager"],
+  "b-granary": ["neutral", "Troops eat every hour. If the food runs out, so does the army.", "forager"],
+  "b-bunker": ["neutral", "What is in the bunker, raiders cannot take. Think of it as a very expensive sock drawer.", "warden"],
+  "b-wall": ["neutral", "The wall and your defenders hold the line. Allies can send help here too.", "warden"],
+  "b-lab": ["surprised", "Research unlocks better troops. I have already broken the tea machine, for science.", "prof"]
 };
 // first time a place is opened (the bubble sits at the top so it never covers the sheet)
 var BEPPO_OPEN = { "[data-codex-open]": "codex", "[data-auction]": "auction", "[data-hunt-open]": "hunt", "[data-cmd-open],[data-hero-open]": "cmd", "[data-farm-open]": "farm", "[data-relics]": "relics" };
@@ -13517,16 +13539,16 @@ document.addEventListener("click", function (e) {
 function beppoSeen() { try { return JSON.parse(localStorage.getItem("marsl-beppo-seen") || "{}") || {}; } catch (e) { return {}; } }
 function beppoOn() { try { return localStorage.getItem("marsl-beppo-off") !== "1"; } catch (e) { return true; } }
 function beppoSay(id, top) {
-  var m = BEPPO_SAY[id];
+  var m = BEPPO_SAY[id], who = CAST[m && m[2] || "beppo"];
   if (!m || !beppoOn() || (tut.step >= 0 && tut.step < TUTORIAL.length) || document.getElementById("beppo-say")) return;
   var seen = beppoSeen();
   if (seen[id]) return;
   seen[id] = 1;
   try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
-  var bk = "beppo-" + m[0], el = document.createElement("div");
+  var bk = m[2] ? who.art : "beppo-" + m[0], el = document.createElement("div");
   el.id = "beppo-say";
   if (top) el.className = "top";
-  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : CAST.beppo.icon) + '<div class="bs-bub"><b>' + CAST.beppo.name + '</b><div class="bs-t">' + trStr(m[1]) + "</div></div>";
+  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + trStr(m[1]) + "</div></div>";
   document.body.appendChild(el);
   var t = el.querySelector(".bs-t"), gone = 0;
   var bye = function () {
@@ -13536,7 +13558,7 @@ function beppoSay(id, top) {
     el.classList.add("bye");
     setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
   };
-  typeHtml(t, m[0] === "worried" ? 300 : m[0] === "surprised" ? 470 : CAST.beppo.pitch);
+  typeHtml(t, m[2] ? who.pitch : m[0] === "worried" ? 300 : m[0] === "surprised" ? 470 : CAST.beppo.pitch);
   el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
   setTimeout(bye, 9000);
 }
@@ -15130,7 +15152,7 @@ function renderSheet() {
     h += translateSheet();
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
-    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button><button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Beppo: on" : "💬 Beppo: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
+    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button><button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play

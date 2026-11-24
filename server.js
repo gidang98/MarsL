@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.495";
+const GAME_VERSION = "1.0.496";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.496",date:"2026-11-25",title:"Voices in the colony",groups:[["✨ New",["The first time you open a building, someone who works there says a few words: the Steward at the HQ, the Drillmaster at barracks, workshop and hangar, the Banker at the market, the Forager at warehouse and granary, the Warden at bunker and wall, the Professor in the lab. Each has their own voice. Settings → Voices turns them off."]]]},
   {v:"1.0.495",date:"2026-11-25",title:"Bigger Beppo",groups:[["🔧 Fixed",["Beppo is much bigger on phones, and the tour bubble no longer scrolls: the text and sprite shrink on small screens instead."]]]},
   {v:"1.0.494",date:"2026-11-25",title:"Beppo explains",groups:[["✨ New",["The first time you open the Codex, auction, hunt, commanders, farm lists or relics, Beppo drops a one-line tip at the top. Settings → Beppo turns it off."]]]},
   {v:"1.0.493",date:"2026-11-25",title:"A fuller tour",groups:[["✨ New",["The tour now also explains Space-Cash and Star Credits, your commander, hunting and the auction."]]]},
