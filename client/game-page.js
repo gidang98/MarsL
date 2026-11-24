@@ -10000,7 +10000,10 @@ function UI(u) {
 }
 function unitPic(u, cls) {
   var k = "unit-" + ((data && data.tribe && data.tribe.key) || "") + "-" + u.key;
-  return FX_ART.t[k] ? '<img class="' + (cls || "upic") + '" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" width="128" height="128" loading="lazy">' : u.icon;
+  if (FX_ART.t[k]) return '<img class="' + (cls || "upic") + '" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" width="128" height="128" loading="lazy">';
+  // no painted picture: the same drawn unit icon the battle reports use, the emoji only when there is none
+  var id = u && UNIT_ICO[u.name];
+  return id ? '<img class="' + (cls || "upic") + '" src="/uicon/' + id + '.webp?v=__VER__" alt="" width="96" height="96" draggable="false" loading="lazy">' : u.icon;
 }
 function unitHead(u, sub) {
   var stars = "";
