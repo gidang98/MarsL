@@ -3795,6 +3795,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .bli-lv.up { background: var(--mint); color: #0f4a37; } .bli-lv.bld { box-shadow: inset 0 0 0 2px var(--accent); }
   /* ---------- the drawn icon set ---------- */
   img.gi, img.ci { object-fit: contain; }
+  img.himg { width: 1.7em; height: 1.7em; object-fit: contain; vertical-align: -.45em; }
+  .cmd-ic img.himg, .idx-ic img.himg, .sel-ic img.himg, .hunt-cell > span img.himg { width: 100%; height: auto; vertical-align: 0; }
   img.gimg { width: 1.5em; height: 1.5em; vertical-align: -.4em; object-fit: contain; }
   .hgear > span img.gimg { width: 1.8em; height: 1.8em; }
   .gi { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.24em; flex: none; overflow: visible; pointer-events: none; }
@@ -4707,6 +4709,8 @@ var RES_ICON = { wood: "🪵", stone: "🪨", metal: "🔩", food: "🥔" };
 // painted icon from the art folder when it exists, otherwise the built-in glyph
 // painted gear icon when it exists, otherwise the emoji
 function gearIc(slot, tier, icon) { return slot && tier && FX_ART && FX_ART.t["gear-" + slot + tier] ? '<img class="gimg" src="/art/gear-' + slot + tier + '.webp?v=' + FX_ART.v + '" alt="" width="48" height="48" draggable="false">' : icon; }
+// painted commander portrait when it exists, otherwise the emoji
+function cIc(o) { return o && o.key && FX_ART && FX_ART.t["hero-" + o.key] ? '<img class="himg" src="/art/hero-' + o.key + '.webp?v=' + FX_ART.v + '" alt="" width="64" height="64" draggable="false" loading="lazy">' : (o ? o.icon : ""); }
 function artIco(cls, key) { return FX_ART && FX_ART.t[key] ? '<img class="' + cls + '" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" width="64" height="64" draggable="false" aria-hidden="true">' : ""; }
 function ico(n, c) { return artIco("ci ci-" + n + (c ? " " + c : ""), "ci-" + n) || '<svg class="ci ci-' + n + (c ? " " + c : "") + '" aria-hidden="true"><use href="#ci-' + n + '"/></svg>'; }
 var RES_NAME = { wood: "Wood", stone: "Stone", metal: "Metal", food: "Food" };
@@ -17480,7 +17484,7 @@ function commanderSheet() {
     h += '<p class="hint left">New offers in ⏱ ' + cdSpan(C.shop.nextMs - (Date.now() - cmd.at), "cmd") + ". Shards cost Space-Cash. " + need + " shards of one commander fuse into a new copy of it. Spare copies can be merged to raise a rank, or sold in the auction.</p>";
     var offers = C.shop.all.slice().sort(function (x, y) { return (y.offer ? 1 : 0) - (x.offer ? 1 : 0); });
     offers.forEach(function (o) {
-      h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + o.icon + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + (o.owned ? " · owned " + o.owned : "") + "</small></b>" +
+      h += '<div class="cmd-row sm' + (o.offer ? " in" : " off") + '"><span class="cmd-ic">' + cIc(o) + '</span><div><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + (o.owned ? " · owned " + o.owned : "") + "</small></b>" +
         "<small>" + esc(o.effect) + " · 🎫 +" + o.rate + "/day · helper +" + o.help + "% attack</small>" +
         (o.quip ? '<small class="quip">“' + esc(o.quip) + "”</small>" : "") + heroBar("xp", Math.min(o.shards, need), need) + "<small>" + o.shards + " / " + need + " shards</small></div>";
       h += !o.offer ? "<small>not in stock<br>💲 " + shortNum(o.price) + "</small>" : !o.left ? "<small>" + (o.capped ? "daily limit reached" : "sold out") + "</small>" : '<button class="btn small" data-cmd-buy="' + o.key + '"' + (C.cash < o.price ? " disabled" : "") + ">💲 " + shortNum(o.price) + (o.total > 1 ? " · " + o.left + " left" : "") + "</button>";
@@ -17496,7 +17500,7 @@ function commanderSheet() {
     groups.sort(function (x, y) { return gRank(x) - gRank(y) || x.i - y.i; });
     groups.forEach(function (g) {
       var f = g.cards[0];
-      h += '<div class="cmd-group"><div class="cmd-gh"><span class="cmd-ic">' + f.icon + '</span><div><b><span class="cmd-rar r-' + f.rarity + '">' + esc(f.name) + "</span> <small>" + f.rarity + (g.cards.length > 1 ? " · " + g.cards.length + " copies" : "") + "</small></b>" + (f.quip ? '<small class="quip">“' + esc(f.quip) + "”</small>" : "") + "</div></div>";
+      h += '<div class="cmd-group"><div class="cmd-gh"><span class="cmd-ic">' + cIc(f) + '</span><div><b><span class="cmd-rar r-' + f.rarity + '">' + esc(f.name) + "</span> <small>" + f.rarity + (g.cards.length > 1 ? " · " + g.cards.length + " copies" : "") + "</small></b>" + (f.quip ? '<small class="quip">“' + esc(f.quip) + "”</small>" : "") + "</div></div>";
       g.cards.forEach(function (c) {
         var on = c.id === C.active, help = C.helpers.indexOf(c.id) >= 0, m = c.merge;
         h += '<div class="cmd-copy' + (on ? " on" : "") + (c.tier ? " sh-" + c.tier : "") + '"><div class="cmd-ci"><b>' + (c.tier ? '<i class="sh-t' + c.tier + '">' + c.tierName + "</i> " : "") + "rank " + c.rank + "/" + c.maxRank + "</b><small>" + esc(c.trait) + " · 🎫 +" + Math.round(c.rate * 24 * 10) / 10 + "/day · helper +" + c.help + "% attack</small>";
@@ -17509,7 +17513,7 @@ function commanderSheet() {
     if (C.shards.length) {
       h += '<p class="hint left"><b>Shards</b></p>';
       C.shards.forEach(function (sh) {
-        h += '<div class="cmd-row"><span class="cmd-ic">' + sh.icon + '</span><div><b><span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b>" + heroBar("xp", Math.min(sh.count, sh.need), sh.need) + "<small>" + sh.count + " / " + sh.need + " shards</small></div>";
+        h += '<div class="cmd-row"><span class="cmd-ic">' + cIc(sh) + '</span><div><b><span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b>" + heroBar("xp", Math.min(sh.count, sh.need), sh.need) + "<small>" + sh.count + " / " + sh.need + " shards</small></div>";
         h += sh.count >= sh.need ? '<button class="btn small" data-cmd-fuse="' + sh.key + '">Fuse</button>' : "";
         h += "</div>";
       });
@@ -17653,7 +17657,7 @@ function huntIndex() {
   plain.forEach(function (c) { if (!by[c.rarity]) { by[c.rarity] = []; order.push(c.rarity); } by[c.rarity].push(c); });
   var row = function (c) {
     var k = c.found;
-    return '<div class="idx-row rc-' + c.rarity + (k && c.tier ? " sh-" + c.tier : "") + (k ? "" : " none") + '"><span class="idx-ic">' + (k ? c.icon : "❔") + '</span><div><b class="' + (k ? "cmd-rar r-" + c.rarity : "") + '">' + (k ? esc(c.name) : "???") + "</b><small>" + shortNum(c.hp) + " HP · " + c.chance + "% of opponents" + (k ? " · +" + c.cash + "/s · sells " + shortNum(c.sell) : "") + "</small></div>" + (k ? "<em>" + (c.count ? "×" + c.count : "–") + "</em>" : "") + "</div>";
+    return '<div class="idx-row rc-' + c.rarity + (k && c.tier ? " sh-" + c.tier : "") + (k ? "" : " none") + '"><span class="idx-ic">' + (k ? cIc(c) : "❔") + '</span><div><b class="' + (k ? "cmd-rar r-" + c.rarity : "") + '">' + (k ? esc(c.name) : "???") + "</b><small>" + shortNum(c.hp) + " HP · " + c.chance + "% of opponents" + (k ? " · +" + c.cash + "/s · sells " + shortNum(c.sell) : "") + "</small></div>" + (k ? "<em>" + (c.count ? "×" + c.count : "–") + "</em>" : "") + "</div>";
   };
   order.forEach(function (r) {
     var list = by[r], n = list.filter(function (c) { return c.found; }).length;
@@ -17686,7 +17690,7 @@ function huntSellView() {
     }).join("") + '<button class="btn small ghost" data-sel-all="1">All</button><button class="btn small ghost" data-sel-all="0">None</button></div>';
     h += list.map(function (c) {
       var q = sel[c.key] || 0;
-      return '<div class="sel-row rc-' + c.rarity + (c.tier ? " sh-" + c.tier : "") + (q ? " on" : "") + '"><span class="sel-ic">' + c.icon + '</span><div><b class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</b><small>" + c.spare + " to sell · 💲" + shortNum(c.sell) + " each</small></div>" +
+      return '<div class="sel-row rc-' + c.rarity + (c.tier ? " sh-" + c.tier : "") + (q ? " on" : "") + '"><span class="sel-ic">' + cIc(c) + '</span><div><b class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</b><small>" + c.spare + " to sell · 💲" + shortNum(c.sell) + " each</small></div>" +
         '<div class="sel-step"><button class="btn small ghost" data-sel-step="' + c.key + ':-1"' + (q ? "" : " disabled") + '>−</button><b>' + q + '</b><button class="btn small ghost" data-sel-step="' + c.key + ':1"' + (q >= c.spare ? " disabled" : "") + ">+</button></div></div>";
     }).join("");
     h += '<div class="sel-go"><span>' + (picked ? picked + " selected · <b>💲" + cashText(total) + "</b>" : "Nothing selected") + '</span><button class="btn" data-sell-go="1"' + (picked ? "" : " disabled") + ">Sell selected</button></div>";
@@ -17718,7 +17722,7 @@ function huntSheet() {
   else h += '<div class="hunt-grid">' + owned.map(function (c) {
     var can = D.slots.some(function (x) { return !x; });
     var tip = esc(c.name) + " · " + c.rarity + " · " + shortNum(c.hp) + " HP · " + c.chance + "% of opponents · +" + c.cash + " Space-Cash/s" + (can ? " · tap to put in a slot" : "");
-    return '<' + (can ? "button" : "div") + ' class="hunt-cell rc-' + c.rarity + (c.tier ? " sh-" + c.tier : "") + (can ? " pick" : "") + '"' + (can ? ' data-hunt-place="' + c.key + '"' : "") + ' title="' + tip + '"><span>' + c.icon + '</span><small class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</small><b>×" + c.free + "</b><small>+" + c.cash + "/s</small></" + (can ? "button" : "div") + ">";
+    return '<' + (can ? "button" : "div") + ' class="hunt-cell rc-' + c.rarity + (c.tier ? " sh-" + c.tier : "") + (can ? " pick" : "") + '"' + (can ? ' data-hunt-place="' + c.key + '"' : "") + ' title="' + tip + '"><span>' + cIc(c) + '</span><small class="cmd-rar r-' + c.rarity + '">' + esc(c.name) + "</small><b>×" + c.free + "</b><small>+" + c.cash + "/s</small></" + (can ? "button" : "div") + ">";
   }).join("") + "</div>";
   h += '<p class="hint left">A new opponent appears every ' + shortTime(D.windowMs) + ". Beat it before the next one comes or it gets away. Your inventory holds 15 creatures. Put up to 5 of them in slots (a creature in a slot leaves the inventory until you take it out): each earns Space-Cash every second, the currency of the auction, and your balance climbs while you watch (time away counts for up to 4 hours). While you are away, up to 4 hours of fights are worked out when you return: only your commander’s own strikes count, and only half of the opponents show up.</p>";
   return h;
@@ -17776,7 +17780,7 @@ function auctionSheet() {
   } else if (auc.tab === "shards") {
     if (!A.shards.length) h += '<p class="empty">You have no commander shards to sell. Shards come from the commander shop.</p><p class="hint left"><button class="btn small ghost" data-cmd-open="1">🎫 Open commanders</button></p>';
     A.shards.forEach(function (sh) {
-      h += '<div class="auc-row stack"><div class="auc-item"><b>' + sh.icon + ' <span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b><small>" + sh.count + " shards</small></div>" +
+      h += '<div class="auc-row stack"><div class="auc-item"><b>' + cIc(sh) + ' <span class="cmd-rar r-' + sh.rarity + '">' + esc(sh.name) + "</span></b><small>" + sh.count + " shards</small></div>" +
         '<div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + sh.count + '" value="' + sh.count + '" id="auc-n-' + sh.key + '" aria-label="How many shards"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-p-' + sh.key + '" aria-label="Start price"><select id="auc-h-' + sh.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-lot="' + sh.key + '">Sell</button></div></div></div>';
     });
     h += '<p class="hint left">Pick how many shards go into the lot (the number field first), the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. Shards nobody bids on come back to you.</p>";
@@ -17790,7 +17794,7 @@ function auctionSheet() {
   } else if (auc.tab === "creatures") {
     if (!A.creatures.length) h += '<p class="empty">No creatures to sell. Creatures in a hunt slot are not for sale: take them out first.</p><p class="hint left"><button class="btn small ghost" data-hunt-open="1">🐾 Open the hunt</button></p>';
     A.creatures.forEach(function (cr) {
-      h += '<div class="auc-row stack"><div class="auc-item"><b>' + cr.icon + ' <span class="cmd-rar r-' + cr.rarity + '">' + esc(cr.name) + "</span></b><small>" + cr.count + " in your inventory · 💲 " + (Math.round((cr.cash || 0) * 10) / 10) + "/s each</small></div>" +
+      h += '<div class="auc-row stack"><div class="auc-item"><b>' + cIc(cr) + ' <span class="cmd-rar r-' + cr.rarity + '">' + esc(cr.name) + "</span></b><small>" + cr.count + " in your inventory · 💲 " + (Math.round((cr.cash || 0) * 10) / 10) + "/s each</small></div>" +
         '<div class="auc-side"><div class="auc-bid"><input type="number" inputmode="numeric" min="1" max="' + cr.count + '" value="1" id="auc-cn-' + cr.key + '" aria-label="How many"><input type="number" inputmode="numeric" min="1" max="' + A.rules.priceMax + '" value="100000" id="auc-cp-' + cr.key + '" aria-label="Start price"><select id="auc-ch-' + cr.key + '">' + A.rules.hours.map(function (x) { return '<option value="' + x + '"' + (x === A.rules.hours[1] ? " selected" : "") + ">" + hrTxt(x) + "</option>"; }).join("") + '</select><button class="btn small" data-auc-crea="' + cr.key + '">Sell</button></div></div></div>';
     });
     h += '<p class="hint left">Pick how many go into the lot, the start price in ' + esc(A.currency.name) + " and how long it runs. Same rules and fee as gear. A winner needs room in the creature inventory; creatures nobody bids on come back to you.</p>";
