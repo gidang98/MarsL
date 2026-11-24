@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.481";
+const GAME_VERSION = "1.0.482";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.482",date:"2026-11-24",title:"Icons fix",groups:[["🛠️ Fixes",["Painted icons whose names contain capital letters (swords, shields, cash, helmets and more) now load instead of showing a broken picture."]]]},
   {v:"1.0.481",date:"2026-11-24",title:"New golem and octopus",groups:[["🎨 Art",["New painted golem and octopus icons."]]]},
   {v:"1.0.480",date:"2026-11-24",title:"Golem and octopus",groups:[["🎨 Art",["Painted icons for the golem and the octopus."]]]},
   {v:"1.0.479",date:"2026-11-24",title:"New commander look",groups:[["🎨 Art",["All 20 commanders have a new, friendlier look."]]]},
@@ -23576,7 +23577,7 @@ const ART_VERSION = (() => {
 })();
 function artJson() { return JSON.stringify({ v: ART_VERSION, t: FIELD_ART_META }); }
 app.get("/art/:file", (req, res) => {
-  const m = /^([a-z0-9-]+)\.webp$/.exec(req.params.file || "");
+  const m = /^([A-Za-z0-9-]+)\.webp$/.exec(req.params.file || "");
   if (!m || (!FIELD_ART_META[m[1]] && m[1] !== "hero")) return res.status(404).end();
   require("fs").readFile(require("path").join(__dirname, "art", m[1] + ".webp"), (err, buf) => {
     if (err) return res.status(404).end();
