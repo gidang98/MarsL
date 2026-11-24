@@ -15685,7 +15685,7 @@ function terrainCode(x, y) {
 // 1.0.247: clay pieces on the map. Colonies grow in four sizes with their points.
 var MAP_CAMP_ART = { "🦂": "scorpion", "🪷": "spore", "🧌": "troll", "🦇": "bat", "🦎": "lizard", "🪱": "worm", "🪅": "golem", "🪬": "kraken" };
 var MAP_LMK_ART = { "🚙": "rover", "🥔": "potato", "🦴": "bones", "🧦": "sock", "🗿": "face", "🛸": "ufo", "🥚": "egg", "🎸": "guitar" };
-var COLONY_SIZE_AT = [40, 120, 250]; // points: below each limit = that size, from there on the largest
+var COLONY_SIZE_AT = [60, 120, 250]; // points: below each limit = that size, from there on the largest
 function mapArt(key) { return FX_ART.t[key] ? '<img class="mclay" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : ""; }
 function colonyArt(c) {
   var size = c.points < COLONY_SIZE_AT[0] ? 1 : c.points < COLONY_SIZE_AT[1] ? 2 : c.points < COLONY_SIZE_AT[2] ? 3 : 4;
