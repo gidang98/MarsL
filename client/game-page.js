@@ -8960,6 +8960,12 @@ function fieldJob(d, slot) {
 }
 // clay pictures (1.0.229): every field is a small clay disc that grows with its level
 var FX_ART = __ART__;
+// the painted slab: its walkable stone surface (fractions of the picture) so the lots and fields can be fitted inside it
+var SLAB = { cx: 0.503, cy: 0.4875, rx: 0.44, ry: 0.273 };
+function slabImg(cx, cy, Ws, k) {
+  var m = FX_ART.t["colony-slab"], Hs = Ws * m.h / m.w * k;
+  return '<image href="/art/colony-slab.webp?v=' + FX_ART.v + '" x="' + (cx - SLAB.cx * Ws).toFixed(1) + '" y="' + (cy - SLAB.cy * Hs).toFixed(1) + '" width="' + Ws + '" height="' + Hs.toFixed(1) + '" preserveAspectRatio="none"/>';
+}
 function fxStage(level, max) { return level <= Math.ceil(max * 0.3) ? 1 : level <= Math.ceil(max * 0.7) ? 2 : 3; }
 function fxImg(key, cx, cy, W) {
   var m = FX_ART.t[key];
@@ -8977,12 +8983,11 @@ function fieldScene(d, order) {
   var g = '<defs><filter id="fxsoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>' +
     '<filter id="fxgrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" values="0 0 0 0 .55 0 0 0 0 .25 0 0 0 0 .18 0 0 0 .55 -.18"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs>';
   // an oval clay slab; the 12 fields stand on a ring around your mascot in the middle
-  var CX = 190, CY = 124, RX = 157, RY = 85, W0 = 61;
+  var CX = 190, CY = 124, RX = 150, RY = 84, W0 = 61;
   var sl = FX_ART.t["colony-slab"];
   if (sl) {
-    // the same painted slab as the colony, a little wider for the field ring
-    var sc = 1.09, Ws = 404 * sc, Hs = Ws * sl.h / sl.w;
-    g += '<ellipse cx="' + (CX + 8) + '" cy="' + (CY + 52) + '" rx="190" ry="84" fill="rgba(150,70,60,.18)" filter="url(#fxsoft)"/><image href="/art/colony-slab.webp?v=' + FX_ART.v + '" x="' + (CX - Ws / 2) + '" y="' + (CY - 16 * sc - Hs * 0.35).toFixed(1) + '" width="' + Ws + '" height="' + Hs.toFixed(1) + '"/>';
+    // the same painted slab as the colony, stretched a little taller so the whole ring stands on the stone
+    g += '<ellipse cx="' + (CX + 8) + '" cy="' + (CY + 40) + '" rx="182" ry="104" fill="rgba(150,70,60,.18)" filter="url(#fxsoft)"/>' + slabImg(CX, CY, 404, 1.4);
   } else {
     g += '<ellipse cx="' + (CX + 10) + '" cy="' + (CY + 30) + '" rx="186" ry="104" fill="rgba(150,70,60,.16)" filter="url(#fxsoft)"/>';
     g += '<path d="M' + (CX - 182) + " " + CY + "v12a182 104 0 0 0 364 0v-12z" + '" fill="#D27358"/>';
@@ -9021,7 +9026,7 @@ function fieldScene(d, order) {
     if (cls === "up") g += '<path class="ar" d="M' + (x + 3.2) + " " + (y + 6.6) + "l2.6-3.6 2.6 3.6z" + '"/>';
     g += '<text x="' + (x + wd / 2 + (cls === "up" ? 3.4 : 0)) + '" y="' + (y + 7.6) + '">' + t + "</text></g>";
   });
-  return '<svg class="fx-scene" viewBox="6 10 368 232" role="group" aria-label="Your resource fields">' + g + "</svg>";
+  return '<svg class="fx-scene" viewBox="-12 8 404 248" role="group" aria-label="Your resource fields">' + g + "</svg>";
 }
 function fieldList(d, order) {
   var h = '<section class="panel fx-list"><div class="fx-key"><span class="up">can upgrade</span><span class="max">max level</span><span class="bld">building</span></div>';
@@ -9083,13 +9088,13 @@ function fxOval(n, cx, cy, rx, ry, startDeg) {
 function colonyScene(d) {
   var bySlot = {};
   d.buildings.forEach(function (b) { bySlot[b.slot] = b; });
-  var CX = 190, CY = 148, tribe = d.tribe && d.tribe.key;
+  var CX = 190, CY = 148, LY = 176, tribe = d.tribe && d.tribe.key;
   var g = '<defs><filter id="fxsoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>' +
     '<filter id="fxgrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="4" result="n"/><feColorMatrix in="n" values="0 0 0 0 .55 0 0 0 0 .25 0 0 0 0 .18 0 0 0 .55 -.18"/><feComposite in2="SourceAlpha" operator="in"/></filter></defs>';
   var sm = FX_ART.t["colony-slab"];
-  if (sm) { var Ws = 404, Hs = Ws * sm.h / sm.w; g += '<ellipse cx="' + (CX + 8) + '" cy="' + (CY + 52) + '" rx="180" ry="80" fill="rgba(150,70,60,.18)" filter="url(#fxsoft)"/><image href="/art/colony-slab.webp?v=' + FX_ART.v + '" x="' + (CX - Ws / 2) + '" y="' + (CY + 4 - Hs * 0.35) + '" width="' + Ws + '" height="' + Hs.toFixed(1) + '"/>'; }
+  if (sm) g += '<ellipse cx="' + (CX + 8) + '" cy="' + (LY + 14) + '" rx="182" ry="100" fill="rgba(150,70,60,.18)" filter="url(#fxsoft)"/>' + slabImg(CX, LY, 404, 1.3);
   else g += '<path d="M' + (CX - 175) + " " + CY + "v14a175 112 0 0 0 350 0v-14z" + '" fill="#D27358"/><ellipse cx="' + CX + '" cy="' + CY + '" rx="175" ry="112" fill="#F2A27F"/>';
-  var LY = CY + 20, inner = fxOval(8, CX, LY, 84, 52, -90), outer = fxOval(Math.max(1, d.lotsTotal - 9), CX, LY, 144, 86, -75);
+  var inner = fxOval(8, CX, LY, 84, 46, -90), outer = fxOval(Math.max(1, d.lotsTotal - 9), CX, LY, 146, 76, -75);
   var cells = [];
   for (var slot = 0; slot < d.lotsTotal; slot++) {
     var pt = slot === 0 ? [CX, LY] : slot <= 8 ? inner[slot - 1] : outer[slot - 9];
@@ -9127,7 +9132,7 @@ function colonyScene(d) {
     var cls = b.level >= b.maxLevel ? "max" : b.pending > 0 ? "bld" : b.canBuild ? "up" : "";
     g += fxTag(c.x, c.y + c.W * 0.27 + 1.5, b.level, cls, 'data-lot="' + c.slot + '"');
   });
-  return '<svg class="fx-scene cx-scene" viewBox="-12 34 404 300" role="group" aria-label="Your colony lots">' + g + "</svg>";
+  return '<svg class="fx-scene cx-scene" viewBox="-12 34 404 272" role="group" aria-label="Your colony lots">' + g + "</svg>";
 }
 
 // =====================================================================
