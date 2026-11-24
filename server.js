@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.463";
+const GAME_VERSION = "1.0.464";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -4207,7 +4207,7 @@ function resolveCamp(m) {
     if (titanHere) titanHit(titanHere, att.userId, campLost.titan || 0);
 
     colonyStat(att, "npc", countUnits(campLost));
-    codexRecord(att.userId, campLost);
+    codexRecord(att.userId, campLost, f.attackerWins && countUnits(campLost) > 0 ? campKind(m.target_x, m.target_y).name : null);
     if(f.attackerWins && countUnits(campLost)>0){ communityAdd(att.userId,true,T);colonyStat(att,"campWins",1); }
     if (campLost.kraken) giveBadge(att.userId, "kraken", "🐙", "Kraken Slayer", T);
     if (f.attackerWins) colonyStat(att, "wins", 1);
@@ -6512,6 +6512,16 @@ const QUESTS = [
   qArmy("army100", "🛡️", "A Real Army", 100, 3000),
   qFields("fields6x5", "🏭", "Working Hard", 6, 5, 3000),
   qCount("wins10", "🏆", "Winner Winner", "wins", 10, "Win 10 battles.", "attack", 3200),
+  { id: "cmd2", icon: "🎖️", title: "Squad Goals", go: "cmd", text: "Own a second commander: fuse shards from the shard shop.",
+    check: (q) => [Math.min(2, (rosterOf(q.uid).cards || []).length), 2], reward: QR(1800) },
+  { id: "merge", icon: "🧩", title: "Two Become One", go: "merge", text: "Merge two copies of the same commander to raise its rank.",
+    check: (q) => [firstDone(q, "merge"), 1], reward: QR(2200) },
+  { id: "adv1", icon: "🎒", title: "Out and Back", go: "adv", text: "Bring your commander home from an adventure.",
+    check: (q) => { const h = heroOf(q.uid); return [h && h.stats && h.stats.adv > 0 ? 1 : 0, 1]; }, reward: QR(2400) },
+  { id: "ally", icon: "🤝", title: "Find Your People", go: "ally", text: "Join or found an alliance.",
+    check: (q) => [allianceOf(q.uid) ? 1 : 0, 1], reward: QR(2600) },
+  { id: "offer", icon: "💱", title: "Market Maker", go: "offer", text: "Post an offer on the {market}.",
+    check: (q) => [firstDone(q, "offer"), 1], reward: QR(2000, "build") },
   qBuild("hub5", "👷", "Ready to Expand", "hub", 5, 4500, "even", " It trains settlers."),
   qFields("allfields5", "🏭", "Industrial Mars", FIELD_LAYOUT.length, 5, 3600),
   qBuild("hangar", "✈️", "Lift Off", "hangar", 1, 4200, "army"),
@@ -6569,52 +6579,91 @@ function questInventoryReward(userId, resources) {
   return true;
 }
 
-// ---------- 📖 the codex: every creature you have beaten ----------
-// Kills are counted per creature, from the first fight after this page appeared.
-// Three milestones per creature pay a bounty into the commander inventory.
+// ---------- 📖 the codex: monsters, camps and commanders ----------
+// Kills and camp wins are counted from the first fight after this page appeared.
+// Monsters and camps pay a bounty into the commander inventory at three milestones.
 const CODEX_TIERS = [1, 25, 250];
 const CODEX_PAY = [120, 480, 1800];
+const CODEX_CAMP_TIERS = [1, 10, 50];
+const CODEX_CAMP_PAY = [200, 800, 3000];
+function codexCamps() {
+  const out = [];
+  CAMP_TIERS.forEach((t, i) => t.kinds.forEach((k) => out.push({ name: k.name, icon: k.icon, tier: i + 1 })));
+  out.push({ name: TITAN_KIND.name, icon: TITAN_KIND.icon, tier: CAMP_TIERS.length + 1 });
+  return out;
+}
 function codexPay(kind, tier) {
   const m = MONSTERS[kind];
   return QR(Math.round(CODEX_PAY[tier] * (1 + Math.min(m.defG + m.defA, 1200) / 300)), "even");
 }
-function codexRecord(userId, lost) {
-  if (!lost) return;
-  const r = retentionOf(userId);
-  r.codex = r.codex || { kills: {}, claimed: {} };
+function codexCampPay(name, tier) {
+  const c = codexCamps().find((x) => x.name === name);
+  return QR(Math.round(CODEX_CAMP_PAY[tier] * (1 + (c.tier - 1) * 0.5)), "even");
+}
+function codexOf(r) {
+  r.codex = r.codex || {};
+  r.codex.kills = r.codex.kills || {};
+  r.codex.camps = r.codex.camps || {};
+  r.codex.cmds = r.codex.cmds || {};
+  r.codex.claimed = r.codex.claimed || {};
+  return r.codex;
+}
+function codexRecord(userId, lost, campName) {
+  const r = retentionOf(userId), c = codexOf(r);
   let any = false;
   for (const kind of Object.keys(MONSTERS)) {
-    const n = lost[kind] || 0;
-    if (n > 0) { r.codex.kills[kind] = (r.codex.kills[kind] || 0) + n; any = true; }
+    const n = (lost && lost[kind]) || 0;
+    if (n > 0) { c.kills[kind] = (c.kills[kind] || 0) + n; any = true; }
   }
+  if (campName) { c.camps[campName] = (c.camps[campName] || 0) + 1; any = true; }
   if (any) saveRetention(userId, r);
 }
 function codexView(userId) {
-  const c = retentionOf(userId).codex || { kills: {}, claimed: {} };
+  const r = retentionOf(userId), c = codexOf(r);
+  // commanders you own now are written down, so selling or merging one later keeps its page
+  let changed = false;
+  for (const card of (rosterOf(userId).cards || [])) {
+    const old = c.cmds[card.key] || { rank: 0, tier: 0 };
+    const rank = Math.max(old.rank, card.rank || 1), tier = Math.max(old.tier, card.tier || 0);
+    if (rank !== old.rank || tier !== old.tier || !c.cmds[card.key]) { c.cmds[card.key] = { rank, tier }; changed = true; }
+  }
+  if (changed) saveRetention(userId, r);
+  const steps = (need, have, pay, key) => need.map((n, i) => ({ need: n, reward: pay(i), claimed: !!c.claimed[key + ":" + i], ready: have >= n }));
   const list = Object.keys(MONSTERS).map((kind) => {
     const m = MONSTERS[kind], kills = c.kills[kind] || 0;
     return {
       id: kind, kills, met: kills > 0,
       name: kills > 0 ? m.name : "Unknown creature", icon: m.icon,
       ground: kills > 0 ? m.defG : null, air: kills > 0 ? m.defA : null,
-      steps: CODEX_TIERS.map((need, i) => ({ need, reward: codexPay(kind, i), claimed: !!(c.claimed || {})[kind + ":" + i], ready: kills >= need })),
+      steps: steps(CODEX_TIERS, kills, (i) => codexPay(kind, i), kind),
     };
   });
-  return { met: list.filter((x) => x.met).length, total: list.length, list };
+  const camps = codexCamps().map((k) => {
+    const wins = c.camps[k.name] || 0;
+    return { id: k.name, wins, met: wins > 0, name: wins > 0 ? k.name : "Unknown camp", icon: k.icon, tier: k.tier, steps: steps(CODEX_CAMP_TIERS, wins, (i) => codexCampPay(k.name, i), "camp:" + k.name) };
+  });
+  const cmds = Object.keys(COMMANDERS).map((key) => {
+    const o = c.cmds[key], d = COMMANDERS[key];
+    return { id: key, met: !!o, name: o ? d.name : "Unknown commander", icon: d.icon, rarity: d.rarity, rank: o ? o.rank : 0, tier: o ? o.tier : 0 };
+  });
+  return { met: list.filter((x) => x.met).length, total: list.length, list, camps, cmds, steps: { monsters: CODEX_TIERS, camps: CODEX_CAMP_TIERS } };
 }
 app.get("/api/codex", requireLogin, (req, res) => res.json(codexView(req.user.id)));
 app.post("/api/codex/claim", requireLogin, (req, res) => {
-  const b = req.body || {}, kind = String(b.id || ""), tier = parseInt(b.tier, 10);
-  if (!MONSTERS[kind] || !(tier >= 0 && tier < CODEX_TIERS.length)) return res.status(400).json({ error: "Unknown entry" });
-  const r = retentionOf(req.user.id);
-  const c = r.codex = r.codex || { kills: {}, claimed: {} };
-  c.claimed = c.claimed || {};
-  if (c.claimed[kind + ":" + tier]) return res.status(400).json({ error: "Already claimed" });
-  if ((c.kills[kind] || 0) < CODEX_TIERS[tier]) return res.status(400).json({ error: "Not done yet!" });
-  if (!questInventoryReward(req.user.id, codexPay(kind, tier))) return res.status(400).json({ error: "Commander inventory unavailable" });
-  c.claimed[kind + ":" + tier] = Date.now();
+  const b = req.body || {}, id = String(b.id || ""), tier = parseInt(b.tier, 10);
+  const camp = id.indexOf("camp:") === 0 ? id.slice(5) : null;
+  if (camp ? !codexCamps().some((x) => x.name === camp) : !MONSTERS[id]) return res.status(400).json({ error: "Unknown entry" });
+  const need = camp ? CODEX_CAMP_TIERS : CODEX_TIERS;
+  if (!(tier >= 0 && tier < need.length)) return res.status(400).json({ error: "Unknown entry" });
+  const r = retentionOf(req.user.id), c = codexOf(r);
+  if (c.claimed[id + ":" + tier]) return res.status(400).json({ error: "Already claimed" });
+  const have = camp ? c.camps[camp] || 0 : c.kills[id] || 0;
+  if (have < need[tier]) return res.status(400).json({ error: "Not done yet!" });
+  const reward = camp ? codexCampPay(camp, tier) : codexPay(id, tier);
+  if (!questInventoryReward(req.user.id, reward)) return res.status(400).json({ error: "Commander inventory unavailable" });
+  c.claimed[id + ":" + tier] = Date.now();
   saveRetention(req.user.id, r);
-  res.json({ ok: true, reward: codexPay(kind, tier) });
+  res.json({ ok: true, reward });
 });
 
 // Quests that were claimed in THIS colony
@@ -6624,10 +6673,19 @@ function claimedQuests(colony) {
 }
 
 // Everything the quest checks need - only this one colony counts
+// "firsts" are account-wide one-time events some quests wait for (a merge, a market offer)
+function markFirst(userId, key) {
+  const r = retentionOf(userId);
+  r.firsts = r.firsts || {};
+  if (r.firsts[key]) return;
+  r.firsts[key] = Date.now();
+  saveRetention(userId, r);
+}
+const firstDone = (q, key) => (((retentionOf(q.uid).firsts || {})[key]) ? 1 : 0);
 function questContext(colony) {
   // a player with the most colonies allowed can't found more: those quests count as done
   const maxColonies = false; // no colony limit
-  return { cols: [colony], s: colony.state, qs: colony.state.qstats || {}, maxColonies };
+  return { cols: [colony], s: colony.state, qs: colony.state.qstats || {}, maxColonies, uid: colony.userId };
 }
 
 // Quests used to belong to the whole account. Those claims now belong to
@@ -6665,7 +6723,7 @@ function questView(colony) {
 // ---------- "📋" the mission board ----------
 // Every quest belongs to one of three cards on the board: build, army or world.
 const QUEST_ARMY = /^(barracks|army|sim$|spy$|camp1$|waves$|hunt|lab$|upgrade$|wins|hangar$|hospital$)/;
-const QUEST_WORLD = /^(hub|colony|crown$)/;
+const QUEST_WORLD = /^(hub|colony|crown$|cmd2$|merge$|adv1$|ally$|offer$)/;
 function questKind(id) {
   id = id.replace(/^exp-/, "");
   if (id.indexOf("camps") === 0) return "army";
@@ -12694,7 +12752,7 @@ app.get("/api/wiki", requireLogin, (req, res) => {
       cancel: Math.round(CANCEL_WINDOW_MS / 1000), 
       spyDetect: SPY_DETECT, spyWipe: SPY_WIPE, research: RESEARCH_COST,
     },
-    codexTiers: CODEX_TIERS,
+    codexTiers: CODEX_TIERS, codexCampTiers: CODEX_CAMP_TIERS,
     monsters: Object.keys(MONSTERS).map((k) => Object.assign({ key: k }, MONSTERS[k], { bounty: Object.fromEntries(RESOURCES.map((r) => [r, Math.round((MONSTERS[k].bounty[r] || 0) * campBountyScale())])) })),
     campScale: 1, campLoot: campLootScale(), campTrophy: campBountyScale(),
     camps: CAMP_TIERS.map((t, i) => ({ tier: i + 1, maxDist: t.maxDist === Infinity ? null : t.maxDist, kinds: t.kinds.map((c) => {
@@ -15624,6 +15682,7 @@ app.post("/api/commanders", requireLogin, (req, res) => {
     r.cards = r.cards.filter((c) => c.id !== from.id);
     r.helpers = (r.helpers || []).filter((id) => id !== from.id);
     save();
+    markFirst(uid, "merge");
     if (into.id === r.active) { const h = heroOf(uid, now); if (h) { h.persona = { key: into.key, rank: into.rank, tier: into.tier || 0 }; heroSave(uid, h); } }
   } else return res.status(400).json({ error: "Unknown action" });
   res.json({ ok: true, shiny: shinyGot });
@@ -17698,9 +17757,9 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.464",date:"2026-11-24",title:"Codex and new quests",groups:[["📖 Codex",["A new Codex in the wallet has three pages: monsters, camps and commanders.","Monsters and camps you have not met show as a dark shape. Beat or win against one to learn its name.","Each monster pays a bounty into your commander inventory at 1, 25 and 250 beaten, and each camp type at 1, 10 and 50 wins. Tougher ones pay more.","The commander page remembers the best rank and shiny tier you reached with each commander.","Counting starts with this version, so earlier kills and wins are not included."]],["📋 Quests",["Five new quests come after Winner Winner: own a second commander, merge two copies, bring your commander home from an adventure, join an alliance and post a market offer.","Merging and offers count from this version on."]]]},
   {v:"1.0.463",date:"2026-11-24",title:"Clearer troop names",groups:[["Army",["Humans: Space-Soldier, Spy and Mortar.","Chickens: Hawk Interceptor and Dust Raider.","Aliens: Goo Guard, Spore Flak, Saucer Fighter and Jelly Bomber."]]]},
   {v:"1.0.462",date:"2026-11-22",title:"Phone controls",groups:[["📱 Mobile",["Map tools and protection controls wrap on small phones. Farm and inbox actions have larger tap targets.","Scroll freely through panels and swipe the handle to close. Newly opened panels start at the top.","Troop and resource quantities now request a numeric keypad."]]]},
-  {v:"1.0.462",date:"2026-11-23",title:"The Codex",groups:[["📖 Codex",["A new Codex lists every monster type and how many of each you have beaten. Open it from the wallet.","Monsters you have not met yet show as a dark shape. Beat one in a camp to learn its name and defence.","Each monster pays a bounty into your commander inventory at 1, 25 and 250 beaten; tougher monsters pay more.","Counting starts with this version, so earlier kills are not included."]]]},
   {v:"1.0.461",date:"2026-11-22",title:"Smoother map",groups:[["🗺️ Map",["Moving across the map no longer rebuilds the whole screen: only the tiles that are new or changed are redrawn, and the refresh every ten seconds leaves untouched tiles alone.","The next piece of the map is fetched while four tiles of land are still left off-screen, and it is sized to your screen and zoom, so full screen and zoomed out views have no blank edges.","The minimap redraws at most ten times a second while you drag."]]]},
   {v:"1.0.460",date:"2026-11-22",title:"Fewer shards from adventures",groups:[["🧩 Adventures",["An adventure now brings home commander shards about one trip in ten (one in seven on the dangerous route), down from one in five.","The piles are smaller too: one or two shards for common and uncommon commanders, always one for rare and above. Together that is roughly a third of the shards adventures gave before. The odds of which commander you get are unchanged."]]]},
   {v:"1.0.459",date:"2026-11-22",title:"Map full screen",groups:[["🗺️ Map",["New full screen button on the map toolbar: the map fills the whole screen and the buttons float on top. Leave it with the same button or the back gesture of your phone.","The map is taller on phones in normal view too."]]]},
@@ -19485,6 +19544,7 @@ app.post("/api/market/offer", requireLogin, (req, res) => {
     pay(s, resOnly(give, ga));
     db.prepare("INSERT INTO market_offers (user_id, colony_id, give_res, give_amt, want_res, want_amt, merchants, ally_only, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(req.user.id, colony.id, give, ga, want, wa, need, b.allyOnly ? 1 : 0, now, now + offerMs());
+    markFirst(req.user.id, "offer");
     return null;
   });
 });
