@@ -1567,11 +1567,11 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-dots i.done { background: #f2a93b; }
   .tut-dots i.on { background: #e2574c; }
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
-  #beppo-say { position: fixed; left: 76px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(300px, calc(100% - 100px)); animation: tagpop 0.22s ease-out; }
-  #beppo-say.top { bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
+  #beppo-say { position: fixed; left: 70px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(330px, calc(100% - 84px)); animation: tagpop 0.22s ease-out; }
+  #beppo-say.top { left: 8px; max-width: calc(100% - 16px); bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
   #beppo-say.bye { opacity: 0; transition: opacity 0.2s; }
-  #beppo-say img { width: 56px; height: 56px; flex: none; }
-  .bs-bub { position: relative; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.4; }
+  #beppo-say img { width: 88px; height: 88px; flex: none; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(90,40,30,.3)); }
+  .bs-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 8px; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.4; }
   .bs-bub::before { content: ""; position: absolute; left: -7px; bottom: 16px; width: 12px; height: 12px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
   .bs-bub b { display: block; font-size: 12px; opacity: 0.7; }
   .dark-mode .bs-bub, .dark-mode .bs-bub::before { background: #3a3220; color: #f3e9d2; border-color: #5a4b2c; }
@@ -4442,7 +4442,9 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 /* 1.0.356 visual fixes */
 /* the welcome card: below open windows, clear of the phone tab bar, readable in dark mode */
 #tut, #tut.onb.top { z-index: 9; }
-@media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); max-height: 40vh; overflow-y: auto; border-radius: var(--radius-md); } }
+@media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-md); } .tut-beppo { width: 92px; } .tut-beppo img { width: 92px; height: 92px; } .tut-bub { padding: 10px 14px; } .tut-p { font-size: clamp(12px, 3.5vw, 14px); line-height: 1.4; } }
+@media (max-width: 559px) and (max-height: 700px) { .tut-beppo { width: 56px; } .tut-beppo img { width: 56px; height: 56px; } .tut-bub { padding: 8px 12px; } .tut-p { font-size: 12px; line-height: 1.3; margin-bottom: 6px; } .tut-card h3 { font-size: 15px; } }
+@media (max-width: 559px) and (max-height: 600px) { #tut:not(.top) { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }
 .dark-mode .tut-card { background: #3a3220; color: var(--ink); border-color: #5a4b2c; }
 /* the tour is told by Beppo in a speech bubble */
 .tut-card.tut-say { display: flex; gap: 10px; align-items: flex-end; padding: 0; background: none; border: 0; box-shadow: none; }
