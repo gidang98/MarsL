@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.462";
+const GAME_VERSION = "1.0.463";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -867,7 +867,7 @@ const TRIBES = {
     },
     units: {
       marine: {
-        name: "Crater Grunt", icon: "🪖", role: "Infantry", type: "ground",
+        name: "Space-Soldier", icon: "🪖", role: "Infantry", type: "ground",
         atk: 37, defG: 33, defA: 20, speed: 6, carry: 45, upkeep: 1,
         cost: { wood: 110, stone: 90, metal: 130, food: 50 }, time: 63, building: "barracks", level: 1, lab: 0,
         quote: "Helmet on, brain off!",
@@ -885,7 +885,7 @@ const TRIBES = {
         quote: "Anything with wings is my business.",
       },
       drone: {
-        name: "Recon Drone", icon: "🛰️", role: "Scout", type: "air",
+        name: "Spy", icon: "🛰️", role: "Scout", type: "air",
         atk: 0, defG: 10, defA: 10, speed: 18, carry: 0, upkeep: 1,
         cost: { wood: 60, stone: 40, metal: 90, food: 20 }, time: 45, building: "barracks", level: 2, lab: 1,
         quote: "Bzzzt. I see everything.",
@@ -922,7 +922,7 @@ const TRIBES = {
         quote: "Knock knock. Who's there? Not your wall anymore.",
       },
       catapult: {
-        name: "Crater Mortar", icon: "🥏", role: "Bombard", type: "ground",
+        name: "Mortar", icon: "🥏", role: "Bombard", type: "ground",
         atk: 75, defG: 20, defA: 8, speed: 3, carry: 0, upkeep: 6,
         cost: { wood: 440, stone: 410, metal: 475, food: 135 }, time: 272, building: "workshop", level: 10, lab: 10,
         quote: "I aim at buildings. Mostly.",
@@ -993,7 +993,7 @@ const TRIBES = {
         quote: "COCK-A-DOODLE-DON'T!",
       },
       hawk: {
-        name: "Coop Hawk", icon: "🪃", role: "Interceptor", type: "ground",
+        name: "Hawk Interceptor", icon: "🪃", role: "Interceptor", type: "ground",
         atk: 16, defG: 38, defA: 24, speed: 20, carry: 0, upkeep: 1,
         cost: { wood: 80, stone: 45, metal: 60, food: 35 }, time: 45, building: "barracks", level: 3, lab: 2,
         quote: "Raiders? I eat raiders for breakfast.",
@@ -1005,7 +1005,7 @@ const TRIBES = {
         quote: "Coo. (I am not a chicken. Don't tell anyone.)",
       },
       runner: {
-        name: "Dust Dasher", icon: "🐦", role: "Raider", type: "ground", slip: 0.5,
+        name: "Dust Raider", icon: "🐦", role: "Raider", type: "ground", slip: 0.5,
         atk: 40, defG: 15, defA: 10, speed: 18, carry: 85, upkeep: 1,
         special: { icon: "💨", name: "Slippery", text: "Traps catch it only half as often." },
         cost: { wood: 130, stone: 80, metal: 120, food: 60 }, time: 70, building: "barracks", level: 3, lab: 3,
@@ -1102,13 +1102,13 @@ const TRIBES = {
         quote: "We come in peace. Just kidding.",
       },
       blob: {
-        name: "Goo Blob", icon: "🦠", role: "Defender", type: "ground",
+        name: "Goo Guard", icon: "🦠", role: "Defender", type: "ground",
         atk: 12, defG: 76, defA: 62, speed: 3, carry: 10, upkeep: 3,
         cost: { wood: 115, stone: 140, metal: 130, food: 55 }, time: 90, building: "barracks", level: 1, lab: 1,
         quote: "Blorp.",
       },
       spitter: {
-        name: "Spore Spitter", icon: "🍄", role: "Flak", type: "ground",
+        name: "Spore Flak", icon: "🍄", role: "Flak", type: "ground",
         atk: 10, defG: 50, defA: 104, speed: 12, carry: 5, upkeep: 3,
         cost: { wood: 125, stone: 100, metal: 185, food: 60 }, time: 100, building: "hangar", level: 3, lab: 4,
         quote: "Pfft. Pfft. Splat. Down it goes.",
@@ -1133,13 +1133,13 @@ const TRIBES = {
         quote: "Eight arms. Eight swords. No mercy.",
       },
       saucer: {
-        name: "Flying Saucer", icon: "🛸", role: "Fighter", type: "air",
+        name: "Saucer Fighter", icon: "🛸", role: "Fighter", type: "air",
         atk: 95, defG: 35, defA: 90, speed: 16, carry: 40, upkeep: 3,
         cost: { wood: 270, stone: 200, metal: 340, food: 95 }, time: 150, building: "hangar", level: 1, lab: 3,
         quote: "Beep boop. Prepare for abduction.",
       },
       jelly: {
-        name: "Space Jelly", icon: "🪼", role: "Bomber", type: "air",
+        name: "Jelly Bomber", icon: "🪼", role: "Bomber", type: "air",
         atk: 180, defG: 36, defA: 36, speed: 9, carry: 80, upkeep: 4,
         cost: { wood: 430, stone: 325, metal: 520, food: 150 }, time: 247, building: "hangar", level: 5, lab: 5,
         quote: "Wobble wobble, here comes trouble.",
@@ -17648,6 +17648,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.463",date:"2026-11-24",title:"Clearer troop names",groups:[["Army",["Humans: Space-Soldier, Spy and Mortar.","Chickens: Hawk Interceptor and Dust Raider.","Aliens: Goo Guard, Spore Flak, Saucer Fighter and Jelly Bomber."]]]},
   {v:"1.0.462",date:"2026-11-22",title:"Phone controls",groups:[["📱 Mobile",["Map tools and protection controls wrap on small phones. Farm and inbox actions have larger tap targets.","Scroll freely through panels and swipe the handle to close. Newly opened panels start at the top.","Troop and resource quantities now request a numeric keypad."]]]},
   {v:"1.0.461",date:"2026-11-22",title:"Smoother map",groups:[["🗺️ Map",["Moving across the map no longer rebuilds the whole screen: only the tiles that are new or changed are redrawn, and the refresh every ten seconds leaves untouched tiles alone.","The next piece of the map is fetched while four tiles of land are still left off-screen, and it is sized to your screen and zoom, so full screen and zoomed out views have no blank edges.","The minimap redraws at most ten times a second while you drag."]]]},
   {v:"1.0.460",date:"2026-11-22",title:"Fewer shards from adventures",groups:[["🧩 Adventures",["An adventure now brings home commander shards about one trip in ten (one in seven on the dangerous route), down from one in five.","The piles are smaller too: one or two shards for common and uncommon commanders, always one for rare and above. Together that is roughly a third of the shards adventures gave before. The odds of which commander you get are unchanged."]]]},
