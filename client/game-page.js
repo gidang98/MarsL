@@ -4687,8 +4687,17 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   .overlay.dragged .sheet { animation: none; }
   .sheet-drag-live { will-change: transform; }
   body.qopen #quests .qpanel { animation: qin 0.25s ease-out; }
+  /* tabs: the new page slides in from the side of its tab */
+  @keyframes vin-r { from { opacity: 0; left: 28px; } to { opacity: 1; left: 0; } }
+  @keyframes vin-l { from { opacity: 0; left: -28px; } to { opacity: 1; left: 0; } }
+  @keyframes vfade { from { opacity: 0; } }
+  #app.vmove { overflow-x: clip; }
+  #app > .vin-r, #app > .vin-l { position: relative; }
+  #app > .vin-r { animation: vin-r 0.18s ease-out; }
+  #app > .vin-l { animation: vin-l 0.18s ease-out; }
+  #app > .vfade { animation: vfade 0.15s ease-out; }
   @keyframes qin { from { opacity: 0; transform: translateY(14px); } }
-  @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel, #app > .vin-r, #app > .vin-l, #app > .vfade { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -15200,6 +15209,7 @@ function renderParts(parts) {
     app._html = null;
     app.innerHTML = "";
     parts.forEach(function () { app.appendChild(document.createElement("div")); });
+    if (app._vmc && Date.now() < app._vmUntil) { parts.forEach(function (html, i) { setHTML(app.children[i], html); }); vmPlay(app); return; }
   }
   parts.forEach(function (html, i) { setHTML(app.children[i], html); });
 }
@@ -18307,8 +18317,30 @@ function switchColony(id) {
 // until you leave, so it doesn't vanish under your finger
 var justRead = {};
 var VIEWS = { resources: 1, buildings: 1, troops: 1, map: 1, ranking: 1, reports: 1, messages: 1 };
+// the page that comes in slides a little from the side of its tab (fades for the map); no transform, so fixed buttons inside never jump
+function viewMotion(from, to) {
+  if (calmMotion || from === to) return;
+  var app = document.getElementById("app");
+  if (!app) return;
+  var ord = ["resources", "buildings", "troops", "map", "ranking", "reports", "messages"], a = ord.indexOf(from), b = ord.indexOf(to);
+  app._vmc = to === "map" || from === "map" || a < 0 || b < 0 ? "vfade" : b > a ? "vin-r" : "vin-l";
+  app._vmUntil = Date.now() + 450; // a page that loads in two steps rebuilds its parts: the motion carries over
+  vmPlay(app);
+}
+function vmPlay(app) {
+  var el = app.lastElementChild;
+  if (!el || !app._vmc) return;
+  if (app._vm) { clearTimeout(app._vm); app._vm = 0; }
+  el.classList.remove("vin-r", "vin-l", "vfade");
+  void el.offsetWidth;
+  var cls = app._vmc;
+  el.classList.add(cls);
+  app.classList.add("vmove");
+  app._vm = setTimeout(function () { app._vm = 0; el.classList.remove(cls); app.classList.remove("vmove"); }, 260);
+}
 function switchView(v, target) {
   if (!VIEWS[v]) v = "resources";
+  var prevView = view;
   if (v !== view && window.matchMedia && window.matchMedia("(max-width: 559px)").matches) {
     // phones fold the mission board away on every view change; browsers keep it as you left it (open by default)
     questsOpen = false;
@@ -18323,12 +18355,13 @@ function switchView(v, target) {
   if (v === "map") {
     map.pending = target || null;
     openMap();
+    viewMotion(prevView, v);
     return;
   }
   if (v === "reports") loadReports(true);
   if (v === "ranking") { loadRanking(); loadAlliance(); loadMyProfile(); }
   if (v === "messages") loadMessages();
-  if (data) renderColony(data);
+  if (data) { renderColony(data); viewMotion(prevView, v); }
   loadColony(false);
 }
 
