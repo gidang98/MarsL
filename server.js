@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.465";
+const GAME_VERSION = "1.0.466";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1297,15 +1297,15 @@ function isSettler(unit) {
 // bounty: what your troops drag home for every monster they kill (trophies
 // need no carrying space, but somebody has to survive to bring them).
 const MONSTERS = {
-  spore: { name: "Spore Puff", icon: "🪷", defG: 6, defA: 9, bounty: { wood: 2, stone: 1, metal: 1, food: 8 } },
-  scorpion: { name: "Dust Scorpion", icon: "🦂", defG: 12, defA: 6, bounty: { wood: 4, stone: 4, metal: 4, food: 3 } },
-  bat: { name: "Crater Bat", icon: "🦇", defG: 7, defA: 32, bounty: { wood: 3, stone: 3, metal: 8, food: 4 } },
-  troll: { name: "Rock Troll", icon: "🧌", defG: 40, defA: 25, bounty: { wood: 10, stone: 22, metal: 8, food: 6 } },
-  worm: { name: "Sand Worm", icon: "🪱", defG: 95, defA: 22, bounty: { wood: 12, stone: 30, metal: 18, food: 20 } },
-  lizard: { name: "Lava Lizard", icon: "🦎", defG: 100, defA: 60, bounty: { wood: 20, stone: 25, metal: 35, food: 20 } },
-  golem: { name: "Crystal Golem", icon: "🪅", defG: 190, defA: 170, bounty: { wood: 10, stone: 70, metal: 80, food: 0 } },
-  titan: { name: "Dust Titan", icon: "🌪️", defG: 1200, defA: 1200, bounty: { wood: 0, stone: 0, metal: 0, food: 0 } },
-  kraken: { name: "Dust Kraken", icon: "🪬", defG: 2200, defA: 1500, bounty: { wood: 400, stone: 400, metal: 400, food: 400 } },
+  spore: { name: "Spore Puff", icon: "🪷", defG: 6, defA: 9, quip: "Smells lovely. Do not inhale.", bounty: { wood: 2, stone: 1, metal: 1, food: 8 } },
+  scorpion: { name: "Dust Scorpion", icon: "🦂", defG: 12, defA: 6, quip: "Has opinions about your boots.", bounty: { wood: 4, stone: 4, metal: 4, food: 3 } },
+  bat: { name: "Crater Bat", icon: "🦇", defG: 7, defA: 32, quip: "Sleeps all day, judges all night.", bounty: { wood: 3, stone: 3, metal: 8, food: 4 } },
+  troll: { name: "Rock Troll", icon: "🧌", defG: 40, defA: 25, quip: "Collects pebbles. Has a favourite.", bounty: { wood: 10, stone: 22, metal: 8, food: 6 } },
+  worm: { name: "Sand Worm", icon: "🪱", defG: 95, defA: 22, quip: "Very long, very polite, very hungry.", bounty: { wood: 12, stone: 30, metal: 18, food: 20 } },
+  lizard: { name: "Lava Lizard", icon: "🦎", defG: 100, defA: 60, quip: "Always warm, rarely friendly.", bounty: { wood: 20, stone: 25, metal: 35, food: 20 } },
+  golem: { name: "Crystal Golem", icon: "🪅", defG: 190, defA: 170, quip: "Made of crystals and grudges.", bounty: { wood: 10, stone: 70, metal: 80, food: 0 } },
+  titan: { name: "Dust Titan", icon: "🌪️", defG: 1200, defA: 1200, quip: "Do not make eye contact. It has no eyes.", bounty: { wood: 0, stone: 0, metal: 0, food: 0 } },
+  kraken: { name: "Dust Kraken", icon: "🪬", defG: 2200, defA: 1500, quip: "It has eaten smaller krakens.", bounty: { wood: 400, stone: 400, metal: 400, food: 400 } },
 };
 
 // Every tier has two kinds of camps. Each kind has its own monsters and
@@ -3752,9 +3752,32 @@ function fightFacts(f) {
   };
 }
 
+// 💬 monsters that were talked out of a fight and joined the colony: they defend (never attack) and are never hurt
+const FRIEND_DEF = 0.5; // they fight for half of what they would in the wild
+const FRIEND_PER_HQ = 12; // how many friends a colony can keep, per headquarters level
+const FRIEND_BAN = { titan: 1, kraken: 1 }; // too big to join anyone
+function friendsCap(s) { return FRIEND_PER_HQ * Math.max(1, levelOf(s, "hq")); }
+function friendsTotal(s) { return Object.keys(s.friends || {}).reduce((n, k) => n + (s.friends[k] || 0), 0); }
+function friendsDef(s) {
+  const d = { g: 0, a: 0 };
+  for (const k in s.friends || {}) {
+    const m = MONSTERS[k];
+    if (!m) continue;
+    d.g += s.friends[k] * m.defG * FRIEND_DEF;
+    d.a += s.friends[k] * m.defA * FRIEND_DEF;
+  }
+  return d;
+}
+function friendsView(s) {
+  return {
+    cap: friendsCap(s), total: friendsTotal(s),
+    list: Object.keys(s.friends || {}).filter((k) => MONSTERS[k] && s.friends[k] > 0).map((k) => ({ key: k, name: MONSTERS[k].name, icon: MONSTERS[k].icon, count: s.friends[k] })),
+  };
+}
 function militiaOf(s) {
   const n = (MILITIA_BASE + MILITIA_PER_HQ * softLevel(levelOf(s, "hq"))) * perk(s, "militia"); // 👽 weaker militia
-  return { g: n, a: n * 0.5 }; // frying pans are not great against jets
+  const f = friendsDef(s);
+  return { g: n + f.g, a: n * 0.5 + f.a }; // frying pans are not great against jets
 }
 
 function applyLosses(troops, fraction) {
@@ -4175,6 +4198,33 @@ function resolveCamp(m) {
       defender: where,
       intel: { monsters: monsterList(camp.troops, null), treasure: campInfo(m.target_x, m.target_y, T).treasure, fullAt: camp.fullAt },
       flavor: pick(FLAVOR.campScout),
+    });
+  } else if (m.mission === "parley") {
+    // 💬 talk instead of fight: half of every kind of monster joins the colony (up to its limit)
+    const joined = {}, stayed = {};
+    let room = Math.max(0, friendsCap(att.state) - friendsTotal(att.state));
+    att.state.friends = att.state.friends || {};
+    for (const k of Object.keys(camp.troops)) {
+      const n = camp.troops[k] || 0;
+      if (!MONSTERS[k]) continue;
+      const take = FRIEND_BAN[k] ? 0 : Math.min(Math.floor(n / 2), room);
+      if (take > 0) {
+        joined[k] = take; room -= take;
+        camp.troops[k] = n - take;
+        att.state.friends[k] = (att.state.friends[k] || 0) + take;
+      }
+      if (n - take > 0) stayed[k] = n - take;
+    }
+    const got = countUnits(joined);
+    if (got > 0) { saveCamp(m.target_x, m.target_y, camp, T); colonyStat(att, "spared", got); }
+    addReport(att.userId, T, "💬", tt("Talks: {0}", shortColonyName(tier.name)), {
+      mission: "parley",
+      camp: true,
+      success: got > 0,
+      attacker: Object.assign({}, attacker, { units: unitList(troops, tribe, null) }),
+      defender: where,
+      mercy: { joined: monsterList(joined, null), stayed: monsterList(stayed, null), full: room <= 0 && Object.keys(camp.troops).some((k) => !FRIEND_BAN[k] && camp.troops[k] >= 2), cap: friendsCap(att.state), total: friendsTotal(att.state) },
+      flavor: got > 0 ? "They had a chat. Half of them decided your colony sounds fun." : (countUnits(camp.troops) === 0 ? "Nobody home. The echo was very polite." : "Nobody was in the mood to move in."),
     });
   } else {
     // 🎖️ a commander leading the army hits harder
@@ -6280,6 +6330,8 @@ function snapshot(user, colony) {
     news: latestNews(),
     gazette: gazetteHeadlines(now),
     quests: questView(colony),
+    friends: friendsView(colony.state),
+    mood: { camps: (colony.state.qstats || {}).campWins || 0, spared: (colony.state.qstats || {}).spared || 0, wins: (colony.state.qstats || {}).wins || 0 },
     hero: heroView(user.id, colony.id, now),
     armyTemplates:armyTemplates(user.id),
     sendRules: attackRules(colony),
@@ -6635,6 +6687,7 @@ function codexView(userId) {
       id: kind, kills, met: kills > 0,
       name: kills > 0 ? m.name : "Unknown creature", icon: m.icon,
       ground: kills > 0 ? m.defG : null, air: kills > 0 ? m.defA : null,
+      quip: kills > 0 ? m.quip : null,
       steps: steps(CODEX_TIERS, kills, (i) => codexPay(kind, i), kind),
     };
   });
@@ -8153,7 +8206,7 @@ function attackRules(colony) {
 // text, or what to send. "avail" are the troops still free (waves share them),
 function checkSend(req, s, tribe, colony, body, avail) {
   const mission = String(body.mission || "");
-  if (!["attack", "raid", "scout", "reinforce", "settle"].includes(mission)) return "Choose a mission";
+  if (!["attack", "raid", "scout", "reinforce", "settle", "parley"].includes(mission)) return "Choose a mission";
   const x = parseInt(body.x, 10);
   const y = parseInt(body.y, 10);
   const target = db.prepare("SELECT id, user_id, name FROM colonies WHERE x = ? AND y = ?").get(x, y);
@@ -8210,6 +8263,8 @@ function checkSend(req, s, tribe, colony, body, avail) {
     return "Connected accounts (shared sitting, device or network) can't raid each other";
   }
 
+  if (mission === "parley" && kind !== "camp") return "Only monster camps are willing to talk";
+  if (mission === "parley" && titanAt(x, y)) return "The Dust Titan does not do small talk";
   // beginner protection
   const hostile = ["attack", "raid", "scout"].includes(mission);
   const lmHolder = kind === "landmark" ? landmarkHolderUser(landmarkRow(landmarkAtXY(x, y))) : null;
@@ -8241,7 +8296,7 @@ function checkSend(req, s, tribe, colony, body, avail) {
   if (mission === "settle" && total !== SETTLERS_NEEDED) return "Send exactly " + SETTLERS_NEEDED + " settlers to found a colony";
 
   // 🎖️ the commander may lead the army
-  const withHero = !!body.hero && !body.farm;
+  const withHero = !!body.hero && !body.farm && mission !== "parley";
   if (withHero) {
     const no = heroSendCheck(req.user.id, colony.id, mission, kind);
     if (no) return no;
@@ -12753,6 +12808,7 @@ app.get("/api/wiki", requireLogin, (req, res) => {
       spyDetect: SPY_DETECT, spyWipe: SPY_WIPE, research: RESEARCH_COST,
     },
     codexTiers: CODEX_TIERS, codexCampTiers: CODEX_CAMP_TIERS,
+    mercy: { def: Math.round(FRIEND_DEF * 100), perHq: FRIEND_PER_HQ, banned: Object.keys(FRIEND_BAN).map((k) => MONSTERS[k].name) },
     monsters: Object.keys(MONSTERS).map((k) => Object.assign({ key: k }, MONSTERS[k], { bounty: Object.fromEntries(RESOURCES.map((r) => [r, Math.round((MONSTERS[k].bounty[r] || 0) * campBountyScale())])) })),
     campScale: 1, campLoot: campLootScale(), campTrophy: campBountyScale(),
     camps: CAMP_TIERS.map((t, i) => ({ tier: i + 1, maxDist: t.maxDist === Infinity ? null : t.maxDist, kinds: t.kinds.map((c) => {
@@ -17757,6 +17813,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.466",date:"2026-11-24",title:"Talk it out",groups:[["💬 Mercy",["New Talk mission for monster camps: send troops to chat instead of fight. Nobody gets hurt, and half of every kind of monster joins your colony as a friend.","Friends defend your colony for half of their wild strength, never get hurt and can never be sent to attack. A colony keeps up to 12 friends per headquarters level.","The Dust Titan and the Kraken are too big to join. Camps grow back as usual, so you can talk again later."]],["🗣️ Voices",["Speech boxes with a typed-out voice and a soft blip (sound toggle) now bring camps and a small cast of characters to life: the quartermaster on the mission board, the trader at the market, the doctor at the hospital and the scout at the targets list.","They notice what you do: how many camps you cleared and how many you spared.","Each monster has a one-line remark in the Codex once you have met it."]]]},
   {v:"1.0.465",date:"2026-11-24",title:"New unit icons",groups:[["🎖️ Units",["Every unit of all three tribes has a new drawn icon, shown wherever the unit appears: barracks, reports, sending troops, the wiki and more.","The new icons are small pictures built into the game, so they load with it."]]]},
   {v:"1.0.464",date:"2026-11-24",title:"Codex and new quests",groups:[["📖 Codex",["A new Codex in the wallet has three pages: monsters, camps and commanders.","Monsters and camps you have not met show as a dark shape. Beat or win against one to learn its name.","Each monster pays a bounty into your commander inventory at 1, 25 and 250 beaten, and each camp type at 1, 10 and 50 wins. Tougher ones pay more.","The commander page remembers the best rank and shiny tier you reached with each commander.","Counting starts with this version, so earlier kills and wins are not included."]],["📋 Quests",["Five new quests come after Winner Winner: own a second commander, merge two copies, bring your commander home from an adventure, join an alliance and post a market offer.","Merging and offers count from this version on."]]]},
   {v:"1.0.463",date:"2026-11-24",title:"Clearer troop names",groups:[["Army",["Humans: Space-Soldier, Spy and Mortar.","Chickens: Hawk Interceptor and Dust Raider.","Aliens: Goo Guard, Spore Flak, Saucer Fighter and Jelly Bomber."]]]},

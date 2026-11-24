@@ -3793,6 +3793,16 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .bli-lv.up { background: var(--mint); color: #0f4a37; } .bli-lv.bld { box-shadow: inset 0 0 0 2px var(--accent); }
   /* ---------- the drawn icon set ---------- */
   .gi { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.24em; flex: none; overflow: visible; pointer-events: none; }
+  .say { position: fixed; left: 8px; right: 8px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 9000; max-width: 560px; margin: 0 auto; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px 22px; background: #2a1b2e; color: #fff4e0; border: 3px solid #fff4e0; border-radius: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.4); cursor: pointer; }
+  .say .sp { flex: none; width: 44px; text-align: center; font-size: 34px; line-height: 1.1; }
+  .say b { display: block; margin-bottom: 2px; color: #ffd36b; font-size: 13px; }
+  .say p { margin: 0; min-height: 2.7em; font-size: 16px; line-height: 1.35; }
+  .say i { position: absolute; right: 12px; bottom: 5px; font-size: 11px; font-style: normal; opacity: .65; }
+  .bubble { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px; border: 2px dashed var(--line); border-radius: var(--radius-sm); background: rgba(255,255,255,.35); }
+  .bubble .bi { flex: none; font-size: 26px; line-height: 1.1; }
+  .bubble b { display: block; font-size: 12px; opacity: .75; }
+  .bubble p { margin: 0; font-size: 14px; }
+  .missions.four { grid-template-columns: repeat(4, 1fr) !important; }
   .uic { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.3em; object-fit: contain; flex: none; pointer-events: none; }
   /* 1.0.245: the clay hero picture with one real screenshot in front */
   .lp-art { position: relative; min-width: 0; padding: 0 0 40px 0; }
@@ -9315,7 +9325,7 @@ function trafficColumn(d, dir, title) {
 }
 
 // ---- compact list: one line per movement, a tap opens all details ----
-var MV_NAME = { attack: "Attack", raid: "Raid", scout: "Spy mission", reinforce: "Support", trade: "Merchants", settle: "Settlers", "return": "Returning", adventure: "Adventure", abroad: "Helping out", guests: "Guest troops", move: "Restationing" };
+var MV_NAME = { parley: "Talk", attack: "Attack", raid: "Raid", scout: "Spy mission", reinforce: "Support", trade: "Merchants", settle: "Settlers", "return": "Returning", adventure: "Adventure", abroad: "Helping out", guests: "Guest troops", move: "Restationing" };
 function mvTitle(m) {
   var n = MV_NAME[m.type] || "Movement";
   return m.dir === "in" && (m.type === "attack" || m.type === "raid") ? "Incoming " + n.toLowerCase() : m.dir === "in" && m.type === "reinforce" ? "Support coming" : m.dir === "in" && m.type === "trade" ? "Delivery coming" : n;
@@ -9871,6 +9881,121 @@ function heroPic(cls) {
   var k = "commander-" + ((data && data.tribe && data.tribe.key) || "");
   return FX_ART.t[k] ? '<img class="' + (cls || "upic") + '" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" width="128" height="128">' : "🎖️";
 }
+// ---------- 🗣️ voices: a typed-out speech box and a small cast ----------
+var CAST = {
+  quartermaster: { name: "Quartermaster Quill", icon: "📋", pitch: 300 },
+  trader: { name: "Trader Tobias", icon: "💱", pitch: 420 },
+  doc: { name: "Doc Dottie", icon: "🏥", pitch: 520 },
+  scout: { name: "Scout Skip", icon: "🔭", pitch: 620 }
+};
+var CAST_LINES = {
+  quartermaster: {
+    base: ["Missions are like socks: there is always one more.", "I filed your achievements. Under 'A'. For awesome.", "Rewards go to the commander. The commander says thanks.", "Pencil sharpened. Board dusted. Go be useful."],
+    camps: ["Ten camps cleared! The monsters have started a support group.", "My paperwork says 'camp cleaner'. I'm not sure that is a real job."],
+    spared: ["Word is you talk to monsters now. I have forms for that."]
+  },
+  trader: {
+    base: ["Everything is for sale. Except my hat.", "Prices are fair. Fair to me, mostly.", "A deal is just a hug with numbers.", "I accept resources, compliments and exact change."],
+    camps: ["Heard you flatten camps. Do you need a bulk discount on armour?"],
+    spared: ["Friendly monsters? Do they pay in pebbles?"]
+  },
+  doc: {
+    base: ["Take two bandages and call me in the morning.", "Rest is the best medicine. Also actual medicine.", "No, that is not a normal colour for an arm.", "I am not a real doctor. I am a very enthusiastic one."],
+    camps: ["Scorpion stings, bat bites... you keep my beds warm."],
+    spared: ["Talking instead of fighting? My favourite treatment. No beds needed."]
+  },
+  scout: {
+    base: ["The dust is calm. Suspiciously calm.", "I counted the monsters. Twice. They counted me back.", "Tip: spies see more than soldiers do.", "That mountain is looking at us again."],
+    camps: ["You have cleared so many camps that I run out of bad news."],
+    spared: ["They like you out there. A bat waved. Probably a wave."]
+  }
+};
+function castLine(who) {
+  var L = CAST_LINES[who], m = (data && data.mood) || {}, pool = L.base;
+  var tick = Math.floor(Date.now() / 600000) + who.length;
+  if (m.spared >= 1 && tick % 3 === 0) pool = L.spared;
+  else if (m.camps >= 10 && tick % 3 === 1) pool = L.camps;
+  return pool[tick % pool.length];
+}
+function bubble(who) {
+  var c = CAST[who];
+  return '<div class="bubble"><span class="bi">' + c.icon + "</span><div><b>" + esc(c.name) + "</b><p>" + esc(castLine(who)) + "</p></div></div>";
+}
+// a short beep for every letter, a little different for every speaker
+function blip(pitch) {
+  if (!sound.on) return;
+  var ctx = audio();
+  if (!ctx) return;
+  var t = ctx.currentTime + 0.005, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "square";
+  o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
+  g.gain.setValueAtTime(0.04, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(t); o.stop(t + 0.06);
+}
+// say([{ who, icon, text, pitch }], { done }): tap to hurry up, tap again for the next line
+var sayBox = null;
+function say(lines, opts) {
+  opts = opts || {};
+  if (sayBox) { clearInterval(sayBox.timer); sayBox.el.remove(); sayBox = null; }
+  if (!lines || !lines.length) { if (opts.done) opts.done(); return; }
+  var el = document.createElement("div");
+  el.className = "say";
+  el.setAttribute("role", "dialog");
+  el.innerHTML = '<span class="sp"></span><div><b></b><p></p></div><i>tap</i>';
+  document.body.appendChild(el);
+  var st = { el: el, i: 0, n: 0, timer: 0, typing: false, opts: opts, lines: lines };
+  sayBox = st;
+  var calm = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function show() {
+    var L = st.lines[st.i];
+    el.querySelector(".sp").textContent = L.icon || "";
+    el.querySelector("b").textContent = L.who || "";
+    var p = el.querySelector("p");
+    p.textContent = "";
+    st.n = 0; st.typing = true;
+    clearInterval(st.timer);
+    if (calm) { p.textContent = L.text; st.typing = false; return; }
+    st.timer = setInterval(function () {
+      st.n++;
+      p.textContent = L.text.slice(0, st.n);
+      if (L.text.charAt(st.n - 1).trim() && st.n % 2) blip(L.pitch || 400);
+      if (st.n >= L.text.length) { clearInterval(st.timer); st.typing = false; }
+    }, 28);
+  }
+  function close() {
+    clearInterval(st.timer);
+    el.remove();
+    if (sayBox === st) sayBox = null;
+    if (st.opts.done) st.opts.done();
+  }
+  el.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (st.typing) { clearInterval(st.timer); el.querySelector("p").textContent = st.lines[st.i].text; st.typing = false; return; }
+    st.i++;
+    if (st.i >= st.lines.length) close(); else show();
+  });
+  show();
+}
+// what the monsters of a camp say before you talk to them
+var MONSTER_TALK = {
+  spore: ["*puff*  Oh! Hello. Do not mind the cloud.", "We mostly just float and smell nice."],
+  scorpion: ["*clack clack*  Is that a snack? Are you the snack?", "...Fine. We can talk."],
+  bat: ["Skreee. It is daytime. Why are you awake?", "Make it quick, I have a ceiling to hang from."],
+  troll: ["Rrrock. You brought words instead of sticks?", "Strange. I like it."],
+  worm: ["Mmmmm. Greetings from beneath.", "I would shake your hand, but I am all hand."],
+  lizard: ["Hssss. Warm today. Even warmer if you leave.", "But you came to talk. Rare."],
+  golem: ["Crrrk. Crystals do not talk much.", "But we can listen. Go on."]
+};
+function talkLines(camp) {
+  var best = null;
+  (camp.units || []).forEach(function (u) { if (!best || u.count > best.count) best = u; });
+  var who = best ? best.name : "The camp", icon = best ? best.icon : "⛰️", key = best && best.key;
+  var out = (MONSTER_TALK[key] || ["...", "(They look at you. You look at them.)"]).map(function (t) { return { who: who, icon: icon, text: t, pitch: 240 }; });
+  out.push({ who: "You", icon: "💬", text: "Would you like to come and live in my colony? We have walls.", pitch: 440 });
+  return out;
+}
 // the small drawn picture of a unit (built into the server); units without one keep their emoji
 var UNIT_ICO = { "Peckling": "chicken-peckling", "Rooster Guard": "chicken-rooster", "Hawk Interceptor": "chicken-hawk", "Pigeon Spy": "chicken-pigeon", "Dust Raider": "chicken-runner", "Turkey Tank": "chicken-turkey", "Eagle Squadron": "chicken-eagle", "Emu Charger": "chicken-owl", "Battering Dodo": "chicken-ram", "Egg Catapult": "chicken-catapult", "Mother Hen": "chicken-envoy", "Nest Builder": "chicken-settler",
   "Space-Soldier": "human-marine", "Shield Trooper": "human-guard", "Skyguard": "human-skyguard", "Spy": "human-drone", "Drop Trooper": "human-bike", "Rover Tank": "human-tank", "Jet Fighter": "human-jet", "Sky Bomber": "human-heli", "Wall Crusher": "human-ram", "Mortar": "human-catapult", "Governor": "human-envoy", "Colonist": "human-settler",
@@ -10328,6 +10453,7 @@ function renderTroops(d) {
   });
   if (!any) h += '<p class="empty">Nobody home but the cat.</p>';
   h += "</div>";
+  if (d.friends && d.friends.total > 0) h += '<p class="hint left" title="Monsters that joined you after a talk. They defend at half strength and never attack.">💬 Friends: ' + d.friends.list.map(function (f) { return f.icon + " " + f.count; }).join(" · ") + " · " + d.friends.total + " / " + d.friends.cap + " places</p>";
   var tHome = 0, tAway = 0, tTrain = 0;
   d.units.forEach(function (u) { if (!u.scout && !u.settler) { tHome += u.home; tAway += u.away; tTrain += u.inTraining; } });
   if (tAway || tTrain) h += '<p class="armyline">' + "🏠" + ' <b>' + shortNum(tHome) + "</b> home" + (tAway ? " · 🚶 <b>" + shortNum(tAway) + "</b> away" : "") + (tTrain ? " · ⏳ <b>" + shortNum(tTrain) + "</b> training" : "") + "</p>";
@@ -10991,7 +11117,7 @@ function estChip(e) {
 }
 function targetsSheet(d) {
   var h = '<div class="sheet-head"><span class="hi">🎯</span><div><h3>Targets near you</h3><b>' + esc(d.colony) + " (" + d.x + "|" + d.y + ")</b></div></div>";
-  h += trainingBox(d);
+  h += trainingBox(d) + bubble("scout");
   var T = targets;
   if (!T) return h + '<p class="empty">Looking around…</p>';
   if (!T.hasArmy) h += '<p class="hint">No troops at home: <a href="#" data-targets-army="1">train some</a> to see who you can beat.</p>';
@@ -11757,7 +11883,7 @@ function trf(k) {
 }
 function renderReportBody(r) {
   var d = r.data;
-  var battle = d.attack !== undefined && d.mission !== "scout";
+  var battle = d.attack !== undefined && d.mission !== "scout" && d.mission !== "parley";
   var h = shareTextButton('MarsL · '+(rTitle(r)||'Battle report')+' · '+(d.attacker?d.attacker.owner+' / '+d.attacker.name:'Attacker')+' → '+(d.defender?d.defender.owner+' / '+d.defender.name:'Defender')+(battle?' · '+(d.attackerWins?'Attacker victory':'Defender victory'):'')+' · Join us: '+location.origin) + '<div class="report-body">' + (battle ? "" : '<p class="flavor">"' + esc(d.flavor) + '"</p>');
 
   if (d.mission === "scout" && d.zone) {
@@ -11774,6 +11900,15 @@ function renderReportBody(r) {
     h += d.intel.monsters.length ? unitTable(d.intel.monsters, false) : '<p class="empty">Nobody home. The camp is empty!</p>';
     if (d.intel.defG !== undefined) h += "<p>🛡️ Infantry defense <b>" + d.intel.defG + "</b> · 🎯 Air defense <b>" + d.intel.defA + "</b></p>";
     h += "<p>💎 Treasure: " + resLine(d.intel.treasure) + "</p>" + (d.intel.fullAt ? "<p" + '🌱' + "+ ' Monsters full again at " + clockText(d.intel.fullAt) + "</p>" : "") + "</div>";
+  } else if (d.mission === "parley") {
+    var my = d.mercy || {}, jn = my.joined || [], sy = my.stayed || [];
+    h += '<div class="side"><h4>💬 Talks at ' + placeLink(d.defender) + " (" + d.defender.x + "|" + d.defender.y + ")</h4>";
+    if (d.flavor) h += '<p class="hint left">' + esc(d.flavor) + "</p>";
+    h += jn.length ? "<p>🤝 Joined your colony: " + jn.map(function (f) { return (f.icon || "") + " " + f.count + " " + esc(f.name); }).join(" · ") + "</p>" : "<p>Nobody joined this time.</p>";
+    if (sy.length) h += "<p>⛰️ Stayed home: " + sy.map(function (f) { return (f.icon || "") + " " + f.count + " " + esc(f.name); }).join(" · ") + "</p>";
+    if (my.full) h += "<p>🏠 Your colony is full of friends (" + my.total + " / " + my.cap + "). Upgrade the HQ for more places.</p>";
+    else if (my.cap) h += "<p>💬 Friends: " + my.total + " / " + my.cap + "</p>";
+    h += "</div>";
   } else if (d.mission === "meteor") {
     var mg = d.loot ? sumRes(d.loot) : 0;
     h += '<div class="rout">' + (mg ? '<span class="win">' + (d.drain ? "🔌" : "☄️") + " +" + mg + (d.carry ? " / " + d.carry : "") + "</span>" : "<span" + '💨' + "+ ' Nothing left</span>") + "</div>";
@@ -12282,16 +12417,18 @@ function sendSheet(d) {
     h = '<div class="sheet-head ' + (sendMission === "reinforce" ? "t-wood" : "t-war") + '"><span class="hi">' + t.home + "</span><div><h3>" + esc(t.name) + "</h3><b>" + esc(t.owner) + " · " + t.tribeIcon + " " + t.tribe + " · (" + t.x + "|" + t.y + ")</b></div></div>";
   }
   var zoneMine = (t.zone || t.landmark) && t.info.holder && t.info.holder.mine;
-  h += '<div class="missions' + (t.settle || t.meteor ? " one" : t.camp || t.mine ? " three" : t.zone || t.landmark ? " two" : "") + '">';
+  h += '<div class="missions' + (t.settle || t.meteor ? " one" : t.camp ? (t.titan ? " three" : " four") : t.mine ? " three" : t.zone || t.landmark ? " two" : "") + '">';
   [
     ["attack", "⚔️", "Attack", "Fight to the end"],
     ["raid", "💰", "Raid", "Grab loot, run"],
     ["scout", "🔍", "Spy", "Scouts only"],
+    ["parley", "💬", "Talk", "Spare them"],
     ["reinforce", "🛡️", "Support", "Help defend"],
     ["settle", "🏳️", "Settle", "Found a colony"],
   ].forEach(function (m) {
     if (!!t.settle !== (m[0] === "settle")) return;
     if (t.camp && m[0] === "reinforce") return;
+    if (m[0] === "parley" && !(t.camp && !t.titan)) return;
     if (m[0] === "reinforce" && !t.mine && !t.ally && !t.zone && !t.landmark && !t.settle && !t.meteor) return; // support only goes to your alliance
     if (t.meteor && m[0] !== "raid") return;
     if (t.mine && m[0] === "scout") return; // attack, raid or support your own colony
@@ -12344,7 +12481,7 @@ function sendSheet(d) {
   }
   // filled in (and updated every second) by updateSendInfo()
   h += '<div class="sendinfo" id="sendinfo"></div>';
-  var go = { scout: "🔍 Send the spies!", raid: "💰 Go get the loot!", attack: "⚔️ CHAAARGE!", reinforce: t.mine ? "🛡️ Move them!" : "🛡️ Send help!", settle: "🏳️ Go build a home!" };
+  var go = { parley: "💬 Go and talk!", scout: "🔍 Send the spies!", raid: "💰 Go get the loot!", attack: "⚔️ CHAAARGE!", reinforce: t.mine ? "🛡️ Move them!" : "🛡️ Send help!", settle: "🏳️ Go build a home!" };
   h += '<p class="hint">↩️ Cancel within ' + Math.round(d.cancelWindow / 1000) + " s.</p>";
   if ((sendMission === "attack" || sendMission === "raid") && !t.settle && !t.meteor) {
     h += '<div class="send-tools"><button class="btn small ghost" data-sim-open="' + t.x + "," + t.y + '">' + '🧮' + ' Simulate</button>';
@@ -14116,6 +14253,7 @@ function renderQuests(d) {
   if (ready) h += '<span class="qready" title="Rewards to claim">' + '🎁' + ' ' + ready + "</span>";
   h += '<button class="btn small ghost" data-mboard-toggle="1" aria-expanded="' + questsOpen + '">' + (questsOpen ? 'Collapse' : 'Expand') + '</button>';
   h += '<button class="btn small ghost" data-progress="all" title="Every mission, task and server goal">All</button></div>';
+  h += bubble("quartermaster");
   if (d.milestone) h += '<div class="mb-mile">' + milestoneSheet(d) + "</div>";
   if (!d.sitting) h += mbHead(d);
   cards.forEach(function (c) { h += c.html; });
@@ -14149,7 +14287,7 @@ function hospitalPanel(d) {
   var hp = d.hospital;
   var colony = d.colonyId === undefined ? d.colony + "|" + d.x + "|" + d.y : d.colonyId;
   if (healColony !== colony) { healSelection = {}; healColony = colony; }
-  var h = '<h4 class="sidesub">🛏️ Wounded troops <span class="count">' + hp.wounded.reduce(function(n,u){return n+u.count},0) + ' / ' + hp.beds + '</span></h4>';
+  var h = bubble("doc") + '<h4 class="sidesub">🛏️ Wounded troops <span class="count">' + hp.wounded.reduce(function(n,u){return n+u.count},0) + ' / ' + hp.beds + '</span></h4>';
   if (hp.job) h += jobPanel(hp.job, "heal");
   if (!hp.wounded.length) return h + '<p class="empty">No wounded troops.</p>';
   var cost={wood:0,stone:0,metal:0,food:0},ms=0,total=0;
@@ -14354,7 +14492,7 @@ function swapPanel(d) {
 
 function marketPanel(d) {
   var m = d.market;
-  var h = '<div class="mkhead"><span id="mkfree">' + mkFreeText(d) + "</span><span>🎒 " + m.carry + " each</span><span>💱 " + m.rate + "%</span></div>";
+  var h = bubble("trader") + '<div class="mkhead"><span id="mkfree">' + mkFreeText(d) + "</span><span>🎒 " + m.carry + " each</span><span>💱 " + m.rate + "%</span></div>";
   var tabs = [["send", "🐪", "Send"], ["offers", "📋", "Offers"], ["auto", "🔁", "Auto " + m.routes.length + "/" + m.maxRoutes], ["swap", "💱", "Swap"], ["balance", "⚖️", "Balance"]];
   h += '<div class="mktabs">';
   tabs.forEach(function (t) { h += '<button type="button" class="' + (mkTab === t[0] ? "on" : "") + '" data-mk-tab="' + t[0] + '"><span>' + t[1] + "</span>" + t[2] + "</button>"; });
@@ -15718,7 +15856,7 @@ function drawTiles() {
 
 
 // The little sign on a map tile that my troops or merchants are heading to
-var MOVE_MARK = { attack: ["⚔️", "Your troops attack here"], raid: ["💰", "Your troops raid here"], scout: ["🔍", "Your spies are on the way"], adventure: ["🧭", "Your commander is on an adventure"], trade: ["🐪", "Your merchants are on the way"], reinforce: ["🛡️", "Your troops come to help"], settle: ["🏳️", "Your settlers are on the way"], move: ["🚶", "Your commander is restationing here"] };
+var MOVE_MARK = { attack: ["⚔️", "Your troops attack here"], raid: ["💰", "Your troops raid here"], scout: ["🔍", "Your spies are on the way"], parley: ["💬", "Your troops are talking to the monsters"], adventure: ["🧭", "Your commander is on an adventure"], trade: ["🐪", "Your merchants are on the way"], reinforce: ["🛡️", "Your troops come to help"], settle: ["🏳️", "Your settlers are on the way"], move: ["🚶", "Your commander is restationing here"] };
 function moveMark(kind) {
   if (!kind) return "";
   var mm = MOVE_MARK[kind] || MOVE_MARK.attack;
@@ -15954,6 +16092,7 @@ function renderTileInfo() {
     h += tipFacts(facts);
     h += tipActions('<button class="btn danger" data-send="' + x + "," + y + '">' + (camp.empty ? "💰 Grab the treasure" : "⚔️ Hunt the monsters") + "</button>", [
       tipBtn('data-send-spy="' + x + "," + y + '"', "🔍", "Spy"),
+      camp.titan ? "" : tipBtn('data-talk="' + x + "," + y + '"', "💬", "Talk"),
       tipBtn('data-sim-at="' + x + "," + y + '"', "🧮", "Simulate"),
       tipBtn('data-farm-add="' + x + "," + y + '" data-name="' + esc(camp.name) + '"', "📋", "Farm list"),
     ]);
@@ -16423,7 +16562,7 @@ function wikiChapter(W, tab) {
     cards.push(wkCard("monsters", "👾", "Monsters", kt({
       head: ["Monster", "🛡️", "🎯", "Send"].concat(RES_HEAD, ["🏅 Σ"]), cls: "big",
       rows: W.monsters.map(function (m) { return [m.icon + " " + m.name, m.defG, m.defA, m.defA < m.defG ? "✈️" : m.defG < m.defA ? "🪖" : "both"].concat(resCells(m.bounty), [wkN(wkSum(m.bounty))]); }),
-    }) + wkNote("🛡️ Infantry defense, 🎯 Air defense. Send = the weaker side. 🏅 trophies per monster killed.") + wkNote("📖 The Codex (wallet → Codex) counts every monster you beat and every camp type you win against. At " + W.codexTiers.join(", ") + " monsters beaten, or " + W.codexCampTiers.join(", ") + " camp wins, each page pays a bounty into the commander inventory; tougher ones pay more. Its commander page shows the best rank you have reached with each commander.")));
+    }) + wkNote("🛡️ Infantry defense, 🎯 Air defense. Send = the weaker side. 🏅 trophies per monster killed.") + wkNote("💬 Talk (on a camp, not the Titan or Kraken) sends troops to chat: half of each monster kind joins your colony as a friend, up to " + W.mercy.perHq + " per HQ level. Friends defend at " + W.mercy.def + "% strength, take no losses and never attack. Camps grow back.") + wkNote("📖 The Codex (wallet → Codex) counts every monster you beat and every camp type you win against. At " + W.codexTiers.join(", ") + " monsters beaten, or " + W.codexCampTiers.join(", ") + " camp wins, each page pays a bounty into the commander inventory; tougher ones pay more. Its commander page shows the best rank you have reached with each commander.")));
     var camps = [];
     W.camps.forEach(function (t) {
       t.kinds.forEach(function (c) {
@@ -17436,6 +17575,7 @@ function codexRow(m, unit, sub) {
   var have = m.kills !== undefined ? m.kills : m.wins;
   h += '<div class="cmd-row sm' + (m.met ? " in" : " off") + '"><span class="cmd-ic"' + (m.met ? "" : ' style="filter:brightness(0) opacity(.3)"') + ">" + m.icon + "</span><div><b>" + esc(m.name) + "</b>";
   h += m.met ? "<small>" + have.toLocaleString() + " " + unit + sub + "</small>" : "<small>" + (m.kills !== undefined ? "Beat one in a camp to meet it" : "Win against one to find it") + "</small>";
+  if (m.quip) h += '<small class="quip">“' + esc(m.quip) + '”</small>';
   if (next && m.met) h += heroBar("xp", Math.min(have, next.need), next.need) + "<small>" + Math.min(have, next.need).toLocaleString() + " / " + next.need.toLocaleString() + "</small>" + mbReward(next.reward);
   h += "</div>";
   var ready = m.steps.map(function (st, i) { return st.ready && !st.claimed ? i : -1; }).filter(function (i) { return i >= 0; })[0];
@@ -17968,7 +18108,7 @@ function sendTroops() {
   post("/api/send", { x: sendTarget.x, y: sendTarget.y, mission: sendMission, troops: troops, hero: sendHero && heroCanGo(data, sendTarget), orders: sendHero && heroCanGo(data, sendTarget) ? sendOrder : "", aim: sendMission === "attack" ? sendAim : "", power: sendPower && !!warCanGo(data, sendTarget) }, function () {
     sendHero = false; sendOrder = "";
     sendPower = false;
-    var msg = { settle: "🏳️ The settlers packed their tents. Off they go!", scout: "🔍 Spies are on their way. Sneaky!", reinforce: "🛡️ Help is on the way!", raid: "💰 Your raiders marched off. Bring snacks back!", attack: "⚔️ Your troops marched off. Good luck!" };
+    var msg = { parley: "💬 Your envoys went to talk. Bring snacks.", settle: "🏳️ The settlers packed their tents. Off they go!", scout: "🔍 Spies are on their way. Sneaky!", reinforce: "🛡️ Help is on the way!", raid: "💰 Your raiders marched off. Bring snacks back!", attack: "⚔️ Your troops marched off. Good luck!" };
     toast(msg[sendMission], true);
     sfx("march");
     closeSheet();
@@ -18525,7 +18665,7 @@ document.addEventListener("click", function (e) {
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
     "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
-    "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
+    "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy],[data-talk]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
     "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
@@ -19977,6 +20117,10 @@ document.addEventListener("click", function (e) {
   } else if (has("data-send-attack")) {
     var sa2 = attr("data-send-attack").split(",");
     openSend(parseInt(sa2[0], 10), parseInt(sa2[1], 10), "attack");
+  } else if (has("data-talk")) {
+    var tk = attr("data-talk").split(",").map(function (n) { return parseInt(n, 10); });
+    var tc = campAt(tk[0], tk[1]) || {};
+    say(talkLines(tc), { done: function () { openSend(tk[0], tk[1], "parley"); } });
   } else if (has("data-send-spy")) {
     var s2 = attr("data-send-spy").split(",");
     openSend(parseInt(s2[0], 10), parseInt(s2[1], 10), "scout");
