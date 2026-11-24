@@ -1567,6 +1567,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-dots i.done { background: #f2a93b; }
   .tut-dots i.on { background: #e2574c; }
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
+  #tut.tut-ok .tut-btns .btn:not(.ghost) { animation: tutpop 0.35s ease-out; }
+  @keyframes tutpop { 50% { transform: scale(1.12); } }
   .tut-btns { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
   .uok { font-weight: 700; font-size: 12px; }
   .uok.ok { color: #1f7a3a; display: inline-block; animation: uokpop 0.5s ease-out; }
@@ -4691,13 +4693,18 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   @keyframes vin-r { from { opacity: 0; left: 28px; } to { opacity: 1; left: 0; } }
   @keyframes vin-l { from { opacity: 0; left: -28px; } to { opacity: 1; left: 0; } }
   @keyframes vfade { from { opacity: 0; } }
+  .nav-glide { position: fixed; z-index: 60; pointer-events: none; margin: 0; }
+  .nav-glide span { display: block; font-size: 20px; margin-bottom: 1px; }
+  body.navglide .nav button.on { background: transparent !important; box-shadow: none !important; border-color: transparent !important; color: transparent !important; text-shadow: none !important; }
+  body.navglide .nav button.on span { opacity: 0; }
   #app.vmove { overflow-x: clip; }
   #app > .vin-r, #app > .vin-l { position: relative; }
   #app > .vin-r { animation: vin-r 0.18s ease-out; }
   #app > .vin-l { animation: vin-l 0.18s ease-out; }
   #app > .vfade { animation: vfade 0.15s ease-out; }
   @keyframes qin { from { opacity: 0; transform: translateY(14px); } }
-  @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel, #app > .vin-r, #app > .vin-l, #app > .vfade { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel, #app > .vin-r, #app > .vin-l, #app > .vfade { animation: none !important; }
+    .nav-glide { display: none; } }
 </style>
 </head>
 <body>
@@ -13452,10 +13459,10 @@ function onbButton(what) {
 var TUTORIAL = [
   { view: "resources", spot: ".topbar", title: "🚀 Touchdown on Mars!", text: "Commander, your colony just landed, and so did your rivals. <b>Build. Fight. Trade. Team up.</b><small>A one-minute briefing. Tap Next.</small>" },
   { view: "resources", spot: ".tfold:not(.spx)|.topbar", title: "🏆 How you win the server", text: function (d) { return tutWin(d) + "<small>The slim row under your resources shows the current act. Tap it for details.</small>"; } },
-  { view: "resources", spot: ".fx-stage|.fmap", title: "🌾 Step 1: fuel the economy", text: "Your 12 fields around the colony make <b>wood, stone, metal and food</b>, even while you sleep. <b>Tap a field, then ⬆️.</b><small>Level 10 fields unlock boosters and big armies.</small>" },
+  { view: "resources", spot: ".fx-stage|.fmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🌾 Step 1: fuel the economy", text: "Your 12 fields around the colony make <b>wood, stone, metal and food</b>, even while you sleep. <b>Tap a field, then ⬆️.</b><small>Level 10 fields unlock boosters and big armies.</small>" },
   { view: "resources", spot: ".resbar", title: "📦 Watch your storage", text: "Each tile shows your stock, the hourly gain and <b>when it is full</b>. Full storage wastes production: <b>spend it or build a warehouse and a food silo.</b><small>🔒 A bunker hides some of it from raiders.</small>" },
-  { view: "buildings", spot: ".cx-stage|.cmap", title: "🏗️ Step 2: build your base", text: function (d) { return "Tap a free lot to build, or a building to upgrade it. <b>The HQ unlocks everything</b> and speeds up building. Up to " + d.queueLimit + " jobs wait in line.<small>Good order: HQ → warehouse → food silo → barracks → wall.</small>"; } },
-  { view: "troops", spot: ".subtabs|.army", title: "⚔️ Step 3: raise an army", text: function (d) { var W = d.workshops; return "Every training building has <b>its own queue</b>: infantry and scouts in the " + W.barracks.icon + " <b>" + W.barracks.name + "</b>, siege machines in the " + W.workshop.name + ", fighters and bombers in the " + W.hangar.name + ".<small>Troops eat food every hour: keep food production up.</small>"; } },
+  { view: "buildings", spot: ".cx-stage|.cmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🏗️ Step 2: build your base", text: function (d) { return "Tap a free lot to build, or a building to upgrade it. <b>The HQ unlocks everything</b> and speeds up building. Up to " + d.queueLimit + " jobs wait in line.<small>Good order: HQ → warehouse → food silo → barracks → wall.</small>"; } },
+  { view: "troops", spot: ".subtabs|.army", base: tutTrained, wait: function (d, b) { return tutTrained(d) > b; }, title: "⚔️ Step 3: raise an army", text: function (d) { var W = d.workshops; return "Every training building has <b>its own queue</b>: infantry and scouts in the " + W.barracks.icon + " <b>" + W.barracks.name + "</b>, siege machines in the " + W.workshop.name + ", fighters and bombers in the " + W.hangar.name + ".<small>Troops eat food every hour: keep food production up.</small>"; } },
   { view: "map", spot: ".mappanel|.map", title: "🗺️ Step 4: explore", text: "Drag to look around, tap a tile for details. <b>⛰️ Monster camps</b> hold treasure to raid. 📋 Farm lists send many raids with one tap, the 🧮 simulator tests a fight first.<small>📌 Pin your own markers on the map.</small>" },
   { view: "resources", spot: ".protect|.topbar", title: "🛡️ Stay safe", text: function (d) { var p = d.protection; return (p && p.active && !p.vacation ? "You are <b>protected</b> for " + shortTime(p.until - serverNow()) + " (or until " + p.pointsNeeded + " points). " : "") + "Later, others will raid you: a <b>bunker</b> hides loot, a <b>wall</b> and defenders hold the line, allies send help.<small>Turn on 🔔 attack alerts in ⚙️ Settings.</small>"; } },
   { view: "resources", spot: ".terrabox|.topbar", title: "🌱 Step 5: expand", text: function (d) { return "Colonies earn <b>terra</b> by themselves. With enough terra and " + d.colonies.settlersNeeded + " settlers you <b>found a new colony</b>. Your first colony is your ⭐ main colony: its fields go up to level " + d.mainMove.max + "."; } },
@@ -13464,9 +13471,28 @@ var TUTORIAL = [
   { view: "resources", spot: '.topbtns [data-wiki]|.topbtns', title: "📖 Your guide to everything", text: "Every number, table and rule is in the <b>📖 Guide</b>. Replay this briefing any time under ⚙️ Settings → Tour.<small>Ready, Commander? Mars is waiting. 🚀</small>" },
 ];
 var tut = { step: -1 };
+// steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
+function tutTrained(d) {
+  var n = 0;
+  Object.keys(d.training || {}).forEach(function (w) { n += (d.training[w] || []).length; });
+  return n;
+}
+function tutCheck(d) {
+  if (tut.step < 0 || tut.step >= TUTORIAL.length || tut.done) return;
+  var s = TUTORIAL[tut.step];
+  if (!s.wait || tut.base == null || !s.wait(d, tut.base)) return;
+  tut.done = true;
+  var box = document.getElementById("tut"), nx = box && box.querySelector('[data-tut="next"]');
+  if (!nx) return;
+  box.classList.add("tut-ok");
+  nx.textContent = "Done! Next ➡";
+  var im = box.querySelector(".tut-beppo img");
+  if (im && FX_ART.t["beppo-happy"]) im.src = "/art/beppo-happy.webp?v=" + FX_ART.v;
+  sfx("done");
+}
 
 function startTutorial() {
-  tut.step = 0;
+  tut.step = 0; tut.shown = -1;
   showTutorial();
 }
 
@@ -13504,6 +13530,7 @@ function showTutorial() {
     return;
   }
   var s = TUTORIAL[tut.step];
+  if (tut.shown !== tut.step) { tut.shown = tut.step; tut.done = false; tut.base = s.base && data ? s.base(data) : null; }
   if (s.pre) s.pre();
   if (view !== s.view) switchView(s.view);
   else if (s.pre && data) renderColony(data);
@@ -13520,7 +13547,7 @@ function showTutorial() {
   h += "<h3>" + s.title + "</h3><div class='tut-p'>" + txt + "</div><div class='tut-btns'>";
   h += '<button class="btn small ghost" data-tut="skip">Skip tour</button>';
   if (tut.step > 0) h += '<button class="btn small ghost" data-tut="back">⬅ Back</button>';
-  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! 🚀" : "Next ➡") + "</button></div></div></div>";
+  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! 🚀" : tut.done ? "Done! Next ➡" : s.wait ? "Skip step ➡" : "Next ➡") + "</button></div></div></div>";
   box.innerHTML = h;
   box.className = "on";
   var tp = box.querySelector(".tut-p");
@@ -15510,6 +15537,7 @@ function showWon(w) {
   document.getElementById("won-close").onclick = function () { el.remove(); };
 }
 function renderColony(d) {
+  tutCheck(d);
   data = d;
   if (d.won && !wonShown) showWon(d.won);
   // 🎉 milestones are celebrated on the mission board now
@@ -18338,9 +18366,36 @@ function vmPlay(app) {
   app.classList.add("vmove");
   app._vm = setTimeout(function () { app._vm = 0; el.classList.remove(cls); app.classList.remove("vmove"); }, 260);
 }
+// the bar's highlight glides from the old tab to the new one (a ghost pill; the real one shows when it lands)
+function navPill() {
+  var b = document.querySelector(".nav button.on");
+  if (!b) return null;
+  var r = b.getBoundingClientRect();
+  return r.width ? { r: r, cs: getComputedStyle(b) } : null;
+}
+function navGlide(from) {
+  if (calmMotion || !from) return;
+  var b = document.querySelector(".nav button.on");
+  if (!b) return;
+  var r = b.getBoundingClientRect(), cs = getComputedStyle(b);
+  if (!r.width || Math.abs(r.left - from.r.left) < 2) return;
+  var g = document.createElement("i");
+  g.className = "nav-glide";
+  var cl = b.cloneNode(true), dt = cl.querySelector(".dot");
+  if (dt) dt.remove();
+  g.innerHTML = cl.innerHTML;
+  g.style.cssText = "left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;height:" + r.height + "px;border-radius:" + cs.borderRadius + ";background-color:" + cs.backgroundColor + ";background-image:" + cs.backgroundImage + ";box-shadow:" + cs.boxShadow + ";color:" + cs.color + ";font:" + cs.font + ";padding:" + cs.padding + ";text-align:center;box-sizing:border-box";
+  document.body.appendChild(g);
+  document.body.classList.add("navglide");
+  var done = function () { g.remove(); document.body.classList.remove("navglide"); };
+  if (!g.animate) { setTimeout(done, 0); return; }
+  var a = g.animate([{ transform: "translate(" + (from.r.left - r.left) + "px," + (from.r.top - r.top) + "px)" }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(.3,.8,.3,1)" });
+  a.onfinish = a.oncancel = done;
+}
 function switchView(v, target) {
   if (!VIEWS[v]) v = "resources";
   var prevView = view;
+  var navFrom = v !== view ? navPill() : null;
   if (v !== view && window.matchMedia && window.matchMedia("(max-width: 559px)").matches) {
     // phones fold the mission board away on every view change; browsers keep it as you left it (open by default)
     questsOpen = false;
@@ -18355,13 +18410,13 @@ function switchView(v, target) {
   if (v === "map") {
     map.pending = target || null;
     openMap();
-    viewMotion(prevView, v);
+    viewMotion(prevView, v); navGlide(navFrom);
     return;
   }
   if (v === "reports") loadReports(true);
   if (v === "ranking") { loadRanking(); loadAlliance(); loadMyProfile(); }
   if (v === "messages") loadMessages();
-  if (data) { renderColony(data); viewMotion(prevView, v); }
+  if (data) { renderColony(data); viewMotion(prevView, v); navGlide(navFrom); }
   loadColony(false);
 }
 
