@@ -4935,8 +4935,10 @@ var GI_RE = /(🐈‍⬛|🪲|🐸|🐀|🦀|🦋|🐍|🐊|🐺|🕷|🐗|🐆|
 var GI_RE_G = /(🐈‍⬛|🪲|🐸|🐀|🦀|🦋|🐍|🐊|🐺|🕷|🐗|🐆|🦏|🦣|🦁|🐉|🐋|🛋|🍔|🌻|🐴|🐧|🦚|🐄|🎪|👆|🛒|🧑‍🚀|🐔|👽|🪖|🛰|🛵|🚙|✈|🚁|🚜|💥|🎩|👷|🌲|⛏|⚙|🏛|🛢|🥫|🔒|🔐|🏟|🧱|🪤|🔬|🔧|🛫|🏢|🛖|🏥|🏪|🪚|🏺|🏭|🥐|🌿|🏰|🐣|🐓|🕊|🐦|🦃|🦅|🦉|🦤|🥚|🐥|🐤|🪺|🧲|🪱|👑|🪹|🌽|🕳|🥊|🚧|🪢|🧠|🪓|🪶|🔭|🩹|🧺|🧶|🪩|🔥|🍳|🌱|🏯|👾|🦠|👁|🦑|🐙|🛸|🪼|🐌|🎆|🍄|💎|☄|🧪|🛕|🔋|🫙|🌫|🧬|🔮|🫧|🧫|🔫|🌌|🪸|📡|💉|💱|🌀|💠|🌋|🍵|🪴|⚒|🧿|🦂|🦇|🦎|🧌|🎯|💰|🤝|🧭|🎖|🏅|📦|🐪|🐫|🚩|🔍|🔎|🎒|🚀|⚠|⏱|🏗|🧮|🏳|🏠|🚶|🗑|📋|🗿|📌|📍|🌾|🗺|💨|📨|✉|📧|📬|📭|💀|☠|⚖|⛰|🔨|💾|✨|🏘|🌊|📖|🌍|🕐|⏰|🤖|🏖|💤|🏡|🎉|🎊|🚨|📊|📈|📜|👤|✏|🔔|💬|❓|❔|🚪|🔓|🛬|📅|🗓|💪|💸|♻|🔗|🗼|🗂|📂|🌙|💔|🪵|🪨|🔩|🥔|⚔|🛡|🎁|⏳|⚡|🏆|❤|⭐|✅|❌|✖|➕|➖|🔄|🔁|📯|📣|📢|💣|🔑|⏩|⏭|💡|❄|🏷|☀|☁|🌤|☕|🗡|🏦|🌟|👥|📲|📱|🐞|🐛|🎭|🎓|↩|🛠|📰|🎲|👉|🪑|🙋|👋|✋|🍀|🛟|🌠|🙅|⛔|🏚|🥇|🥈|🥉|🔌|🧑|🧾|🥁|🎮|📑|📓|📏|📐|⬆|⬇|⬜|🟫|🟢|🔴|📤|📥|📩|🏜|🫗|🙈|👀|😬|😎|😴|🙂|🤕|🤫|🤦|🏁|🏴|⏹|⏸|▶|🏃|🧘|🛤|🐐|🐢|🦴|🐾|🪽|🍗|🍲|🍽|🔕|🧹|🧦|🧥|🦺|⛑|👢|🥾|👟|🛼|🥽|🧰|📿|💊|🎶|🎺|🎸|🧨|🔤|🪧|🎨|🔊|🔇|⛓|🖥|💻|🎟|🪞|🔱|🌵|⛺|🏕|🛏|🧊|🪐|☑|🔟|🗄|👹|❗|🔀|🔃|👍|👎|👌|🔰|🌪|🌦|🌬|🌄|🏔|🏞|🕰|💗|🌐|📆|🪙|✍|🖋|🎫|💲|🥏|🏹|🪄|🫘|🪆|🪷|🪬|🪅|🕵|ℹ|🆓|🪃|🪂|🚇|🦩|💢|🧩|🐂|📚|⬅|➡)\uFE0F?/g;
 var GI_SKIP = { SVG: 1, OPTION: 1, SELECT: 1, TEXTAREA: 1, TITLE: 1, SCRIPT: 1, STYLE: 1, text: 1 };
 // inline markup of a drawn icon, for strings that are built as HTML
+// painted picture for a glyph: its own art, else the interface icon of the same name (wood, stone, gift, star ...)
+function giArtKey(name) { var t = FX_ART && FX_ART.t; return !t ? "" : t["gi-" + name] ? "gi-" + name : t["ci-" + name] ? "ci-" + name : ""; }
 function giSvg(name) {
-  var pic = artIco("gi gi-" + name, "gi-" + name); if (pic) return pic;
+  var pic = artIco("gi gi-" + name, giArtKey(name)); if (pic) return pic;
   return '<svg class="gi gi-' + name + '" viewBox="0 0 40 40" aria-hidden="true"><use href="#gi-' + name + '"/></svg>';
 }
 // which result a battle report is: drives the coloured sword or shield in its title and the report filters
@@ -4958,7 +4960,8 @@ function repIconHtml(r) {
   return k ? giSvg(REP_FIGHT_ICON[k]) : r.icon;
 }
 function giNode(name) {
-  if (FX_ART && FX_ART.t["gi-" + name]) { var im = document.createElement("img"); im.className = "gi gi-" + name; im.src = "/art/gi-" + name + ".webp?v=" + FX_ART.v; im.alt = ""; im.width = 64; im.height = 64; im.draggable = false; return im; }
+  var ak = giArtKey(name);
+  if (ak) { var im = document.createElement("img"); im.className = "gi gi-" + name; im.src = "/art/" + ak + ".webp?v=" + FX_ART.v; im.alt = ""; im.width = 64; im.height = 64; im.draggable = false; return im; }
   var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   s.setAttribute("class", "gi gi-" + name);
   s.setAttribute("viewBox", "0 0 40 40");
@@ -9114,7 +9117,7 @@ function colonyScene(d) {
       else {
         g += fxDisc(c.x, c.y, c.W);
         var gn = giName(b.icon), sz = c.W * 0.46;
-        g += gn ? '<use href="#gi-' + gn + '" x="' + (c.x - sz / 2).toFixed(1) + '" y="' + (c.y - sz * 0.8).toFixed(1) + '" width="' + sz + '" height="' + sz + '"/>' : '<text class="cx-ic" x="' + c.x.toFixed(1) + '" y="' + (c.y + 2).toFixed(1) + '">' + b.icon + "</text>";
+        g += gn ? (giArtKey(gn) ? '<image href="/art/' + giArtKey(gn) + '.webp?v=' + FX_ART.v + '" x="' + (c.x - sz / 2).toFixed(1) + '" y="' + (c.y - sz * 0.8).toFixed(1) + '" width="' + sz + '" height="' + sz + '"/>' : '<use href="#gi-' + gn + '" x="' + (c.x - sz / 2).toFixed(1) + '" y="' + (c.y - sz * 0.8).toFixed(1) + '" width="' + sz + '" height="' + sz + '"/>') : '<text class="cx-ic" x="' + c.x.toFixed(1) + '" y="' + (c.y + 2).toFixed(1) + '">' + b.icon + "</text>";
       }
       if (b.pending > 0) g += '<ellipse class="fx-bld" cx="' + c.x + '" cy="' + c.y + '" rx="' + c.W * 0.43 + '" ry="' + c.W * 0.23 + '"/>';
     }
