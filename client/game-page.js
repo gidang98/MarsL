@@ -4675,6 +4675,20 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
     .sheet-drag { position: relative; width: 80px; height: 24px; margin: 0 auto; background: none; touch-action: none; }
     .sheet-drag::after { content: ""; position: absolute; inset: 10px 22px; border-radius: 3px; background: var(--line); }
   }
+  /* popups: on a phone they slide up from the bottom edge and slide back down when closed or swiped away */
+  @keyframes sheet-up { from { transform: translateY(100%); } }
+  @keyframes sheet-down { to { transform: translateY(100%); } }
+  @keyframes sheet-out { to { transform: translateY(24px) scale(0.94); opacity: 0; } }
+  @keyframes overlay-out { to { opacity: 0; } }
+  @media (max-width: 599px) { .sheet.anim { animation: sheet-up 0.32s cubic-bezier(.2,.9,.25,1); } .overlay.closing .sheet { animation: sheet-down 0.22s cubic-bezier(.4,0,1,1) forwards; } }
+  @media (min-width: 600px) { .overlay.closing .sheet { animation: sheet-out 0.18s ease-in forwards; } }
+  .overlay.closing { animation: overlay-out 0.2s ease forwards; pointer-events: none; }
+  .overlay.dragged { pointer-events: none; }
+  .overlay.dragged .sheet { animation: none; }
+  .sheet-drag-live { will-change: transform; }
+  body.qopen #quests .qpanel { animation: qin 0.25s ease-out; }
+  @keyframes qin { from { opacity: 0; transform: translateY(14px); } }
+  @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel { animation: none !important; } }
 </style>
 </head>
 <body>
@@ -12302,13 +12316,23 @@ document.addEventListener("focusin", function (e) {
 });
 document.addEventListener("focusout", function () { document.body.classList.remove("typing"); });
 
-function closeSheet() {
-  sheet = null;
+// closing plays a short slide-out first; a new popup that opens meanwhile wipes the old one at once
+var sheetClosing = 0;
+function sheetWipe() {
+  if (sheetClosing) { clearTimeout(sheetClosing); sheetClosing = 0; }
   var box = document.getElementById("sheet");
   box._plain = null;
   box._html = null;
   box.innerHTML = "";
+}
+function closeSheet() {
+  sheet = null;
   document.body.classList.remove("noscroll");
+  var box = document.getElementById("sheet"), ov = box.querySelector(".overlay");
+  if (sheetClosing) return;
+  if (!ov || calmMotion) { sheetWipe(); return; }
+  if (!ov.classList.contains("dragged")) ov.classList.add("closing");
+  sheetClosing = setTimeout(function () { sheetClosing = 0; if (!sheet) sheetWipe(); }, 240);
 }
 
 // "Not enough resources" -> when will there be enough?
@@ -14934,7 +14958,8 @@ try { if (darkModeOn()) { document.documentElement.classList.add("dark-mode"); d
 
 function renderSheet() {
   var box = document.getElementById("sheet");
-  if (!sheet || !data) { setHTML(box, ""); return; }
+  if (sheet && sheetClosing) sheetWipe();
+  if (!sheet || !data) { if (!sheetClosing) setHTML(box, ""); return; }
   var oldPanel = box.querySelector(".sheet"), oldScrollTop = oldPanel && !sheetAnim ? oldPanel.scrollTop : 0;
   var d = data;
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
@@ -18573,22 +18598,52 @@ document.addEventListener("input", function (e) {
   }
 });
 
-/* The handle owns the dismiss gesture. Sheet content keeps native scrolling. */
+/* The handle owns the dismiss gesture: the popup follows the finger, then slides away or springs back. Sheet content keeps native scrolling. */
 (function () {
   var drag = null;
   document.addEventListener("pointerdown", function (e) {
     if (!e.isPrimary || !e.target.closest(".sheet-drag")) return;
+    var ov = document.querySelector("#sheet .overlay"), panel = ov && ov.querySelector(".sheet");
     e.target.setPointerCapture(e.pointerId);
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, panel: sheet };
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, panel: sheet, ov: ov, el: panel, dy: 0, t: Date.now(), v: 0, lastY: e.clientY, lastT: Date.now() };
+    if (panel && !calmMotion) { panel.style.transition = "none"; panel.style.animation = "none"; panel.classList.add("sheet-drag-live"); }
   });
+  document.addEventListener("pointermove", function (e) {
+    if (!drag || e.pointerId !== drag.id || !drag.el || calmMotion) return;
+    var dy = Math.max(0, e.clientY - drag.y), now = Date.now();
+    if (now > drag.lastT) drag.v = (e.clientY - drag.lastY) / (now - drag.lastT);
+    drag.lastY = e.clientY; drag.lastT = now; drag.dy = dy;
+    drag.el.style.transform = "translateY(" + dy + "px)";
+    if (drag.ov) drag.ov.style.opacity = String(Math.max(0.25, 1 - dy / (drag.el.offsetHeight * 1.3)));
+  });
+  var dragEnd = 0; // a drag must not count as a tap on the dark background behind the popup
+  document.addEventListener("click", function (e) { if (Date.now() - dragEnd < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
   document.addEventListener("pointerup", function (e) {
     if (!drag || e.pointerId !== drag.id) return;
-    var dy = e.clientY - drag.y;
-    if (drag.panel === sheet && dy > 48 && dy > Math.abs(e.clientX - drag.x) * 1.5) closeSheet();
+    var d = drag, dy = e.clientY - d.y;
     drag = null;
+    if (Math.abs(dy) > 6) dragEnd = Date.now();
+    var vertical = dy > Math.abs(e.clientX - d.x) * 1.5;
+    var away = d.panel === sheet && vertical && (dy > 90 || (dy > 30 && d.v > 0.6));
+    if (d.el && !calmMotion) {
+      if (away) {
+        d.el.style.transition = "transform .2s ease-out";
+        d.el.style.transform = "translateY(100%)";
+        if (d.ov) { d.ov.style.transition = "opacity .2s"; d.ov.style.opacity = "0"; d.ov.classList.add("dragged"); }
+      } else {
+        d.el.style.transition = "transform .28s cubic-bezier(.2,1.2,.3,1)";
+        d.el.style.transform = "";
+        if (d.ov) { d.ov.style.transition = "opacity .2s"; d.ov.style.opacity = ""; }
+        setTimeout(function () { if (d.el) { d.el.style.transition = ""; d.el.classList.remove("sheet-drag-live"); } if (d.ov) d.ov.style.transition = ""; }, 320);
+      }
+    }
+    if (away) closeSheet();
   });
   document.addEventListener("lostpointercapture", function (e) {
-    if (drag && e.pointerId === drag.id) drag = null;
+    if (drag && e.pointerId === drag.id) {
+      var d = drag; drag = null;
+      if (d.el) { d.el.style.transition = "transform .2s"; d.el.style.transform = ""; if (d.ov) d.ov.style.opacity = ""; }
+    }
   });
 })();
 
