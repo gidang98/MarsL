@@ -3793,6 +3793,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .bli-lv.up { background: var(--mint); color: #0f4a37; } .bli-lv.bld { box-shadow: inset 0 0 0 2px var(--accent); }
   /* ---------- the drawn icon set ---------- */
   .gi { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.24em; flex: none; overflow: visible; pointer-events: none; }
+  .uic { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.3em; object-fit: contain; flex: none; pointer-events: none; }
   /* 1.0.245: the clay hero picture with one real screenshot in front */
   .lp-art { position: relative; min-width: 0; padding: 0 0 40px 0; }
   .lp-hero-img { display: block; width: 100%; height: auto; border-radius: 32px; box-shadow: 0 26px 50px -22px rgba(122,46,34,.6); }
@@ -9241,7 +9242,7 @@ function isThreat(m) {
 }
 
 function unitsText(units) {
-  return units.map(function (u) { return u.icon + " " + u.count; }).join("  ");
+  return units.map(function (u) { return UI(u) + " " + u.count; }).join("  ");
 }
 // Compact per-unit chips with the full name on hover - used wherever a
 // detailed (not capped/summarized) breakdown is wanted, like the colonies
@@ -9250,7 +9251,7 @@ function unitChipsHtml(units, fromInfo) {
   if (!units || !units.length) return '<span class="uc-none">none</span>';
   return units.map(function (u) {
     var title = esc(u.name) + (fromInfo && u.from && u.from.length > 1 ? " - " + u.from.map(function (f) { return esc(f.name) + " " + f.count; }).join(", ") : fromInfo && u.from && u.from.length === 1 ? " - " + esc(u.from[0].name) : "");
-    return '<span class="uchip" title="' + title + '">' + u.icon + " " + u.count + "</span>";
+    return '<span class="uchip" title="' + title + '">' + UI(u) + " " + u.count + "</span>";
   }).join("");
 }
 
@@ -9349,7 +9350,7 @@ try { var _ms = JSON.parse(localStorage.getItem("mvsort") || "null"); if (_ms &&
 var mvOpenG = {}; // which groups are unfolded
 var MV_SORTS = [["time", "⏱", "Soonest"], ["sent", "📤", "Sent"], ["type", "🧭", "Type"], ["size", "🪖", "Size"]];
 // 👁️ unit types a lookout recognises in a small incoming army (never the numbers)
-function seenIcons(m) { return m.seen && m.seen.length ? m.seen.map(function (u) { return u.icon; }).join(" ") : ""; }
+function seenIcons(m) { return m.seen && m.seen.length ? m.seen.map(function (u) { return UI(u); }).join(" ") : ""; }
 function seenTitle(m) { return m.seen && m.seen.length ? "Spotted: " + m.seen.map(function (u) { return u.name; }).join(", ") + " (how many stays hidden)" : ""; }
 function mvSize(m) {
   return m.units ? m.units.reduce(function (n, u) { return n + u.count; }, 0) : m.merchants || 0;
@@ -9387,7 +9388,7 @@ function mvStationedGroup(g) {
     units[key].count+=u.count;
   });});
   var h='<div class="mvg stationed"><button class="mv" data-mvgroup="'+esc(g.key)+'" aria-expanded="'+open+'"><span class="mv-i">📍</span><span class="mv-n"><b>'+esc(g.head.name)+' <small>('+g.head.x+'|'+g.head.y+')</small></b><small>'+g.items.length+' stationed groups · '+g.size.toLocaleString()+' troops</small></span><span class="mv-t">'+(open?'▴':'▾')+'</span></button>';
-  h+='<div class="stationed-units">'+Object.keys(units).map(function(k){var u=units[k];return '<span title="'+esc(u.name)+'">'+esc(u.icon)+' <b>'+u.count.toLocaleString()+'</b></span>';}).join('')+'</div>';
+  h+='<div class="stationed-units">'+Object.keys(units).map(function(k){var u=units[k];return '<span title="'+esc(u.name)+'">'+UI(u)+' <b>'+u.count.toLocaleString()+'</b></span>';}).join('')+'</div>';
   if(open)g.items.forEach(function(m){h+='<div class="stationed-detail"><small>From '+esc(m.from || m.owner || 'colony')+'</small>'+mvRow(m)+'</div>';});
   return h+'</div>';
 }
@@ -9419,7 +9420,7 @@ function mvSortBar(d) {
 // the real troops of a movement: biggest groups first, e.g. "12 🐓 4 🛸 +2"
 function mvUnits(units) {
   var list = units.filter(function (u) { return u.count > 0; }).sort(function (a, b) { return b.count - a.count; });
-  var h = list.slice(0, 3).map(function (u) { return u.count + " " + u.icon; }).join(" ");
+  var h = list.slice(0, 3).map(function (u) { return u.count + " " + UI(u); }).join(" ");
   return h + (list.length > 3 ? " +" + (list.length - 3) : "");
 }
 function mvRow(m, count, groupKey, open) {
@@ -9609,7 +9610,7 @@ function paceResult(m) {
   var list = m.pace.units.map(function (u) { return { u: u, ms: Math.max(1000, Math.round((m.pace.dist / u.speed) * 3600000)) }; }).sort(function (a, b) { return a.ms - b.ms; });
   if (!list.length) return "";
   var fits = list.filter(function (x) { return Math.abs(x.ms - T) <= Math.max(2000, x.ms * 0.01); });
-  var tag = function (x) { return "<b>" + x.u.icon + " " + esc(x.u.name) + "</b> (" + paceClock(x.ms) + ")"; };
+  var tag = function (x) { return "<b>" + UI(x.u) + " " + esc(x.u.name) + "</b> (" + paceClock(x.ms) + ")"; };
   if (fits.length) return "🎯 Fits " + fits.map(tag).join(" or ") + ": the slowest kind in that army.";
   if (T < list[0].ms) return "⚡ Faster than any of their units can walk (" + tag(list[0]) + " is the quickest). Check the time.";
   if (T > list[list.length - 1].ms) return "🐌 Slower than even " + tag(list[list.length - 1]) + ". It left earlier than you think: it was already on the way when you noticed it.";
@@ -9641,7 +9642,7 @@ function moveSheet(d, id) {
   }
   h += '<table class="mvtab"><tbody>' + rows.map(function (r) { return "<tr><th>" + r[0] + "</th><td>" + r[1] + "</td></tr>"; }).join("") + "</tbody></table>";
   if (m.units && m.units.length) h += '<div class="side"><h4>🪖 Troops</h4>' + unitTable(m.units, false) + "</div>";
-  if (m.seen && m.seen.length) h += '<div class="side"><h4>👁️ Spotted</h4><p class="stat">' + m.seen.map(function (u) { return u.icon + " " + esc(u.name); }).join(" · ") + "</p><small>Your lookout recognises these units, but not how many.</small></div>";
+  if (m.seen && m.seen.length) h += '<div class="side"><h4>👁️ Spotted</h4><p class="stat">' + m.seen.map(function (u) { return UI(u) + " " + esc(u.name); }).join(" · ") + "</p><small>Your lookout recognises these units, but not how many.</small></div>";
   if (m.merchants && !m.units) h += '<p class="stat">' + '🐪' + ' <b>' + m.merchants + "</b> " + (m.merchants === 1 ? "merchant" : "merchants") + "</p>";
   if (m.loot) h += '<div class="side"><h4>' + '💰' + ' Carrying</h4>' + resLine(m.loot) + "</div>";
   if (m.pace && m.endAt) {
@@ -9789,7 +9790,7 @@ function foodAlarm(d) {
   var h = "";
   if (f.starved) {
     h += '<div class="foodalarm dead"><span class="big">' + '💀' + '</span><div>Your troops are starving!';
-    h += "<small>" + f.starved.units.map(function (u) { return u.icon + " " + u.count + " " + u.name; }).join(", ") + " starved at " + clockText(f.starved.at) + ". More food fields or fewer troops.</small></div></div>";
+    h += "<small>" + f.starved.units.map(function (u) { return UI(u) + " " + u.count + " " + u.name; }).join(", ") + " starved at " + clockText(f.starved.at) + ". More food fields or fewer troops.</small></div></div>";
   }
   return h;
 }
@@ -9869,6 +9870,14 @@ function statLine(u) {
 function heroPic(cls) {
   var k = "commander-" + ((data && data.tribe && data.tribe.key) || "");
   return FX_ART.t[k] ? '<img class="' + (cls || "upic") + '" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" width="128" height="128">' : "🎖️";
+}
+// the small drawn picture of a unit (built into the server); units without one keep their emoji
+var UNIT_ICO = { "Peckling": "chicken-peckling", "Rooster Guard": "chicken-rooster", "Hawk Interceptor": "chicken-hawk", "Pigeon Spy": "chicken-pigeon", "Dust Raider": "chicken-runner", "Turkey Tank": "chicken-turkey", "Eagle Squadron": "chicken-eagle", "Emu Charger": "chicken-owl", "Battering Dodo": "chicken-ram", "Egg Catapult": "chicken-catapult", "Mother Hen": "chicken-envoy", "Nest Builder": "chicken-settler",
+  "Space-Soldier": "human-marine", "Shield Trooper": "human-guard", "Skyguard": "human-skyguard", "Spy": "human-drone", "Drop Trooper": "human-bike", "Rover Tank": "human-tank", "Jet Fighter": "human-jet", "Sky Bomber": "human-heli", "Wall Crusher": "human-ram", "Mortar": "human-catapult", "Governor": "human-envoy", "Colonist": "human-settler",
+  "Grey Trooper": "alien-grey", "Goo Guard": "alien-blob", "Spore Flak": "alien-spitter", "Mind Probe": "alien-probe", "Tunnel Worm": "alien-squid", "Tentacle Titan": "alien-titan", "Saucer Fighter": "alien-saucer", "Jelly Bomber": "alien-jelly", "Acid Slug": "alien-ram", "Overmind": "alien-envoy", "Spore Seeder": "alien-settler" };
+function UI(u) {
+  var id = u && UNIT_ICO[u.name];
+  return id ? '<img class="uic" src="/uicon/' + id + '.webp?v=__VER__" alt="" width="96" height="96" draggable="false">' : esc((u && u.icon) || "");
 }
 function unitPic(u, cls) {
   var k = "unit-" + ((data && data.tribe && data.tribe.key) || "") + "-" + u.key;
@@ -9985,7 +9994,7 @@ function farmDefaultTroops(list){
   var troops={};if(u)troops[u.key]=5;return troops;
 }
 function farmCountEditor(troops,attribute,prefix){
-  return '<div class="fl-troops">'+data.units.filter(function(u){return u.known&&!u.scout&&!u.settler;}).map(function(u){return '<label title="'+esc(u.name)+'">'+u.icon+'<input aria-label="'+esc(u.name)+' count" type="number" inputmode="numeric" min="0" max="10000000" '+attribute+'="'+prefix+u.key+'" value="'+(troops[u.key]||0)+'"></label>';}).join('')+'</div>';
+  return '<div class="fl-troops">'+data.units.filter(function(u){return u.known&&!u.scout&&!u.settler;}).map(function(u){return '<label title="'+esc(u.name)+'">'+UI(u)+'<input aria-label="'+esc(u.name)+' count" type="number" inputmode="numeric" min="0" max="10000000" '+attribute+'="'+prefix+u.key+'" value="'+(troops[u.key]||0)+'"></label>';}).join('')+'</div>';
 }
 function farmAddSheet(){
   if(!farmPick||!farmPick.listId)return '<p>No target selected.</p>';
@@ -10171,7 +10180,7 @@ function farmReviewHtml(d){
   if(!farmReview)return '';
   var l=farmList(farmReview.list);if(!l)return '';
   var P=farmPlan(l,farmReview.ready), enough=true;
-  var demand=d.units.filter(function(u){return P.demand[u.key];}).map(function(u){if(P.demand[u.key]>u.home)enough=false;return u.icon+' '+P.demand[u.key]+'/'+u.home+' home';}).join(' · ');
+  var demand=d.units.filter(function(u){return P.demand[u.key];}).map(function(u){if(P.demand[u.key]>u.home)enough=false;return UI(u)+' '+P.demand[u.key]+'/'+u.home+' home';}).join(' · ');
   Object.keys(P.demand).forEach(function(k){if(!d.units.some(function(u){return u.key===k;}))enough=false;});
   return '<div class="farm-review"><b>Review '+P.entries.length+' raids · '+P.skipped+' skipped</b><small>'+demand+'</small><small>Readiness is an estimate, not a safety guarantee. Colony raids end beginner protection.</small>'+(!enough?'<small class="neg">Targets that need more troops than are available will be skipped.</small>':'')+'<button class="btn small" data-farm-confirm="1"'+(!P.entries.length?' disabled':'')+'>Send raids</button> <button class="btn small ghost" data-farm-dismiss="1">Cancel</button></div>';
 }
@@ -10284,7 +10293,7 @@ function farmSheet(d) {
       h += "</div>";
       h += '<details class="fl-editor"><summary>🪖 '+farmTroopCount(e)+' troops · edit</summary><div class="fl-troops">';
       fighters.forEach(function (u) {
-        h += '<label title="' + u.name + (l.colonyId === d.colonyId ? " · " + u.home + " at home" : "") + '">' + u.icon + '<input type="number" inputmode="numeric" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
+        h += '<label title="' + u.name + (l.colonyId === d.colonyId ? " · " + u.home + " at home" : "") + '">' + UI(u) + '<input type="number" inputmode="numeric" min="0" data-farm-troop="' + l.id + ":" + e.id + ":" + u.key + '" value="' + (e.troops[u.key] || "") + '" placeholder="0"></label>';
       });
       h += '</div><div class="fl-editor-actions"><button class="btn small ghost" data-farm-copy="'+l.id+':'+e.id+'">Copy to selected targets</button><button class="btn small danger" data-farm-del="'+l.id+':'+e.id+'">' + "🗑️" + ' Remove target</button></div></details><button class="fl-del" data-farm-del="' + l.id + ":" + e.id + '" title="Remove">' + "❌" + '</button></div>';
     });
@@ -10463,7 +10472,7 @@ function trainPanel(d, which) {
     if (u.settler) {
       var ss = d.settlerSlots;
       h += '<p class="slots">' + '👷' + ' Settler slots: <b>' + ss.used + " / " + ss.max + "</b>" + (ss.nextHub ? " · +" + ss.nextCount + " at " + d.hub.name + " Lv " + ss.nextHub : " (max)");
-      if (ss.used) h += "<br><small>" + (ss.founded ? "🔒 " + ss.founded + " founded a colony (locked for good)" : "") + (ss.founded && ss.alive ? " · " : "") + (ss.alive ? u.icon + " " + ss.alive + " alive (their slots only free up if they die)" : "") + "</small>";
+      if (ss.used) h += "<br><small>" + (ss.founded ? "🔒 " + ss.founded + " founded a colony (locked for good)" : "") + (ss.founded && ss.alive ? " · " : "") + (ss.alive ? UI(u) + " " + ss.alive + " alive (their slots only free up if they die)" : "") + "</small>";
       h += "</p>";
     }
     h += statLine(u);
@@ -10478,7 +10487,7 @@ function trainPanel(d, which) {
       h += '<button class="btn" data-train="' + u.key + '">Train</button></div>';
       // ⚖️ the market could turn the stock into the right mix for more of them
       var fit = unitFitMax(d, u.cost);
-      if (fit > u.max) h += '<button class="btn small ghost fitbtn" type="button" data-fit="' + u.key + '" title="Redistribute your resources in this unit’s cost ratio (market swap, ' + d.market.rate + '%)">⚖️ Fit resources for ' + fit + " " + u.icon + "</button>";
+      if (fit > u.max) h += '<button class="btn small ghost fitbtn" type="button" data-fit="' + u.key + '" title="Redistribute your resources in this unit’s cost ratio (market swap, ' + d.market.rate + '%)">⚖️ Fit resources for ' + fit + " " + UI(u) + "</button>";
     }
     h += "</div>";
   });
@@ -10502,7 +10511,7 @@ function researchPanel(d) {
   h += d.lab.job ? jobPanel(d.lab.job, "lab") : '<p class="empty">The scientists are bored. Give them something to study!</p>';
   h += "</section>";
   var done = d.units.filter(function (u) { return u.needsLab > 0 && u.known; });
-  if (done.length) h += '<p class="donelist">' + '✅' + ' Researched: ' + done.map(function (u) { return '<span title="' + u.name + '">' + u.icon + "</span>"; }).join(" ") + "</p>";
+  if (done.length) h += '<p class="donelist">' + '✅' + ' Researched: ' + done.map(function (u) { return '<span title="' + u.name + '">' + UI(u) + "</span>"; }).join(" ") + "</p>";
   h += PART + '<div class="units">';
   d.units.forEach(function (u) {
     if (u.needsLab === 0 || u.known) return; // basic and researched units need nothing
@@ -10773,7 +10782,7 @@ function allyTeamwork(M, lead) {
       legs.forEach(function (l, i) {
         var left = l.leaveAt - now;
         var cls = left <= 0 ? " now" : left < 600000 ? " soon" : i === 0 ? " next" : "";
-        var units = l.units.map(function (u) { return u.icon + " " + u.count; }).join(" ");
+        var units = l.units.map(function (u) { return UI(u) + " " + u.count; }).join(" ");
         var names = l.units.map(function (u) { return u.count + " " + u.name; }).join(", ");
         var pre = l.units.map(function (u) { return u.key + ":" + u.count; }).join(";");
         h += '<div class="jp-row' + cls + '"><span class="jp-when"><b>' + (left <= 0 ? "NOW!" : clockText(l.leaveAt)) + "</b><small>" + (left <= 0 ? "send right away" : "in " + fmt(left)) + "</small></span>";
@@ -10991,7 +11000,7 @@ function targetsSheet(d) {
   else {
     h += '<div class="disc-list">';
     T.camps.forEach(function (c) {
-      var who = c.empty ? "💤 empty" : c.units.map(function (u) { return u.icon + " " + u.count; }).join(" ");
+      var who = c.empty ? "💤 empty" : c.units.map(function (u) { return UI(u) + " " + u.count; }).join(" ");
       h += '<div class="disc-row tg-row"><span class="hi">' + c.icon + '</span><div class="disc-main"><b>' + esc(c.name) + " <small>T" + c.tier + "</small></b><small>" + who + " · 💎 " + shortNum(c.treasure) + " · " + c.dist + " tiles</small></div>";
       h += (c.empty ? '<span class="tg-est ok">' + '💰' + ' free loot</span>' : estChip(c.est));
       h += '<div class="tg-acts">' + (c.empty ? "" : '<button class="btn small ghost" data-sim-at="' + c.x + "," + c.y + '" title="Simulate">' + '🧮' + '</button><button class="btn small ghost" data-tg="scout,' + c.x + "," + c.y + '" title="Spy">' + '🔍' + '</button>');
@@ -11586,7 +11595,7 @@ function unitTable(units, showLost) {
   h += '<span class="uh">Unit</span><span class="uh">' + (showLost ? "Sent" : "Count") + "</span>";
   if (showLost) h += '<span class="uh">Lost</span><span class="uh">Left</span>';
   units.forEach(function (u) {
-    h += '<span class="un">' + u.icon + " " + u.name + '</span><span class="uc">' + u.count + "</span>";
+    h += '<span class="un">' + UI(u) + " " + u.name + '</span><span class="uc">' + u.count + "</span>";
     if (showLost) {
       h += '<span class="ul' + (u.lost ? " dead" : "") + '">' + (u.lost ? "💀 " + u.lost : "–") + "</span>";
       h += '<span class="uleft">' + (u.count - u.lost) + "</span>";
@@ -11617,7 +11626,7 @@ function repRows(units, hint) {
   if (!units.length) return '<p class="rnone">No troops in this army.</p>';
   var total=0;
   var h='<div class="army-scroll"><table class="army-matrix uniform-army" aria-label="Troops and casualties"><thead><tr>';
-  units.forEach(function(u){h+='<th scope="col" title="'+esc(u.name)+'"><span class="army-icon" role="img" aria-label="'+esc(u.name)+'">'+esc(u.icon || '⚔️')+'</span></th>';});
+  units.forEach(function(u){h+='<th scope="col" title="'+esc(u.name)+'"><span class="army-icon" role="img" aria-label="'+esc(u.name)+'">'+UI(u)+'</span></th>';});
   h+='</tr></thead><tbody><tr aria-label="Troops">';
   units.forEach(function(u){var n=Math.max(0,u.count || 0);h+='<td class="'+(n?'':'zero')+'" title="'+esc(u.name)+': '+n+' troops">'+n.toLocaleString()+'</td>';});
   h+='</tr><tr class="army-loss" aria-label="Casualties">';
@@ -11780,7 +11789,7 @@ function renderReportBody(r) {
   } else if (d.mission === "lander") {
     h += '<div class="rout landerwin"><span class="win">' + '🛸' + ' +' + sumRes(d.loot) + "</span></div>" + '<div class="rloot">' + resLine(d.loot) + "</div>";
   } else if (d.mission === "trapped") {
-    h += '<div class="side"><h4>🪤 Caught at ' + placeLink(d.defender) + "</h4>" + d.trapped.map(function (u) { return u.icon + " " + u.count + " " + esc(u.name); }).join("<br>") + "</div>";
+    h += '<div class="side"><h4>🪤 Caught at ' + placeLink(d.defender) + "</h4>" + d.trapped.map(function (u) { return UI(u) + " " + u.count + " " + esc(u.name); }).join("<br>") + "</div>";
   } else if (d.mission === "takeover") {
     h += '<div class="side"><h4>' + (d.side === "attacker" ? "🎩 " : "🏴 ") + placeLink(d.defender) + "</h4>" + (d.side === "attacker" ? "It is your colony now. Its troops and jobs are gone; the buildings stayed." : trf("Taken over by {0}.", esc(d.by))) + "</div>";
   } else if (d.mission === "razed") {
@@ -11917,7 +11926,7 @@ function renderReportBody(r) {
     if (d.bombed && d.bombed.tough) h += "<p>🏰 A bastion made everything " + d.bombed.tough + "% tougher against the bombards.</p>";
     if (d.envoy && d.envoy.main) h += "<p>🎩 A main colony can’t be taken over.</p>";
     if (d.envoy && d.envoy.why) h += "<p>🎩 " + esc(d.envoy.why) + "</p>";
-    if (d.trapped && d.trapped.length) h += "<p>🪤 Caught in traps: " + d.trapped.map(function (u) { return u.icon + " " + u.count; }).join(" ") + "</p>";
+    if (d.trapped && d.trapped.length) h += "<p>🪤 Caught in traps: " + d.trapped.map(function (u) { return UI(u) + " " + u.count; }).join(" ") + "</p>";
     if (d.side === "defender" && d.loot && !d.hidden) h += "<p>🔒 A bunker would have hidden some resources.</p>";
     if (myLoss && sumRes(myLoss)) h += "<p>" + trf("💸 Your losses were worth {0} resources.", sumRes(myLoss)) + "</p>";
     h += '<p class="flavor">"' + esc(d.flavor) + '"</p></details>';
@@ -11941,7 +11950,7 @@ function zoneTileInfo(z, dist) {
   }
   facts.push(fact("🏰 guards +" + z.defBonus + "%", "", "Guards here defend better"));
   h += tipFacts(facts);
-  if (z.holder && z.holder.mine && z.garrison && z.garrison.length) h += '<p class="tip-note">🛡️ Your guards: ' + z.garrison.map(function (u) { return u.icon + " " + u.count; }).join(" · ") + "</p>";
+  if (z.holder && z.holder.mine && z.garrison && z.garrison.length) h += '<p class="tip-note">🛡️ Your guards: ' + z.garrison.map(function (u) { return UI(u) + " " + u.count; }).join(" · ") + "</p>";
   var main = z.holder && z.holder.mine ? '<button class="btn" data-send-zone="reinforce">🛡️ Send more guards</button>' : '<button class="btn danger" data-send-zone="attack">👑 Conquer the flag</button>';
   h += tipActions(main, [tipBtn('data-send-zone="scout"', "🔍", "Spy"), tipBtn('data-sim-at="0,0"', "🧮", "Simulate")]);
   return h;
@@ -12245,7 +12254,7 @@ function upgradeBlock(item, d, action) {
 
 function armyTemplateBar(d){
   var list=(d.armyTemplates||[]).filter(function(t){return t.tribe===d.tribe.key||t.tribe===d.tribe.id;});
-  return '<details class="template-tools"><summary>Army presets &amp; attack templates</summary><p>Loads troop counts and mission for review. Does not send automatically. Unavailable troops are reduced to the number at home.</p>'+list.map(function(t){return '<div class="rt-line"><button class="btn small ghost" data-army-template="'+t.id+'">'+esc(t.name)+' · '+esc(t.mission)+'</button><button class="btn small ghost" aria-label="Delete '+esc(t.name)+'" data-army-template-remove="'+t.id+'">✕</button></div>';}).join('')+((sheet&&sheet.kind==='send')?'':'<div class="fl-troops">'+d.units.filter(function(u){return u.known;}).map(function(u){return '<label>'+u.icon+'<input type="number" min="0" inputmode="numeric" aria-label="'+esc(u.name)+' preset count" data-army-preset-count="'+u.key+'" value="'+(sendCount[u.key]||0)+'"></label>';}).join('')+'</div>')+'<button class="btn small ghost" data-army-template-save="1">Save current troop selection</button></details>';
+  return '<details class="template-tools"><summary>Army presets &amp; attack templates</summary><p>Loads troop counts and mission for review. Does not send automatically. Unavailable troops are reduced to the number at home.</p>'+list.map(function(t){return '<div class="rt-line"><button class="btn small ghost" data-army-template="'+t.id+'">'+esc(t.name)+' · '+esc(t.mission)+'</button><button class="btn small ghost" aria-label="Delete '+esc(t.name)+'" data-army-template-remove="'+t.id+'">✕</button></div>';}).join('')+((sheet&&sheet.kind==='send')?'':'<div class="fl-troops">'+d.units.filter(function(u){return u.known;}).map(function(u){return '<label>'+UI(u)+'<input type="number" min="0" inputmode="numeric" aria-label="'+esc(u.name)+' preset count" data-army-preset-count="'+u.key+'" value="'+(sendCount[u.key]||0)+'"></label>';}).join('')+'</div>')+'<button class="btn small ghost" data-army-template-save="1">Save current troop selection</button></details>';
 }
 function tribeUnitName(d,role){var u=d.units.find(function(u){return role==='settler'?u.settler:u.scout;});return u?u.name:role;}
 function sendSheet(d) {
@@ -12268,7 +12277,7 @@ function sendSheet(d) {
     h = '<div class="sheet-head t-food"><span class="hi">' + (t.info.lander ? "🛸" : "☄️") + "</span><div><h3>" + (t.info.lander ? "Wrecked lander" : "Meteor crate") + "</h3><b>💎 " + t.info.total + " inside · (" + t.x + "|" + t.y + ")</b></div></div>";
   } else if (t.camp) {
     h = '<div class="sheet-head t-war"><span class="hi">⛰️</span><div><h3>' + t.name + "</h3><b>Tier " + t.tier + " monster camp · (" + t.x + "|" + t.y + ")</b></div></div>";
-    h += '<p class="stat">' + (t.units.length ? t.units.map(function (u) { return u.icon + " " + u.count; }).join(" · ") + " · 🛡️ <b>" + t.defG + "</b> · 🎯 <b>" + t.defA + "</b>" : "💤 No monsters") + "<br" + '💎' + "+ ' Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + t.treasure[k]; }).join(" ") + "</p>";
+    h += '<p class="stat">' + (t.units.length ? t.units.map(function (u) { return UI(u) + " " + u.count; }).join(" · ") + " · 🛡️ <b>" + t.defG + "</b> · 🎯 <b>" + t.defA + "</b>" : "💤 No monsters") + "<br" + '💎' + "+ ' Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + t.treasure[k]; }).join(" ") + "</p>";
   } else {
     h = '<div class="sheet-head ' + (sendMission === "reinforce" ? "t-wood" : "t-war") + '"><span class="hi">' + t.home + "</span><div><h3>" + esc(t.name) + "</h3><b>" + esc(t.owner) + " · " + t.tribeIcon + " " + t.tribe + " · (" + t.x + "|" + t.y + ")</b></div></div>";
   }
@@ -12296,7 +12305,7 @@ function sendSheet(d) {
     if (!sendable(u)) return;
     if (u.home === 0 && !sendCount[u.key]) return;
     any = true;
-    h += '<div class="sendrow"><span class="big">' + u.icon + '</span><div class="grow"><b>' + u.name + "</b><small>" + typeIcon(u) + " ⚔️" + u.atkNow + " 🛡️" + u.defGNow + " 🎯" + u.defANow + "" + '💨' + "+ '" + u.speed + " ' + '🎒' + '" + u.carry + " · home: " + u.home + "</small></div>";
+    h += '<div class="sendrow"><span class="big">' + UI(u) + '</span><div class="grow"><b>' + u.name + "</b><small>" + typeIcon(u) + " ⚔️" + u.atkNow + " 🛡️" + u.defGNow + " 🎯" + u.defANow + "" + '💨' + "+ '" + u.speed + " ' + '🎒' + '" + u.carry + " · home: " + u.home + "</small></div>";
     h += '<input type="number" inputmode="numeric" min="0" max="' + u.home + '" placeholder="0" data-send-count="' + u.key + '" value="' + (sendCount[u.key] || "") + '">';
     h += '<button class="btn small ghost" data-send-all="' + u.key + '">All</button></div>';
   });
@@ -12731,7 +12740,7 @@ function simUnits(list, side, values, upsPath, ups) {
   var h = '<div class="simunits">';
   list.forEach(function (u) {
     var stats = u.atk !== undefined ? " · ⚔️" + u.atk + " 🛡️" + u.defG + " 🎯" + u.defA : "";
-    h += '<div class="simunit' + (parseInt(values[u.key], 10) > 0 ? " has" : "") + '" title="' + esc(u.name) + stats + '"><span class="su-i">' + u.icon + (u.type === "air" ? "<i>✈️</i>" : "") + "</span>";
+    h += '<div class="simunit' + (parseInt(values[u.key], 10) > 0 ? " has" : "") + '" title="' + esc(u.name) + stats + '"><span class="su-i">' + UI(u) + (u.type === "air" ? "<i>✈️</i>" : "") + "</span>";
     h += '<input type="number" inputmode="numeric" min="0" placeholder="0" aria-label="' + esc(u.name) + '" data-sim="' + side + "." + u.key + '" value="' + (values[u.key] || "") + '">';
     if (upsPath) {
       var lv = parseInt((ups || {})[u.key], 10) || 0;
@@ -12834,7 +12843,7 @@ function simLosses(title, frac, units, saved) {
   var h = '<div class="simloss"><h4>' + title + " <small>" + Math.round(frac * 100) + "% lost</small></h4>";
   if (!units || !units.length) return h + '<p class="simnote">Nobody</p></div>';
   units.forEach(function (u) {
-    h += '<div class="sl-row" title="' + esc(u.name) + '"><span>' + u.icon + "</span><b>" + (u.count - u.lost) + "</b><small>/ " + u.count + "</small>" + (u.lost ? '<em>' + '💀' + ' ' + u.lost + "</em>" : "") + "</div>";
+    h += '<div class="sl-row" title="' + esc(u.name) + '"><span>' + UI(u) + "</span><b>" + (u.count - u.lost) + "</b><small>/ " + u.count + "</small>" + (u.lost ? '<em>' + '💀' + ' ' + u.lost + "</em>" : "") + "</div>";
   });
   var v = unitValue(units);
   if (v && sumRes(v)) h += '<p class="simnote">' + '💸' + ' ' + sumRes(v) + " resources lost</p>";
@@ -12846,7 +12855,7 @@ function simContributions(rows) {
   if (!rows || !rows.length) return "";
   var h = '<details class="simcontrib"><summary>Attack contribution by unit</summary><p class="simnote">Combat strength includes upgrades, War Drums, commander bonuses, luck and Combined Arms. This is not individual damage or kills.</p><div style="overflow-x:auto"><table style="width:100%;font-size:12px"><thead><tr><th scope="col" style="text-align:left">Unit</th><th scope="col">Strength</th><th scope="col">Share</th></tr></thead><tbody>';
   rows.forEach(function (u) {
-    h += '<tr><th scope="row" style="text-align:left;font-weight:normal;padding:3px">' + esc(u.icon) + ' ' + esc(u.name) + '</th><td style="text-align:center">' + Number(u.strength || 0).toLocaleString(undefined, {maximumFractionDigits: 1}) + '</td><td style="text-align:center">' + Number(u.share || 0).toFixed(1) + '%</td></tr>';
+    h += '<tr><th scope="row" style="text-align:left;font-weight:normal;padding:3px">' + UI(u) + ' ' + esc(u.name) + '</th><td style="text-align:center">' + Number(u.strength || 0).toLocaleString(undefined, {maximumFractionDigits: 1}) + '</td><td style="text-align:center">' + Number(u.share || 0).toFixed(1) + '%</td></tr>';
   });
   return h + '</tbody></table></div></details>';
 }
@@ -13446,7 +13455,7 @@ function wavesSheet(d) {
     if (waves.list.length > 2) h += '<button class="mini" data-wv-del="' + i + '" title="Remove">' + "❌" + '</button>';
     h += '</div><div class="wave-units">';
     units.forEach(function (u) {
-      h += '<label class="wv-u" title="' + esc(u.name) + '"><span>' + u.icon + '</span><input type="number" inputmode="numeric" min="0" placeholder="0" data-wv-n="' + i + ":" + u.key + '" value="' + (w.troops[u.key] || "") + '"></label>';
+      h += '<label class="wv-u" title="' + esc(u.name) + '"><span>' + UI(u) + '</span><input type="number" inputmode="numeric" min="0" placeholder="0" data-wv-n="' + i + ":" + u.key + '" value="' + (w.troops[u.key] || "") + '"></label>';
     });
     h += '<button class="btn small ghost" data-wv-rest="' + i + '">Rest</button></div>';
     if (w.mission === "attack" && d.units.some(function (u) { return u.bombard && u.home > 0; })) {
@@ -13832,7 +13841,7 @@ function trapPanel(d) {
   var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.cap + ' traps in use</b><div class="meter thin"><i style="width:' + (T.cap ? Math.min(100, Math.round((T.used / T.cap) * 100)) : 0) + '%"></i></div></div>';
   if (T.rebuild) h += '<div class="reserve"><small>🔧 ' + T.rebuild.left + " " + (T.rebuild.left === 1 ? "trap" : "traps") + " being rebuilt · all ready in " + fmt(Math.max(0, T.rebuild.doneAt - Date.now())) + "</small></div>";
   T.prisoners.forEach(function (p) {
-    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return u.icon + " " + u.count; }).join(" ") + (p.starving ? " · ☠️ starving" : "") + '</small></div><div class="btnrow">' +
+    h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return UI(u) + " " + u.count; }).join(" ") + (p.starving ? " · ☠️ starving" : "") + '</small></div><div class="btnrow">' +
       '<button class="btn small ghost" data-trap-release="' + p.cid + '">🔓 Let go</button>' +
       '<button class="btn small ghost" data-trap-starve="' + p.cid + ":" + (p.starving ? 0 : 1) + '">' + (p.starving ? "Stop starving" : "☠️ Let starve") + "</button></div></div>";
   });
@@ -14149,7 +14158,7 @@ function hospitalPanel(d) {
     var n=Math.min(u.count, Math.max(0,Math.floor(Number(healSelection[u.key]) || 0)));healSelection[u.key]=n;total+=n;
     RES.forEach(function(r){cost[r]+=Math.ceil((u.healBase || u.healCost)[r]*n)});
     ms+=(u.healMs || 0)*n;
-    h += '<label class="heal-row"><span>' + esc(u.icon) + ' ' + esc(u.name) + '<small>' + u.count + ' wounded</small></span><input type="number" min="0" max="' + u.count + '" step="1" inputmode="numeric" aria-label="Heal ' + esc(u.name) + '" data-heal-count="' + esc(u.key) + '" value="' + n + '"' + (hp.job?' disabled':'') + '><button type="button" class="btn small ghost" data-heal="max:' + esc(u.key) + '"' + (hp.job?' disabled':'') + '>Max</button></label>';
+    h += '<label class="heal-row"><span>' + UI(u) + ' ' + esc(u.name) + '<small>' + u.count + ' wounded</small></span><input type="number" min="0" max="' + u.count + '" step="1" inputmode="numeric" aria-label="Heal ' + esc(u.name) + '" data-heal-count="' + esc(u.key) + '" value="' + n + '"' + (hp.job?' disabled':'') + '><button type="button" class="btn small ghost" data-heal="max:' + esc(u.key) + '"' + (hp.job?' disabled':'') + '>Max</button></label>';
   });
   var ready=total>0&&!hp.job&&RES.every(function(r){return cost[r]<=d.res[r]});
   h += '</div><div class="btnrow"><button class="btn small ghost" data-heal="select-all">Select all</button><button class="btn small ghost" data-heal="clear">Clear</button></div>';
@@ -14574,7 +14583,7 @@ function recallSheet(m) {
   h += "<b>" + (out ? "Stationed at " : "From ") + esc(m.name) + (m.x !== null ? " (" + m.x + "|" + m.y + ")" : "") + "</b></div></div>";
   if (!m.units || !m.units.length) return h + '<p class="empty">Nobody there.</p>';
   m.units.forEach(function (u) {
-    h += '<div class="sendrow recallrow"><span class="big">' + u.icon + '</span><div class="grow"><b>' + u.name + "</b><small>there: " + u.count + "</small></div>";
+    h += '<div class="sendrow recallrow"><span class="big">' + UI(u) + '</span><div class="grow"><b>' + u.name + "</b><small>there: " + u.count + "</small></div>";
     h += '<input type="number" inputmode="numeric" min="0" max="' + u.count + '" placeholder="0" data-recall-count="' + u.key + '" value="' + (recallCount[u.key] || "") + '">';
     h += '<button class="btn small ghost" data-recall-all="' + u.key + ":" + u.count + '">All</button></div>';
   });
@@ -16958,7 +16967,7 @@ function wikiTroops(W) {
   list.forEach(function (u) {
     var key = t.key + ":" + u.key;
     if (wiki.open === key) sel = rows.length;
-    rows.push(['<span class=\\"kt-u\\">' + u.icon + " <b>" + esc(trStr(u.name)) + "</b><small>" + wkKind(u) + "</small>" + (u.trait ? "<small>" + u.trait.icon + " " + esc(trStr(u.trait.name)) + ": " + esc(trStr(u.trait.text)) + "</small>" : "") + "</span>"].concat(cols.map(function (c) { var v = c[1](u); return c[3] ? c[3](v) : wkN(v); })));
+    rows.push(['<span class=\\"kt-u\\">' + UI(u) + " <b>" + esc(trStr(u.name)) + "</b><small>" + wkKind(u) + "</small>" + (u.trait ? "<small>" + u.trait.icon + " " + esc(trStr(u.trait.name)) + ": " + esc(trStr(u.trait.text)) + "</small>" : "") + "</span>"].concat(cols.map(function (c) { var v = c[1](u); return c[3] ? c[3](v) : wkN(v); })));
     rows[rows.length - 1].key = key;
     if (wiki.open === key) rows.push({ full: wikiUnit(W, t, u) });
   });
@@ -17111,7 +17120,7 @@ function wkToolTravel(W) {
   var list = t.units.slice().sort(function (a, b) { return b.speed - a.speed; });
   var rows = list.map(function (u) {
     var ms = trip(u.speed);
-    return [u.icon + " " + esc(u.name), u.speed, fmt(ms), clockText(now + ms).slice(0, 5), fmt(2 * ms)];
+    return [UI(u) + " " + esc(u.name), u.speed, fmt(ms), clockText(now + ms).slice(0, 5), fmt(2 * ms)];
   });
   var mSpeed = W.market.speed * (1 + T.caravan * W.formulas.ally.caravan);
   var mms = trip(mSpeed);
@@ -17137,7 +17146,7 @@ function wkToolArmy(W) {
   h += "<label>📏 Farm distance" + wkIn("ar.dist", A.dist, 'min="1"') + "</label></div>";
   h += '<div class="wk-army">';
   t.units.forEach(function (u) {
-    h += '<label class="wk-au"><span>' + u.icon + "</span><small>" + esc(u.name) + "</small>" + wkIn("ar.n." + u.key, A.n[u.key] || "", 'min="0" placeholder="0"') + "</label>";
+    h += '<label class="wk-au"><span>' + UI(u) + "</span><small>" + esc(u.name) + "</small>" + wkIn("ar.n." + u.key, A.n[u.key] || "", 'min="0" placeholder="0"') + "</label>";
   });
   h += "</div>";
   var up = 1 + A.up * W.combat.upgrade * (t.perk.upgradeBonus || 1) / 100;
@@ -19273,7 +19282,7 @@ document.addEventListener("click", function (e) {
       closeSheet();
       var p = r && r.power;
       if (!p) return;
-      var what = p.lock ? (p.lock === "def" ? "+15% defense" : "bunkers hide 50% more") + " until " + clockText(p.until).slice(0, 5) : p.rally ? "next attack: " + p.rally + " troops +12%" : p.res ? "+" + RES.filter(function (k) { return p.res[k]; }).map(function (k) { return RES_ICON[k] + shortNum(p.res[k]); }).join(" ") : p.units ? p.units.map(function (u) { return u.count + " " + u.icon; }).join(" ") + " hatched" : (p.job === "build" ? "construction: " : "research and upgrade: ") + Math.ceil(p.savedMs / 1000) + " seconds saved";
+      var what = p.lock ? (p.lock === "def" ? "+15% defense" : "bunkers hide 50% more") + " until " + clockText(p.until).slice(0, 5) : p.rally ? "next attack: " + p.rally + " troops +12%" : p.res ? "+" + RES.filter(function (k) { return p.res[k]; }).map(function (k) { return RES_ICON[k] + shortNum(p.res[k]); }).join(" ") : p.units ? p.units.map(function (u) { return u.count + " " + UI(u); }).join(" ") + " hatched" : (p.job === "build" ? "construction: " : "research and upgrade: ") + Math.ceil(p.savedMs / 1000) + " seconds saved";
       toast(p.icon + " " + p.name + ": " + what, true);
     });
   } else if (has("data-disc-ask")) {
