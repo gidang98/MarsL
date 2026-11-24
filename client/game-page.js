@@ -13480,6 +13480,9 @@ var TUTORIAL = [
   { view: "map", spot: ".mappanel|.map", title: "🗺️ Step 4: explore", text: "Drag to look around, tap a tile for details. <b>⛰️ Monster camps</b> hold treasure to raid. 📋 Farm lists send many raids with one tap, the 🧮 simulator tests a fight first.<small>📌 Pin your own markers on the map.</small>" },
   { view: "resources", spot: ".protect|.topbar", title: "🛡️ Stay safe", text: function (d) { var p = d.protection; return (p && p.active && !p.vacation ? "You are <b>protected</b> for " + shortTime(p.until - serverNow()) + " (or until " + p.pointsNeeded + " points). " : "") + "Later, others will raid you: a <b>bunker</b> hides loot, a <b>wall</b> and defenders hold the line, allies send help.<small>Turn on 🔔 attack alerts in ⚙️ Settings.</small>"; } },
   { view: "resources", spot: ".terrabox|.topbar", title: "🌱 Step 5: expand", text: function (d) { return "Colonies earn <b>terra</b> by themselves. With enough terra and " + d.colonies.settlersNeeded + " settlers you <b>found a new colony</b>. Your first colony is your ⭐ main colony: its fields go up to level " + d.mainMove.max + "."; } },
+  { view: "resources", spot: ".wallet|.topbar", title: "💲 Two kinds of money", text: "<b>💲 Space-Cash</b> ticks up every second from the creatures in your 🐾 hunt slots. <b>🎫 Star Credits</b> come from your active commander. Credits finish a job right now: the less time is left, the cheaper it gets.<small>Tap the wallet for the exact amounts.</small>" },
+  { view: "resources", spot: ".herobtn|.topbar", title: "🎖️ Your commander", text: "Your commander earns Star Credits all the time (they pile up while you are away, up to a limit), wears gear and adds a bonus to your colonies.<small>Tap your commander (bottom left) for commanders and the shard shop.</small>" },
+  { view: "resources", spot: "[data-auction]|.topbtns", title: "🐾 Hunt and 🏛️ Auction", text: "<b>Hunt</b> creatures and put them in slots to earn Space-Cash. At the <b>Auction</b> you sell what you do not need: gear, shards, creatures and supplies.<small>Both open from your wallet. The auction button sits in the top bar.</small>" },
   { view: "ranking", spot: ".ptabs", title: "🤝 Step 6: team up", pre: function () { playersTab = "alliance"; }, text: "<b>The server is won by alliances.</b> Join or found one under Players → 🤝. Allies can’t attack each other, share a bank, plan joint attacks and fund <b>permanent bonuses</b> together." },
   { view: "resources", spot: "#quests", title: "📋 The Mission Board", text: "Three missions at a time: <b>build, army and world</b>, plus chapter rewards and the daily supply. Tap <b>👉 Show me</b> to be taken there; every mission pays resources." },
   { view: "resources", spot: '.topbtns [data-wiki]|.topbtns', title: "📖 Your guide to everything", text: "Every number, table and rule is in the <b>📖 Guide</b>. Replay this briefing any time under ⚙️ Settings → Tour.<small>Ready, Commander? Mars is waiting. 🚀</small>" },
@@ -13575,7 +13578,7 @@ function typeHtml(el, pitch) {
     if (ni >= nodes.length) finish();
   }, 24);
 }
-var TUT_MOOD = { 0: "happy", 6: "surprised", 7: "worried", 11: "happy" };
+var TUT_MOOD = { 0: "happy", 6: "surprised", 7: "worried", 10: "surprised", 14: "happy" };
 
 function showTutorial() {
   var box = document.getElementById("tut");
