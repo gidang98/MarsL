@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.540";
+const GAME_VERSION = "1.0.541";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.541",date:"2026-11-25",title:"Quieter music",groups:[["🎵 Music",["The music is much quieter by default, so the game's own sounds (taps, arrivals, voices) stay easy to hear. Low, Medium and High are all lower than before."]]]},
   {v:"1.0.540",date:"2026-11-25",title:"Battle music for the villain",groups:[["🎵 Music",["The battle music now plays when the villain first shows up in his costume, and fades back to the colony music when the scene ends. Beppo's thank-you scene afterwards keeps the colony music."]]]},
   {v:"1.0.539",date:"2026-11-25",title:"Music: playlists and smoother fades",groups:[["🎵 Music",["Several songs can play in one place: the colony, map and title screen rotate through their songs, fading from one into the next.","Switching between Fields, Colony, Army, Players and Inbox keeps the same song playing. A song you leave for the map or the casino picks up where it stopped.","Fades between places are longer and smoother, and the louder songs are turned down a little so every place feels even."]]]},
   {v:"1.0.538",date:"2026-11-25",title:"Background music",groups:[["🎵 Music",["The game can play background music, with a different track for the title screen, the colony, the map, the casino and story scenes. It fades between places.","The music gets quieter while somebody talks, stops when you leave the tab, and follows the Sound switch.","Turn it on or off, and set its volume (Low, Medium, High), under Settings."]]]},

@@ -13457,11 +13457,12 @@ function toggleSound() {
 // 🎵 Background music: tracks are files the server owner drops into the "music" folder, named after the place they play in
 // (title, colony, map, casino, battle). A place without its own track plays "colony". Starts after the first tap, fades between
 // places, ducks under speech, pauses when the tab is hidden, and follows the Sound switch.
-var MUSIC = { tracks: {}, list: [], on: true, vol: 0.3, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false, pos: {}, idx: {}, scene: "" };
-var MUSIC_VOLS = [[0.15, "Low"], [0.3, "Medium"], [0.5, "High"]];
+var MUSIC = { tracks: {}, list: [], on: true, vol: 0.05, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false, pos: {}, idx: {}, scene: "" };
+// The game's own sounds are quiet chip beeps (about -30 dB), so the music sits well under them: Medium is roughly 20 dB below the files' full level.
+var MUSIC_VOLS = [[0.025, "Low"], [0.05, "Medium"], [0.09, "High"]];
 var MUSIC_TRIM = { battle: 0.8, casino: 0.9 }; // the louder tracks sit a little lower so places feel even
 var MUSIC_FADE = 0.04; // per 100 ms: about 2.5 s from silence to full
-try { MUSIC.on = localStorage.getItem("marsl-music") !== "off"; var mvv = Number(localStorage.getItem("marsl-music-vol")); if (mvv > 0) MUSIC.vol = mvv; } catch (e) {}
+try { MUSIC.on = localStorage.getItem("marsl-music") !== "off"; var mvv = Number(localStorage.getItem("marsl-music-vol")); if (mvv > 0 && mvv <= 0.1) MUSIC.vol = mvv; } catch (e) {}
 function musicLoad() {
   fetch("/api/music").then(function (r) { return r.json(); }).then(function (j) {
     // "colony", "colony-2", "colony-3" ... form one playlist for that place; the same name in ogg wins over other formats
@@ -13534,11 +13535,11 @@ function musicToggle() {
 }
 function musicLevel() {
   var i = 0;
-  MUSIC_VOLS.forEach(function (v, k) { if (Math.abs(v[0] - MUSIC.vol) < 0.01) i = k; });
+  MUSIC_VOLS.forEach(function (v, k) { if (Math.abs(v[0] - MUSIC.vol) < 0.003) i = k; });
   MUSIC.vol = MUSIC_VOLS[(i + 1) % MUSIC_VOLS.length][0];
   try { localStorage.setItem("marsl-music-vol", String(MUSIC.vol)); } catch (e) {}
 }
-function musicVolName() { var n = "Medium"; MUSIC_VOLS.forEach(function (v) { if (Math.abs(v[0] - MUSIC.vol) < 0.01) n = v[1]; }); return n; }
+function musicVolName() { var n = "Medium"; MUSIC_VOLS.forEach(function (v) { if (Math.abs(v[0] - MUSIC.vol) < 0.003) n = v[1]; }); return n; }
 (function () {
   function unlock() { MUSIC.unlocked = true; }
   document.addEventListener("pointerdown", unlock, { once: true, capture: true });
