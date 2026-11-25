@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.502";
+const GAME_VERSION = "1.0.503";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.503",date:"2026-11-25",title:"Eight new voices",groups:[["✨ New",["The Courier runs the Inbox, the Chef the bakery, greenhouse and rations, the Tinkerer the weaponry and assembly, the Warlord sending troops, the Trickster the auction and your pile of Space-Cash, the Nightowl late nights and the hospital, the Star Marshal alliances and relics, and the Void Sovereign speaks rarely, only while Project Aurora is on. Each has their own theme and typing sound."]]]},
   {v:"1.0.502",date:"2026-11-25",title:"A light veil",groups:[["🔧 Fixed",["Tips and voices now dim the screen behind them very slightly, so the bubble is easy to read on every page."]]]},
   {v:"1.0.501",date:"2026-11-25",title:"Easier to read",groups:[["🔧 Fixed",["Speech bubbles have a dark outline, a stronger shadow, a white edge around the speaker and a very light veil over the screen behind them, so they stand out on any background, also in dark mode."]]]},
   {v:"1.0.500",date:"2026-11-25",title:"Real theme tunes",groups:[["✨ New",["Each voice has a proper little theme with its own instrument, rhythm and mood, and its own typing sound: Beppo bouncy, the Steward a fanfare, the Drillmaster a march with drums, the Banker sparkling coins, the Forager a gentle folk tune, the Warden a low solemn drone, the Professor a quirky run."]]]},

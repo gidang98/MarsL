@@ -9981,7 +9981,15 @@ var CAST = {
   banker: { name: "Banker", icon: "💼", pitch: 440, wave: "triangle", art: "hero-banker" },
   forager: { name: "Forager", icon: "🌾", pitch: 400, wave: "triangle", art: "hero-forager" },
   warden: { name: "Warden", icon: "🛡️", pitch: 280, wave: "pulse12", art: "hero-warden" },
-  prof: { name: "Professor", icon: "🔬", pitch: 520, wave: "pulse25", art: "hero-professor" }
+  prof: { name: "Professor", icon: "🔬", pitch: 520, wave: "pulse25", art: "hero-professor" },
+  courier: { name: "Courier", icon: "📨", pitch: 600, wave: "pulse25", art: "hero-courier" },
+  chef: { name: "Chef", icon: "🍞", pitch: 360, wave: "triangle", art: "hero-chef" },
+  tinker: { name: "Tinkerer", icon: "🔧", pitch: 470, wave: "square", art: "hero-tinkerer" },
+  warlord: { name: "Warlord", icon: "⚔️", pitch: 180, wave: "pulse12", art: "hero-warlord" },
+  trickster: { name: "Trickster", icon: "🃏", pitch: 410, wave: "pulse25", art: "hero-trickster" },
+  owl: { name: "Nightowl", icon: "🦉", pitch: 280, wave: "triangle", art: "hero-nightowl" },
+  marshal: { name: "Star Marshal", icon: "🎖️", pitch: 340, wave: "pulse25", art: "hero-starmarshal" },
+  void: { name: "Void Sovereign", icon: "🌌", pitch: 120, wave: "pulse12", art: "hero-voidsovereign" }
 };
 var BEPPO_LINES = {
   neutral: ["Everything is under control. Mostly.", "I sniffed around. Nothing suspicious. Except the cat.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
@@ -12326,6 +12334,7 @@ function renderReports() {
 //  Popups (fields, lots, sending troops)
 // =====================================================================
 function openSheet(kind, slot) {
+  if (kind === "send") setTimeout(function () { beppoSay("send", true); }, 700);
   if (kind === "building" && data && typeof slot === "number") {
     var ob = data.buildings.filter(function (x) { return x.slot === slot; })[0];
     if (ob && BEPPO_SAY["b-" + ob.type]) setTimeout(function () { beppoSay("b-" + ob.type, true); }, 700);
@@ -13112,6 +13121,14 @@ function audio() {
 
 // [frequency, start, duration, wave, volume, slide to frequency]
 var SFX = {
+  "v-courier": [[659.3, 0.0, 0.05, "pulse25", 0.03, 0, 0], [784.0, 0.055, 0.05, "pulse25", 0.03, 0, 0], [659.3, 0.11, 0.05, "pulse25", 0.03, 0, 0], [784.0, 0.165, 0.05, "pulse25", 0.03, 0, 0], [987.8, 0.22, 0.05, "pulse25", 0.03, 0, 0], [1318.5, 0.275, 0.099, "pulse25", 0.03, 0, 0], [164.8, 0.0, 0.297, "triangle", 0.05, 0, 0], [246.9, 0.33, 0.297, "triangle", 0.05, 0, 0]],
+  "v-chef": [[261.6, 0.0, 0.117, "triangle", 0.06, 0, 5], [329.6, 0.13, 0.117, "triangle", 0.06, 0, 5], [392.0, 0.26, 0.117, "triangle", 0.06, 0, 5], [329.6, 0.39, 0.117, "triangle", 0.06, 0, 5], [392.0, 0.52, 0.117, "triangle", 0.06, 0, 5], [523.3, 0.65, 0.234, "triangle", 0.06, 0, 5], [130.8, 0.0, 0.351, "triangle", 0.05, 0, 0], [196.0, 0.39, 0.351, "triangle", 0.05, 0, 0]],
+  "v-tinker": [[392.0, 0.0, 0.072, "square", 0.022, 0, 0], [587.3, 0.16, 0.072, "square", 0.022, 0, 0], [392.0, 0.24, 0.072, "square", 0.022, 0, 0], [523.3, 0.4, 0.072, "square", 0.022, 0, 0], [740.0, 0.56, 0.144, "square", 0.022, 0, 0], [0, 0.16, 0.04, "noise", 0.03, 0, 0], [0, 0.4, 0.04, "noise", 0.03, 0, 0], [0, 0.56, 0.04, "noise", 0.03, 0, 0]],
+  "v-warlord": [[73.4, 0.0, 0.117, "pulse12", 0.045, 0, 0], [73.4, 0.13, 0.117, "pulse12", 0.045, 0, 0], [87.3, 0.26, 0.117, "pulse12", 0.045, 0, 0], [110.0, 0.39, 0.117, "pulse12", 0.045, 0, 0], [146.8, 0.52, 0.351, "pulse12", 0.045, 0, 0], [0, 0, 0.07, "noise", 0.05, 0, 0], [0, 0.26, 0.07, "noise", 0.05, 0, 0], [0, 0.52, 0.07, "noise", 0.05, 0, 0], [0, 0.78, 0.07, "noise", 0.05, 0, 0], [220.0, 0.52, 0.5, "square", 0.015, 0, 0]],
+  "v-trickster": [[659.3, 0.0, 0.068, "pulse25", 0.03, 0, 0], [698.5, 0.075, 0.068, "pulse25", 0.03, 0, 0], [659.3, 0.15, 0.068, "pulse25", 0.03, 0, 0], [622.3, 0.225, 0.068, "pulse25", 0.03, 0, 0], [659.3, 0.3, 0.068, "pulse25", 0.03, 0, 0], [784.0, 0.375, 0.135, "pulse25", 0.03, 0, 0], [660.0, 0.62, 0.18, "pulse25", 0.03, 1100.0, 0]],
+  "v-owl": [[220.0, 0.0, 0.306, "triangle", 0.06, 0, 4], [261.6, 0.34, 0.153, "triangle", 0.06, 0, 4], [329.6, 0.51, 0.306, "triangle", 0.06, 0, 4], [293.7, 0.85, 0.153, "triangle", 0.06, 0, 4], [220.0, 1.02, 0.459, "triangle", 0.06, 0, 4]],
+  "v-marshal": [[261.6, 0.0, 0.099, "pulse25", 0.026, 0, 0], [261.6, 0.11, 0.099, "pulse25", 0.026, 0, 0], [392.0, 0.22, 0.099, "pulse25", 0.026, 0, 0], [523.3, 0.33, 0.198, "pulse25", 0.026, 0, 0], [329.6, 0.0, 0.099, "triangle", 0.05, 0, 0], [329.6, 0.11, 0.099, "triangle", 0.05, 0, 0], [493.9, 0.22, 0.099, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.198, "triangle", 0.05, 0, 0]],
+  "v-void": [[55.0, 0, 1.8, "pulse12", 0.05, 0, 0], [82.4, 0.4, 1.4, "triangle", 0.05, 0, 0], [1318.5, 0.9, 0.5, "triangle", 0.015, 0, 0]],
   "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
   "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
   "v-drill": [[65.4, 0.0, 0.126, "pulse12", 0.045, 0, 0], [65.4, 0.14, 0.126, "pulse12", 0.045, 0, 0], [77.8, 0.28, 0.126, "pulse12", 0.045, 0, 0], [98.0, 0.42, 0.126, "pulse12", 0.045, 0, 0], [130.8, 0.56, 0.252, "pulse12", 0.045, 0, 0], [0, 0.14, 0.06, "noise", 0.05, 0, 0], [0, 0.42000000000000004, 0.06, "noise", 0.05, 0, 0], [0, 0.7000000000000001, 0.06, "noise", 0.05, 0, 0], [0, 0.8400000000000001, 0.12, "noise", 0.05, 0, 0]],
@@ -13553,11 +13570,11 @@ var BEPPO_SAY = {
   threat: ["worried", "Incoming! Hide the snacks and check the Army tab."],
   robbed: ["worried", "Ouch, someone helped themselves. A bunker would hide some of it next time."],
   codex: ["happy", "The Codex shows monster camps and commanders. Check it before you pick a fight."],
-  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first."],
+  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first. I take no responsibility for the prices.", "trickster"],
   hunt: ["happy", "Creatures in slots earn Space-Cash every second, also while you are away."],
   cmd: ["neutral", "Fuse shards from the shop to get more commanders. Your active commander is never for sale."],
   farm: ["surprised", "A farm list sends many raids with one tap. Test a fight in the simulator first."],
-  relics: ["surprised", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt."],
+  relics: ["neutral", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt. Hold them with dignity.", "marshal"],
   "b-hq": ["neutral", "The HQ unlocks everything else and makes every build faster. Upgrade it first, we will do the rest. Probably.", "steward"],
   "b-barracks": ["neutral", "Infantry and scouts start here. Keep them fed, a hungry soldier is a loud soldier.", "drill"],
   "b-workshop": ["neutral", "Siege machines come out of here. They are heavy, slow and very good at doors.", "drill"],
@@ -13567,6 +13584,15 @@ var BEPPO_SAY = {
   "b-granary": ["neutral", "Troops eat every hour. If the food runs out, so does the army.", "forager"],
   "b-bunker": ["neutral", "What is in the bunker, raiders cannot take. Think of it as a very expensive sock drawer.", "warden"],
   "b-wall": ["neutral", "The wall and your defenders hold the line. Allies can send help here too.", "warden"],
+  "b-bakery": ["happy", "The bakery boosts food for the whole colony. It needs a food field at level 5. Mind the crumbs.", "chef"],
+  "b-greenhouse": ["neutral", "A second food booster that stacks with the bakery. I am not jealous. I am not.", "chef"],
+  "b-ration": ["happy", "In a Breadbasket colony, troops eat 1% less per level. My finest work.", "chef"],
+  "b-weaponry": ["happy", "Better weapons come from here. Please stand back. I mean that kindly.", "tinker"],
+  "b-assembly": ["surprised", "An Industrial Town gets +1% wood, stone and metal per level. Mostly because I stopped breaking things.", "tinker"],
+  "b-hospital": ["neutral", "Rest is the best medicine. I am an owl, not a doctor.", "owl"],
+  inbox: ["worried", "Reports and mail come through me. I run fast. The news does not always deserve it.", "courier"],
+  alliance: ["neutral", "Servers are won by alliances. Join or found one under Players, in the alliance tab. Allies cannot attack each other.", "marshal"],
+  send: ["happy", "Sending troops? Splendid. Test the fight in the simulator first. I insist, a little.", "warlord"],
   "b-lab": ["surprised", "Research unlocks better troops. I have already broken the tea machine, for science.", "prof"]
 };
 // first time a place is opened (the bubble sits at the top so it never covers the sheet)
@@ -13656,6 +13682,8 @@ function voiceWatch(d) {
   if (rdy && !mem.rdySince) mem.rdySince = now;
   if (!rdy) mem.rdySince = 0;
   try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
+  var se = d.world && d.world.season;
+  if (se && se.active && se.kind === "aurora") voiceSay("aurora", "void", "neutral", "The light stirs. Charge the pylons. Or do not.", 7 * 24 * HOUR);
   if (!mem.say) {
     if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", "Mission rewards have been waiting for a day. They do not spoil, but I am getting bored.", 24 * HOUR);
     return;
@@ -13666,8 +13694,11 @@ function voiceWatch(d) {
     var streak = mem.streak || 1;
     if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", "Commander! The crew started a betting pool on when you would return. I lost.", 12 * HOUR);
     else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", "You are back! I guarded the snacks. Mostly.", 12 * HOUR);
+    else if (new Date().getHours() < 5) voiceSay("night", "owl", "neutral", "It is very late, Commander. The colony will still be here tomorrow.", 20 * HOUR);
     else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", streak + " days in a row! I am telling everyone. Everyone being me.", 20 * HOUR);
     else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", "Nothing is being built. The crew has started a card game.", 6 * HOUR);
+    else if (data && data.cash >= 100000) voiceSay("cash", "trickster", "neutral", "All that Space-Cash, just sitting there? Shocking. I know a place.", 24 * HOUR);
+    else if (data && data.unread >= 6) voiceSay("pile", "courier", "worried", "That is " + data.unread + " unread reports. I am not carrying them forever.", 12 * HOUR);
   }, 2500);
 }
 // empty barracks: said when you open the Army page with no troops at home and none training
@@ -18640,6 +18671,8 @@ function switchView(v, target) {
   if (v === "ranking") { loadRanking(); loadAlliance(); loadMyProfile(); }
   if (v === "messages") loadMessages();
   if (data) { renderColony(data); viewMotion(prevView, v); navGlide(navFrom); if (v === "troops") setTimeout(function () { voiceArmy(data); }, 900); }
+  if (v === "reports" || v === "messages") setTimeout(function () { beppoSay("inbox", true); }, 700);
+  if (v === "ranking") setTimeout(function () { beppoSay("alliance", true); }, 700);
   loadColony(false);
 }
 
