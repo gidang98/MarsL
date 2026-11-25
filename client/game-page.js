@@ -3843,6 +3843,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .unit-head .ui.has-pic { width: 72px; height: 72px; background: transparent; box-shadow: none; border: 0; border-radius: 0; overflow: visible; }
   .upic { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 5px rgba(122,46,34,.25)); }
   .upic.sm { width: 40px; height: 40px; }
+  .pill .uic { width: 1.6em; height: 1.6em; vertical-align: -0.45em; margin: -2px 2px -2px -2px; }
   .upic.xs { display: inline-block; width: 26px; height: 26px; vertical-align: middle; margin: -6px 0 -6px -4px; filter: none; }
   .unit:hover .unit-head .ui.has-pic { animation: none; }
   .unit:hover .unit-head .ui.has-pic .upic { transform: translateY(-2px) rotate(-3deg); transition: transform .15s ease; }
@@ -10521,7 +10522,7 @@ function renderTroops(d) {
   d.units.forEach(function (u) {
     if (u.home > 0) {
       any = true;
-      h += '<span class="pill">' + unitPic(u, "upic xs") + " <b>" + u.home + "</b> " + u.name + "</span>";
+      h += '<span class="pill">' + (UNIT_ICO[u.name] ? UI(u) : unitPic(u, "upic xs")) + " <b>" + u.home + "</b> " + u.name + "</span>"; // the drawn icon, like the battle reports
     }
   });
   if (!any) h += '<p class="empty">Nobody home but the cat.</p>';
