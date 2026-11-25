@@ -8654,7 +8654,8 @@ function crPct() { var v = walletCr(); return wallet.crRate ? Math.round((v - Ma
 function walletNow() { return wallet.cash + (wallet.rate * (Date.now() - wallet.at)) / 1000; }
 var lastCashShown = null, lastCrShown = null;
 // the exact amount with every digit (1,204,517), for the wallet window and the hunt window; the top bar chip is shortened (1.2M)
-function cashText(v) { return v < 1e10 ? v.toLocaleString("en-US") : shortNum(v); }
+function cashText(v) { return v < 1e6 ? v.toLocaleString("en-US") : shortNum(v); } // millions and up are short: 2M, 2B (the exact amount sits in the tooltip)
+function numText(n) { return n < 1e6 ? n.toLocaleString("en-US") : shortNum(n); }
 var calmMotion = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 // a small "+N" that floats up from the element, so you can see the money arrive
 function cashPop(host, text, color) {
@@ -8692,10 +8693,12 @@ setInterval(function () {
   if (c && c.textContent !== txt) c.textContent = txt;
   if (hs && hs.textContent !== full) hs.textContent = full;
   if (wl && wl.textContent !== full) wl.textContent = full;
+  if (wl) wl.title = v.toLocaleString("en-US");
   // Star Credits: whole credits arrive one by one, the bar fills toward the next
   var cv = walletCr(), cw = Math.floor(cv), cf = cv - cw, cel = document.getElementById("w-cr"), cn = document.getElementById("wl-cr");
   if (cel && cel.textContent !== shortNum(cw)) cel.textContent = shortNum(cw);
-  if (cn && cn.textContent !== cw.toLocaleString("en-US")) cn.textContent = cw.toLocaleString("en-US");
+  if (cn && cn.textContent !== numText(cw)) cn.textContent = numText(cw);
+  if (cn) cn.title = cw.toLocaleString("en-US");
   var cchip = document.querySelector(".wallet .w-cr");
   if (cchip) cchip.style.setProperty("--p", wallet.crRate ? Math.round(cf * 100) : 0);
   var cbar = document.getElementById("wl-crbar"), cnext = document.getElementById("wl-crnext");
@@ -9605,7 +9608,7 @@ function renderTraffic(d) {
     var t = tiles[T[0] + T[1]], on = !!t, danger = on && T[0] === "in" && T[1] === "atk";
     var tip = T[2] + ": " + (on ? t.n + (t.troops ? " · " + t.troops.toLocaleString() + " troops" : "") + (t.next ? " · first in " + mvClock(Math.max(0, t.next - now)) : "") : "none");
     h += '<button type="button" class="tp-tile ' + T[0] + T[1] + (on ? " on" : " off") + (danger ? " danger" : "") + '" data-moves-open="1" title="' + esc(trStr(tip)) + '" aria-label="' + esc(trStr(tip)) + '">';
-    h += '<span class="tp-ico">' + giSvg(T[3]) + '</span><b class="tp-n">' + (on ? t.n.toLocaleString() : "0") + '</b>';
+    h += '<span class="tp-ico">' + giSvg(T[3]) + '</span><b class="tp-n">' + (on ? numText(t.n) : "0") + '</b>';
     h += '<small class="tp-nx">' + (on && t.next ? mvClock(Math.max(0, t.next - now)) : "–") + "</small></button>";
   });
   h += "</div>";
@@ -14766,7 +14769,8 @@ function hospitalPanel(d) {
 // ---------- marketplace ----------
 function shortNum(n) {
   if (n < 0) return "-" + shortNum(-n);
-  if (n >= 1000000) return Math.floor(n / 100000) / 10 + "M";
+  var big = [[1e15, "Qa"], [1e12, "T"], [1e9, "B"], [1e6, "M"]];
+  for (var i = 0; i < big.length; i++) if (n >= big[i][0]) return Math.floor(n / (big[i][0] / 10)) / 10 + big[i][1];
   return n >= 100000 ? Math.floor(n / 1000) + "k" : n >= 10000 ? (Math.floor(n / 100) / 10) + "k" : String(n);
 }
 var mk = { x: "", y: "", wood: "", stone: "", metal: "", food: "", give: "wood", get: "stone", amount: "" };
@@ -18147,7 +18151,7 @@ function walletSheet() {
   var h = '<div class="sheet-head"><span class="hi">💲</span><div><h3>Your wallet</h3><b>Space-Cash and Star Credits</b></div></div>';
   h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
   var cr = wallet.crRate, cfr = walletCr() % 1;
-  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + Math.floor(walletCr()).toLocaleString("en-US") + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
+  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + numText(Math.floor(walletCr())) + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
   h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button><button class="btn small ghost" data-casino="1">🎰 Casino</button></div>';
   return h;
 }
@@ -18302,7 +18306,7 @@ function bjTable() {
   return h;
 }
 function casinoSheet() {
-  var C = casino.data, h = '<div class="sheet-head"><span class="hi">🎰</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + Math.floor(walletNow()).toLocaleString("en-US") + "</span> Space-Cash</b></div></div>";
+  var C = casino.data, h = '<div class="sheet-head"><span class="hi">🎰</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + cashText(Math.floor(walletNow())) + "</span> Space-Cash</b></div></div>";
   h += croupierHtml();
   h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>🎰</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>🎡</span>Roulette</button><button class="' + (casino.game === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>🃏</span>Blackjack</button></div>';
   var playing = casino.game === "blackjack" && casino.bj && !casino.bj.result;
@@ -18332,11 +18336,11 @@ function casinoMark() {
 function casinoMoney(j) {
   var c = document.getElementById("cz-cash");
   wallet.cash = j.cash; wallet.at = Date.now();
-  if (c) c.textContent = j.cash.toLocaleString("en-US");
+  if (c) { c.textContent = cashText(j.cash); c.title = j.cash.toLocaleString("en-US"); }
 }
 function casinoSettled(j, extra) {
   var net = j.win - j.bet, m = document.getElementById("cz-msg");
-  casino.msg = net > 0 ? "🎉 +" + net.toLocaleString("en-US") + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + j.bet.toLocaleString("en-US") + " Space-Cash";
+  casino.msg = net > 0 ? "🎉 +" + numText(net) + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + numText(j.bet) + " Space-Cash";
   if (m) m.textContent = casino.msg;
   casinoMoney(j);
   sfx(net > 0 ? "done" : "click");
@@ -18415,7 +18419,7 @@ function bjAsk(body) {
     renderSheet();
     if (B.result) {
       var net = B.win - B.bet;
-      casino.msg = net > 0 ? "🎉 +" + net.toLocaleString("en-US") + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + B.bet.toLocaleString("en-US") + " Space-Cash";
+      casino.msg = net > 0 ? "🎉 +" + numText(net) + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + numText(B.bet) + " Space-Cash";
       var m = document.getElementById("cz-msg"); if (m) m.textContent = casino.msg;
       sfx(net > 0 ? "done" : "click");
       loadColony(false);
@@ -19641,7 +19645,7 @@ document.addEventListener("click", function (e) {
   } else if (has("data-cmd-switch")) {
     cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
   } else if (has("data-hero-collect")) {
-    post("/api/hero", { action: "collect" }, function (r) { toast("🎫 +" + ((r && r.collected) || 0).toLocaleString("en-US") + " Star Credits collected"); });
+    post("/api/hero", { action: "collect" }, function (r) { toast("🎫 +" + numText((r && r.collected) || 0) + " Star Credits collected"); });
   } else if (has("data-hero-stance")) {
     post("/api/hero", { action: "stance", key: attr("data-hero-stance") }, function () { toast("🛡️ Stance set"); });
   } else if (has("data-hero-quirk")) {

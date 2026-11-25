@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.512";
+const GAME_VERSION = "1.0.513";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -4913,7 +4913,7 @@ function gazetteHeadlines(now) {
   gazCache = { until: now + 10 * 60000, list };
   return list;
 }
-function shortNumServer(n) { return n >= 1e6 ? Math.round(n / 1e5) / 10 + "M" : n >= 1e4 ? Math.round(n / 1000) + "k" : String(n); }
+function shortNumServer(n) { return n >= 1e9 ? Math.round(n / 1e8) / 10 + "B" : n >= 1e6 ? Math.round(n / 1e5) / 10 + "M" : n >= 1e4 ? Math.round(n / 1000) + "k" : String(n); }
 function allianceOfName(name) {
   const u = db.prepare("SELECT id FROM users WHERE username = ?").get(name);
   return u ? allianceOf(u.id) : null;
@@ -17904,6 +17904,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.513",date:"2026-11-25",title:"Short big numbers",groups:[["🔧 Improved",["Big numbers are shortened from a million up: 2M, 2.5B, 3T and so on. This applies to the wallet, Star Credits, the casino and troop counts. The exact amount is in the tooltip of your wallet."]]]},
   {v:"1.0.512",date:"2026-11-25",title:"Blackjack and the croupier",groups:[["🎰 Casino",["New: 🃏 Blackjack. The dealer stands on every 17, blackjack pays 3 to 2, you can double on your first two cards. A hand in progress is kept if you close the game.","Bets now go up to 10,000,000 Space-Cash.","A croupier comments every round with a face that fits the result."]]]},
   {v:"1.0.511",date:"2026-11-25",title:"The casino",groups:[["🎰 New",["A 🎰 Casino in your wallet: a slot machine and roulette, played with Space-Cash only.","Slots: three reels, three of a kind pays 5x to 200x, two 🍒 pay 2x. Roulette: 37 numbers with one zero, colors and halves pay 2x, dozens 3x, a single number 36x.","Bets run from 10 to 5,000 Space-Cash. The house keeps a small edge, so it is a Space-Cash sink, not a faucet."]]]},
   {v:"1.0.510",date:"2026-11-25",title:"A slot for the bounty",groups:[["🔧 Fixed",["The commander's bounty stash now has a slot of its own, so a bag full of gear can no longer make camp bounty disappear."]]]},
