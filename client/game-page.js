@@ -4491,15 +4491,18 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 /* 1.0.356 visual fixes */
 /* the welcome card: below open windows, clear of the phone tab bar, readable in dark mode */
 #tut, #tut.onb.top { z-index: 9; }
-@media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-md); } .tut-beppo { width: 92px; } .tut-beppo img { width: 92px; height: 92px; } .tut-bub { padding: 10px 14px; } .tut-p { font-size: clamp(12px, 3.5vw, 14px); line-height: 1.4; } }
-@media (max-width: 559px) and (max-height: 700px) { .tut-beppo { width: 56px; } .tut-beppo img { width: 56px; height: 56px; } .tut-bub { padding: 8px 12px; } .tut-p { font-size: 12px; line-height: 1.3; margin-bottom: 6px; } .tut-card h3 { font-size: 15px; } }
+@media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-md); } .tut-beppo { width: 80px; } .tut-beppo img { width: 80px; height: 80px; } .tut-bub { padding: 10px 14px; } .tut-p { font-size: clamp(12px, 3.5vw, 14px); line-height: 1.4; } }
+@media (max-width: 559px) and (max-height: 700px) { .tut-beppo { width: 60px; } .tut-beppo img { width: 60px; height: 60px; border-radius: 14px; } .tut-beppo b { font-size: 11px; padding: 1px 8px; } .tut-bub { padding: 8px 12px; } .tut-p { font-size: 12px; line-height: 1.3; margin-bottom: 6px; } .tut-card h3 { font-size: 15px; } }
 @media (max-width: 559px) and (max-height: 600px) { #tut:not(.top) { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }
 .dark-mode .tut-card { background: #3a3220; color: var(--ink); border-color: #5a4b2c; }
 /* the tour is told by Beppo in a speech bubble */
 .tut-card.tut-say { display: flex; gap: 10px; align-items: flex-end; padding: 0; background: none; border: 0; box-shadow: none; }
-.tut-beppo { flex: none; width: 64px; text-align: center; }
-.tut-beppo img { display: block; width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
-.tut-beppo b { display: block; font-size: 11px; opacity: .75; }
+/* Beppo sits in a framed portrait with a name plate, like a dialogue box: readable on any background */
+.tut-beppo { flex: none; width: 88px; text-align: center; display: flex; flex-direction: column; align-items: center; }
+.tut-beppo img { display: block; width: 88px; height: 88px; padding: 3px; box-sizing: border-box; object-fit: contain; background: #fffbe6; border: 2px solid #3a2a1a; border-radius: 18px; box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 18px rgba(0, 0, 0, 0.3); }
+.tut-beppo b { display: block; margin-top: -9px; padding: 2px 12px; font-size: 13px; font-weight: 800; letter-spacing: .02em; color: #fffbe6; background: #3a2a1a; border-radius: 10px; position: relative; }
+.dark-mode .tut-beppo img { background: #2e2616; border-color: #f2d58a; }
+.dark-mode .tut-beppo b { color: #2e2616; background: #f2d58a; }
 .tut-bub { position: relative; flex: 1; min-width: 0; padding: 12px 16px; background: #fffbe6; color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: var(--radius-md); box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4); }
 .tut-bub::before { content: ""; position: absolute; left: -9px; bottom: 26px; width: 14px; height: 14px; background: #fffbe6; border-left: 2px solid #3a2a1a; border-bottom: 2px solid #3a2a1a; transform: rotate(45deg); }
 .dark-mode .tut-bub, .dark-mode .tut-bub::before { background: #2e2616; color: #fff3d6; border-color: #f2d58a; }
@@ -14049,7 +14052,8 @@ function typeHtml(el, pitch, wave, mood) {
     if (ni >= nodes.length) finish();
   }, gap);
 }
-var TUT_MOOD = { 0: "happy", 6: "surprised", 7: "worried", 10: "surprised", 14: "happy" };
+// every step has a face: the voice follows it
+var TUT_MOOD = { 0: "happy", 1: "neutral", 2: "happy", 3: "worried", 4: "happy", 5: "happy", 6: "surprised", 7: "worried", 8: "happy", 9: "surprised", 10: "surprised", 11: "happy", 12: "neutral", 13: "happy", 14: "happy" };
 
 function showTutorial() {
   var box = document.getElementById("tut");
