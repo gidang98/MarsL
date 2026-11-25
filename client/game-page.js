@@ -14530,7 +14530,15 @@ function advPanel(H) {
 function trapPanel(d) {
   var T = d.traps;
   if (!T) return "";
-  var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.cap + ' traps in use</b><div class="meter thin"><i style="width:' + (T.cap ? Math.min(100, Math.round((T.used / T.cap) * 100)) : 0) + '%"></i></div></div>';
+  var h = '<div class="reserve"><b>🪤 ' + T.used + " / " + T.owned + ' traps in use</b><div class="meter thin"><i style="width:' + (T.owned ? Math.min(100, Math.round((T.used / T.owned) * 100)) : 0) + '%"></i></div><small>' + T.owned + " of " + T.cap + " traps built</small></div>";
+  var room = Math.max(0, T.cap - T.owned - T.queued);
+  if (T.queued) h += '<div class="reserve"><small>🔨 ' + T.queued + " " + (T.queued === 1 ? "trap" : "traps") + " in production · all ready in " + fmt(Math.max(0, T.prodDoneAt - Date.now())) + "</small></div>";
+  if (room > 0) {
+    var aff = Math.min(room, RES.reduce(function (m, r) { return Math.min(m, Math.floor((data.res[r] || 0) / T.cost[r])); }, room));
+    h += '<div class="reserve"><b>🔨 Build traps</b><small>One trap: ' + resLine(T.cost) + " · " + T.buildSec + " s each</small><div class='btnrow'>";
+    [1, 10, 50].forEach(function (n) { if (n < room) h += '<button class="btn small ghost" data-trap-build="' + n + '"' + (aff < n ? " disabled" : "") + ">+" + n + "</button>"; });
+    h += '<button class="btn small" data-trap-build="' + room + '"' + (aff < room ? " disabled" : "") + ">Max (" + room + ")</button></div></div>";
+  }
   if (T.rebuild) h += '<div class="reserve"><small>🔧 ' + T.rebuild.left + " " + (T.rebuild.left === 1 ? "trap" : "traps") + " being rebuilt · all ready in " + fmt(Math.max(0, T.rebuild.doneAt - Date.now())) + "</small></div>";
   T.prisoners.forEach(function (p) {
     h += '<div class="stayrow"><div><b>' + esc(p.owner) + "</b><small>" + esc(p.colony) + " · " + p.units.map(function (u) { return UI(u) + " " + u.count; }).join(" ") + (p.starving ? " · ☠️ starving" : "") + '</small></div><div class="btnrow">' +
@@ -17498,10 +17506,10 @@ function wikiMore(W, tab, cards) {
 
     var Cq = X.conquest;
     cards.push(wkCard("traps", "🪤", "Traps", wkList([
-      "Every level of a trap building (up to level 20) has " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. Attacking <b>ground</b> troops are caught before the fight, up to the free traps and at most " + Cq.trapShare + "% of one attack, so they don’t fight. Flyers and Tunnel Worms pass them, and Dust Dashers are caught only half as often.",
+      "Every level of a trap building (up to level 20) has room for " + Cq.trapPer + " traps: " + Cq.trapMax + " at the top. Once one is maxed you can build another, and all of them add up. The room is not the traps: you <b>produce the traps in the building</b> for resources and time (about " + Cq.trapBuildSec + " s per trap here). Attacking <b>ground</b> troops are caught before the fight, up to the free traps and at most " + Cq.trapShare + "% of one attack, so they don’t fight. Flyers and Tunnel Worms pass them, and Dust Dashers are caught only half as often.",
       "A 🪤 Paranoid commander adds to the traps while it is home and healthy. Prisoners stay in the traps, and their owner still feeds them.",
-      "You can <b>let a group go</b>: they walk home, and the traps they filled are rebuilt for free, one at a time, at half the usual speed (about " + Cq.trapRebuildSec + " s per trap here). Or you can let them <b>starve</b>: they die one by one, " + Cq.trapStarveSlow + " times slower than troops in a colony with no food and an empty storage. Their owner feeds them until they are gone. Every trap that empties, by release or by a death, is rebuilt the same way.",
-      "A <b>won attack</b> (not a raid) on that colony frees <b>every</b> prisoner in it, yours or another player’s. They walk home.",
+      "You can <b>let a group go</b>: they walk home, and <b>only then</b> the traps they filled are rebuilt for free, one at a time, at half the speed of producing them (about " + Cq.trapRebuildSec + " s per trap here). Or you can let them <b>starve</b>: they die one by one, " + Cq.trapStarveSlow + " times slower than troops in a colony with no food and an empty storage. Their owner feeds them until they are gone. A trap whose prisoner starves is lost and has to be produced again.",
+      "A <b>won attack</b> (not a raid) on that colony frees <b>every</b> prisoner in it, yours or another player’s. They walk home, and the traps they sat in are lost.",
     ])));
     cards.push(wkCard("bombard", "💥", "Bombarding buildings", wkList([
       "Bombards that survive a won <b>attack</b> (never a raid) knock levels off buildings and resource fields, like rams do with the wall: a level L needs " + Cq.bombardPer + " × L bombards (upgrades count).",
@@ -19598,7 +19606,7 @@ document.addEventListener("click", function (e) {
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
-    "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
+    "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-trap-build],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
     "[data-casino],[data-bj],[data-casino-tab],[data-casino-step],[data-casino-max],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
@@ -19681,6 +19689,8 @@ document.addEventListener("click", function (e) {
     shortages.forEach(function(item) { var parts=item.split(":"); if(RES.indexOf(parts[0])>=0) heroNeed[parts[0]]=Math.max(0,Number(parts[1])||0); });
     RES.forEach(function(r) { var H=data&&data.hero||{},room=Math.max(0,Math.floor(data.capacity[r]-data.res[r])),available=(H.stash&&H.stash[r])||0;heroTake[r]=Math.min(heroNeed[r],available,room); });
     openSheet("stash-transfer", null);
+  } else if (has("data-trap-build")) {
+    post("/api/traps/build", { n: Number(attr("data-trap-build")) }, function () { toast("🔨 Traps in production.", true); });
   } else if (has("data-trap-release")) {
     post("/api/traps/release", { c: Number(attr("data-trap-release")) }, function () { toast("🔓 Let go. The traps are being rebuilt.", true); });
   } else if (has("data-trap-starve")) {

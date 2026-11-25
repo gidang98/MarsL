@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.525";
+const GAME_VERSION = "1.0.526";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -616,7 +616,7 @@ const BUILDING_TYPES = {
     time: 70,
     max: 20, high: true, multi: true,
     requires: { hq: 3, wall: 1 },
-    info: "Catches attacking ground troops before the fight: 20 traps per level, 400 at level 20. At level 20 you may build another one. You can let prisoners go or let them starve (either way the emptied traps are rebuilt for free, at half speed), or wait: a won attack on this colony frees all of them. Raids free nobody.",
+    info: "Catches attacking ground troops before the fight. Each level has room for 20 traps (400 at level 20); you produce the traps here for resources and time. At level 20 you may build another one. Letting prisoners go rebuilds their traps for free at half the production time. A trap is lost when its prisoners are freed by an enemy win or starve, and has to be produced again. Raids free nobody.",
   },
   lab: {
     cost: { wood: 220, stone: 160, metal: 240, food: 90 },
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.526",date:"2026-11-25",title:"Traps are produced",groups:[["🪤 Traps",["Traps no longer come free with every trap building level. Each level only gives room for 20 traps; you produce them in the building for resources and time.","A trap is lost when its prisoners are freed by an enemy win or starve, and has to be produced again.","Letting prisoners go still rebuilds their traps for free, at half the production time.","Colonies keep the traps they already had."]]]},
   {v:"1.0.525",date:"2026-11-25",title:"Slots and roulette animate again",groups:[["🎰 Casino",["The slot reels spin and stop on the symbols you rolled, and the roulette wheel keeps spinning until it lands. Before, the sheet refreshing every second wiped both."]]]},
   {v:"1.0.524",date:"2026-11-25",title:"Monster pictures in reports",groups:[["⚔️ Reports",["Battle and scout reports now show the painted monster portraits instead of emoji."]]]},
   {v:"1.0.523",date:"2026-11-25",title:"Steady casino bet",groups:[["🎰 Casino",["The bet amount no longer flashes every second."]]]},
@@ -20302,6 +20303,7 @@ function freePrisoners(def, userId, T) {
   for (const p of all) {
     if (prisonersHome(def, p, T)) addTroops(freed, p.t);
   }
+  trapLose(def.state, all.reduce((n, p) => n + countUnits(p.t), 0), T);
   def.state.prisoners = [];
   return countUnits(freed) ? freed : null;
 }
@@ -20326,8 +20328,31 @@ function settleRebuild(s, now) {
   r.at += (r.n - left) * trapMs();
   r.n = left;
 }
+// 🔨 Traps are produced in the trap building (trapOwned = traps that exist: empty, rebuilding or holding prisoners).
+// A trap is lost when its prisoners are freed by an enemy win or starve; letting them go rebuilds it for free.
+const TRAP_COST = { wood: 20, stone: 20, metal: 20, food: 10 }; // per trap
+function trapBuildMs() { return Math.max(1, Math.round((TRAP_BUILD_SEC * 1000) / BUILD_SPEED)); }
+function trapProdDone(s, now) {
+  const q = s.trapProd;
+  if (!q || !(q.n > 0)) return 0;
+  return Math.min(q.n, Math.floor((now - q.at) / trapBuildMs()));
+}
+function trapOwned(s, now) {
+  return Math.min(trapCap(s, now), (s.trapOwned || 0) + trapProdDone(s, now));
+}
+function settleProd(s, now) {
+  const q = s.trapProd, done = trapProdDone(s, now);
+  if (!q) return;
+  s.trapOwned = (s.trapOwned || 0) + done;
+  q.n -= done; q.at += done * trapBuildMs();
+  if (q.n <= 0) delete s.trapProd;
+}
+function trapLose(s, n, now) { // traps destroyed by an enemy win or by starving prisoners
+  settleProd(s, now);
+  s.trapOwned = Math.max(0, (s.trapOwned || 0) - n);
+}
 function trapFree(s, now) {
-  return Math.max(0, trapCap(s, now) - trapUsed(s) - trapRebuildLeft(s, now));
+  return Math.max(0, trapOwned(s, now) - trapUsed(s) - trapRebuildLeft(s, now));
 }
 
 // ☠️ Starving prisoners die like troops in a colony with no food production and
@@ -20372,11 +20397,7 @@ function trapStarveTick(now) {
       if (countUnits(died)) { lostBy[p.c] = lostBy[p.c] || {}; addTroops(lostBy[p.c], died); dead += countUnits(died); }
       return countUnits(p.t) > 0;
     });
-    if (dead > 0) { // every trap that empties has to be rebuilt
-      settleRebuild(s, now);
-      if (s.trapRebuild) s.trapRebuild.n += dead;
-      else s.trapRebuild = { n: dead, at: now };
-    }
+    if (dead > 0) trapLose(s, dead, now); // a trap whose prisoner starved is gone: build it again
     if (!s.prisoners.some((p) => p.starve)) starvingTraps.delete(id);
     saveColony(id, s);
     for (const cid of Object.keys(lostBy)) {
@@ -20386,6 +20407,14 @@ function trapStarveTick(now) {
       saveColony(o.id, o.state);
     }
   }
+}
+// one-time: colonies from before trap production keep the traps they had (every level used to bring its traps for free)
+for (const row of db.prepare("SELECT id FROM colonies").all()) {
+  const c = loadColony(row.id);
+  if (!c || c.state.trapOwned !== undefined) continue;
+  const base = TRAP_PER_LEVEL * levelsOf(c.state, "trap").reduce((a, b) => a + b, 0);
+  c.state.trapOwned = base;
+  saveColony(row.id, c.state);
 }
 setInterval(() => { try { trapStarveTick(Date.now()); } catch (e) { console.error("trap starve", e); } }, 5000);
 
@@ -20410,6 +20439,27 @@ app.post("/api/traps/release", requireLogin, (req, res) => {
   });
 });
 
+app.post("/api/traps/build", requireLogin, (req, res) => {
+  withColony(req, res, (s, tribe, colony) => {
+    const now = Date.now();
+    const cap = trapCap(s, now);
+    settleProd(s, now);
+    const room = cap - (s.trapOwned || 0) - (s.trapProd ? s.trapProd.n : 0);
+    if (!cap) return "Build a " + tribe.names.trap[0] + " first";
+    let n = Math.floor(Number((req.body || {}).n)) || 0;
+    if (n < 1) return "How many traps?";
+    if (room <= 0) return "All " + cap + " traps are built. Upgrade the building for more.";
+    n = Math.min(n, room);
+    const cost = {};
+    for (const r of RESOURCES) cost[r] = TRAP_COST[r] * n;
+    if (!canAfford(s, cost)) return "Not enough resources";
+    pay(s, cost);
+    if (s.trapProd && s.trapProd.n > 0) s.trapProd.n += n;
+    else s.trapProd = { n, at: now };
+    return null;
+  });
+});
+
 app.post("/api/traps/starve", requireLogin, (req, res) => {
   withColony(req, res, (s, tribe, colony) => {
     const b = req.body || {};
@@ -20427,10 +20477,17 @@ app.post("/api/traps/starve", requireLogin, (req, res) => {
 
 function trapView(s, now) {
   const cap = trapCap(s);
-  if (!cap && !(s.prisoners || []).length && !s.trapRebuild) return null;
+  if (!cap && !(s.prisoners || []).length && !s.trapRebuild && !s.trapProd) return null;
   const left = trapRebuildLeft(s, now);
+  const queued = s.trapProd && s.trapProd.n > 0 ? s.trapProd.n - trapProdDone(s, now) : 0;
+  const owned = trapOwned(s, now);
   return {
     cap,
+    owned,
+    queued,
+    cost: TRAP_COST,
+    buildSec: Math.round(trapBuildMs() / 1000),
+    prodDoneAt: queued ? s.trapProd.at + s.trapProd.n * trapBuildMs() : null,
     used: trapUsed(s),
     rebuild: left ? { left, doneAt: s.trapRebuild.at + s.trapRebuild.n * trapMs() } : null,
     prisoners: (s.prisoners || []).map((p, i) => {
@@ -20623,7 +20680,7 @@ function loyaltyView(s, now) {
 }
 
 function wikiConquest() {
-  return { trapPer: TRAP_PER_LEVEL, trapMax: TRAP_PER_LEVEL * 20, bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs(), trapRebuildSec: Math.round(trapMs() / 1000), trapShare: Math.round(TRAP_CATCH_SHARE * 100), trapStarveSlow: TRAP_STARVE_SLOW };
+  return { trapPer: TRAP_PER_LEVEL, trapMax: TRAP_PER_LEVEL * 20, bombardPer: BOMBARD_PER_LEVEL, bastionPer: BASTION_PER_LEVEL, bastionMax: BASTION_MAX, loyaltyHit: LOYALTY_HIT, loyaltyPerDay: LOYALTY_PER_DAY, loyaltyAfter: LOYALTY_AFTER, dayMs: serverDayMs(), trapRebuildSec: Math.round(trapMs() / 1000), trapBuildSec: Math.round(trapBuildMs() / 1000), trapShare: Math.round(TRAP_CATCH_SHARE * 100), trapStarveSlow: TRAP_STARVE_SLOW };
 }
 
 // =====================================================================
