@@ -12478,7 +12478,6 @@ function renderReports() {
 //  Popups (fields, lots, sending troops)
 // =====================================================================
 function openSheet(kind, slot) {
-  if (kind === "casino" || kind === "building" || kind === "send") visitCount("sheet-" + kind + (kind === "building" && data && typeof slot === "number" ? ":" + ((data.buildings.filter(function (x) { return x.slot === slot; })[0] || {}).type || "") : ""));
   if (kind === "send") setTimeout(function () { beppoSay("send", true); }, 700);
   if (kind === "building" && data && typeof slot === "number") {
     var ob = data.buildings.filter(function (x) { return x.slot === slot; })[0];
@@ -13930,20 +13929,6 @@ function trapWatch(d) {
     if (prev.starving) voiceSay("trap-starved", "beppo", "worried", pickOne(TRAP_STARVED), 20 * 60000, true);
     else voiceSay("trap-freed", "beppo", "worried", pickOne(TRAP_FREED), 20 * 60000, true);
   }
-}
-// 🔁 Beppo notices when you keep opening the same place (counted in this browser)
-var VISIT_LINES = {
-  5: ["Back again? Good. I keep your seat warm.", "That is five. I am counting. I am not weird about it."],
-  10: ["Ten visits. At this point we should split the rent.", "You and this screen. Ten times. I am happy for you both."],
-  25: ["Twenty-five! Beppo is not worried. Beppo is proud. A little worried.", "You live here now. I will bring a blanket."],
-  50: ["Fifty visits. I have started naming the pixels. This one is Gary.", "Fifty. There is a plaque for you. I made it. It is made of snacks."]
-};
-function visitCount(key) {
-  var m = {};
-  try { m = JSON.parse(localStorage.getItem("marsl-visits") || "{}") || {}; } catch (e) {}
-  m[key] = (m[key] || 0) + 1;
-  try { localStorage.setItem("marsl-visits", JSON.stringify(m)); } catch (e) {}
-  if (VISIT_LINES[m[key]]) setTimeout(function () { voiceSay("visit-" + key + "-" + m[key], "beppo", m[key] >= 25 ? "surprised" : "happy", pickOne(VISIT_LINES[m[key]]), 365 * 24 * 3600000, true); }, 900);
 }
 function voiceWatch(d) {
   if (!d || !beppoOn()) return;
@@ -19249,7 +19234,6 @@ function navGlide(from) {
 }
 function switchView(v, target) {
   if (!VIEWS[v]) v = "resources";
-  if (v !== view && loggedIn) visitCount("view-" + v);
   var prevView = view;
   var navFrom = v !== view ? navPill() : null;
   if (v !== view && window.matchMedia && window.matchMedia("(max-width: 559px)").matches) {
