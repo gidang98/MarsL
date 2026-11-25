@@ -4013,6 +4013,14 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 .mb-dots i { width: 14px; height: 5px; border-radius: 3px; background: rgba(120, 90, 60, .18); }
 .mb-dots i.done { background: #c78022; }
 .mb-dots i.on { background: #e9b45c; }
+.mb-daily { flex-wrap: wrap; }
+.mb-dots.dy-track { gap: 3px; margin: 6px 0 2px; flex: 1 0 100%; order: 3; }
+.mb-dots.dy-track i.dy { width: auto; height: auto; flex: 1; min-width: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 0; opacity: .5; border-radius: 6px; padding: 2px 0; }
+.mb-dots.dy-track i.dy .ca.crate { width: 26px; height: 26px; margin: 0; }
+.mb-dots.dy-track i.dy.t1 .ca.crate, .mb-dots.dy-track i.dy.t2 .ca.crate { width: 32px; height: 32px; }
+.mb-dots.dy-track i.dy b { font-size: 10px; line-height: 1; opacity: .8; font-style: normal; }
+.mb-dots.dy-track i.dy.done { opacity: 1; filter: saturate(.6); }
+.mb-dots.dy-track i.dy.on { opacity: 1; background: rgba(233, 180, 92, .3); }
 .mb-daily { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .mb-daily > span { font-size: 22px; }
 .mb-daily > div { flex: 1; min-width: 0; }
@@ -4178,6 +4186,10 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   body.landing .sky::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,10,40,.82) 0%, rgba(20,10,40,.7) 48%, rgba(20,10,40,.25) 100%); pointer-events: none; }
   body.landing #app h2, body.landing #app p, body.landing #app .lp-sub { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
   body.landing .sky .hill, body.landing .sky .crater, body.landing .sky .rover, body.landing .sky .ufo, body.landing .sky .rocket-bg, body.landing .sky .hopper, body.landing .sky .sun, body.landing .sky .moon { display: none; }
+  @media (max-width: 700px) {
+    body.landing .sky { background-image: url("/art/bg-login-m.webp?v=__ARTV__"); }
+    .boot { background-image: url("/art/bg-loading-m.webp?v=__ARTV__"); }
+  }
   .boot { position: fixed; inset: 0; z-index: 50; background: #1b1330 url("/art/bg-loading.webp?v=__ARTV__") center / cover no-repeat; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14vh; color: #fff; font-weight: 800; text-shadow: 0 2px 6px #000; }
   body:not(.landing) .sky .hill, body:not(.landing) .sky .crater, body:not(.landing) .sky .rover, body:not(.landing) .sky .ufo, body:not(.landing) .sky .rocket-bg, body:not(.landing) .sky .hopper { display: none; }
   @media (max-aspect-ratio: 1/1) {
@@ -4590,6 +4602,7 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .ca.crate { width: 34px; height: 34px; } .stash > b .ca.crate { width: 26px; height: 26px; margin-right: 2px; }
 .emb { width: 22px; height: 22px; vertical-align: middle; margin-right: 4px; border: 0; padding: 0; background: none; box-shadow: none; } .emb.big { width: 44px; height: 44px; margin-right: 8px; }
 .emb-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; } .emb-opt { width: 40px; height: 40px; padding: 2px; border: 2px solid var(--line); border-radius: 10px; background: var(--card); display: grid; place-items: center; } .emb-opt.on { border-color: var(--accent); } .emb-opt .emb { width: 32px; height: 32px; margin: 0; }
+.cz-dot { display: inline-block; width: .8em; height: .8em; border-radius: 3px; margin-right: 5px; vertical-align: -.05em; border: 1.5px solid #1d1620; } .cz-dot.r { background: #d63a2f; } .cz-dot.k { background: #2b2430; }
 .ca.ln { width: 1.25em; height: 1.25em; vertical-align: -0.25em; }
 .ca.hd { width: 46px; height: 46px; }
 .cz-chief { display: flex; gap: 8px; align-items: center; margin: 2px 0 6px; }
@@ -13242,6 +13255,11 @@ var SFX = {
   "v-forager": [[293.7, 0.0, 0.126, "triangle", 0.06, 0, 6], [370.0, 0.14, 0.126, "triangle", 0.06, 0, 6], [440.0, 0.28, 0.126, "triangle", 0.06, 0, 6], [493.9, 0.42, 0.252, "triangle", 0.06, 0, 6], [440.0, 0.7, 0.126, "triangle", 0.06, 0, 6], [370.0, 0.84, 0.126, "triangle", 0.06, 0, 6], [293.7, 0.98, 0.378, "triangle", 0.06, 0, 6]],
   "v-warden": [[110.0, 0.0, 0.306, "pulse12", 0.04, 0, 0], [164.8, 0.34, 0.306, "pulse12", 0.04, 0, 0], [220.0, 0.68, 0.306, "pulse12", 0.04, 0, 0], [261.6, 1.02, 0.153, "pulse12", 0.04, 0, 0], [246.9, 1.19, 0.153, "pulse12", 0.04, 0, 0], [220.0, 1.36, 0.612, "pulse12", 0.04, 0, 0], [110.0, 0, 1.9, "triangle", 0.05, 0, 0]],
   "v-prof": [[587.3, 0.0, 0.054, "pulse25", 0.028, 0, 0], [659.3, 0.06, 0.054, "pulse25", 0.028, 0, 0], [740.0, 0.12, 0.054, "pulse25", 0.028, 0, 0], [830.6, 0.18, 0.054, "pulse25", 0.028, 0, 0], [932.3, 0.24, 0.054, "pulse25", 0.028, 0, 0], [1046.5, 0.3, 0.054, "pulse25", 0.028, 0, 0], [1568.0, 0.5, 0.14, "pulse25", 0.03, 392.0, 0], [1175.0, 0.7, 0.06, "square", 0.018, 0, 0], [1568.0, 0.78, 0.1, "square", 0.018, 0, 0]],
+  crate: [[300, 0, 0.09, "square", 0.04, 520], [523, 0.1, 0.07, "triangle", 0.06], [659, 0.17, 0.07, "triangle", 0.06], [784, 0.24, 0.07, "triangle", 0.06], [1047, 0.31, 0.28, "triangle", 0.07], [2093, 0.33, 0.1, "sine", 0.03], [2637, 0.41, 0.12, "sine", 0.03]],
+  victory: [[392, 0, 0.12, "pulse25", 0.04], [392, 0.14, 0.12, "pulse25", 0.04], [523, 0.28, 0.12, "pulse25", 0.04], [659, 0.42, 0.12, "pulse25", 0.04], [784, 0.56, 0.4, "pulse25", 0.05], [523, 0.56, 0.4, "triangle", 0.05]],
+  defeat: [[392, 0, 0.18, "triangle", 0.06], [370, 0.2, 0.18, "triangle", 0.06], [349, 0.4, 0.18, "triangle", 0.06], [262, 0.6, 0.5, "triangle", 0.06, 196]],
+  win: [[784, 0, 0.07, "square", 0.04], [988, 0.08, 0.07, "square", 0.04], [1175, 0.16, 0.07, "square", 0.04], [1568, 0.24, 0.25, "square", 0.045]],
+  jackpot: [[523, 0, 0.08, "square", 0.04], [659, 0.09, 0.08, "square", 0.04], [784, 0.18, 0.08, "square", 0.04], [1047, 0.27, 0.08, "square", 0.04], [1319, 0.36, 0.08, "square", 0.04], [1568, 0.45, 0.08, "square", 0.04], [2093, 0.54, 0.45, "triangle", 0.07], [1047, 0.54, 0.45, "square", 0.03]],
   click: [[660, 0, 0.04, "triangle", 0.04]],
   pop: [[520, 0, 0.05, "triangle", 0.06, 780]],
   build: [[392, 0, 0.07, "square", 0.04], [523, 0.08, 0.1, "square", 0.04]],
@@ -13255,7 +13273,7 @@ var SFX = {
 };
 
 // a little buzz on phones that can (Android) for the important moments
-var BUZZ = { alarm: [180, 90, 180], done: [35], report: [25], error: [60] };
+var BUZZ = { alarm: [180, 90, 180], done: [35], report: [25], error: [60], crate: [30, 40, 60], victory: [30, 40, 60], jackpot: [40, 40, 40, 40, 90] };
 var pulseWaves = {};
 // 8-bit pulse waves: a narrow duty sounds nasal, a wide one hollow
 function pulseWave(ctx, duty) {
@@ -14721,11 +14739,14 @@ function mbHead(d) {
     h += "</div>";
   }
   if (D) {
-    var dots = "";
-    for (var k = 1; k <= D.max; k++) dots += '<i class="' + (k <= (D.can ? D.nextStreak - 1 : D.streak) ? "done" : D.can && k === D.nextStreak ? "on" : "") + '"></i>';
-    h += '<div class="mb-daily' + (D.can ? " can" : "") + '" title="The crate grows every day in a row up to day ' + D.max + '. Missing a day starts over."><span>' + crateImg(crateTierBy(D.can ? D.nextStreak : D.streak, Math.ceil(D.max / 3), Math.ceil(D.max * 2 / 3)), D.can) + '</span><div><b>Daily supply</b><i class="mb-dots">' + dots + "</i></div>";
+    var dots = "", donePos = D.can ? (D.pos || 1) - 1 : (D.pos || 1);
+    for (var k = 1; k <= D.max; k++) {
+      var kt2 = k === 7 ? 2 : k === 3 ? 1 : 0;
+      dots += '<i class="dy t' + kt2 + (k <= donePos ? " done" : D.can && k === (D.pos || 1) ? " on" : "") + '" title="Day ' + k + (kt2 ? " · bonus crate" : "") + '">' + crateImg(kt2, k <= donePos) + "<b>" + k + "</b></i>";
+    }
+    h += '<div class="mb-daily' + (D.can ? " can" : "") + '" title="The crate grows every day in a row up to day ' + D.max + '. Missing a day starts over."><span>' + crateImg(D.pos === 7 ? 2 : D.pos === 3 ? 1 : 0, D.can) + '</span><div><b>Daily supply</b></div>';
     h += D.can ? '<button class="btn small" data-daily="1">+' + shortNum(D.amount) + " each</button>" : "<small>Next in " + shortTime(Math.max(0, D.nextAt - serverNow())) + "</small>";
-    h += "</div>";
+    h += '<i class="mb-dots dy-track">' + dots + "</i></div>";
   }
   var I = d.insurance;
   if (I && I.pending && I.pending.length) I.pending.forEach(function (c) { h += '<div class="mb-bank"><span>' + '🧾' + ' Mars Mutual Insurance<small>+' + shortNum(c.total) + " come back at " + clockText(c.payAt) + "</small></span></div>"; });
@@ -16921,7 +16942,7 @@ function wikiChapter(W, tab) {
     cards.push(wkCard("tribes", "🧬", "The three tribes", tr3 + wkNote("Everything not listed is the same for every tribe. The troops differ too: see ⚔️ Troops.")));
     var Lv = W.extra && W.extra.living;
     if (Lv) {
-      cards.push(wkCard("daily", "🎁", "Daily supply", wkP("Once every " + dayLenText() + " you can collect a free crate of every resource on the 📋 Mission Board. Every day in a row it grows, up to day " + Lv.dailyMax + "; miss a day and it starts over at day 1. It goes into the colony you are in (up to its storage).") + kt({ head: ["Day"].concat(Lv.daily.map(function (_, i) { return String(i + 1); })), rows: [["Each"].concat(Lv.daily.map(function (n) { return shortNum(n); }))] })));
+      cards.push(wkCard("daily", "🎁", "Daily supply", wkP("Once every " + dayLenText() + " you can collect a free crate of every resource on the 📋 Mission Board. Every day in a row it grows, up to day " + Lv.dailyMax + "; miss a day and it starts over at day 1. It goes into the colony you are in (up to its storage). Day 3 and day 7 of every week are bonus crates, silver and gold; the amounts below include the bonus.") + kt({ head: ["Day"].concat(Lv.daily.map(function (_, i) { return String(i + 1); })), rows: [["Each"].concat(Lv.daily.map(function (n) { return shortNum(n); }))] })));
       var tName = function (k) { var t = (W.tribes || []).filter(function (x) { return x.key === k; })[0]; return t ? t.icon + " " + t.name : k; };
       cards.push(wkCard("powers", "✨", "Tribe powers", wkP("Every tribe has two powers of its own. Tap the power button at the top of your colony.") + kt({ head: ["Tribe", "⚙️ Home power", "⚔️ War power"], left: 3, rows: Object.keys(Lv.powers).map(function (k) { var p = Lv.powers[k], w = Lv.war[k]; return [tName(k), "<b>" + p.icon + " " + p.name + "</b><br>" + p.text, "<b>" + w.icon + " " + w.name + "</b><br>" + w.text]; }) }) + wkList([
         "⚙️ <b>Home power</b>: once per account, in the colony of your choice, then it recharges for " + dayLenText() + " from the moment you use it. You choose what it works on: 🚨 Lockdown (humans) defends harder or hides more for 30 minutes, 📣 Rally Cry (chickens) boosts the ground or air troops of the next attack or raid from this colony that lands within 8 hours, 🧠 Mind Link (aliens) speeds up one job. Lockdown and Rally Cry show in the battle report when they worked.",
@@ -18361,7 +18382,7 @@ function openCasino() {
     if (sheet && sheet.kind === "casino") renderSheet(); else openSheet("casino", null);
   }).catch(function () { toast("⚠️ The server does not answer"); });
 }
-var CASINO_KINDS = [["red", "🟥 Red", 0, "2×"], ["black", "⬛ Black", 0, "2×"], ["odd", "Odd", 0, "2×"], ["even", "Even", 0, "2×"], ["low", "1–18", 0, "2×"], ["high", "19–36", 0, "2×"], ["dozen", "1–12", 0, "3×"], ["dozen", "13–24", 1, "3×"], ["dozen", "25–36", 2, "3×"]];
+var CASINO_KINDS = [["red", '<i class="cz-dot r"></i>Red', 0, "2×"], ["black", '<i class="cz-dot k"></i>Black', 0, "2×"], ["odd", "Odd", 0, "2×"], ["even", "Even", 0, "2×"], ["low", "1–18", 0, "2×"], ["high", "19–36", 0, "2×"], ["dozen", "1–12", 0, "3×"], ["dozen", "13–24", 1, "3×"], ["dozen", "25–36", 2, "3×"]];
 var CASINO_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 var WHEEL_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
 function casinoCol(n) { return n === 0 ? "g" : CASINO_RED.indexOf(n) >= 0 ? "r" : "b"; }
@@ -18462,7 +18483,7 @@ function casinoSettled(j) {
   if (m) m.textContent = casino.msg;
   casinoMoney(j);
   casinoWinFx(net);
-  sfx(net > 0 ? "done" : "click");
+  sfx(net > 0 ? (net >= j.bet * 20 ? "jackpot" : "win") : "click");
   casino.busy = false;
   loadColony(false);
 }
@@ -19644,7 +19665,7 @@ document.addEventListener("click", function (e) {
     var cr = data && data.hero ? data.hero.bag.filter(function (x) { return x.kind === "crate"; })[0] : null;
     RES.forEach(function (r) { tk[r] = cr ? stashPick(data.hero, r) : 0; });
     if (!RES.some(function(r) { return tk[r] > 0; })) { toast("Choose an amount to transfer first."); return; }
-    post("/api/hero", { action: "open", take: tk }, function () { heroTake = {}; if (sheet && sheet.kind === "stash-transfer") closeSheet(); toast("📦 Collected", true); });
+    post("/api/hero", { action: "open", take: tk }, function () { heroTake = {}; if (sheet && sheet.kind === "stash-transfer") closeSheet(); toast("📦 Collected", true); sfx("crate"); });
   } else if (has("data-hero-open")) {
     heroTab = "skills";
     openSheet("hero", null);
@@ -20065,7 +20086,7 @@ document.addEventListener("click", function (e) {
   } else if (has("data-up-field")) {
     post("/api/field/" + attr("data-up-field"), {}, function () { toast("🔨 Construction started!", true); closeSheet(); });
   } else if (has("data-up-lot")) {
-    post("/api/building/" + attr("data-up-lot"), {}, function () { toast("🔨 Construction started!", true); closeSheet(); });
+    post("/api/building/" + attr("data-up-lot"), {}, function () { toast("🔨 Construction started!", true); sfx("build"); closeSheet(); });
   } else if (has("data-construct")) {
     post("/api/construct", { type: attr("data-construct") }, function () {
       toast("🏗️ Construction started!", true);
@@ -20309,7 +20330,7 @@ document.addEventListener("click", function (e) {
   } else if (has("data-recruit-board")) {
     playersTab="discover"; view="ranking"; loadDiscover(); if(data)renderColony(data);
   } else if (has("data-daily")) {
-    post("/api/daily", {}, function (r) { var x = r && r.daily; toast("🎁 +" + (x ? shortNum(x.amount) : "") + " of each resource · day " + (x ? x.streak : 1) + " in a row", true); });
+    post("/api/daily", {}, function (r) { sfx("crate"); var x = r && r.daily; toast("🎁 +" + (x ? shortNum(x.amount) : "") + " of each resource · day " + (x ? x.streak : 1) + " in a row", true); });
   } else if (has("data-tpower")) {
     openSheet("powers", null);
   } else if (has("data-tpower-pick")) {
@@ -21068,6 +21089,7 @@ document.addEventListener("click", function (e) {
     var id = attr("data-report");
     openReports[id] = !openReports[id];
     var rr = reports && reports.reports.filter(function (x) { return String(x.id) === id; })[0];
+    if (openReports[id] && rr && !rr.seen) { var rd = rr.data || {}; if (rd.attack !== undefined && (rd.mission === "attack" || rd.mission === "raid")) sfx((rd.side === "attacker" ? rd.attackerWins : !rd.attackerWins) ? "victory" : "defeat"); }
     if (openReports[id] && rr && !rr.seen) {
       rr.seen = true; // read now that it was opened
       delete justRead[id];
