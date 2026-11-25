@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.529";
+const GAME_VERSION = "1.0.530";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.530",date:"2026-11-25",title:"A shorter, clearer tour",groups:[["📖 Tour",["The tour now has 9 core steps. At the end, \"More tips\" opens 6 extra ones (terra, money, commander, hunt and auction, missions, guide).","The screen dims around the place a step points at.","Beppo's bubble moves to the top when the highlighted place is in the lower half of the screen."]]]},
   {v:"1.0.529",date:"2026-11-25",title:"Beppo is easier to see",groups:[["💬 Beppo",["In the tour and the landing guide, Beppo now sits in a framed portrait with a dark name plate, so he and his name are easy to read on any background.","Every tour step now has its own Beppo face and voice."]]]},
   {v:"1.0.528",date:"2026-11-25",title:"Matching map arrows",groups:[["🗺️ Map",["All four map arrows are now the same drawn arrow. On phones the right one used to turn into a green emoji."]]]},
   {v:"1.0.527",date:"2026-11-25",title:"Beppo has more to say",groups:[["💬 Beppo",["The landing tour on a new server is now told by Beppo in a speech bubble with a portrait, typed out one step at a time.","Beppo reacts when your traps catch someone, and when prisoners starve or are freed and their traps are lost.","Visit the same place over and over and Beppo starts to notice.","Now and then Beppo says something very odd.","His voice follows his mood: happy bounces, worried sags and babbles, surprised climbs. Each mood has its own arrival tune."]]]},

@@ -1633,6 +1633,9 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   body.landshake #app { animation: landshake 0.45s ease-in-out 0.8s 2; }
   @keyframes landshake { 25% { transform: translate(-4px, 2px); } 75% { transform: translate(4px, -2px); } }
   @media (prefers-reduced-motion: reduce) { .landfx, .onb-spot { animation: none !important; } .landfx { display: none; } body.landshake #app { animation: none; } }
+  #tut.top:not(.onb) { top: calc(10px + env(safe-area-inset-top, 0px)); bottom: auto; }
+  #tut-dim { position: fixed; inset: 0; z-index: 8; pointer-events: none; background: rgba(34, 22, 12, 0.5); opacity: 0; transition: opacity .25s; }
+  #tut-dim.on { opacity: 1; }
   .tut-spot { position: relative; z-index: 3; border-radius: var(--radius-md); animation: tutglow 1.6s ease-in-out infinite; }
   .topbtns .tut-spot, .topbtns [data-wiki].tut-spot { border-radius: var(--radius-sm); }
   @keyframes tutglow { 0%, 100% { box-shadow: 0 0 0 3px #fff, 0 0 0 7px rgba(124, 92, 255, .8), 0 10px 30px -6px rgba(124, 92, 255, .5); } 50% { box-shadow: 0 0 0 3px #fff, 0 0 0 12px rgba(124, 92, 255, .3), 0 10px 30px -6px rgba(124, 92, 255, .5); } }
@@ -13708,21 +13711,21 @@ function onbButton(what) {
 
 // the tour: each step names a few places to light up (first one on screen wins)
 var TUTORIAL = [
-  { view: "resources", spot: ".topbar", title: "🚀 Touchdown on Mars!", text: "Commander, your colony just landed, and so did your rivals. <b>Build. Fight. Trade. Team up.</b><small>A one-minute briefing. Tap Next.</small>" },
-  { view: "resources", spot: ".tfold:not(.spx)|.topbar", title: "🏆 How you win the server", text: function (d) { return tutWin(d) + "<small>The slim row under your resources shows the current act. Tap it for details.</small>"; } },
-  { view: "resources", spot: ".fx-stage|.fmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🌾 Step 1: fuel the economy", text: "Your 12 fields around the colony make <b>wood, stone, metal and food</b>, even while you sleep. <b>Tap a field, then ⬆️.</b><small>Level 10 fields unlock boosters and big armies.</small>" },
-  { view: "resources", spot: ".resbar", title: "📦 Watch your storage", text: "Each tile shows your stock, the hourly gain and <b>when it is full</b>. Full storage wastes production: <b>spend it or build a warehouse and a food silo.</b><small>🔒 A bunker hides some of it from raiders.</small>" },
-  { view: "buildings", spot: ".cx-stage|.cmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🏗️ Step 2: build your base", text: function (d) { return "Tap a free lot to build, or a building to upgrade it. <b>The HQ unlocks everything</b> and speeds up building. Up to " + d.queueLimit + " jobs wait in line.<small>Good order: HQ → warehouse → food silo → barracks → wall.</small>"; } },
-  { view: "troops", spot: ".subtabs|.army", base: tutTrained, wait: function (d, b) { return tutTrained(d) > b; }, title: "⚔️ Step 3: raise an army", text: function (d) { var W = d.workshops; return "Every training building has <b>its own queue</b>: infantry and scouts in the " + W.barracks.icon + " <b>" + W.barracks.name + "</b>, siege machines in the " + W.workshop.name + ", fighters and bombers in the " + W.hangar.name + ".<small>Troops eat food every hour: keep food production up.</small>"; } },
-  { view: "map", spot: ".mappanel|.map", title: "🗺️ Step 4: explore", text: "Drag to look around, tap a tile for details. <b>⛰️ Monster camps</b> hold treasure to raid. 📋 Farm lists send many raids with one tap, the 🧮 simulator tests a fight first.<small>📌 Pin your own markers on the map.</small>" },
-  { view: "resources", spot: ".protect|.topbar", title: "🛡️ Stay safe", text: function (d) { var p = d.protection; return (p && p.active && !p.vacation ? "You are <b>protected</b> for " + shortTime(p.until - serverNow()) + " (or until " + p.pointsNeeded + " points). " : "") + "Later, others will raid you: a <b>bunker</b> hides loot, a <b>wall</b> and defenders hold the line, allies send help.<small>Turn on 🔔 attack alerts in ⚙️ Settings.</small>"; } },
-  { view: "resources", spot: ".terrabox|.topbar", title: "🌱 Step 5: expand", text: function (d) { return "Colonies earn <b>terra</b> by themselves. With enough terra and " + d.colonies.settlersNeeded + " settlers you <b>found a new colony</b>. Your first colony is your ⭐ main colony: its fields go up to level " + d.mainMove.max + "."; } },
-  { view: "resources", spot: ".wallet|.topbar", title: "💲 Two kinds of money", text: "<b>💲 Space-Cash</b> ticks up every second from the creatures in your 🐾 hunt slots. <b>🎫 Star Credits</b> come from your active commander. Credits finish a job right now: the less time is left, the cheaper it gets.<small>Tap the wallet for the exact amounts.</small>" },
-  { view: "resources", spot: ".herobtn|.topbar", title: "🎖️ Your commander", text: "Your commander earns Star Credits all the time (they pile up while you are away, up to a limit), wears gear and adds a bonus to your colonies.<small>Tap your commander (bottom left) for commanders and the shard shop.</small>" },
-  { view: "resources", spot: "[data-auction]|.topbtns", title: "🐾 Hunt and 🏛️ Auction", text: "<b>Hunt</b> creatures and put them in slots to earn Space-Cash. At the <b>Auction</b> you sell what you do not need: gear, shards, creatures and supplies.<small>Both open from your wallet. The auction button sits in the top bar.</small>" },
-  { view: "ranking", spot: ".ptabs", title: "🤝 Step 6: team up", pre: function () { playersTab = "alliance"; }, text: "<b>The server is won by alliances.</b> Join or found one under Players → 🤝. Allies can’t attack each other, share a bank, plan joint attacks and fund <b>permanent bonuses</b> together." },
-  { view: "resources", spot: "#quests", title: "📋 The Mission Board", text: "Three missions at a time: <b>build, army and world</b>, plus chapter rewards and the daily supply. Tap <b>👉 Show me</b> to be taken there; every mission pays resources." },
-  { view: "resources", spot: '.topbtns [data-wiki]|.topbtns', title: "📖 Your guide to everything", text: "Every number, table and rule is in the <b>📖 Guide</b>. Replay this briefing any time under ⚙️ Settings → Tour.<small>Ready, Commander? Mars is waiting. 🚀</small>" },
+  { mood: "happy", view: "resources", spot: ".topbar", title: "🚀 Touchdown on Mars!", text: "Commander, your colony just landed, and so did your rivals. <b>Build. Fight. Trade. Team up.</b><small>A one-minute briefing. Tap Next.</small>" },
+  { mood: "neutral", view: "resources", spot: ".tfold:not(.spx)|.topbar", title: "🏆 How you win the server", text: function (d) { return tutWin(d) + "<small>The slim row under your resources shows the current act. Tap it for details.</small>"; } },
+  { mood: "happy", view: "resources", spot: ".fx-stage|.fmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🌾 Step 1: fuel the economy", text: "Your 12 fields around the colony make <b>wood, stone, metal and food</b>, even while you sleep. <b>Tap a field, then ⬆️.</b><small>Level 10 fields unlock boosters and big armies.</small>" },
+  { mood: "worried", view: "resources", spot: ".resbar", title: "📦 Watch your storage", text: "Each tile shows your stock, the hourly gain and <b>when it is full</b>. Full storage wastes production: <b>spend it or build a warehouse and a food silo.</b><small>🔒 A bunker hides some of it from raiders.</small>" },
+  { mood: "happy", view: "buildings", spot: ".cx-stage|.cmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🏗️ Step 2: build your base", text: function (d) { return "Tap a free lot to build, or a building to upgrade it. <b>The HQ unlocks everything</b> and speeds up building. Up to " + d.queueLimit + " jobs wait in line.<small>Good order: HQ → warehouse → food silo → barracks → wall.</small>"; } },
+  { mood: "happy", view: "troops", spot: ".subtabs|.army", base: tutTrained, wait: function (d, b) { return tutTrained(d) > b; }, title: "⚔️ Step 3: raise an army", text: function (d) { var W = d.workshops; return "Every training building has <b>its own queue</b>: infantry and scouts in the " + W.barracks.icon + " <b>" + W.barracks.name + "</b>, siege machines in the " + W.workshop.name + ", fighters and bombers in the " + W.hangar.name + ".<small>Troops eat food every hour: keep food production up.</small>"; } },
+  { mood: "surprised", view: "map", spot: ".mappanel|.map", title: "🗺️ Step 4: explore", text: "Drag to look around, tap a tile for details. <b>⛰️ Monster camps</b> hold treasure to raid. 📋 Farm lists send many raids with one tap, the 🧮 simulator tests a fight first.<small>📌 Pin your own markers on the map.</small>" },
+  { mood: "worried", view: "resources", spot: ".protect|.topbar", title: "🛡️ Stay safe", text: function (d) { var p = d.protection; return (p && p.active && !p.vacation ? "You are <b>protected</b> for " + shortTime(p.until - serverNow()) + " (or until " + p.pointsNeeded + " points). " : "") + "Later, others will raid you: a <b>bunker</b> hides loot, a <b>wall</b> and defenders hold the line, allies send help.<small>Turn on 🔔 attack alerts in ⚙️ Settings.</small>"; } },
+  { mood: "neutral", view: "ranking", spot: ".ptabs", title: "🤝 Step 6: team up", pre: function () { playersTab = "alliance"; }, text: "<b>The server is won by alliances.</b> Join or found one under Players → 🤝. Allies can’t attack each other, share a bank, plan joint attacks and fund <b>permanent bonuses</b> together." },
+  { more: true, mood: "happy", view: "resources", spot: ".terrabox|.topbar", title: "🌱 Step 5: expand", text: function (d) { return "Colonies earn <b>terra</b> by themselves. With enough terra and " + d.colonies.settlersNeeded + " settlers you <b>found a new colony</b>. Your first colony is your ⭐ main colony: its fields go up to level " + d.mainMove.max + "."; } },
+  { more: true, mood: "surprised", view: "resources", spot: ".wallet|.topbar", title: "💲 Two kinds of money", text: "<b>💲 Space-Cash</b> ticks up every second from the creatures in your 🐾 hunt slots. <b>🎫 Star Credits</b> come from your active commander. Credits finish a job right now: the less time is left, the cheaper it gets.<small>Tap the wallet for the exact amounts.</small>" },
+  { more: true, mood: "surprised", view: "resources", spot: ".herobtn|.topbar", title: "🎖️ Your commander", text: "Your commander earns Star Credits all the time (they pile up while you are away, up to a limit), wears gear and adds a bonus to your colonies.<small>Tap your commander (bottom left) for commanders and the shard shop.</small>" },
+  { more: true, mood: "happy", view: "resources", spot: "[data-auction]|.topbtns", title: "🐾 Hunt and 🏛️ Auction", text: "<b>Hunt</b> creatures and put them in slots to earn Space-Cash. At the <b>Auction</b> you sell what you do not need: gear, shards, creatures and supplies.<small>Both open from your wallet. The auction button sits in the top bar.</small>" },
+  { more: true, mood: "happy", view: "resources", spot: "#quests", title: "📋 The Mission Board", text: "Three missions at a time: <b>build, army and world</b>, plus chapter rewards and the daily supply. Tap <b>👉 Show me</b> to be taken there; every mission pays resources." },
+  { more: true, mood: "happy", view: "resources", spot: '.topbtns [data-wiki]|.topbtns', title: "📖 Your guide to everything", text: "Every number, table and rule is in the <b>📖 Guide</b>. Replay this briefing any time under ⚙️ Settings → Tour.<small>Ready, Commander? Mars is waiting. 🚀</small>" },
 ];
 var tut = { step: -1 };
 // steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
@@ -14020,7 +14023,7 @@ function tutCheck(d) {
 }
 
 function startTutorial() {
-  tut.step = 0; tut.shown = -1;
+  tut.step = 0; tut.shown = -1; tut.more = false;
   showTutorial();
 }
 
@@ -14052,8 +14055,9 @@ function typeHtml(el, pitch, wave, mood) {
     if (ni >= nodes.length) finish();
   }, gap);
 }
-// every step has a face: the voice follows it
-var TUT_MOOD = { 0: "happy", 1: "neutral", 2: "happy", 3: "worried", 4: "happy", 5: "happy", 6: "surprised", 7: "worried", 8: "happy", 9: "surprised", 10: "surprised", 11: "happy", 12: "neutral", 13: "happy", 14: "happy" };
+// the quick tour is the core steps; "More tips" adds the rest
+function tutEnd() { if (tut.more) return TUTORIAL.length; for (var i = 0; i < TUTORIAL.length; i++) if (TUTORIAL[i].more) return i; return TUTORIAL.length; }
+function tutMood(i) { return (TUTORIAL[i] && TUTORIAL[i].mood) || "neutral"; }
 
 function showTutorial() {
   var box = document.getElementById("tut");
@@ -14063,6 +14067,7 @@ function showTutorial() {
     box.className = "";
     document.body.removeAttribute("data-tut");
     tutSpot();
+    tutDim(null);
     return;
   }
   var s = TUTORIAL[tut.step];
@@ -14075,19 +14080,21 @@ function showTutorial() {
   document.body.setAttribute("data-tut", "on");
   var spot = tutSpot();
   var dots = "";
-  for (var di = 0; di < TUTORIAL.length; di++) dots += '<i class="' + (di < tut.step ? "done" : di === tut.step ? "on" : "") + '"></i>';
-  var bk = "beppo-" + (TUT_MOOD[tut.step] || "neutral");
+  for (var di = 0; di < tutEnd(); di++) dots += '<i class="' + (di < tut.step ? "done" : di === tut.step ? "on" : "") + '"></i>';
+  var bk = "beppo-" + (tutMood(tut.step));
   var face = FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : CAST.beppo.icon;
-  var h = '<div class="tut-card tut-say"><div class="tut-beppo">' + face + "<b>" + CAST.beppo.name + '</b></div><div class="tut-bub"><div class="tut-dots">' + dots + '</div><div class="tut-step">' + (tut.step + 1) + " / " + TUTORIAL.length + "</div>";
+  var h = '<div class="tut-card tut-say"><div class="tut-beppo">' + face + "<b>" + CAST.beppo.name + '</b></div><div class="tut-bub"><div class="tut-dots">' + dots + '</div><div class="tut-step">' + (tut.step + 1) + " / " + tutEnd() + "</div>";
   var txt = typeof s.text === "function" ? s.text(data) : s.text;
   h += "<h3>" + s.title + "</h3><div class='tut-p'>" + txt + "</div><div class='tut-btns'>";
   h += '<button class="btn small ghost" data-tut="skip">Skip tour</button>';
   if (tut.step > 0) h += '<button class="btn small ghost" data-tut="back">⬅ Back</button>';
-  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! 🚀" : tut.done ? "Done! Next ➡" : s.wait ? "Skip step ➡" : "Next ➡") + "</button></div></div></div>";
+  if (tut.step === tutEnd() - 1 && tutEnd() < TUTORIAL.length) h += '<button class="btn small ghost" data-tut="more">More tips ➡</button>';
+  h += '<button class="btn small" data-tut="next">' + (tut.step === tutEnd() - 1 ? "Let's play! 🚀" : tut.done ? "Done! Next ➡" : s.wait ? "Skip step ➡" : "Next ➡") + "</button></div></div></div>";
   box.innerHTML = h;
   box.className = "on";
+  tutSpot();
   var tp = box.querySelector(".tut-p");
-  if (tp) { typeHtml(tp, CAST.beppo.pitch, CAST.beppo.wave, TUT_MOOD[tut.step] || "neutral"); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
+  if (tp) { typeHtml(tp, CAST.beppo.pitch, CAST.beppo.wave, tutMood(tut.step)); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
   setTimeout(function () { var el = tutSpot(); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
 }
 // light up the step's place (again after every refresh, which redraws the page)
@@ -14104,15 +14111,34 @@ function tutSpot() {
   var cur = document.querySelectorAll(".tut-spot");
   for (var j = 0; j < cur.length; j++) if (cur[j] !== want) cur[j].classList.remove("tut-spot");
   if (want) want.classList.add("tut-spot");
+  tutDim(want);
   return want;
 }
+// the rest of the screen dims, with a rounded hole around the lit-up place; the bubble moves out of its way
+function tutDim(want) {
+  var dim = document.getElementById("tut-dim");
+  if (!dim) { dim = document.createElement("div"); dim.id = "tut-dim"; document.body.appendChild(dim); }
+  var on = want && tut.step >= 0 && tut.step < TUTORIAL.length;
+  dim.classList.toggle("on", !!on);
+  if (!on) return;
+  var rc = want.getBoundingClientRect(), pad = 6, r = 14;
+  var x = Math.max(0, rc.left - pad), y = Math.max(0, rc.top - pad), w = Math.min(innerWidth, rc.right + pad) - x, h = Math.min(innerHeight, rc.bottom + pad) - y;
+  if (w > 0 && h > 0) dim.style.clipPath = 'path(evenodd, "M0 0H' + innerWidth + "V" + innerHeight + "H0Z M" + (x + r) + " " + y + "h" + (w - 2 * r) + "a" + r + " " + r + " 0 0 1 " + r + " " + r + "v" + (h - 2 * r) + "a" + r + " " + r + " 0 0 1 -" + r + " " + r + "h-" + (w - 2 * r) + "a" + r + " " + r + " 0 0 1 -" + r + " -" + r + "v-" + (h - 2 * r) + "a" + r + " " + r + " 0 0 1 " + r + ' -' + r + 'Z")';
+  var box = document.getElementById("tut");
+  if (box && box.classList.contains("on") && !box.classList.contains("onb")) box.classList.toggle("top", rc.top + rc.height / 2 > innerHeight * 0.55);
+}
+var tutDimRaf = 0;
+function tutDimSoon() { if (tutDimRaf || tut.step < 0) return; tutDimRaf = requestAnimationFrame(function () { tutDimRaf = 0; tutSpot(); }); }
+window.addEventListener("scroll", tutDimSoon, true);
+window.addEventListener("resize", tutDimSoon);
 
 function tutorialButton(what) {
   sfx("click");
   if (what === "next") tut.step += 1;
   else if (what === "back") tut.step -= 1;
+  else if (what === "more") { tut.more = true; tut.step += 1; }
   else tut.step = TUTORIAL.length;
-  if (tut.step >= TUTORIAL.length) {
+  if (tut.step >= tutEnd()) {
     tut.step = -1;
     document.body.classList.remove("qopen");
     questsOpen = true;
