@@ -9971,13 +9971,13 @@ function heroPic(cls) {
 }
 // ---------- 🗣️ voices: a typed-out speech box and a small cast ----------
 var CAST = {
-  beppo: { name: "Beppo", icon: "🐶", pitch: 380 },
-  steward: { name: "Steward", icon: "🧑‍💼", pitch: 330, art: "hero-steward" },
-  drill: { name: "Drillmaster", icon: "🪖", pitch: 250, art: "hero-drillmaster" },
-  banker: { name: "Banker", icon: "💼", pitch: 440, art: "hero-banker" },
-  forager: { name: "Forager", icon: "🌾", pitch: 400, art: "hero-forager" },
-  warden: { name: "Warden", icon: "🛡️", pitch: 280, art: "hero-warden" },
-  prof: { name: "Professor", icon: "🔬", pitch: 520, art: "hero-professor" }
+  beppo: { name: "Beppo", icon: "🐶", pitch: 380, wave: "pulse25" },
+  steward: { name: "Steward", icon: "🧑‍💼", pitch: 330, wave: "square", art: "hero-steward" },
+  drill: { name: "Drillmaster", icon: "🪖", pitch: 250, wave: "pulse12", art: "hero-drillmaster" },
+  banker: { name: "Banker", icon: "💼", pitch: 440, wave: "triangle", art: "hero-banker" },
+  forager: { name: "Forager", icon: "🌾", pitch: 400, wave: "triangle", art: "hero-forager" },
+  warden: { name: "Warden", icon: "🛡️", pitch: 280, wave: "pulse12", art: "hero-warden" },
+  prof: { name: "Professor", icon: "🔬", pitch: 520, wave: "pulse25", art: "hero-professor" }
 };
 var BEPPO_LINES = {
   neutral: ["Everything is under control. Mostly.", "I sniffed around. Nothing suspicious. Except the cat.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
@@ -9998,12 +9998,12 @@ function bubble(mood) {
   return '<div class="bubble"><span class="bi">' + face + "</span><div><b>" + esc(c.name) + "</b><p>" + esc(L.text) + "</p></div></div>";
 }
 // a short beep for every letter, a little different for every speaker
-function blip(pitch, soft) {
+function blip(pitch, soft, wave) {
   if (!sound.on) return;
   var ctx = audio();
   if (!ctx) return;
   var t = ctx.currentTime + 0.005, o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = "square"; // the 8-bit voice: short, dry, one blip per letter
+  setWave(o, ctx, wave || "square"); // every voice has its own 8-bit wave
   o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
   g.gain.setValueAtTime(soft ? 0.03 : 0.04, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
@@ -13108,13 +13108,13 @@ function audio() {
 
 // [frequency, start, duration, wave, volume, slide to frequency]
 var SFX = {
-  "v-beppo": [[523, 0.000, 0.06, "square", 0.028], [659, 0.075, 0.06, "square", 0.028], [784, 0.150, 0.06, "square", 0.028], [659, 0.225, 0.06, "square", 0.028], [784, 0.300, 0.06, "square", 0.028], [1046, 0.375, 0.16, "square", 0.028]],
-  "v-steward": [[196, 0.000, 0.10, "square", 0.028], [262, 0.120, 0.10, "square", 0.028], [330, 0.240, 0.10, "square", 0.028], [392, 0.360, 0.30, "square", 0.028]],
-  "v-drill": [[131, 0.000, 0.09, "square", 0.028], [131, 0.100, 0.09, "square", 0.028], [196, 0.200, 0.09, "square", 0.028], [262, 0.300, 0.22, "square", 0.028]],
-  "v-banker": [[1976, 0.000, 0.05, "square", 0.028], [2637, 0.060, 0.05, "square", 0.028], [1976, 0.120, 0.05, "square", 0.028], [2637, 0.180, 0.14, "square", 0.028]],
-  "v-forager": [[349, 0.000, 0.09, "square", 0.028], [440, 0.110, 0.09, "square", 0.028], [523, 0.220, 0.09, "square", 0.028], [440, 0.330, 0.09, "square", 0.028], [349, 0.440, 0.22, "square", 0.028]],
-  "v-warden": [[110, 0.000, 0.12, "square", 0.028], [165, 0.140, 0.12, "square", 0.028], [220, 0.280, 0.12, "square", 0.028], [165, 0.420, 0.34, "square", 0.028]],
-  "v-prof": [[587, 0.000, 0.06, "square", 0.028], [698, 0.070, 0.06, "square", 0.028], [880, 0.140, 0.06, "square", 0.028], [1046, 0.210, 0.06, "square", 0.028], [988, 0.280, 0.06, "square", 0.028], [784, 0.350, 0.16, "square", 0.028]],
+  "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
+  "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
+  "v-drill": [[65.4, 0.0, 0.126, "pulse12", 0.045, 0, 0], [65.4, 0.14, 0.126, "pulse12", 0.045, 0, 0], [77.8, 0.28, 0.126, "pulse12", 0.045, 0, 0], [98.0, 0.42, 0.126, "pulse12", 0.045, 0, 0], [130.8, 0.56, 0.252, "pulse12", 0.045, 0, 0], [0, 0.14, 0.06, "noise", 0.05, 0, 0], [0, 0.42000000000000004, 0.06, "noise", 0.05, 0, 0], [0, 0.7000000000000001, 0.06, "noise", 0.05, 0, 0], [0, 0.8400000000000001, 0.12, "noise", 0.05, 0, 0]],
+  "v-banker": [[1318.5, 0.0, 0.05, "triangle", 0.04, 0, 0], [1661.2, 0.055, 0.05, "triangle", 0.04, 0, 0], [1975.5, 0.11, 0.05, "triangle", 0.04, 0, 0], [2489.0, 0.165, 0.05, "triangle", 0.04, 0, 0], [1975.5, 0.22, 0.05, "triangle", 0.04, 0, 0], [1661.2, 0.275, 0.05, "triangle", 0.04, 0, 0], [2637.0, 0.33, 0.149, "triangle", 0.04, 0, 0], [3951.1, 0.385, 0.099, "square", 0.012, 0, 0]],
+  "v-forager": [[293.7, 0.0, 0.126, "triangle", 0.06, 0, 6], [370.0, 0.14, 0.126, "triangle", 0.06, 0, 6], [440.0, 0.28, 0.126, "triangle", 0.06, 0, 6], [493.9, 0.42, 0.252, "triangle", 0.06, 0, 6], [440.0, 0.7, 0.126, "triangle", 0.06, 0, 6], [370.0, 0.84, 0.126, "triangle", 0.06, 0, 6], [293.7, 0.98, 0.378, "triangle", 0.06, 0, 6]],
+  "v-warden": [[110.0, 0.0, 0.306, "pulse12", 0.04, 0, 0], [164.8, 0.34, 0.306, "pulse12", 0.04, 0, 0], [220.0, 0.68, 0.306, "pulse12", 0.04, 0, 0], [261.6, 1.02, 0.153, "pulse12", 0.04, 0, 0], [246.9, 1.19, 0.153, "pulse12", 0.04, 0, 0], [220.0, 1.36, 0.612, "pulse12", 0.04, 0, 0], [110.0, 0, 1.9, "triangle", 0.05, 0, 0]],
+  "v-prof": [[587.3, 0.0, 0.054, "pulse25", 0.028, 0, 0], [659.3, 0.06, 0.054, "pulse25", 0.028, 0, 0], [740.0, 0.12, 0.054, "pulse25", 0.028, 0, 0], [830.6, 0.18, 0.054, "pulse25", 0.028, 0, 0], [932.3, 0.24, 0.054, "pulse25", 0.028, 0, 0], [1046.5, 0.3, 0.054, "pulse25", 0.028, 0, 0], [1568.0, 0.5, 0.14, "pulse25", 0.03, 392.0, 0], [1175.0, 0.7, 0.06, "square", 0.018, 0, 0], [1568.0, 0.78, 0.1, "square", 0.018, 0, 0]],
   click: [[660, 0, 0.04, "triangle", 0.04]],
   pop: [[520, 0, 0.05, "triangle", 0.06, 780]],
   build: [[392, 0, 0.07, "square", 0.04], [523, 0.08, 0.1, "square", 0.04]],
@@ -13129,18 +13129,48 @@ var SFX = {
 
 // a little buzz on phones that can (Android) for the important moments
 var BUZZ = { alarm: [180, 90, 180], done: [35], report: [25], error: [60] };
+var pulseWaves = {};
+// 8-bit pulse waves: a narrow duty sounds nasal, a wide one hollow
+function pulseWave(ctx, duty) {
+  var key = duty + "";
+  if (pulseWaves[key] && pulseWaves[key].c === ctx) return pulseWaves[key].w;
+  var re = new Float32Array(48), im = new Float32Array(48);
+  for (var k = 1; k < 48; k++) re[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
+  var w = ctx.createPeriodicWave(re, im);
+  pulseWaves[key] = { c: ctx, w: w };
+  return w;
+}
+function setWave(o, ctx, type) {
+  if (type === "pulse12") o.setPeriodicWave(pulseWave(ctx, 0.125));
+  else if (type === "pulse25") o.setPeriodicWave(pulseWave(ctx, 0.25));
+  else o.type = type;
+}
 function sfx(name) {
   if (sound.on && BUZZ[name] && navigator.vibrate) { try { navigator.vibrate(BUZZ[name]); } catch (e) {} }
   if (!sound.on || !SFX[name]) return;
   var ctx = audio();
   if (!ctx) return;
   var t0 = ctx.currentTime + 0.01;
+  // a note is [freq, start, length, wave, volume, glide-to, vibrato]; wave "noise" is a drum hit
   SFX[name].forEach(function (n) {
-    var o = ctx.createOscillator();
-    var g = ctx.createGain();
-    o.type = n[3];
-    o.frequency.setValueAtTime(n[0], t0 + n[1]);
-    if (n[5]) o.frequency.exponentialRampToValueAtTime(n[5], t0 + n[1] + n[2]);
+    var g = ctx.createGain(), o;
+    if (n[3] === "noise") {
+      var len = Math.floor(ctx.sampleRate * (n[2] + 0.02)), buf = ctx.createBuffer(1, len, ctx.sampleRate), ch = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+      o = ctx.createBufferSource();
+      o.buffer = buf;
+    } else {
+      o = ctx.createOscillator();
+      setWave(o, ctx, n[3]);
+      o.frequency.setValueAtTime(n[0], t0 + n[1]);
+      if (n[5]) o.frequency.exponentialRampToValueAtTime(n[5], t0 + n[1] + n[2]);
+      if (n[6]) {
+        var lf = ctx.createOscillator(), lg = ctx.createGain();
+        lf.frequency.value = 6; lg.gain.value = n[6];
+        lf.connect(lg); lg.connect(o.frequency);
+        lf.start(t0 + n[1]); lf.stop(t0 + n[1] + n[2] + 0.02);
+      }
+    }
     g.gain.setValueAtTime(0.0001, t0 + n[1]);
     g.gain.exponentialRampToValueAtTime(n[4], t0 + n[1] + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
@@ -13566,6 +13596,11 @@ function voiceSay(id, who, mood, text, cdMs, top) {
   voiceShow(who, mood, text, top);
   return true;
 }
+function themeLen(k) {
+  var m = 0;
+  (SFX["v-" + k] || []).forEach(function (n) { m = Math.max(m, (n[1] + n[2]) * 1000); });
+  return m;
+}
 function voiceShow(whoKey, mood, text, top) {
   var who = CAST[whoKey] || CAST.beppo, own = whoKey !== "beppo";
   var bk = own ? who.art : "beppo-" + mood, el = document.createElement("div");
@@ -13583,7 +13618,7 @@ function voiceShow(whoKey, mood, text, top) {
   };
   t.style.visibility = "hidden"; // the words wait for the arrival tune, then type out
   sfx("v-" + whoKey); // each voice has its own little arrival tune
-  setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch); t.style.visibility = ""; } }, 700);
+  setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch, who.wave); t.style.visibility = ""; } }, Math.min(900, themeLen(whoKey)));
   el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
   setTimeout(bye, 9500);
 }
@@ -13668,7 +13703,7 @@ function startTutorial() {
 }
 
 // types an HTML text out letter by letter (tags stay in place), with a soft blip; tap the text to show it all
-function typeHtml(el, pitch) {
+function typeHtml(el, pitch, wave) {
   if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
   // typing out text is not movement, so it stays on with Reduce Motion
   el.style.minHeight = el.offsetHeight + "px"; // the bubble keeps its final size while the text types
@@ -13683,7 +13718,7 @@ function typeHtml(el, pitch) {
       var x = nodes[ni];
       ci++;
       x.node.nodeValue = x.full.slice(0, ci);
-      if (x.full.charAt(ci - 1).trim() && ++tick % 2) blip(pitch || 380, true);
+      if (x.full.charAt(ci - 1).trim() && ++tick % 2) blip(pitch || 380, true, wave);
       if (ci >= x.full.length) { ni++; ci = 0; }
     }
     if (ni >= nodes.length) finish();
@@ -13723,7 +13758,7 @@ function showTutorial() {
   box.innerHTML = h;
   box.className = "on";
   var tp = box.querySelector(".tut-p");
-  if (tp) { typeHtml(tp, CAST.beppo.pitch); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
+  if (tp) { typeHtml(tp, CAST.beppo.pitch, CAST.beppo.wave); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
   setTimeout(function () { var el = tutSpot(); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
 }
 // light up the step's place (again after every refresh, which redraws the page)
