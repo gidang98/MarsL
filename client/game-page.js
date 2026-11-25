@@ -13108,6 +13108,13 @@ function audio() {
 
 // [frequency, start, duration, wave, volume, slide to frequency]
 var SFX = {
+  "v-beppo": [[523, 0, 0.07, "sine", 0.035], [659, 0.07, 0.1, "sine", 0.035]],
+  "v-steward": [[294, 0, 0.09, "square", 0.025], [392, 0.1, 0.12, "square", 0.025]],
+  "v-drill": [[196, 0, 0.07, "square", 0.03], [196, 0.1, 0.07, "square", 0.03], [262, 0.2, 0.1, "square", 0.03]],
+  "v-banker": [[1046, 0, 0.05, "triangle", 0.035], [1318, 0.06, 0.08, "triangle", 0.035]],
+  "v-forager": [[349, 0, 0.12, "sine", 0.04], [440, 0.12, 0.14, "sine", 0.04]],
+  "v-warden": [[220, 0, 0.14, "sine", 0.045], [165, 0.14, 0.18, "sine", 0.045]],
+  "v-prof": [[587, 0, 0.05, "triangle", 0.03], [698, 0.05, 0.05, "triangle", 0.03], [880, 0.1, 0.05, "triangle", 0.03], [740, 0.15, 0.1, "triangle", 0.03]],
   click: [[660, 0, 0.04, "triangle", 0.04]],
   pop: [[520, 0, 0.05, "triangle", 0.06, 780]],
   build: [[392, 0, 0.07, "square", 0.04], [523, 0.08, 0.1, "square", 0.04]],
@@ -13539,16 +13546,32 @@ document.addEventListener("click", function (e) {
 function beppoSeen() { try { return JSON.parse(localStorage.getItem("marsl-beppo-seen") || "{}") || {}; } catch (e) { return {}; } }
 function beppoOn() { try { return localStorage.getItem("marsl-beppo-off") !== "1"; } catch (e) { return true; } }
 function beppoSay(id, top) {
-  var m = BEPPO_SAY[id], who = CAST[m && m[2] || "beppo"];
-  if (!m || !beppoOn() || (tut.step >= 0 && tut.step < TUTORIAL.length) || document.getElementById("beppo-say")) return;
+  var m = BEPPO_SAY[id];
+  if (!m || !voiceFree()) return;
   var seen = beppoSeen();
   if (seen[id]) return;
   seen[id] = 1;
   try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
-  var bk = m[2] ? who.art : "beppo-" + m[0], el = document.createElement("div");
+  voiceShow(m[2] || "beppo", m[0], m[1], top);
+}
+function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say"); }
+// 🗣️ a remark that can come again, but not before its cooldown is over (remembered in this browser)
+function voiceSay(id, who, mood, text, cdMs, top) {
+  if (!voiceFree()) return false;
+  var mem = {};
+  try { mem = JSON.parse(localStorage.getItem("marsl-voice-t") || "{}") || {}; } catch (e) {}
+  if (mem[id] && Date.now() - mem[id] < cdMs) return false;
+  mem[id] = Date.now();
+  try { localStorage.setItem("marsl-voice-t", JSON.stringify(mem)); } catch (e) {}
+  voiceShow(who, mood, text, top);
+  return true;
+}
+function voiceShow(whoKey, mood, text, top) {
+  var who = CAST[whoKey] || CAST.beppo, own = whoKey !== "beppo";
+  var bk = own ? who.art : "beppo-" + mood, el = document.createElement("div");
   el.id = "beppo-say";
   if (top) el.className = "top";
-  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + trStr(m[1]) + "</div></div>";
+  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + trStr(text) + "</div></div>";
   document.body.appendChild(el);
   var t = el.querySelector(".bs-t"), gone = 0;
   var bye = function () {
@@ -13558,9 +13581,56 @@ function beppoSay(id, top) {
     el.classList.add("bye");
     setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
   };
-  typeHtml(t, m[2] ? who.pitch : m[0] === "worried" ? 300 : m[0] === "surprised" ? 470 : CAST.beppo.pitch);
+  sfx("v-" + whoKey); // each voice has its own little arrival tune
+  setTimeout(function () { if (!gone) typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch); }, 260);
   el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
-  setTimeout(bye, 9000);
+  setTimeout(bye, 9500);
+}
+// 🧠 the colony remembers how you play: breaks, streaks, forgotten missions, an empty army
+var HOUR = 3600000;
+function voiceMem() { try { return JSON.parse(localStorage.getItem("marsl-voice-mem") || "{}") || {}; } catch (e) { return {}; } }
+var voiceBoot = false;
+function voiceWatch(d) {
+  if (!d || !beppoOn()) return;
+  var mem = voiceMem(), now = Date.now(), first = !voiceBoot;
+  if (first) {
+    voiceBoot = true;
+    var day = new Date().toISOString().slice(0, 10), days = mem.days || [];
+    if (days[days.length - 1] !== day) {
+      var prev = days[days.length - 1], yest = new Date(now - 86400000).toISOString().slice(0, 10);
+      mem.streak = prev === yest ? (mem.streak || 1) + 1 : 1;
+      days.push(day);
+      mem.days = days.slice(-30);
+    }
+    mem.gap = mem.last ? now - mem.last : 0;
+    mem.say = 1;
+  }
+  mem.last = now;
+  // a quest that has been waiting for you
+  var rdy = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
+  if (rdy && !mem.rdySince) mem.rdySince = now;
+  if (!rdy) mem.rdySince = 0;
+  try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
+  if (!mem.say) {
+    if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", "Mission rewards have been waiting for a day. They do not spoil, but I am getting bored.", 24 * HOUR);
+    return;
+  }
+  mem.say = 0;
+  try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
+  setTimeout(function () {
+    var streak = mem.streak || 1;
+    if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", "Commander! The crew started a betting pool on when you would return. I lost.", 12 * HOUR);
+    else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", "You are back! I guarded the snacks. Mostly.", 12 * HOUR);
+    else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", streak + " days in a row! I am telling everyone. Everyone being me.", 20 * HOUR);
+    else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", "Nothing is being built. The crew has started a card game.", 6 * HOUR);
+  }, 2500);
+}
+// empty barracks: said when you open the Army page with no troops at home and none training
+function voiceArmy(d) {
+  var home = 0, train = 0;
+  (d.units || []).forEach(function (u) { if (!u.scout && !u.settler) home += u.home || 0; });
+  Object.keys(d.training || {}).forEach(function (w) { train += (d.training[w] || []).length; });
+  if (!home && !train) voiceSay("noarmy", "drill", "neutral", "No troops. The wall feels lonely and so do I.", 8 * HOUR, true);
 }
 // a short shake for hits
 function quake() {
@@ -15645,6 +15715,7 @@ function showWon(w) {
 }
 function renderColony(d) {
   tutCheck(d);
+  voiceWatch(d);
   data = d;
   if (d.won && !wonShown) showWon(d.won);
   // 🎉 milestones are celebrated on the mission board now
@@ -18523,7 +18594,7 @@ function switchView(v, target) {
   if (v === "reports") loadReports(true);
   if (v === "ranking") { loadRanking(); loadAlliance(); loadMyProfile(); }
   if (v === "messages") loadMessages();
-  if (data) { renderColony(data); viewMotion(prevView, v); navGlide(navFrom); }
+  if (data) { renderColony(data); viewMotion(prevView, v); navGlide(navFrom); if (v === "troops") setTimeout(function () { voiceArmy(data); }, 900); }
   loadColony(false);
 }
 
