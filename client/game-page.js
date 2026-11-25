@@ -4577,6 +4577,34 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 /* 1.0.377 gear auction */
 .auc-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
 .auc-tabs.sub { margin-top: -2px; }
+.cz-chief { display: flex; gap: 10px; align-items: center; margin: 6px 0 8px; }
+.cz-chief img, .cz-chief .cz-emo { width: 88px; height: 88px; flex: none; object-fit: contain; font-size: 52px; display: flex; align-items: center; justify-content: center; }
+.cz-bub { flex: 1; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; padding: 6px 10px; background: rgba(255,255,255,.7); min-height: 62px; }
+.cz-bub b { display: block; font-size: 12px; opacity: .7; }
+.cz-bub #cz-say { font-size: 14px; }
+.cz-hand { margin: 8px 0; text-align: center; }
+.cz-hand small { display: block; opacity: .75; margin-bottom: 4px; }
+.cz-hand > div { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+.cz-card { min-width: 42px; height: 58px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 7px; background: #fff; color: #222; font-weight: 700; font-size: 17px; }
+.cz-card.red { color: #c23b32; }
+.cz-card.back { background: repeating-linear-gradient(45deg, #2b4a8a, #2b4a8a 4px, #3a5ca3 4px, #3a5ca3 8px); }
+.cz-bjhint { text-align: center; opacity: .8; margin: 14px 4px; font-size: 13px; }
+.cz-acts { display: flex; gap: 8px; margin: 8px 0; } .cz-acts .btn { flex: 1; }
+.cz-reels { display: flex; gap: 8px; justify-content: center; margin: 12px 0 6px; }
+.cz-reels span { width: 74px; height: 84px; display: flex; align-items: center; justify-content: center; font-size: 42px; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; background: rgba(255,255,255,.55); }
+.cz-reels span.spin { filter: blur(1.2px); transform: translateY(2px); }
+.cz-pay { display: block; text-align: center; opacity: .75; margin-bottom: 8px; }
+.cz-ball { display: flex; justify-content: center; margin: 12px 0; }
+.cz-num { min-width: 64px; padding: 10px 0; text-align: center; border-radius: 50%; font-size: 28px; color: #fff; border: 3px solid rgba(0,0,0,.2); }
+.cz-num.r { background: #c23b32; } .cz-num.b { background: #2a2a30; } .cz-num.g { background: #2f8a4f; }
+.cz-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+.cz-kinds .btn small { display: block; opacity: .7; }
+.cz-one { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cz-one input { width: 56px; }
+.cz-bets { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+.cz-bets .on, .cz-kinds .on, .cz-one .on { outline: 2px solid #e2574c; }
+.cz-go { width: 100%; margin: 4px 0; }
+.cz-msg { text-align: center; min-height: 22px; font-weight: 700; }
 .auc-row { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; margin-bottom: 6px; }
 .auc-row.lead { border-color: #2f9e6e; background: rgba(47, 158, 110, .1); }
 .auc-row.mine { border-color: #c9a227; background: rgba(201, 162, 39, .08); }
@@ -8626,7 +8654,8 @@ function crPct() { var v = walletCr(); return wallet.crRate ? Math.round((v - Ma
 function walletNow() { return wallet.cash + (wallet.rate * (Date.now() - wallet.at)) / 1000; }
 var lastCashShown = null, lastCrShown = null;
 // the exact amount with every digit (1,204,517), for the wallet window and the hunt window; the top bar chip is shortened (1.2M)
-function cashText(v) { return v < 1e10 ? v.toLocaleString("en-US") : shortNum(v); }
+function cashText(v) { return v < 1e6 ? v.toLocaleString("en-US") : shortNum(v); } // millions and up are short: 2M, 2B (the exact amount sits in the tooltip)
+function numText(n) { return n < 1e6 ? n.toLocaleString("en-US") : shortNum(n); }
 var calmMotion = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 // a small "+N" that floats up from the element, so you can see the money arrive
 function cashPop(host, text, color) {
@@ -8664,10 +8693,12 @@ setInterval(function () {
   if (c && c.textContent !== txt) c.textContent = txt;
   if (hs && hs.textContent !== full) hs.textContent = full;
   if (wl && wl.textContent !== full) wl.textContent = full;
+  if (wl) wl.title = v.toLocaleString("en-US");
   // Star Credits: whole credits arrive one by one, the bar fills toward the next
   var cv = walletCr(), cw = Math.floor(cv), cf = cv - cw, cel = document.getElementById("w-cr"), cn = document.getElementById("wl-cr");
   if (cel && cel.textContent !== shortNum(cw)) cel.textContent = shortNum(cw);
-  if (cn && cn.textContent !== cw.toLocaleString("en-US")) cn.textContent = cw.toLocaleString("en-US");
+  if (cn && cn.textContent !== numText(cw)) cn.textContent = numText(cw);
+  if (cn) cn.title = cw.toLocaleString("en-US");
   var cchip = document.querySelector(".wallet .w-cr");
   if (cchip) cchip.style.setProperty("--p", wallet.crRate ? Math.round(cf * 100) : 0);
   var cbar = document.getElementById("wl-crbar"), cnext = document.getElementById("wl-crnext");
@@ -9577,7 +9608,7 @@ function renderTraffic(d) {
     var t = tiles[T[0] + T[1]], on = !!t, danger = on && T[0] === "in" && T[1] === "atk";
     var tip = T[2] + ": " + (on ? t.n + (t.troops ? " · " + t.troops.toLocaleString() + " troops" : "") + (t.next ? " · first in " + mvClock(Math.max(0, t.next - now)) : "") : "none");
     h += '<button type="button" class="tp-tile ' + T[0] + T[1] + (on ? " on" : " off") + (danger ? " danger" : "") + '" data-moves-open="1" title="' + esc(trStr(tip)) + '" aria-label="' + esc(trStr(tip)) + '">';
-    h += '<span class="tp-ico">' + giSvg(T[3]) + '</span><b class="tp-n">' + (on ? t.n.toLocaleString() : "0") + '</b>';
+    h += '<span class="tp-ico">' + giSvg(T[3]) + '</span><b class="tp-n">' + (on ? numText(t.n) : "0") + '</b>';
     h += '<small class="tp-nx">' + (on && t.next ? mvClock(Math.max(0, t.next - now)) : "–") + "</small></button>";
   });
   h += "</div>";
@@ -10003,6 +10034,7 @@ var CAST = {
   owl: { name: "Nightowl", icon: "🦉", pitch: 280, wave: "triangle", art: "hero-nightowl" },
   marshal: { name: "Star Marshal", icon: "🎖️", pitch: 340, wave: "pulse25", art: "hero-starmarshal" },
   villain: { name: "Mysterious Villain", icon: "🎭", pitch: 300, wave: "pulse12" },
+  croupier: { name: "Croupier", icon: "🎩", pitch: 420, wave: "triangle" },
   void: { name: "Void Sovereign", icon: "🌌", pitch: 120, wave: "pulse12", art: "hero-voidsovereign" }
 };
 var BEPPO_LINES = {
@@ -13143,6 +13175,7 @@ var SFX = {
   "v-owl": [[220.0, 0.0, 0.306, "triangle", 0.06, 0, 4], [261.6, 0.34, 0.153, "triangle", 0.06, 0, 4], [329.6, 0.51, 0.306, "triangle", 0.06, 0, 4], [293.7, 0.85, 0.153, "triangle", 0.06, 0, 4], [220.0, 1.02, 0.459, "triangle", 0.06, 0, 4]],
   "v-marshal": [[261.6, 0.0, 0.099, "pulse25", 0.026, 0, 0], [261.6, 0.11, 0.099, "pulse25", 0.026, 0, 0], [392.0, 0.22, 0.099, "pulse25", 0.026, 0, 0], [523.3, 0.33, 0.198, "pulse25", 0.026, 0, 0], [329.6, 0.0, 0.099, "triangle", 0.05, 0, 0], [329.6, 0.11, 0.099, "triangle", 0.05, 0, 0], [493.9, 0.22, 0.099, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.198, "triangle", 0.05, 0, 0]],
   "v-void": [[55.0, 0, 1.8, "pulse12", 0.05, 0, 0], [82.4, 0.4, 1.4, "triangle", 0.05, 0, 0], [1318.5, 0.9, 0.5, "triangle", 0.015, 0, 0]],
+  "v-croupier": [[392.0, 0.0, 0.09, "triangle", 0.05, 0, 0], [493.9, 0.11, 0.09, "triangle", 0.05, 0, 0], [587.3, 0.22, 0.09, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.09, "triangle", 0.05, 0, 0], [587.3, 0.46, 0.14, "triangle", 0.05, 0, 3], [784.0, 0.64, 0.3, "triangle", 0.05, 0, 4]],
   "v-villain": [[147, 0, 0.12, "pulse12", 0.045, 0, 0], [147, 0.14, 0.12, "pulse12", 0.045, 0, 0], [156, 0.28, 0.2, "pulse12", 0.045, 0, 0], [147, 0.52, 0.4, "pulse12", 0.045, 0, 5]],
   "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
   "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
@@ -13579,7 +13612,7 @@ var tut = { step: -1 };
 // steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
 // 💬 Beppo pops up once for the big firsts (a small bubble; tap to close; Settings turns it off)
 var BEPPO_SAY = {
-  built: ["happy", "Your first build is done! The colony is officially a place now. I am telling the sand."],
+  built: ["happy", "Your first build is done! The colony is officially a place now. Please do not touch the walls yet. They are still wet."],
   trained: ["happy", "Fresh troops! They are brave, loyal and always hungry. Mostly hungry. Watch the food."],
   report: ["surprised", "A report?! I did not read it. I definitely did not read it. Open your Inbox!"],
   threat: ["worried", "Incoming! Hide the snacks! Hide the other snacks! Then check the Army tab."],
@@ -13629,7 +13662,7 @@ function beppoSay(id, top) {
   try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
   voiceShow(m[2] || "beppo", m[0], m[1], top);
 }
-function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy; }
+function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy && !(sheet && sheet.kind === "casino"); }
 // 🗣️ a remark that can come again, but not before its cooldown is over (remembered in this browser)
 function voiceSay(id, who, mood, text, cdMs, top) {
   if (!voiceFree()) return false;
@@ -14224,7 +14257,7 @@ function heroSheet(d) {
     var C = H.commander;
     h += '<div class="hcred" title="Your active commander earns Star Credits all the time: they arrive on their own while you play, and while you are away they pile up here, up to ' + shortTime(C.capMs) + ' of production"><div class="hc-info"><span>🎫</span><div class="hc-num"><b>' + C.pending + " / " + C.cap + "</b><small>+" + Math.round(C.rate * 24 * 10) / 10 + "/day" + (C.full ? " · full" : "") + '</small></div></div><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + '>Collect</button><div class="hc-btns"><button class="btn small ghost" type="button" data-cmd-open="1" title="Your commanders and the shop">🎖️ ' + esc(C.name) + '</button><button class="btn small ghost" type="button" data-hunt-open="1" title="Fight for creatures">🐾 Hunt</button></div></div>';
   }
-  var used = H.bag.length;
+  var used = H.bag.filter(function (x) { return x.kind !== "crate"; }).length;
   h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.adventure && !H.adventure.on && H.adventure.board.length ? '<i class="dot cnt" title="Adventures on the board">' + H.adventure.board.length + "</i>" : "") + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
   if (heroTab === "adv") {
     h += advPanel(H);
@@ -14736,7 +14769,8 @@ function hospitalPanel(d) {
 // ---------- marketplace ----------
 function shortNum(n) {
   if (n < 0) return "-" + shortNum(-n);
-  if (n >= 1000000) return Math.floor(n / 100000) / 10 + "M";
+  var big = [[1e15, "Qa"], [1e12, "T"], [1e9, "B"], [1e6, "M"]];
+  for (var i = 0; i < big.length; i++) if (n >= big[i][0]) return Math.floor(n / (big[i][0] / 10)) / 10 + big[i][1];
   return n >= 100000 ? Math.floor(n / 1000) + "k" : n >= 10000 ? (Math.floor(n / 100) / 10) + "k" : String(n);
 }
 var mk = { x: "", y: "", wood: "", stone: "", metal: "", food: "", give: "wood", get: "stone", amount: "" };
@@ -15469,6 +15503,9 @@ function renderSheet() {
   } else if (sheet.kind === "codex") {
     if (!codex.data) { closeSheet(); return; }
     h += codexSheet();
+  } else if (sheet.kind === "casino") {
+    if (!casino.data) { closeSheet(); return; }
+    h += casinoSheet();
   } else if (sheet.kind === "auction") {
     if (!auc.data) { closeSheet(); return; }
     h += auctionSheet();
@@ -17245,6 +17282,11 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
+    cards.push(wkCard("casino", "🎰", "Casino", wkP("Open it from your 💲 wallet. It uses Space-Cash only, bets run from 10 to 10,000,000, and the house keeps a small edge: it is a way to spend Space-Cash, not to earn it.") + wkList([
+      "🎰 <b>Slots:</b> three of a kind pays 5× (🍒) up to 200× (7️⃣); exactly two 🍒 pay 2×.",
+      "🃏 <b>Blackjack:</b> get closer to 21 than the dealer without going over. Blackjack pays 3 to 2, the dealer stands on every 17, you can double on your first two cards. A hand in progress waits for you.",
+      "🎡 <b>Roulette:</b> numbers 0 to 36. Red, black, odd, even and the halves pay 2×, a dozen 3×, one number 36×. The zero loses every bet."
+    ])));
     if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear, commander shards, creatures from your hunt inventory and your commander’s supplies (dressings, medkits, journals, recovery kits, Insight tokens) to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
@@ -18109,8 +18151,8 @@ function walletSheet() {
   var h = '<div class="sheet-head"><span class="hi">💲</span><div><h3>Your wallet</h3><b>Space-Cash and Star Credits</b></div></div>';
   h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
   var cr = wallet.crRate, cfr = walletCr() % 1;
-  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + Math.floor(walletCr()).toLocaleString("en-US") + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
-  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button></div>';
+  h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + numText(Math.floor(walletCr())) + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
+  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button><button class="btn small ghost" data-casino="1">🎰 Casino</button></div>';
   return h;
 }
 function openHunt() {
@@ -18211,6 +18253,180 @@ function huntSheet() {
 
 // ---------- the gear auction ----------
 var auc = { data: null, tab: "browse" };
+// 🎰 casino: the server rolls and pays, this only shows it. The croupier talks, his face fits the result.
+var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "", bj: null, say: null, fresh: false };
+function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
+function croupierSay(mood, text) { casino.say = { mood: mood, text: text }; casino.fresh = true; }
+function croupierHtml() {
+  var q = casino.say || { mood: "neutral", text: "" }, k = "croupier-" + q.mood;
+  return '<div class="cz-chief">' + (FX_ART.t[k] ? '<img id="cz-face" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : '<span id="cz-face" class="cz-emo">🎩</span>') + '<div class="cz-bub"><b>Croupier</b><div id="cz-say">' + esc(q.text) + "</div></div></div>";
+}
+function croupierShow() {
+  var el = document.getElementById("cz-say");
+  if (!el || !casino.fresh) return;
+  casino.fresh = false;
+  croupierTop();
+  typeHtml(el, 420, "triangle");
+}
+function croupierFace(mood) {
+  var f = document.getElementById("cz-face"), k = "croupier-" + mood;
+  if (f && f.tagName === "IMG" && FX_ART.t[k]) f.src = "/art/" + k + ".webp?v=" + FX_ART.v;
+}
+function croupierTop() { var sh = document.querySelector("#sheet .sheet"); if (sh) sh.scrollTop = 0; } // the croupier talks at the top: show him
+function croupierLine(mood, text) {
+  casino.say = { mood: mood, text: text };
+  croupierTop();
+  var el = document.getElementById("cz-say");
+  croupierFace(mood);
+  if (el) { el.textContent = text; casino.fresh = false; typeHtml(el, 420, "triangle"); }
+}
+function openCasino() {
+  fetch("/api/casino").then(function (r) { return r.json(); }).then(function (j) {
+    casino.data = j; casino.msg = ""; casino.bj = j.bj || null;
+    if (casino.bet && j.bets.indexOf(casino.bet) < 0) casino.bet = j.bets[1];
+    if (casino.bj) { casino.game = "blackjack"; croupierSay("neutral", "Welcome back. Your hand is still on the table."); }
+    else croupierSay("neutral", pickOne(["Welcome! Keep your hands, feet and savings inside the casino.", "Place your bets. I promise nothing but fun.", "Good evening, Commander. The house is in a generous mood. Statistically not."]));
+    sfx("v-croupier");
+    if (sheet && sheet.kind === "casino") renderSheet(); else openSheet("casino", null);
+  }).catch(function () { toast("⚠️ The server does not answer"); });
+}
+var CASINO_KINDS = [["red", "🟥 Red", 0, "2×"], ["black", "⬛ Black", 0, "2×"], ["odd", "Odd", 0, "2×"], ["even", "Even", 0, "2×"], ["low", "1–18", 0, "2×"], ["high", "19–36", 0, "2×"], ["dozen", "1–12", 0, "3×"], ["dozen", "13–24", 1, "3×"], ["dozen", "25–36", 2, "3×"]];
+var CASINO_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+function casinoNum(n) { return '<b class="cz-num ' + (n === 0 ? "g" : CASINO_RED.indexOf(n) >= 0 ? "r" : "b") + '">' + n + "</b>"; }
+function bjCard(c) {
+  if (c === "?") return '<span class="cz-card back"></span>';
+  var red = c.slice(-1) === "♥" || c.slice(-1) === "♦";
+  return '<span class="cz-card' + (red ? " red" : "") + '">' + esc(c) + "</span>";
+}
+function bjTable() {
+  var B = casino.bj;
+  if (!B) return '<div class="cz-bjhint">Beat the dealer without going over 21. Blackjack pays 3 to 2, the dealer stands on 17, you can double on two cards.</div>';
+  var h = '<div class="cz-hand"><small>Dealer · ' + (B.result ? B.dt : "?") + "</small><div>" + B.dealer.map(bjCard).join("") + "</div></div>";
+  h += '<div class="cz-hand"><small>You · ' + B.pt + " · bet 💲 " + shortNum(B.bet) + "</small><div>" + B.player.map(bjCard).join("") + "</div></div>";
+  return h;
+}
+function casinoSheet() {
+  var C = casino.data, h = '<div class="sheet-head"><span class="hi">🎰</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + cashText(Math.floor(walletNow())) + "</span> Space-Cash</b></div></div>";
+  h += croupierHtml();
+  h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>🎰</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>🎡</span>Roulette</button><button class="' + (casino.game === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>🃏</span>Blackjack</button></div>';
+  var playing = casino.game === "blackjack" && casino.bj && !casino.bj.result;
+  if (casino.game === "slots") {
+    h += '<div class="cz-reels" id="cz-reels"><span>🍒</span><span>🍋</span><span>🔔</span></div>';
+    h += '<small class="cz-pay">' + C.slots.map(function (x) { return x.s + "×3 " + x.pays + "×"; }).join(" · ") + " · 🍒🍒 " + C.twoCherries + "×</small>";
+  } else if (casino.game === "roulette") {
+    h += '<div class="cz-ball" id="cz-ball">' + casinoNum(0) + "</div>";
+    h += '<div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + '</div>';
+    h += '<div class="cz-one"><label>Single number <small>36×</small> <input type="number" min="0" max="36" id="cz-n" value="' + (casino.kind === "number" ? casino.pick : 7) + '"></label><button class="btn small ghost" data-casino-kind="number" data-casino-pick="n">Bet it</button></div>';
+  } else h += '<div id="cz-bj">' + bjTable() + "</div>";
+  if (!playing) h += '<div class="cz-bets">' + C.bets.map(function (b) { return '<button class="btn small ghost" data-casino-bet="' + b + '">💲 ' + shortNum(b) + "</button>"; }).join("") + "</div>";
+  if (playing) h += '<div class="cz-acts"><button class="btn" data-bj="hit">Hit</button><button class="btn" data-bj="stand">Stand</button>' + (casino.bj.canDouble ? '<button class="btn ghost" data-bj="double">Double</button>' : "") + "</div>";
+  else h += '<button class="btn cz-go" data-casino-spin="1">' + (casino.game === "slots" ? "Spin" : casino.game === "roulette" ? "Spin the wheel" : "Deal") + "</button>";
+  h += '<div class="cz-msg" id="cz-msg">' + esc(casino.msg || "") + "</div>";
+  setTimeout(function () { casinoMark(); croupierShow(); }, 0);
+  return h;
+}
+function casinoMark() {
+  var box = document.getElementById("sheet"); if (!box) return;
+  Array.prototype.forEach.call(box.querySelectorAll("[data-casino-bet]"), function (b) { b.classList.toggle("on", Number(b.getAttribute("data-casino-bet")) === casino.bet); });
+  Array.prototype.forEach.call(box.querySelectorAll("[data-casino-kind]"), function (b) {
+    var k = b.getAttribute("data-casino-kind"), pk = b.getAttribute("data-casino-pick");
+    b.classList.toggle("on", k === casino.kind && (k === "number" || k === "dozen" ? (k === "number" ? casino.kind === "number" : Number(pk) === casino.pick) : true));
+  });
+}
+function casinoMoney(j) {
+  var c = document.getElementById("cz-cash");
+  wallet.cash = j.cash; wallet.at = Date.now();
+  if (c) { c.textContent = cashText(j.cash); c.title = j.cash.toLocaleString("en-US"); }
+}
+function casinoSettled(j, extra) {
+  var net = j.win - j.bet, m = document.getElementById("cz-msg");
+  casino.msg = net > 0 ? "🎉 +" + numText(net) + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + numText(j.bet) + " Space-Cash";
+  if (m) m.textContent = casino.msg;
+  casinoMoney(j);
+  sfx(net > 0 ? "done" : "click");
+  casino.busy = false;
+  loadColony(false);
+}
+function casinoSpin() {
+  if (casino.busy || !casino.data) return;
+  if (casino.game === "blackjack") { bjDeal(); return; }
+  var body = { bet: casino.bet }, url = "/api/casino/slots", n = document.getElementById("cz-n");
+  if (casino.game === "roulette") {
+    url = "/api/casino/roulette"; body.kind = casino.kind;
+    if (casino.kind === "number") { casino.pick = Math.max(0, Math.min(36, Math.floor(Number(n && n.value) || 0))); body.pick = casino.pick; } else body.pick = casino.pick;
+  }
+  casino.busy = true;
+  var msg = document.getElementById("cz-msg"); if (msg) msg.textContent = "";
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+    if (!x.ok) { casino.busy = false; toast(x.j.error || "The casino said no."); sfx("error"); return; }
+    var j = x.j, sy = casino.data.slots.map(function (q) { return q.s; });
+    var done = function () {
+      var net = j.win - j.bet;
+      if (casino.game === "slots") {
+        var r3 = j.reels.join(" ");
+        if (j.win >= j.bet * 30) croupierLine("surprised", r3 + ". " + pickOne(["Jackpot! I did not see that. Nobody saw that.", "That is a lot of zeros. On your side. I need to sit down."]));
+        else if (net > 0) croupierLine("happy", r3 + ". " + pickOne(["You win! The reels like you today.", "Winner! Do not tell the other machines.", "A win! I will pretend I am not jealous."]));
+        else croupierLine("worried", r3 + ". " + pickOne(["You lose. The reels were being shy.", "No luck. The machine says sorry. It lies.", "You lose. It was almost a win. Almost is free."]));
+      } else {
+        var col = j.n === 0 ? "green" : j.red ? "red" : "black";
+        if (j.n === 0) croupierLine("surprised", "0, green. The house wins every bet. I am sorry. A little.");
+        else if (casino.kind === "number" && net > 0) croupierLine("surprised", j.n + ", " + col + ". Your exact number! I have never seen it. Not even once.");
+        else if (net > 0) croupierLine("happy", j.n + ", " + col + ". You win!");
+        else croupierLine("worried", j.n + ", " + col + ". You lose.");
+      }
+      casinoSettled(j);
+    };
+    if (casino.game === "slots") {
+      var reels = document.querySelectorAll("#cz-reels span");
+      if (calmMotion || !reels.length) { Array.prototype.forEach.call(reels, function (r, i) { r.textContent = j.reels[i]; }); done(); return; }
+      var t0 = Date.now(), iv = setInterval(function () {
+        var el = Date.now() - t0;
+        Array.prototype.forEach.call(reels, function (r, i) { r.textContent = el > 600 + i * 350 ? j.reels[i] : sy[Math.floor(Math.random() * sy.length)]; r.classList.toggle("spin", el <= 600 + i * 350); });
+        if (el % 3 < 1) sfx("click");
+        if (el > 600 + 2 * 350 + 60) { clearInterval(iv); done(); }
+      }, 70);
+    } else {
+      var ball = document.getElementById("cz-ball");
+      if (calmMotion || !ball) { if (ball) ball.innerHTML = casinoNum(j.n); done(); return; }
+      var t1 = Date.now(), iv2 = setInterval(function () {
+        var e2 = Date.now() - t1;
+        if (e2 > 1500) { clearInterval(iv2); ball.innerHTML = casinoNum(j.n); done(); } else ball.innerHTML = casinoNum(Math.floor(Math.random() * 37));
+      }, 70);
+    }
+  }).catch(function () { casino.busy = false; toast("⚠️ The server does not answer"); });
+}
+// 🃏 blackjack
+function bjAsk(body) {
+  if (casino.busy) return;
+  casino.busy = true;
+  fetch("/api/casino/blackjack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+    casino.busy = false;
+    if (!x.ok) { toast(x.j.error || "The casino said no."); sfx("error"); return; }
+    var B = x.j.hand;
+    casino.bj = B; casino.msg = "";
+    if (x.j.resumed) croupierSay("neutral", "You still have a hand on the table. Let us finish it.");
+    else if (!B.result) croupierSay("neutral", body.do === "deal" ? pickOne(["Cards are out. You have " + B.pt + ". Your move.", "Dealt. You hold " + B.pt + ". Brave or sensible?"]) : "You hold " + B.pt + ". " + pickOne(["Another?", "Bold.", "The cards are listening."]));
+    else {
+      var R = B.result, d = B.dt, me = B.pt;
+      if (R === "blackjack") croupierSay("surprised", "Blackjack! Pays 3 to 2. I need a moment.");
+      else if (R === "bust") croupierSay("worried", "Bust at " + me + ". Ouch. The cards were rude.");
+      else if (R === "dealerbust") croupierSay("happy", "I bust with " + d + ". You win! This never happened.");
+      else if (R === "win") croupierSay("happy", "You have " + me + " against my " + d + ". You win!");
+      else if (R === "push") croupierSay("surprised", (me === 21 && B.player.length === 2 ? "We both have blackjack. " : "We both have " + me + ". ") + "A push. Your bet is back.");
+      else croupierSay("worried", d + " against your " + me + ". You lose." + (d === 21 && B.dealer.length === 2 ? " Blackjack. Sorry." : ""));
+    }
+    casinoMoney(B);
+    renderSheet();
+    if (B.result) {
+      var net = B.win - B.bet;
+      casino.msg = net > 0 ? "🎉 +" + numText(net) + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + numText(B.bet) + " Space-Cash";
+      var m = document.getElementById("cz-msg"); if (m) m.textContent = casino.msg;
+      sfx(net > 0 ? "done" : "click");
+      loadColony(false);
+    }
+  }).catch(function () { casino.busy = false; toast("⚠️ The server does not answer"); });
+}
+function bjDeal() { bjAsk({ do: "deal", bet: casino.bet }); }
 function openAuction(tab) {
   fetch("/api/auction").then(function (r) { return r.json(); }).then(function (j) {
     auc.data = j;
@@ -19195,7 +19411,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-casino],[data-bj],[data-casino-tab],[data-casino-bet],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -19351,6 +19567,18 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-arch")) {
     var ak = attr("data-hero-arch");
     if (confirm("Choose this archetype? Changing it later means resetting all skill points.")) post("/api/hero", { action: "arch", key: ak }, function (r) { confetti(); toast("🎭 " + (r && r.archPicked || "Archetype") + " it is!", true); });
+  } else if (has("data-casino")) {
+    openCasino();
+  } else if (has("data-casino-tab")) {
+    if (casino.busy) return; casino.game = attr("data-casino-tab"); casino.msg = ""; renderSheet();
+  } else if (has("data-casino-bet")) {
+    casino.bet = Number(attr("data-casino-bet")); sfx("click"); casinoMark();
+  } else if (has("data-casino-kind")) {
+    casino.kind = attr("data-casino-kind"); casino.pick = Number(attr("data-casino-pick")) || 0; sfx("click"); casinoMark();
+  } else if (has("data-casino-spin")) {
+    casinoSpin();
+  } else if (has("data-bj")) {
+    bjAsk({ do: attr("data-bj") });
   } else if (has("data-wallet-open")) {
     openSheet("wallet", null);
   } else if (has("data-codex-open")) {
@@ -19417,7 +19645,7 @@ document.addEventListener("click", function (e) {
   } else if (has("data-cmd-switch")) {
     cmdPost({ action: "switch", id: attr("data-cmd-switch") }, "🎖️ Commander switched");
   } else if (has("data-hero-collect")) {
-    post("/api/hero", { action: "collect" }, function (r) { toast("🎫 +" + ((r && r.collected) || 0).toLocaleString("en-US") + " Star Credits collected"); });
+    post("/api/hero", { action: "collect" }, function (r) { toast("🎫 +" + numText((r && r.collected) || 0) + " Star Credits collected"); });
   } else if (has("data-hero-stance")) {
     post("/api/hero", { action: "stance", key: attr("data-hero-stance") }, function () { toast("🛡️ Stance set"); });
   } else if (has("data-hero-quirk")) {
