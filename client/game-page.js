@@ -3791,6 +3791,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .cx-stage.zoomed .cx-scene { touch-action: none; cursor: grab; border-radius: 22px; }
   .fx-stage { position: relative; max-width: 560px; margin: 0 auto 10px; display: grid; justify-items: center; }
   .fx-scene { display: block; width: 100%; height: auto; overflow: visible; }
+  .fx-fields { clip-path: inset(-60px 0); }
   .fx-f, .fx-dome, .fx-coin { cursor: pointer; }
   .fx-f { transition: transform 0.12s ease; }
   .fx-f:hover, .fx-f:focus-visible { transform: translateY(-3px); outline: none; }
@@ -9218,7 +9219,7 @@ function fieldScene(d, order) {
     if (cls === "up") g += '<path class="ar" d="M' + (x + 3.2) + " " + (y + 6.6) + "l2.6-3.6 2.6 3.6z" + '"/>';
     g += '<text x="' + (x + wd / 2 + (cls === "up" ? 3.4 : 0)) + '" y="' + (y + 7.6) + '">' + t + "</text></g>";
   });
-  return '<svg class="fx-scene" viewBox="-12 8 404 248" role="group" aria-label="Your resource fields">' + g + "</svg>";
+  return '<svg class="fx-scene fx-fields" viewBox="6 8 368 248" role="group" aria-label="Your resource fields">' + g + "</svg>"; // 10% closer: only the rim of the slab is cut at the sides
 }
 function fieldList(d, order) {
   var h = '<section class="panel fx-list"><div class="fx-key"><span class="up">can upgrade</span><span class="max">max level</span><span class="bld">building</span></div>';
