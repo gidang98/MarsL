@@ -1567,6 +1567,21 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-dots i.done { background: #f2a93b; }
   .tut-dots i.on { background: #e2574c; }
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
+  #beppo-say { position: fixed; left: 70px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(330px, calc(100% - 84px)); animation: tagpop 0.22s ease-out; }
+  #beppo-say.top { left: 8px; max-width: calc(100% - 16px); bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
+  #beppo-say.bye { opacity: 0; transition: opacity 0.2s; }
+  #beppo-say img { width: 88px; height: 88px; flex: none; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(90,40,30,.3)); }
+  .bs-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 8px; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.4; }
+  .bs-bub::before { content: ""; position: absolute; left: -7px; bottom: 16px; width: 12px; height: 12px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+  .bs-bub b { display: block; font-size: 12px; opacity: 0.7; }
+  .dark-mode .bs-bub, .dark-mode .bs-bub::before { background: #3a3220; color: #f3e9d2; border-color: #5a4b2c; }
+  .tut-p.fin::after, .bs-t.fin::after { content: " ▼"; font-size: 10px; color: #e2574c; animation: tutblink 0.9s steps(2) infinite; }
+  @keyframes tutblink { 50% { opacity: 0; } }
+  .tut-btns .btn:hover::before { content: "♥ "; color: #e2574c; }
+  @keyframes quake { 0%, 100% { left: 0; } 20% { left: -7px; } 40% { left: 6px; } 60% { left: -4px; } 80% { left: 3px; } }
+  #app.quake { position: relative; animation: quake 0.35s linear; }
+  #tut.tut-ok .tut-btns .btn:not(.ghost) { animation: tutpop 0.35s ease-out; }
+  @keyframes tutpop { 50% { transform: scale(1.12); } }
   .tut-btns { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
   .uok { font-weight: 700; font-size: 12px; }
   .uok.ok { color: #1f7a3a; display: inline-block; animation: uokpop 0.5s ease-out; }
@@ -4427,7 +4442,9 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 /* 1.0.356 visual fixes */
 /* the welcome card: below open windows, clear of the phone tab bar, readable in dark mode */
 #tut, #tut.onb.top { z-index: 9; }
-@media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); max-height: 40vh; overflow-y: auto; border-radius: var(--radius-md); } }
+@media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-md); } .tut-beppo { width: 92px; } .tut-beppo img { width: 92px; height: 92px; } .tut-bub { padding: 10px 14px; } .tut-p { font-size: clamp(12px, 3.5vw, 14px); line-height: 1.4; } }
+@media (max-width: 559px) and (max-height: 700px) { .tut-beppo { width: 56px; } .tut-beppo img { width: 56px; height: 56px; } .tut-bub { padding: 8px 12px; } .tut-p { font-size: 12px; line-height: 1.3; margin-bottom: 6px; } .tut-card h3 { font-size: 15px; } }
+@media (max-width: 559px) and (max-height: 600px) { #tut:not(.top) { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }
 .dark-mode .tut-card { background: #3a3220; color: var(--ink); border-color: #5a4b2c; }
 /* the tour is told by Beppo in a speech bubble */
 .tut-card.tut-say { display: flex; gap: 10px; align-items: flex-end; padding: 0; background: none; border: 0; box-shadow: none; }
@@ -4675,6 +4692,36 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
     .sheet-drag { position: relative; width: 80px; height: 24px; margin: 0 auto; background: none; touch-action: none; }
     .sheet-drag::after { content: ""; position: absolute; inset: 10px 22px; border-radius: 3px; background: var(--line); }
   }
+  /* popups: on a phone they slide up from the bottom edge and slide back down when closed or swiped away */
+  @keyframes sheet-up { from { transform: translateY(100%); } }
+  @keyframes sheet-down { to { transform: translateY(100%); } }
+  @keyframes sheet-out { to { transform: translateY(24px) scale(0.94); opacity: 0; } }
+  @keyframes overlay-out { to { opacity: 0; } }
+  @media (max-width: 599px) { .sheet.anim { animation: sheet-up 0.32s cubic-bezier(.2,.9,.25,1); } .overlay.closing .sheet { animation: sheet-down 0.22s cubic-bezier(.4,0,1,1) forwards; } }
+  @media (min-width: 600px) { .overlay.closing .sheet { animation: sheet-out 0.18s ease-in forwards; } }
+  .overlay.closing { animation: overlay-out 0.2s ease forwards; pointer-events: none; }
+  .overlay.dragged { pointer-events: none; }
+  .overlay.dragged .sheet { animation: none; }
+  .sheet-drag-live { will-change: transform; }
+  body.qopen #quests .qpanel { animation: qin 0.25s ease-out; }
+  /* tabs: the new page slides in from the side of its tab */
+  @keyframes vin-r { from { opacity: 0; left: 28px; } to { opacity: 1; left: 0; } }
+  @keyframes vin-l { from { opacity: 0; left: -28px; } to { opacity: 1; left: 0; } }
+  @keyframes vfade { from { opacity: 0; } }
+  .nav-glide { position: fixed; z-index: 60; pointer-events: none; margin: 0; }
+  .nav-glide span { display: block; font-size: 20px; margin-bottom: 1px; }
+  body.navglide .nav button.on { background: transparent !important; box-shadow: none !important; border-color: transparent !important; color: transparent !important; text-shadow: none !important; }
+  body.navglide .nav button.on span { opacity: 0; }
+  #app.vmove { overflow-x: clip; }
+  #app > .vin-r, #app > .vin-l { position: relative; }
+  #app > .vin-r { animation: vin-r 0.18s ease-out; }
+  #app > .vin-l { animation: vin-l 0.18s ease-out; }
+  #app > .vfade { animation: vfade 0.15s ease-out; }
+  @keyframes qin { from { opacity: 0; transform: translateY(14px); } }
+  @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel, #app > .vin-r, #app > .vin-l, #app > .vfade { animation: none !important; }
+    .nav-glide { display: none; }
+    #app.quake, #beppo-say { animation: none !important; }
+    .tut-p.fin::after, .bs-t.fin::after { animation: none; } }
 </style>
 </head>
 <body>
@@ -9923,7 +9970,15 @@ function heroPic(cls) {
   return FX_ART.t[k] ? '<img class="' + (cls || "upic") + '" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" width="128" height="128">' : "🎖️";
 }
 // ---------- 🗣️ voices: a typed-out speech box and a small cast ----------
-var CAST = { beppo: { name: "Beppo", icon: "🐶", pitch: 380 } };
+var CAST = {
+  beppo: { name: "Beppo", icon: "🐶", pitch: 380, wave: "pulse25" },
+  steward: { name: "Steward", icon: "🧑‍💼", pitch: 330, wave: "square", art: "hero-steward" },
+  drill: { name: "Drillmaster", icon: "🪖", pitch: 250, wave: "pulse12", art: "hero-drillmaster" },
+  banker: { name: "Banker", icon: "💼", pitch: 440, wave: "triangle", art: "hero-banker" },
+  forager: { name: "Forager", icon: "🌾", pitch: 400, wave: "triangle", art: "hero-forager" },
+  warden: { name: "Warden", icon: "🛡️", pitch: 280, wave: "pulse12", art: "hero-warden" },
+  prof: { name: "Professor", icon: "🔬", pitch: 520, wave: "pulse25", art: "hero-professor" }
+};
 var BEPPO_LINES = {
   neutral: ["Everything is under control. Mostly.", "I sniffed around. Nothing suspicious. Except the cat.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
   happy: ["Ten camps cleared! Good colony! Best colony!", "Did someone say walkies? No? Still a great day."],
@@ -9943,15 +9998,15 @@ function bubble(mood) {
   return '<div class="bubble"><span class="bi">' + face + "</span><div><b>" + esc(c.name) + "</b><p>" + esc(L.text) + "</p></div></div>";
 }
 // a short beep for every letter, a little different for every speaker
-function blip(pitch, soft) {
+function blip(pitch, soft, wave) {
   if (!sound.on) return;
   var ctx = audio();
   if (!ctx) return;
   var t = ctx.currentTime + 0.005, o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = soft ? "sine" : "square";
+  setWave(o, ctx, wave || "square"); // every voice has its own 8-bit wave
   o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
-  g.gain.setValueAtTime(soft ? 0.05 : 0.04, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + (soft ? 0.07 : 0.05));
+  g.gain.setValueAtTime(soft ? 0.03 : 0.04, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
   o.connect(g); g.connect(ctx.destination);
   o.start(t); o.stop(t + 0.06);
 }
@@ -12267,6 +12322,10 @@ function renderReports() {
 //  Popups (fields, lots, sending troops)
 // =====================================================================
 function openSheet(kind, slot) {
+  if (kind === "building" && data && typeof slot === "number") {
+    var ob = data.buildings.filter(function (x) { return x.slot === slot; })[0];
+    if (ob && BEPPO_SAY["b-" + ob.type]) setTimeout(function () { beppoSay("b-" + ob.type, true); }, 700);
+  }
   sheet = { kind: kind, slot: slot };
   sheetAnim = true;
   renderSheet();
@@ -12302,13 +12361,23 @@ document.addEventListener("focusin", function (e) {
 });
 document.addEventListener("focusout", function () { document.body.classList.remove("typing"); });
 
-function closeSheet() {
-  sheet = null;
+// closing plays a short slide-out first; a new popup that opens meanwhile wipes the old one at once
+var sheetClosing = 0;
+function sheetWipe() {
+  if (sheetClosing) { clearTimeout(sheetClosing); sheetClosing = 0; }
   var box = document.getElementById("sheet");
   box._plain = null;
   box._html = null;
   box.innerHTML = "";
+}
+function closeSheet() {
+  sheet = null;
   document.body.classList.remove("noscroll");
+  var box = document.getElementById("sheet"), ov = box.querySelector(".overlay");
+  if (sheetClosing) return;
+  if (!ov || calmMotion) { sheetWipe(); return; }
+  if (!ov.classList.contains("dragged")) ov.classList.add("closing");
+  sheetClosing = setTimeout(function () { sheetClosing = 0; if (!sheet) sheetWipe(); }, 240);
 }
 
 // "Not enough resources" -> when will there be enough?
@@ -13039,6 +13108,13 @@ function audio() {
 
 // [frequency, start, duration, wave, volume, slide to frequency]
 var SFX = {
+  "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
+  "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
+  "v-drill": [[65.4, 0.0, 0.126, "pulse12", 0.045, 0, 0], [65.4, 0.14, 0.126, "pulse12", 0.045, 0, 0], [77.8, 0.28, 0.126, "pulse12", 0.045, 0, 0], [98.0, 0.42, 0.126, "pulse12", 0.045, 0, 0], [130.8, 0.56, 0.252, "pulse12", 0.045, 0, 0], [0, 0.14, 0.06, "noise", 0.05, 0, 0], [0, 0.42000000000000004, 0.06, "noise", 0.05, 0, 0], [0, 0.7000000000000001, 0.06, "noise", 0.05, 0, 0], [0, 0.8400000000000001, 0.12, "noise", 0.05, 0, 0]],
+  "v-banker": [[1318.5, 0.0, 0.05, "triangle", 0.04, 0, 0], [1661.2, 0.055, 0.05, "triangle", 0.04, 0, 0], [1975.5, 0.11, 0.05, "triangle", 0.04, 0, 0], [2489.0, 0.165, 0.05, "triangle", 0.04, 0, 0], [1975.5, 0.22, 0.05, "triangle", 0.04, 0, 0], [1661.2, 0.275, 0.05, "triangle", 0.04, 0, 0], [2637.0, 0.33, 0.149, "triangle", 0.04, 0, 0], [3951.1, 0.385, 0.099, "square", 0.012, 0, 0]],
+  "v-forager": [[293.7, 0.0, 0.126, "triangle", 0.06, 0, 6], [370.0, 0.14, 0.126, "triangle", 0.06, 0, 6], [440.0, 0.28, 0.126, "triangle", 0.06, 0, 6], [493.9, 0.42, 0.252, "triangle", 0.06, 0, 6], [440.0, 0.7, 0.126, "triangle", 0.06, 0, 6], [370.0, 0.84, 0.126, "triangle", 0.06, 0, 6], [293.7, 0.98, 0.378, "triangle", 0.06, 0, 6]],
+  "v-warden": [[110.0, 0.0, 0.306, "pulse12", 0.04, 0, 0], [164.8, 0.34, 0.306, "pulse12", 0.04, 0, 0], [220.0, 0.68, 0.306, "pulse12", 0.04, 0, 0], [261.6, 1.02, 0.153, "pulse12", 0.04, 0, 0], [246.9, 1.19, 0.153, "pulse12", 0.04, 0, 0], [220.0, 1.36, 0.612, "pulse12", 0.04, 0, 0], [110.0, 0, 1.9, "triangle", 0.05, 0, 0]],
+  "v-prof": [[587.3, 0.0, 0.054, "pulse25", 0.028, 0, 0], [659.3, 0.06, 0.054, "pulse25", 0.028, 0, 0], [740.0, 0.12, 0.054, "pulse25", 0.028, 0, 0], [830.6, 0.18, 0.054, "pulse25", 0.028, 0, 0], [932.3, 0.24, 0.054, "pulse25", 0.028, 0, 0], [1046.5, 0.3, 0.054, "pulse25", 0.028, 0, 0], [1568.0, 0.5, 0.14, "pulse25", 0.03, 392.0, 0], [1175.0, 0.7, 0.06, "square", 0.018, 0, 0], [1568.0, 0.78, 0.1, "square", 0.018, 0, 0]],
   click: [[660, 0, 0.04, "triangle", 0.04]],
   pop: [[520, 0, 0.05, "triangle", 0.06, 780]],
   build: [[392, 0, 0.07, "square", 0.04], [523, 0.08, 0.1, "square", 0.04]],
@@ -13053,18 +13129,48 @@ var SFX = {
 
 // a little buzz on phones that can (Android) for the important moments
 var BUZZ = { alarm: [180, 90, 180], done: [35], report: [25], error: [60] };
+var pulseWaves = {};
+// 8-bit pulse waves: a narrow duty sounds nasal, a wide one hollow
+function pulseWave(ctx, duty) {
+  var key = duty + "";
+  if (pulseWaves[key] && pulseWaves[key].c === ctx) return pulseWaves[key].w;
+  var re = new Float32Array(48), im = new Float32Array(48);
+  for (var k = 1; k < 48; k++) re[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
+  var w = ctx.createPeriodicWave(re, im);
+  pulseWaves[key] = { c: ctx, w: w };
+  return w;
+}
+function setWave(o, ctx, type) {
+  if (type === "pulse12") o.setPeriodicWave(pulseWave(ctx, 0.125));
+  else if (type === "pulse25") o.setPeriodicWave(pulseWave(ctx, 0.25));
+  else o.type = type;
+}
 function sfx(name) {
   if (sound.on && BUZZ[name] && navigator.vibrate) { try { navigator.vibrate(BUZZ[name]); } catch (e) {} }
   if (!sound.on || !SFX[name]) return;
   var ctx = audio();
   if (!ctx) return;
   var t0 = ctx.currentTime + 0.01;
+  // a note is [freq, start, length, wave, volume, glide-to, vibrato]; wave "noise" is a drum hit
   SFX[name].forEach(function (n) {
-    var o = ctx.createOscillator();
-    var g = ctx.createGain();
-    o.type = n[3];
-    o.frequency.setValueAtTime(n[0], t0 + n[1]);
-    if (n[5]) o.frequency.exponentialRampToValueAtTime(n[5], t0 + n[1] + n[2]);
+    var g = ctx.createGain(), o;
+    if (n[3] === "noise") {
+      var len = Math.floor(ctx.sampleRate * (n[2] + 0.02)), buf = ctx.createBuffer(1, len, ctx.sampleRate), ch = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+      o = ctx.createBufferSource();
+      o.buffer = buf;
+    } else {
+      o = ctx.createOscillator();
+      setWave(o, ctx, n[3]);
+      o.frequency.setValueAtTime(n[0], t0 + n[1]);
+      if (n[5]) o.frequency.exponentialRampToValueAtTime(n[5], t0 + n[1] + n[2]);
+      if (n[6]) {
+        var lf = ctx.createOscillator(), lg = ctx.createGain();
+        lf.frequency.value = 6; lg.gain.value = n[6];
+        lf.connect(lg); lg.connect(o.frequency);
+        lf.start(t0 + n[1]); lf.stop(t0 + n[1] + n[2] + 0.02);
+      }
+    }
     g.gain.setValueAtTime(0.0001, t0 + n[1]);
     g.gain.exponentialRampToValueAtTime(n[4], t0 + n[1] + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
@@ -13419,46 +13525,206 @@ function onbButton(what) {
 var TUTORIAL = [
   { view: "resources", spot: ".topbar", title: "🚀 Touchdown on Mars!", text: "Commander, your colony just landed, and so did your rivals. <b>Build. Fight. Trade. Team up.</b><small>A one-minute briefing. Tap Next.</small>" },
   { view: "resources", spot: ".tfold:not(.spx)|.topbar", title: "🏆 How you win the server", text: function (d) { return tutWin(d) + "<small>The slim row under your resources shows the current act. Tap it for details.</small>"; } },
-  { view: "resources", spot: ".fx-stage|.fmap", title: "🌾 Step 1: fuel the economy", text: "Your 12 fields around the colony make <b>wood, stone, metal and food</b>, even while you sleep. <b>Tap a field, then ⬆️.</b><small>Level 10 fields unlock boosters and big armies.</small>" },
+  { view: "resources", spot: ".fx-stage|.fmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🌾 Step 1: fuel the economy", text: "Your 12 fields around the colony make <b>wood, stone, metal and food</b>, even while you sleep. <b>Tap a field, then ⬆️.</b><small>Level 10 fields unlock boosters and big armies.</small>" },
   { view: "resources", spot: ".resbar", title: "📦 Watch your storage", text: "Each tile shows your stock, the hourly gain and <b>when it is full</b>. Full storage wastes production: <b>spend it or build a warehouse and a food silo.</b><small>🔒 A bunker hides some of it from raiders.</small>" },
-  { view: "buildings", spot: ".cx-stage|.cmap", title: "🏗️ Step 2: build your base", text: function (d) { return "Tap a free lot to build, or a building to upgrade it. <b>The HQ unlocks everything</b> and speeds up building. Up to " + d.queueLimit + " jobs wait in line.<small>Good order: HQ → warehouse → food silo → barracks → wall.</small>"; } },
-  { view: "troops", spot: ".subtabs|.army", title: "⚔️ Step 3: raise an army", text: function (d) { var W = d.workshops; return "Every training building has <b>its own queue</b>: infantry and scouts in the " + W.barracks.icon + " <b>" + W.barracks.name + "</b>, siege machines in the " + W.workshop.name + ", fighters and bombers in the " + W.hangar.name + ".<small>Troops eat food every hour: keep food production up.</small>"; } },
+  { view: "buildings", spot: ".cx-stage|.cmap", base: function (d) { return d.queue.length; }, wait: function (d, b) { return d.queue.length > b; }, title: "🏗️ Step 2: build your base", text: function (d) { return "Tap a free lot to build, or a building to upgrade it. <b>The HQ unlocks everything</b> and speeds up building. Up to " + d.queueLimit + " jobs wait in line.<small>Good order: HQ → warehouse → food silo → barracks → wall.</small>"; } },
+  { view: "troops", spot: ".subtabs|.army", base: tutTrained, wait: function (d, b) { return tutTrained(d) > b; }, title: "⚔️ Step 3: raise an army", text: function (d) { var W = d.workshops; return "Every training building has <b>its own queue</b>: infantry and scouts in the " + W.barracks.icon + " <b>" + W.barracks.name + "</b>, siege machines in the " + W.workshop.name + ", fighters and bombers in the " + W.hangar.name + ".<small>Troops eat food every hour: keep food production up.</small>"; } },
   { view: "map", spot: ".mappanel|.map", title: "🗺️ Step 4: explore", text: "Drag to look around, tap a tile for details. <b>⛰️ Monster camps</b> hold treasure to raid. 📋 Farm lists send many raids with one tap, the 🧮 simulator tests a fight first.<small>📌 Pin your own markers on the map.</small>" },
   { view: "resources", spot: ".protect|.topbar", title: "🛡️ Stay safe", text: function (d) { var p = d.protection; return (p && p.active && !p.vacation ? "You are <b>protected</b> for " + shortTime(p.until - serverNow()) + " (or until " + p.pointsNeeded + " points). " : "") + "Later, others will raid you: a <b>bunker</b> hides loot, a <b>wall</b> and defenders hold the line, allies send help.<small>Turn on 🔔 attack alerts in ⚙️ Settings.</small>"; } },
   { view: "resources", spot: ".terrabox|.topbar", title: "🌱 Step 5: expand", text: function (d) { return "Colonies earn <b>terra</b> by themselves. With enough terra and " + d.colonies.settlersNeeded + " settlers you <b>found a new colony</b>. Your first colony is your ⭐ main colony: its fields go up to level " + d.mainMove.max + "."; } },
+  { view: "resources", spot: ".wallet|.topbar", title: "💲 Two kinds of money", text: "<b>💲 Space-Cash</b> ticks up every second from the creatures in your 🐾 hunt slots. <b>🎫 Star Credits</b> come from your active commander. Credits finish a job right now: the less time is left, the cheaper it gets.<small>Tap the wallet for the exact amounts.</small>" },
+  { view: "resources", spot: ".herobtn|.topbar", title: "🎖️ Your commander", text: "Your commander earns Star Credits all the time (they pile up while you are away, up to a limit), wears gear and adds a bonus to your colonies.<small>Tap your commander (bottom left) for commanders and the shard shop.</small>" },
+  { view: "resources", spot: "[data-auction]|.topbtns", title: "🐾 Hunt and 🏛️ Auction", text: "<b>Hunt</b> creatures and put them in slots to earn Space-Cash. At the <b>Auction</b> you sell what you do not need: gear, shards, creatures and supplies.<small>Both open from your wallet. The auction button sits in the top bar.</small>" },
   { view: "ranking", spot: ".ptabs", title: "🤝 Step 6: team up", pre: function () { playersTab = "alliance"; }, text: "<b>The server is won by alliances.</b> Join or found one under Players → 🤝. Allies can’t attack each other, share a bank, plan joint attacks and fund <b>permanent bonuses</b> together." },
   { view: "resources", spot: "#quests", title: "📋 The Mission Board", text: "Three missions at a time: <b>build, army and world</b>, plus chapter rewards and the daily supply. Tap <b>👉 Show me</b> to be taken there; every mission pays resources." },
   { view: "resources", spot: '.topbtns [data-wiki]|.topbtns', title: "📖 Your guide to everything", text: "Every number, table and rule is in the <b>📖 Guide</b>. Replay this briefing any time under ⚙️ Settings → Tour.<small>Ready, Commander? Mars is waiting. 🚀</small>" },
 ];
 var tut = { step: -1 };
+// steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
+// 💬 Beppo pops up once for the big firsts (a small bubble; tap to close; Settings turns it off)
+var BEPPO_SAY = {
+  built: ["happy", "Your first build is done! The colony is officially a place now."],
+  trained: ["happy", "Fresh troops! They eat a lot, so keep an eye on the food."],
+  report: ["surprised", "A report! Open your Inbox to see how it went."],
+  threat: ["worried", "Incoming! Hide the snacks and check the Army tab."],
+  robbed: ["worried", "Ouch, someone helped themselves. A bunker would hide some of it next time."],
+  codex: ["happy", "The Codex shows monster camps and commanders. Check it before you pick a fight."],
+  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first."],
+  hunt: ["happy", "Creatures in slots earn Space-Cash every second, also while you are away."],
+  cmd: ["neutral", "Fuse shards from the shop to get more commanders. Your active commander is never for sale."],
+  farm: ["surprised", "A farm list sends many raids with one tap. Test a fight in the simulator first."],
+  relics: ["surprised", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt."],
+  "b-hq": ["neutral", "The HQ unlocks everything else and makes every build faster. Upgrade it first, we will do the rest. Probably.", "steward"],
+  "b-barracks": ["neutral", "Infantry and scouts start here. Keep them fed, a hungry soldier is a loud soldier.", "drill"],
+  "b-workshop": ["neutral", "Siege machines come out of here. They are heavy, slow and very good at doors.", "drill"],
+  "b-hangar": ["neutral", "Fighters and bombers. Please do not park anything on the roof.", "drill"],
+  "b-market": ["neutral", "Merchants carry resources between colonies. I take no cut. Today.", "banker"],
+  "b-warehouse": ["neutral", "A full warehouse wastes production. Spend it, or build a bigger one.", "forager"],
+  "b-granary": ["neutral", "Troops eat every hour. If the food runs out, so does the army.", "forager"],
+  "b-bunker": ["neutral", "What is in the bunker, raiders cannot take. Think of it as a very expensive sock drawer.", "warden"],
+  "b-wall": ["neutral", "The wall and your defenders hold the line. Allies can send help here too.", "warden"],
+  "b-lab": ["surprised", "Research unlocks better troops. I have already broken the tea machine, for science.", "prof"]
+};
+// first time a place is opened (the bubble sits at the top so it never covers the sheet)
+var BEPPO_OPEN = { "[data-codex-open]": "codex", "[data-auction]": "auction", "[data-hunt-open]": "hunt", "[data-cmd-open],[data-hero-open]": "cmd", "[data-farm-open]": "farm", "[data-relics]": "relics" };
+document.addEventListener("click", function (e) {
+  if (!e.target.closest) return;
+  Object.keys(BEPPO_OPEN).forEach(function (sel) {
+    if (e.target.closest(sel)) setTimeout(function () { beppoSay(BEPPO_OPEN[sel], true); }, 700);
+  });
+});
+function beppoSeen() { try { return JSON.parse(localStorage.getItem("marsl-beppo-seen") || "{}") || {}; } catch (e) { return {}; } }
+function beppoOn() { try { return localStorage.getItem("marsl-beppo-off") !== "1"; } catch (e) { return true; } }
+function beppoSay(id, top) {
+  var m = BEPPO_SAY[id];
+  if (!m || !voiceFree()) return;
+  var seen = beppoSeen();
+  if (seen[id]) return;
+  seen[id] = 1;
+  try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
+  voiceShow(m[2] || "beppo", m[0], m[1], top);
+}
+function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say"); }
+// 🗣️ a remark that can come again, but not before its cooldown is over (remembered in this browser)
+function voiceSay(id, who, mood, text, cdMs, top) {
+  if (!voiceFree()) return false;
+  var mem = {};
+  try { mem = JSON.parse(localStorage.getItem("marsl-voice-t") || "{}") || {}; } catch (e) {}
+  if (mem[id] && Date.now() - mem[id] < cdMs) return false;
+  mem[id] = Date.now();
+  try { localStorage.setItem("marsl-voice-t", JSON.stringify(mem)); } catch (e) {}
+  voiceShow(who, mood, text, top);
+  return true;
+}
+function themeLen(k) {
+  var m = 0;
+  (SFX["v-" + k] || []).forEach(function (n) { m = Math.max(m, (n[1] + n[2]) * 1000); });
+  return m;
+}
+function voiceShow(whoKey, mood, text, top) {
+  var who = CAST[whoKey] || CAST.beppo, own = whoKey !== "beppo";
+  var bk = own ? who.art : "beppo-" + mood, el = document.createElement("div");
+  el.id = "beppo-say";
+  if (top) el.className = "top";
+  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + trStr(text) + "</div></div>";
+  document.body.appendChild(el);
+  var t = el.querySelector(".bs-t"), gone = 0;
+  var bye = function () {
+    if (gone) return;
+    gone = 1;
+    if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
+    el.classList.add("bye");
+    setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
+  };
+  t.style.visibility = "hidden"; // the words wait for the arrival tune, then type out
+  sfx("v-" + whoKey); // each voice has its own little arrival tune
+  setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch, who.wave); t.style.visibility = ""; } }, Math.min(900, themeLen(whoKey)));
+  el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
+  setTimeout(bye, 9500);
+}
+// 🧠 the colony remembers how you play: breaks, streaks, forgotten missions, an empty army
+var HOUR = 3600000;
+function voiceMem() { try { return JSON.parse(localStorage.getItem("marsl-voice-mem") || "{}") || {}; } catch (e) { return {}; } }
+var voiceBoot = false;
+function voiceWatch(d) {
+  if (!d || !beppoOn()) return;
+  var mem = voiceMem(), now = Date.now(), first = !voiceBoot;
+  if (first) {
+    voiceBoot = true;
+    var day = new Date().toISOString().slice(0, 10), days = mem.days || [];
+    if (days[days.length - 1] !== day) {
+      var prev = days[days.length - 1], yest = new Date(now - 86400000).toISOString().slice(0, 10);
+      mem.streak = prev === yest ? (mem.streak || 1) + 1 : 1;
+      days.push(day);
+      mem.days = days.slice(-30);
+    }
+    mem.gap = mem.last ? now - mem.last : 0;
+    mem.say = 1;
+  }
+  mem.last = now;
+  // a quest that has been waiting for you
+  var rdy = d.quests ? d.quests.list.filter(function (x) { return x.ready; }).length : 0;
+  if (rdy && !mem.rdySince) mem.rdySince = now;
+  if (!rdy) mem.rdySince = 0;
+  try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
+  if (!mem.say) {
+    if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", "Mission rewards have been waiting for a day. They do not spoil, but I am getting bored.", 24 * HOUR);
+    return;
+  }
+  mem.say = 0;
+  try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
+  setTimeout(function () {
+    var streak = mem.streak || 1;
+    if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", "Commander! The crew started a betting pool on when you would return. I lost.", 12 * HOUR);
+    else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", "You are back! I guarded the snacks. Mostly.", 12 * HOUR);
+    else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", streak + " days in a row! I am telling everyone. Everyone being me.", 20 * HOUR);
+    else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", "Nothing is being built. The crew has started a card game.", 6 * HOUR);
+  }, 2500);
+}
+// empty barracks: said when you open the Army page with no troops at home and none training
+function voiceArmy(d) {
+  var home = 0, train = 0;
+  (d.units || []).forEach(function (u) { if (!u.scout && !u.settler) home += u.home || 0; });
+  Object.keys(d.training || {}).forEach(function (w) { train += (d.training[w] || []).length; });
+  if (!home && !train) voiceSay("noarmy", "drill", "neutral", "No troops. The wall feels lonely and so do I.", 8 * HOUR, true);
+}
+// a short shake for hits
+function quake() {
+  if (calmMotion) return;
+  var app = document.getElementById("app");
+  if (!app) return;
+  app.classList.remove("quake");
+  void app.offsetWidth;
+  app.classList.add("quake");
+  setTimeout(function () { app.classList.remove("quake"); }, 400);
+}
+function tutTrained(d) {
+  var n = 0;
+  Object.keys(d.training || {}).forEach(function (w) { n += (d.training[w] || []).length; });
+  return n;
+}
+function tutCheck(d) {
+  if (tut.step < 0 || tut.step >= TUTORIAL.length || tut.done) return;
+  var s = TUTORIAL[tut.step];
+  if (!s.wait || tut.base == null || !s.wait(d, tut.base)) return;
+  tut.done = true;
+  var box = document.getElementById("tut"), nx = box && box.querySelector('[data-tut="next"]');
+  if (!nx) return;
+  box.classList.add("tut-ok");
+  nx.textContent = "Done! Next ➡";
+  var im = box.querySelector(".tut-beppo img");
+  if (im && FX_ART.t["beppo-happy"]) im.src = "/art/beppo-happy.webp?v=" + FX_ART.v;
+  sfx("done");
+}
 
 function startTutorial() {
-  tut.step = 0;
+  tut.step = 0; tut.shown = -1;
   showTutorial();
 }
 
 // types an HTML text out letter by letter (tags stay in place), with a soft blip; tap the text to show it all
-function typeHtml(el, pitch) {
+function typeHtml(el, pitch, wave) {
   if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
-  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // typing out text is not movement, so it stays on with Reduce Motion
   el.style.minHeight = el.offsetHeight + "px"; // the bubble keeps its final size while the text types
+  el.classList.remove("fin");
   var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), nodes = [], n;
   while ((n = w.nextNode())) { nodes.push({ node: n, full: n.nodeValue }); n.nodeValue = ""; }
   var ni = 0, ci = 0, tick = 0;
-  function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; }
+  function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; el.classList.add("fin"); }
   tut.finish = finish;
   tut.timer = setInterval(function () {
     for (var k = 0; k < 2 && ni < nodes.length; k++) {
       var x = nodes[ni];
       ci++;
       x.node.nodeValue = x.full.slice(0, ci);
-      if (x.full.charAt(ci - 1).trim() && ++tick % 2) blip(pitch || 380, true);
+      if (x.full.charAt(ci - 1).trim() && ++tick % 2) blip(pitch || 380, true, wave);
       if (ci >= x.full.length) { ni++; ci = 0; }
     }
     if (ni >= nodes.length) finish();
   }, 24);
 }
-var TUT_MOOD = { 0: "happy", 6: "surprised", 7: "worried", 11: "happy" };
+var TUT_MOOD = { 0: "happy", 6: "surprised", 7: "worried", 10: "surprised", 14: "happy" };
 
 function showTutorial() {
   var box = document.getElementById("tut");
@@ -13471,6 +13737,7 @@ function showTutorial() {
     return;
   }
   var s = TUTORIAL[tut.step];
+  if (tut.shown !== tut.step) { tut.shown = tut.step; tut.done = false; tut.base = s.base && data ? s.base(data) : null; }
   if (s.pre) s.pre();
   if (view !== s.view) switchView(s.view);
   else if (s.pre && data) renderColony(data);
@@ -13487,11 +13754,11 @@ function showTutorial() {
   h += "<h3>" + s.title + "</h3><div class='tut-p'>" + txt + "</div><div class='tut-btns'>";
   h += '<button class="btn small ghost" data-tut="skip">Skip tour</button>';
   if (tut.step > 0) h += '<button class="btn small ghost" data-tut="back">⬅ Back</button>';
-  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! 🚀" : "Next ➡") + "</button></div></div></div>";
+  h += '<button class="btn small" data-tut="next">' + (tut.step === TUTORIAL.length - 1 ? "Let's play! 🚀" : tut.done ? "Done! Next ➡" : s.wait ? "Skip step ➡" : "Next ➡") + "</button></div></div></div>";
   box.innerHTML = h;
   box.className = "on";
   var tp = box.querySelector(".tut-p");
-  if (tp) { typeHtml(tp, CAST.beppo.pitch); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
+  if (tp) { typeHtml(tp, CAST.beppo.pitch, CAST.beppo.wave); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
   setTimeout(function () { var el = tutSpot(); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
 }
 // light up the step's place (again after every refresh, which redraws the page)
@@ -14934,7 +15201,8 @@ try { if (darkModeOn()) { document.documentElement.classList.add("dark-mode"); d
 
 function renderSheet() {
   var box = document.getElementById("sheet");
-  if (!sheet || !data) { setHTML(box, ""); return; }
+  if (sheet && sheetClosing) sheetWipe();
+  if (!sheet || !data) { if (!sheetClosing) setHTML(box, ""); return; }
   var oldPanel = box.querySelector(".sheet"), oldScrollTop = oldPanel && !sheetAnim ? oldPanel.scrollTop : 0;
   var d = data;
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
@@ -14990,7 +15258,7 @@ function renderSheet() {
     h += translateSheet();
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
-    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button><button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
+    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button><button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play
@@ -15175,6 +15443,7 @@ function renderParts(parts) {
     app._html = null;
     app.innerHTML = "";
     parts.forEach(function () { app.appendChild(document.createElement("div")); });
+    if (app._vmc && Date.now() < app._vmUntil) { parts.forEach(function (html, i) { setHTML(app.children[i], html); }); vmPlay(app); return; }
   }
   parts.forEach(function (html, i) { setHTML(app.children[i], html); });
 }
@@ -15204,6 +15473,7 @@ function noticeChanges(d) {
     if (!still) {
       toast("🎉 " + first.name + " reached level " + first.targetLevel + "!", true);
       popBuilt(first.name);
+      beppoSay("built");
       confetti();
       sfx("done");
     }
@@ -15214,7 +15484,7 @@ function noticeChanges(d) {
   if (d.training) {
     if (prevTrain && !justCancelledTrain) Object.keys(prevTrain).forEach(function (w) {
       var p = prevTrain[w][0], now = d.training[w] || [];
-      if (p && !now.some(function (t) { return t.name === p.name; })) { toast("🪖 " + p.name + ": training finished", true); sfx("done"); }
+      if (p && !now.some(function (t) { return t.name === p.name; })) { toast("🪖 " + p.name + ": training finished", true); sfx("done"); beppoSay("trained"); }
     });
     justCancelledTrain = false;
     prevTrain = {};
@@ -15223,6 +15493,7 @@ function noticeChanges(d) {
   if (prevUnread !== null && d.unread > prevUnread) {
     sfx("report");
     if (view !== "reports") toast("📬 New report in your Inbox", true);
+    beppoSay("report");
   }
   prevUnread = d.unread;
   if (prevMail !== null && d.unreadMessages > prevMail) {
@@ -15234,12 +15505,16 @@ function noticeChanges(d) {
   if (d.stolen && prevStolen !== null && d.stolen.id !== prevStolen) {
     toast("💸 " + d.stolen.from + " stole " + RES.map(function (k) { return RES_ICON[k] + d.stolen.loot[k]; }).join(" ") + " from you!");
     flashLoss(d.stolen.loot);
+    quake();
+    beppoSay("robbed");
   }
   prevStolen = d.stolen ? d.stolen.id : 0;
   var threats = d.movements.filter(isThreat).length;
   if (prevIncoming !== null && threats > prevIncoming) {
     toast("🚨 Incoming attack! Grab your frying pans!");
     sfx("alarm");
+    quake();
+    beppoSay("threat");
   }
   prevIncoming = threats;
 }
@@ -15475,6 +15750,8 @@ function showWon(w) {
   document.getElementById("won-close").onclick = function () { el.remove(); };
 }
 function renderColony(d) {
+  tutCheck(d);
+  voiceWatch(d);
   data = d;
   if (d.won && !wonShown) showWon(d.won);
   // 🎉 milestones are celebrated on the mission board now
@@ -18282,8 +18559,57 @@ function switchColony(id) {
 // until you leave, so it doesn't vanish under your finger
 var justRead = {};
 var VIEWS = { resources: 1, buildings: 1, troops: 1, map: 1, ranking: 1, reports: 1, messages: 1 };
+// the page that comes in slides a little from the side of its tab (fades for the map); no transform, so fixed buttons inside never jump
+function viewMotion(from, to) {
+  if (calmMotion || from === to) return;
+  var app = document.getElementById("app");
+  if (!app) return;
+  var ord = ["resources", "buildings", "troops", "map", "ranking", "reports", "messages"], a = ord.indexOf(from), b = ord.indexOf(to);
+  app._vmc = to === "map" || from === "map" || a < 0 || b < 0 ? "vfade" : b > a ? "vin-r" : "vin-l";
+  app._vmUntil = Date.now() + 450; // a page that loads in two steps rebuilds its parts: the motion carries over
+  vmPlay(app);
+}
+function vmPlay(app) {
+  var el = app.lastElementChild;
+  if (!el || !app._vmc) return;
+  if (app._vm) { clearTimeout(app._vm); app._vm = 0; }
+  el.classList.remove("vin-r", "vin-l", "vfade");
+  void el.offsetWidth;
+  var cls = app._vmc;
+  el.classList.add(cls);
+  app.classList.add("vmove");
+  app._vm = setTimeout(function () { app._vm = 0; el.classList.remove(cls); app.classList.remove("vmove"); }, 260);
+}
+// the bar's highlight glides from the old tab to the new one (a ghost pill; the real one shows when it lands)
+function navPill() {
+  var b = document.querySelector(".nav button.on");
+  if (!b) return null;
+  var r = b.getBoundingClientRect();
+  return r.width ? { r: r, cs: getComputedStyle(b) } : null;
+}
+function navGlide(from) {
+  if (calmMotion || !from) return;
+  var b = document.querySelector(".nav button.on");
+  if (!b) return;
+  var r = b.getBoundingClientRect(), cs = getComputedStyle(b);
+  if (!r.width || Math.abs(r.left - from.r.left) < 2) return;
+  var g = document.createElement("i");
+  g.className = "nav-glide";
+  var cl = b.cloneNode(true), dt = cl.querySelector(".dot");
+  if (dt) dt.remove();
+  g.innerHTML = cl.innerHTML;
+  g.style.cssText = "left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;height:" + r.height + "px;border-radius:" + cs.borderRadius + ";background-color:" + cs.backgroundColor + ";background-image:" + cs.backgroundImage + ";box-shadow:" + cs.boxShadow + ";color:" + cs.color + ";font:" + cs.font + ";padding:" + cs.padding + ";text-align:center;box-sizing:border-box";
+  document.body.appendChild(g);
+  document.body.classList.add("navglide");
+  var done = function () { g.remove(); document.body.classList.remove("navglide"); };
+  if (!g.animate) { setTimeout(done, 0); return; }
+  var a = g.animate([{ transform: "translate(" + (from.r.left - r.left) + "px," + (from.r.top - r.top) + "px)" }, { transform: "none" }], { duration: 220, easing: "cubic-bezier(.3,.8,.3,1)" });
+  a.onfinish = a.oncancel = done;
+}
 function switchView(v, target) {
   if (!VIEWS[v]) v = "resources";
+  var prevView = view;
+  var navFrom = v !== view ? navPill() : null;
   if (v !== view && window.matchMedia && window.matchMedia("(max-width: 559px)").matches) {
     // phones fold the mission board away on every view change; browsers keep it as you left it (open by default)
     questsOpen = false;
@@ -18298,12 +18624,13 @@ function switchView(v, target) {
   if (v === "map") {
     map.pending = target || null;
     openMap();
+    viewMotion(prevView, v); navGlide(navFrom);
     return;
   }
   if (v === "reports") loadReports(true);
   if (v === "ranking") { loadRanking(); loadAlliance(); loadMyProfile(); }
   if (v === "messages") loadMessages();
-  if (data) renderColony(data);
+  if (data) { renderColony(data); viewMotion(prevView, v); navGlide(navFrom); if (v === "troops") setTimeout(function () { voiceArmy(data); }, 900); }
   loadColony(false);
 }
 
@@ -18573,22 +18900,52 @@ document.addEventListener("input", function (e) {
   }
 });
 
-/* The handle owns the dismiss gesture. Sheet content keeps native scrolling. */
+/* The handle owns the dismiss gesture: the popup follows the finger, then slides away or springs back. Sheet content keeps native scrolling. */
 (function () {
   var drag = null;
   document.addEventListener("pointerdown", function (e) {
     if (!e.isPrimary || !e.target.closest(".sheet-drag")) return;
+    var ov = document.querySelector("#sheet .overlay"), panel = ov && ov.querySelector(".sheet");
     e.target.setPointerCapture(e.pointerId);
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, panel: sheet };
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, panel: sheet, ov: ov, el: panel, dy: 0, t: Date.now(), v: 0, lastY: e.clientY, lastT: Date.now() };
+    if (panel && !calmMotion) { panel.style.transition = "none"; panel.style.animation = "none"; panel.classList.add("sheet-drag-live"); }
   });
+  document.addEventListener("pointermove", function (e) {
+    if (!drag || e.pointerId !== drag.id || !drag.el || calmMotion) return;
+    var dy = Math.max(0, e.clientY - drag.y), now = Date.now();
+    if (now > drag.lastT) drag.v = (e.clientY - drag.lastY) / (now - drag.lastT);
+    drag.lastY = e.clientY; drag.lastT = now; drag.dy = dy;
+    drag.el.style.transform = "translateY(" + dy + "px)";
+    if (drag.ov) drag.ov.style.opacity = String(Math.max(0.25, 1 - dy / (drag.el.offsetHeight * 1.3)));
+  });
+  var dragEnd = 0; // a drag must not count as a tap on the dark background behind the popup
+  document.addEventListener("click", function (e) { if (Date.now() - dragEnd < 400) { e.stopPropagation(); e.preventDefault(); } }, true);
   document.addEventListener("pointerup", function (e) {
     if (!drag || e.pointerId !== drag.id) return;
-    var dy = e.clientY - drag.y;
-    if (drag.panel === sheet && dy > 48 && dy > Math.abs(e.clientX - drag.x) * 1.5) closeSheet();
+    var d = drag, dy = e.clientY - d.y;
     drag = null;
+    if (Math.abs(dy) > 6) dragEnd = Date.now();
+    var vertical = dy > Math.abs(e.clientX - d.x) * 1.5;
+    var away = d.panel === sheet && vertical && (dy > 90 || (dy > 30 && d.v > 0.6));
+    if (d.el && !calmMotion) {
+      if (away) {
+        d.el.style.transition = "transform .2s ease-out";
+        d.el.style.transform = "translateY(100%)";
+        if (d.ov) { d.ov.style.transition = "opacity .2s"; d.ov.style.opacity = "0"; d.ov.classList.add("dragged"); }
+      } else {
+        d.el.style.transition = "transform .28s cubic-bezier(.2,1.2,.3,1)";
+        d.el.style.transform = "";
+        if (d.ov) { d.ov.style.transition = "opacity .2s"; d.ov.style.opacity = ""; }
+        setTimeout(function () { if (d.el) { d.el.style.transition = ""; d.el.classList.remove("sheet-drag-live"); } if (d.ov) d.ov.style.transition = ""; }, 320);
+      }
+    }
+    if (away) closeSheet();
   });
   document.addEventListener("lostpointercapture", function (e) {
-    if (drag && e.pointerId === drag.id) drag = null;
+    if (drag && e.pointerId === drag.id) {
+      var d = drag; drag = null;
+      if (d.el) { d.el.style.transition = "transform .2s"; d.el.style.transform = ""; if (d.ov) d.ov.style.opacity = ""; }
+    }
   });
 })();
 
@@ -18693,7 +19050,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -19073,6 +19430,9 @@ document.addEventListener("click", function (e) {
     if (data) renderSheet();
   } else if (has("data-sound")) {
     toggleSound();
+  } else if (has("data-beppo")) {
+    try { localStorage.setItem("marsl-beppo-off", beppoOn() ? "1" : "0"); } catch (e) {}
+    if (data) renderSheet();
   } else if (has("data-tutorial")) {
     closeSheet();
     startTutorial();

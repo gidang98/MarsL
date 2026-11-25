@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.488";
+const GAME_VERSION = "1.0.500";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,18 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.500",date:"2026-11-25",title:"Real theme tunes",groups:[["✨ New",["Each voice has a proper little theme with its own instrument, rhythm and mood, and its own typing sound: Beppo bouncy, the Steward a fanfare, the Drillmaster a march with drums, the Banker sparkling coins, the Forager a gentle folk tune, the Warden a low solemn drone, the Professor a quirky run."]]]},
+  {v:"1.0.499",date:"2026-11-25",title:"Typewriter text",groups:[["🔧 Fixed",["Speech bubbles type their text out letter by letter again, also when your phone has Reduce Motion on, and the words no longer flash up before the voice arrives."]]]},
+  {v:"1.0.498",date:"2026-11-25",title:"8-bit voices",groups:[["✨ New",["Everyone now talks with short, dry 8-bit blips, and each voice has its own little theme tune that plays when they arrive."]]]},
+  {v:"1.0.497",date:"2026-11-25",title:"The colony notices",groups:[["✨ New",["Your crew now reacts to how you play: Beppo and the Steward notice when you come back after a break, Beppo cheers a 3, 7, 14 or 30 day streak and nags about mission rewards left waiting for a day, the Steward points out an empty build queue, and the Drillmaster comments when you open the Army page with no troops.","Every voice now has its own short arrival tune."]]]},
+  {v:"1.0.496",date:"2026-11-25",title:"Voices in the colony",groups:[["✨ New",["The first time you open a building, someone who works there says a few words: the Steward at the HQ, the Drillmaster at barracks, workshop and hangar, the Banker at the market, the Forager at warehouse and granary, the Warden at bunker and wall, the Professor in the lab. Each has their own voice. Settings → Voices turns them off."]]]},
+  {v:"1.0.495",date:"2026-11-25",title:"Bigger Beppo",groups:[["🔧 Fixed",["Beppo is much bigger on phones, and the tour bubble no longer scrolls: the text and sprite shrink on small screens instead."]]]},
+  {v:"1.0.494",date:"2026-11-25",title:"Beppo explains",groups:[["✨ New",["The first time you open the Codex, auction, hunt, commanders, farm lists or relics, Beppo drops a one-line tip at the top. Settings → Beppo turns it off."]]]},
+  {v:"1.0.493",date:"2026-11-25",title:"A fuller tour",groups:[["✨ New",["The tour now also explains Space-Cash and Star Credits, your commander, hunting and the auction."]]]},
+  {v:"1.0.492",date:"2026-11-25",title:"Beppo speaks up",groups:[["✨ New",["Beppo pops up once for the big firsts: your first finished build, first trained troops, first report, first incoming attack and first theft. Tap to close; Settings → Beppo turns it off.","Text in the tour and in Beppo's bubbles ends with a blinking ▼, buttons in the tour get a ♥ cursor, and the screen shakes briefly when you are hit. Everything stays off with Reduce Motion."]]]},
+  {v:"1.0.491",date:"2026-11-25",title:"Learn by doing",groups:[["✨ New",["The tour now waits while you try it: start an upgrade, a building or a training and Beppo cheers and moves on. You can still skip any step.","The bar's highlight now glides from tab to tab."]]]},
+  {v:"1.0.490",date:"2026-11-25",title:"Sliding tabs",groups:[["✨ New",["Switching tabs now slides the new page in from the side of its tab, and the map fades in. It is quick and stays off if your phone has Reduce Motion turned on."]]]},
+  {v:"1.0.489",date:"2026-11-25",title:"Smoother popups",groups:[["✨ New",["On a phone, popups slide up from the bottom and slide back down when you close them.","Swipe a popup down by its handle: it follows your finger, flies away when you swipe far or fast, and springs back when you let go early.","The mission board slides in when you open it."]]]},
   {v:"1.0.488",date:"2026-11-24",title:"Beppo guides you",groups:[["✨ New",["The start tour is now told by Beppo in a speech bubble. His mood changes with the step and the text types out with a soft blip. Tap the text to show it all at once."]],["🛠️ Fixes",["Stray \"+ '\" characters no longer show up after some icons: on the tour's Next button, in monster camp, report and market texts, and on the terra and settler line."]]]},
   {v:"1.0.487",date:"2026-11-24",title:"Icons mixed up",groups:[["🎨 Art",["About 25 painted icons that had swapped names are right again: the burger, syringe, bandage, bin, snowflake, pill and more.","The bird, hen, nest, drumstick, camel and skull are no longer cut off at the sides.","Troop pictures in Troops at home use the same icons as battle reports when a unit has no painted picture."]]]},
   {v:"1.0.486",date:"2026-11-24",title:"Last painted icons",groups:[["🎨 Art",["Painted icons for the ticket folder, the dice wheel, the flying money, the hatching chick and the nest of eggs.","Painted icons whose names contain an underscore now load too."]]]},
