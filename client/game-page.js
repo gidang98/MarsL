@@ -14224,7 +14224,7 @@ function heroSheet(d) {
     var C = H.commander;
     h += '<div class="hcred" title="Your active commander earns Star Credits all the time: they arrive on their own while you play, and while you are away they pile up here, up to ' + shortTime(C.capMs) + ' of production"><div class="hc-info"><span>🎫</span><div class="hc-num"><b>' + C.pending + " / " + C.cap + "</b><small>+" + Math.round(C.rate * 24 * 10) / 10 + "/day" + (C.full ? " · full" : "") + '</small></div></div><button class="btn small" type="button" data-hero-collect="1"' + (C.pending < 1 ? " disabled" : "") + '>Collect</button><div class="hc-btns"><button class="btn small ghost" type="button" data-cmd-open="1" title="Your commanders and the shop">🎖️ ' + esc(C.name) + '</button><button class="btn small ghost" type="button" data-hunt-open="1" title="Fight for creatures">🐾 Hunt</button></div></div>';
   }
-  var used = H.bag.length;
+  var used = H.bag.filter(function (x) { return x.kind !== "crate"; }).length;
   h += '<div class="subtabs hero-tabs"><button class="' + (heroTab === "skills" ? "on" : "") + '" data-hero-tab="skills"><span>' + '✨' + '</span>Skills' + (H.free > 0 ? '<i class="dot">' + H.free + "</i>" : "") + '</button><button class="' + (heroTab === "adv" ? "on" : "") + '" data-hero-tab="adv"><span>' + '🧭' + '</span>Adventures' + (H.adventure && !H.adventure.on && H.adventure.board.length ? '<i class="dot cnt" title="Adventures on the board">' + H.adventure.board.length + "</i>" : "") + (H.advEvent ? '<i class="dot">!</i>' : "") + '</button><button class="' + (heroTab === "bag" ? "on" : "") + '" data-hero-tab="bag"><span>' + '🎒' + '</span>Inventory <small>' + used + "/" + H.bagMax + "</small></button></div>";
   if (heroTab === "adv") {
     h += advPanel(H);

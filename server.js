@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.509";
+const GAME_VERSION = "1.0.510";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -11294,7 +11294,7 @@ function titanHit(t, userId, killed) {
 function giveHeroGear(userId, tierIdx, now) {
   const h = heroOf(userId, now);
   if (!h) return null;
-  if (h.bag.length >= HERO_BAG) return { full: true };
+  if (bagUsed(h) >= HERO_BAG) return { full: true };
   const item = heroItem(null, tierIdx);
   h.bag.push(item);
   heroSave(userId, h);
@@ -11486,7 +11486,7 @@ function auctionDeliver(a, now) {
     return true;
   }
   const h = heroOf(uid, now);
-  if (!h || h.bag.length >= HERO_BAG) return false;
+  if (!h || bagUsed(h) >= HERO_BAG) return false;
   h.bag.push(heroFixItem(JSON.parse(a.item)));
   heroSave(uid, h);
   db.prepare("UPDATE auctions SET claimed = 1 WHERE id = ?").run(a.id);
@@ -11526,7 +11526,7 @@ app.get("/api/auction", requireLogin, (req, res) => {
     `SELECT * FROM auctions WHERE (seller_id = ? OR bidder_id = ?) AND (status = 'active' OR claimed = 0 OR settled_at > ?) ORDER BY id DESC LIMIT 40`
   ).all(uid, uid, now - 7 * 86400000).filter((a) => a.status === "active" ? a.seller_id === uid || a.bidder_id === uid : true).map((a) => auctionView(a, uid));
   res.json({
-    credits: cashOf(uid), currency: CASH, hasHero: !!h, bagFull: !!h && h.bag.length >= HERO_BAG,
+    credits: cashOf(uid), currency: CASH, hasHero: !!h, bagFull: !!h && bagUsed(h) >= HERO_BAG,
     rules: { fee: Math.round(auctionFee(uid) * 1000) / 10, hours: auctionHours(), maxActive: AUCTION_MAX_ACTIVE, step: Math.round(AUCTION_STEP * 100), snipeMs: auctionSnipeMs(), priceMax: AUCTION_PRICE_MAX },
     active, mine,
     items: h ? h.bag.filter((x) => x.kind !== "crate").map((x) => Object.assign({ kind: "gear" }, x)) : [],
@@ -14658,7 +14658,8 @@ const GEAR_UPGRADE_CASH = 96000; // Space-Cash for a gear upgrade: this x tier x
 const HERO_XP_DIV = 15; // 1 xp for every 15 points of enemy strength destroyed (camps)
 const HERO_XP_KILL = 2; // attacks and raids on colonies: xp per enemy unit killed
 const HERO_SPEED = 8; // tiles per hour when it moves to another colony
-const HERO_BAG = 24; // inventory slots
+const HERO_BAG = 24; // inventory slots for gear; the bounty crate has a slot of its own
+function bagUsed(h) { return h.bag.filter((x) => x.kind !== "crate").length; }
 const HERO_SETTLE_MS = 60000; // after a move it settles in for one minute (shorter on faster servers)
 const HERO_FALL_XP = 0.03; // share of the progress to the next level lost when it falls
 // Four skill points per level. 💪 Strength is the fighting skill: every point
@@ -15281,7 +15282,7 @@ function heroAfterFight(userId, h, o) {
     // the bounty of a camp goes into the inventory (one stash for all of it)
     if (o.bounty && lootTotal(o.bounty) > 0) {
       let crate = heroCrate(h);
-      if (!crate && h.bag.length < HERO_BAG) {
+      if (!crate) {
         crate = { id: crypto.randomBytes(4).toString("hex"), kind: "crate", icon: "📦", name: "Bounty stash", res: { wood: 0, stone: 0, metal: 0, food: 0 } };
         h.bag.push(crate);
       }
@@ -15295,7 +15296,7 @@ function heroAfterFight(userId, h, o) {
       if (Math.random() < (0.06 + 0.04 * o.campTier) * (heroRule(h, "explorer", 100) ? 2 : 1)) {
         const tier = heroRollTier(HERO_DROPS.camp[Math.min(HERO_DROPS.camp.length - 1, o.campTier)]);
         const item = heroItem(null, tier);
-        if (h.bag.length < HERO_BAG) {
+        if (bagUsed(h) < HERO_BAG) {
           h.bag.push(item);
           note.found = item;
         } else note.bagFull = item;
@@ -16209,7 +16210,7 @@ app.post("/api/hero", requireLogin, (req, res) => {
     } else if (b.action === "unequip") {
       const slot = HERO_SLOTS.includes(b.slot) ? b.slot : "weapon";
       if (!h.gear[slot]) return "Nothing to take off";
-      if (h.bag.length >= HERO_BAG) return "The inventory is full";
+      if (bagUsed(h) >= HERO_BAG) return "The inventory is full";
       heroGearChange(h, now);
       if (h.gear[slot].stats.prod) heroSettle(h.home, now);
       h.bag.push(h.gear[slot]);
@@ -17761,6 +17762,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.510",date:"2026-11-25",title:"A slot for the bounty",groups:[["🔧 Fixed",["The commander's bounty stash now has a slot of its own, so a bag full of gear can no longer make camp bounty disappear."]]]},
   {v:"1.0.509",date:"2026-11-25",title:"Commander-only camp bounty",groups:[["🔧 Fixed",["A commander sent alone to a monster camp now keeps the bounty in its inventory, as it should. Before, it only came with troops."]]]},
   {v:"1.0.508",date:"2026-11-25",title:"Rewards once per server",groups:[["🔧 Fixed",["The 🎓 graduation reward and the landing guide gifts are now paid once per server. Respawning no longer pays them again; a new server round starts fresh."]]]},
   {v:"1.0.507",date:"2026-11-25",title:"Beppo joke fix",groups:[["🔧 Fixed",["Beppo's line after your first build has a better joke."]]]},
@@ -19862,7 +19864,7 @@ function advFinish(userId, h) {
   let found = null;
   if (Math.random() < A.gear) {
     found = heroItem(null, heroRollTier(HERO_DROPS.adv[a.kind]));
-    if (h.bag.length < HERO_BAG) h.bag.push(found);
+    if (bagUsed(h) < HERO_BAG) h.bag.push(found);
     else note.bagFull = found;
   }
   if (!h.advEvent) h.advEvent = { id: ADV_EVENTS[Math.floor(Math.random() * ADV_EVENTS.length)].id, kind: a.kind, at: a.until };
@@ -19917,7 +19919,7 @@ function advEventPick(userId, h, s, which, now) {
   const said = [];
   if (pick.gear) {
     const item = heroItem(null, heroRollTier(HERO_DROPS.adv[kind] || HERO_DROPS.adv.short));
-    if (h.bag.length < HERO_BAG) { h.bag.push(item); said.push(item.icon + " " + item.name); } else said.push("gear, but the bag was full");
+    if (bagUsed(h) < HERO_BAG) { h.bag.push(item); said.push(item.icon + " " + item.name); } else said.push("gear, but the bag was full");
   }
   if (pick.res) {
     const add = advEventScaled(pick.res);
