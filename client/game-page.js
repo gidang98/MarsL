@@ -18353,7 +18353,7 @@ function huntSheet() {
 // ---------- the gear auction ----------
 var auc = { data: null, tab: "browse" };
 // 🎰 casino: the server rolls and pays, this only shows it. The croupier talks, his face fits the result.
-var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "", bj: null, say: null, fresh: false, wheelDeg: 0, last: null, seen: { p: 0, d: 0, h: false } };
+var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "", bj: null, say: null, fresh: false, wheelDeg: 0, wheelAnim: false, reels: ["🍒", "🐶", "🔔"], reelAnim: null, reelWin: false, last: null, seen: { p: 0, d: 0, h: false } };
 // 🎨 casino art: a painted icon when the file is there, the emoji when it is not
 function caImg(key, fb, cls) {
   return FX_ART.t[key] ? '<img class="ca ' + (cls || "") + '" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : fb;
@@ -18447,11 +18447,11 @@ function casinoSheet() {
   h += croupierHtml();
   h += '<div class="subtabs"><button class="' + (g === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>' + caImg("casino-slots", "🎰", "tab") + '</span>Slots</button><button class="' + (g === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>' + caImg("casino-roulette", "🎡", "tab") + '</span>Roulette</button><button class="' + (g === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>' + caImg("casino-blackjack", "🃏", "tab") + "</span>Blackjack</button></div>";
   if (g === "slots") {
-    h += '<div class="cz-stage" id="cz-stage"><div class="cz-reels" id="cz-reels">' + ["🍒", "🐶", "🔔"].map(function (s) { return '<div class="cz-reel"><div class="cz-strip"><span>' + caSym(s) + "</span></div></div>"; }).join("") + "</div></div>";
+    h += '<div class="cz-stage" id="cz-stage"><div class="cz-reels" id="cz-reels">' + casino.reels.map(function (s, i) { var an = casino.reelAnim && casino.reelAnim[i]; return '<div class="cz-reel' + (casino.reelWin ? " win" : "") + '"><div class="cz-strip"' + (an ? ' style="' + an.style + '"' : "") + ">" + (an ? an.html : "<span>" + caSym(s) + "</span>") + "</div></div>"; }).join("") + "</div></div>";
     h += '<small class="cz-pay">' + C.slots.map(function (x) { return caSym(x.s) + "×3 " + x.pays + "×"; }).join(" · ") + " · " + caSym("🍒") + caSym("🍒") + " " + C.twoCherries + "×</small>";
   } else if (g === "roulette") {
     var art = !!FX_ART.t["casino-wheel"];
-    h += '<div class="cz-stage cz-rstage" id="cz-stage"><div class="cz-wheelbox' + (art ? " art" : "") + '"><div class="cz-wheel" id="cz-wheel" style="background:' + wheelBg() + ";transform:rotate(" + casino.wheelDeg + 'deg)">' + (art ? wheelLabels() : "") + "</div>" + (art ? '<img class="cz-frame" src="/art/casino-wheel.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "") + '<i class="cz-pointer"></i><div class="cz-hub" id="cz-ball">' + (casino.last === null ? "" : casinoNum(casino.last)) + "</div></div></div>";
+    h += '<div class="cz-stage cz-rstage" id="cz-stage"><div class="cz-wheelbox' + (art ? " art" : "") + '"><div class="cz-wheel" id="cz-wheel" style="background:' + wheelBg() + (casino.wheelAnim ? ";transition:transform 2800ms cubic-bezier(.1,.7,.12,1)" : "") + ";transform:rotate(" + casino.wheelDeg + 'deg)">' + (art ? wheelLabels() : "") + "</div>" + (art ? '<img class="cz-frame" src="/art/casino-wheel.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "") + '<i class="cz-pointer"></i><div class="cz-hub" id="cz-ball">' + (casino.last === null || casino.wheelAnim ? "" : casinoNum(casino.last)) + "</div></div></div>";
     h += '<div class="cz-table"><button class="cz-n g' + casinoOn("number", 0) + '" data-casino-kind="number" data-casino-pick="0">0</button>';
     for (var n = 1; n <= 36; n++) h += '<button class="cz-n ' + casinoCol(n) + casinoOn("number", n) + '" data-casino-kind="number" data-casino-pick="' + n + '">' + n + "</button>";
     h += '</div><div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost' + casinoOn(k[0], k[2]) + '" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + "</div>";
@@ -18525,7 +18525,9 @@ function casinoSpin() {
     var j = x.j, sy = casino.data.slots.map(function (q) { return q.s; });
     var done = function () {
       var net = j.win - j.bet;
+      casino.reelAnim = null; casino.wheelAnim = false;
       if (casino.game === "slots") {
+        casino.reels = j.reels.slice(); casino.reelWin = net > 0;
         var NM = { "🍒": "Cherry", "🐶": "Dog", "🔔": "Bell", "⭐": "Star", "💎": "Gem", "7️⃣": "Seven" }, r3 = j.reels.map(function (z) { return NM[z] || z; }).join(", ");
         if (j.win >= j.bet * 30) croupierLine("surprised", r3 + ". " + pickOne(["Jackpot! I did not see that. Nobody saw that.", "That is a lot of zeros. On your side. I need to sit down."]));
         else if (net > 0) croupierLine("happy", r3 + ". " + pickOne(["You win! The reels like you today.", "Winner! Do not tell the other machines.", "A win! I will pretend I am not jealous."]));
@@ -18543,17 +18545,21 @@ function casinoSpin() {
     };
     if (casino.game === "slots") {
       var reels = document.querySelectorAll("#cz-reels .cz-reel");
+      casino.reelWin = false;
       if (calmMotion || !reels.length) { Array.prototype.forEach.call(reels, function (r, i) { r.querySelector(".cz-strip").innerHTML = "<span>" + caSym(j.reels[i]) + "</span>"; }); done(); return; }
       var longest = 0;
+      casino.reelAnim = []; // the sheet re-renders every second: the spin lives in state so a render repeats it instead of wiping it
       Array.prototype.forEach.call(reels, function (r, i) {
         var strip = r.querySelector(".cz-strip"), H = r.clientHeight || 84, n = 12 + i * 5, items = [], dur = 1000 + i * 500;
         for (var k = 0; k < n; k++) items.push(sy[Math.floor(Math.random() * sy.length)]);
         items.push(j.reels[i]);
-        strip.style.transition = "none"; strip.style.transform = "translateY(0)";
-        strip.innerHTML = items.map(function (z) { return "<span>" + caSym(z) + "</span>"; }).join("");
+        var html = items.map(function (z) { return "<span>" + caSym(z) + "</span>"; }).join("");
+        var fin = "transition:transform " + dur + "ms cubic-bezier(.12,.75,.18,1);transform:translateY(-" + n * H + "px)";
+        strip.setAttribute("style", "transition:none;transform:translateY(0)");
+        strip.innerHTML = html;
         void strip.offsetWidth;
-        strip.style.transition = "transform " + dur + "ms cubic-bezier(.12,.75,.18,1)";
-        strip.style.transform = "translateY(-" + n * H + "px)";
+        strip.setAttribute("style", fin);
+        casino.reelAnim[i] = { html: html, style: fin };
         r.classList.remove("win");
         setTimeout(function () { sfx("click"); }, dur - 60);
         longest = Math.max(longest, dur);
@@ -18563,7 +18569,7 @@ function casinoSpin() {
       var wheel = document.getElementById("cz-wheel"), hub = document.getElementById("cz-ball");
       var idx = WHEEL_ORDER.indexOf(j.n), seg = 360 / WHEEL_ORDER.length, target = 360 - (idx + 0.5) * seg, cur = casino.wheelDeg;
       casino.wheelDeg = cur + ((target - (cur % 360)) + 360) % 360 + 360 * 5;
-      casino.last = j.n;
+      casino.last = j.n; casino.wheelAnim = true;
       if (hub) hub.innerHTML = "";
       if (calmMotion || !wheel) { if (wheel) wheel.style.transform = "rotate(" + casino.wheelDeg + "deg)"; if (hub) hub.innerHTML = casinoNum(j.n); done(); return; }
       wheel.style.transition = "transform 2800ms cubic-bezier(.1,.7,.12,1)";
