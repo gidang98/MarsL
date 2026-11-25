@@ -3783,6 +3783,15 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .army-total { border-top: 0; }
   .army-total b { color: var(--tomato); }
   /* ---------- Fields tab: the playset and the field list ---------- */
+  /* phones: the island comes first, the build tips fold below it; small buttons get a thumb-sized touch area without growing */
+  @media (max-width: 700px) {
+    div:has(> details.build-advice) { display: flex; flex-direction: column; }
+    details.build-advice { order: 1; }
+    details.build-advice ~ * { order: 2; }
+    details.build-advice ~ .fx-stage { order: 0; }
+    .edit, .wallet, .tf-sum, [data-quest], .cx-zoom button, .pan { position: relative; }
+    .edit::after, .wallet::after, .tf-sum::after, [data-quest]::after { content: ""; position: absolute; inset: -8px; }
+  }
   .cx-zoom { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 6px; z-index: 4; }
   .cx-zoom button { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line, #c9a77a); background: var(--card, #fff7ea); color: var(--ink, #3a2a1a); font-size: 22px; font-weight: 800; line-height: 1; padding: 0; box-shadow: 0 2px 0 rgba(58, 42, 26, .25); }
   .cx-zoom .rs { display: none; }
@@ -9357,6 +9366,7 @@ function colonyScene(d) {
   cells.forEach(function (c) {
     var b = c.b, lab = b ? esc(b.name) + " · Level " + b.level : "Free lot: build something here";
     g += '<g class="cx-lot' + (b ? "" : " free") + '" data-lot="' + c.slot + '" role="button" tabindex="0" aria-label="' + lab + '"><title>' + lab + "</title>";
+    g += '<ellipse cx="' + c.x + '" cy="' + c.y + '" rx="' + (c.W * 0.62).toFixed(1) + '" ry="24" fill="rgba(0,0,0,0)"/>'; // a thumb-sized touch area under the lot
     if (!b) {
       g += '<ellipse cx="' + c.x + '" cy="' + c.y + '" rx="' + c.W * 0.42 + '" ry="' + c.W * 0.24 + '" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="1.4" stroke-dasharray="4 3.5" opacity=".9"/>';
       g += '<path d="M' + (c.x - 4) + " " + c.y + "h8M" + c.x + " " + (c.y - 4) + "v8" + '" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>';

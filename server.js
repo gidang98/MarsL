@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.536";
+const GAME_VERSION = "1.0.537";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.537",date:"2026-11-25",title:"Easier on phones",groups:[["📱 Phones",["On the Fields and Colony pages the island now comes first and the \"What should I build next?\" tips sit below it, so more of the island is on screen without scrolling.","Colony lots have a bigger touch area, and the small buttons (rename, wallet, claim, the top fold) are easier to hit."]]]},
   {v:"1.0.536",date:"2026-11-25",title:"Bigger resource island",groups:[["🌾 Fields",["The resource island is shown 10% closer. Only the rim of its base is cut off at the sides; all 12 fields stay in view."]]]},
   {v:"1.0.535",date:"2026-11-25",title:"Bigger colony island",groups:[["🏗️ Colony",["The colony island is shown about 20% closer by default. Only the rim of its base is cut off at the sides; all lots stay in view. The ⤢ button brings this view back."]]]},
   {v:"1.0.534",date:"2026-11-25",title:"Zoom the colony island",groups:[["🏗️ Colony",["The colony island has zoom buttons (+ / −) in its corner. Pinch to zoom, drag to move around, and tap ⤢ to see the whole island again."]]]},
