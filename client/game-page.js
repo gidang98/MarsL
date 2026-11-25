@@ -18264,7 +18264,7 @@ var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: f
 function caImg(key, fb, cls) {
   return FX_ART.t[key] ? '<img class="ca ' + (cls || "") + '" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : fb;
 }
-var CA_SYM = { "🍒": "cherry", "🍋": "lemon", "🔔": "bell", "⭐": "star", "💎": "gem", "7️⃣": "seven" };
+var CA_SYM = { "🍒": "cherry", "🐶": "dog", "🔔": "bell", "⭐": "star", "💎": "gem", "7️⃣": "seven" };
 function caSym(s) { return CA_SYM[s] ? caImg("casino-" + CA_SYM[s], s, "sym") : s; }
 function caChip(b) { return caImg("casino-chip-" + (b <= 1000 ? 1 : b <= 100000 ? 2 : b <= 1000000 ? 3 : 4), "💲", "chip"); }
 function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
@@ -18323,7 +18323,7 @@ function casinoSheet() {
   h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>' + caImg("casino-slots", "🎰", "tab") + '</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>' + caImg("casino-roulette", "🎡", "tab") + '</span>Roulette</button><button class="' + (casino.game === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>' + caImg("casino-blackjack", "🃏", "tab") + '</span>Blackjack</button></div>';
   var playing = casino.game === "blackjack" && casino.bj && !casino.bj.result;
   if (casino.game === "slots") {
-    h += '<div class="cz-reels" id="cz-reels"><span>' + caSym("🍒") + '</span><span>' + caSym("🍋") + '</span><span>' + caSym("🔔") + '</span></div>';
+    h += '<div class="cz-reels" id="cz-reels"><span>' + caSym("🍒") + '</span><span>' + caSym("🐶") + '</span><span>' + caSym("🔔") + '</span></div>';
     h += '<small class="cz-pay">' + C.slots.map(function (x) { return caSym(x.s) + "×3 " + x.pays + "×"; }).join(" · ") + " · " + caSym("🍒") + caSym("🍒") + " " + C.twoCherries + "×</small>";
   } else if (casino.game === "roulette") {
     h += '<div class="cz-ball" id="cz-ball">' + casinoNum(0) + "</div>";
@@ -18375,7 +18375,7 @@ function casinoSpin() {
     var done = function () {
       var net = j.win - j.bet;
       if (casino.game === "slots") {
-        var NM = { "🍒": "Cherry", "🍋": "Lemon", "🔔": "Bell", "⭐": "Star", "💎": "Gem", "7️⃣": "Seven" }, r3 = j.reels.map(function (x) { return NM[x] || x; }).join(", ");
+        var NM = { "🍒": "Cherry", "🐶": "Dog", "🔔": "Bell", "⭐": "Star", "💎": "Gem", "7️⃣": "Seven" }, r3 = j.reels.map(function (x) { return NM[x] || x; }).join(", ");
         if (j.win >= j.bet * 30) croupierLine("surprised", r3 + ". " + pickOne(["Jackpot! I did not see that. Nobody saw that.", "That is a lot of zeros. On your side. I need to sit down."]));
         else if (net > 0) croupierLine("happy", r3 + ". " + pickOne(["You win! The reels like you today.", "Winner! Do not tell the other machines.", "A win! I will pretend I am not jealous."]));
         else croupierLine("worried", r3 + ". " + pickOne(["You lose. The reels were being shy.", "No luck. The machine says sorry. It lies.", "You lose. It was almost a win. Almost is free."]));
