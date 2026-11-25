@@ -3787,7 +3787,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .cx-zoom button { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line, #c9a77a); background: var(--card, #fff7ea); color: var(--ink, #3a2a1a); font-size: 22px; font-weight: 800; line-height: 1; padding: 0; box-shadow: 0 2px 0 rgba(58, 42, 26, .25); }
   .cx-zoom .rs { display: none; }
   .cx-stage.zoomed .cx-zoom .rs { display: block; }
-  .cx-stage.zoomed .cx-scene { overflow: hidden; touch-action: none; cursor: grab; border-radius: 22px; }
+  .cx-stage .cx-scene { overflow: hidden; }
+  .cx-stage.zoomed .cx-scene { touch-action: none; cursor: grab; border-radius: 22px; }
   .fx-stage { position: relative; max-width: 560px; margin: 0 auto 10px; display: grid; justify-items: center; }
   .fx-scene { display: block; width: 100%; height: auto; overflow: visible; }
   .fx-f, .fx-dome, .fx-coin { cursor: pointer; }
@@ -9277,7 +9278,8 @@ function fxOval(n, cx, cy, rx, ry, startDeg) {
 }
 // Colony tab (1.0.234+): the lots on a wavy clay slab. HQ in the middle, 8 lots around it, 12 on the rim.
 // 🔍 zoom and drag the island (state lives here, so the once-a-second redraw keeps it)
-var cxZ = { s: 1, cx: 190, cy: 170 }, CX_VB = { x: -12, y: 34, w: 404, h: 272 };
+var CX_DEF = 1.2; // the island is shown a bit closer by default: the rim of its base is cut off at the sides, the buildings stay in view
+var cxZ = { s: CX_DEF, cx: 190, cy: 170 }, CX_VB = { x: -12, y: 34, w: 404, h: 272 };
 function cxBox() {
   var w = CX_VB.w / cxZ.s, h = CX_VB.h / cxZ.s;
   cxZ.cx = Math.min(CX_VB.x + CX_VB.w - w / 2, Math.max(CX_VB.x + w / 2, cxZ.cx));
@@ -9287,14 +9289,14 @@ function cxBox() {
 function cxApply() {
   var sv = document.querySelector(".cx-scene"), st = document.querySelector(".cx-stage");
   if (sv) sv.setAttribute("viewBox", cxBox());
-  if (st) st.classList.toggle("zoomed", cxZ.s > 1.001);
+  if (st) st.classList.toggle("zoomed", Math.abs(cxZ.s - CX_DEF) > 0.001);
 }
 function cxZoomAt(s, fx, fy) { // keep the point (fx, fy) under the finger
   s = Math.min(3, Math.max(1, s));
   if (fx === undefined) { fx = cxZ.cx; fy = cxZ.cy; }
   var k = cxZ.s / s;
   cxZ.cx = fx + (cxZ.cx - fx) * k; cxZ.cy = fy + (cxZ.cy - fy) * k; cxZ.s = s;
-  if (s <= 1.001) { cxZ.s = 1; cxZ.cx = 190; cxZ.cy = 170; }
+  if (Math.abs(s - CX_DEF) < 0.001) { cxZ.s = CX_DEF; cxZ.cx = 190; cxZ.cy = 170; }
   cxApply();
 }
 (function () {
@@ -9332,7 +9334,7 @@ function cxZoomAt(s, fx, fy) { // keep the point (fx, fy) under the finger
     var b = e.target.closest && e.target.closest("[data-cx-zoom]");
     if (!b) return;
     var k = b.getAttribute("data-cx-zoom");
-    cxZoomAt(k === "in" ? cxZ.s * 1.5 : k === "out" ? cxZ.s / 1.5 : 1);
+    cxZoomAt(k === "in" ? cxZ.s * 1.4 : k === "out" ? cxZ.s / 1.4 : CX_DEF);
   });
 })();
 function colonyScene(d) {
@@ -9413,7 +9415,7 @@ function renderBuildings(d) {
 
   h += buildAdvice(d);
   // ---- the colony as a playset ----
-  h += '<div class="fx-stage cx-stage' + (cxZ.s > 1.001 ? " zoomed" : "") + '">' + colonyScene(d) + '<div class="cx-zoom"><button data-cx-zoom="in" aria-label="Zoom in">+</button><button data-cx-zoom="out" aria-label="Zoom out">−</button><button data-cx-zoom="reset" class="rs" aria-label="Show the whole island">⤢</button></div><div class="fx-key"><span class="up">can upgrade</span><span class="max">max level</span><span class="bld">building</span><span class="free">free lot</span></div></div>';
+  h += '<div class="fx-stage cx-stage' + (Math.abs(cxZ.s - CX_DEF) > 0.001 ? " zoomed" : "") + '">' + colonyScene(d) + '<div class="cx-zoom"><button data-cx-zoom="in" aria-label="Zoom in">+</button><button data-cx-zoom="out" aria-label="Zoom out">−</button><button data-cx-zoom="reset" class="rs" aria-label="Show the whole island">⤢</button></div><div class="fx-key"><span class="up">can upgrade</span><span class="max">max level</span><span class="bld">building</span><span class="free">free lot</span></div></div>';
 
   // ---- the same buildings as a compact list, grouped by what they do ----
   var groups = [
