@@ -13457,17 +13457,31 @@ function toggleSound() {
 // 🎵 Background music: tracks are files the server owner drops into the "music" folder, named after the place they play in
 // (title, colony, map, casino, battle). A place without its own track plays "colony". Starts after the first tap, fades between
 // places, ducks under speech, pauses when the tab is hidden, and follows the Sound switch.
-var MUSIC = { tracks: {}, list: [], on: true, vol: 0.3, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false };
+var MUSIC = { tracks: {}, list: [], on: true, vol: 0.3, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false, pos: {}, idx: {}, scene: "" };
 var MUSIC_VOLS = [[0.15, "Low"], [0.3, "Medium"], [0.5, "High"]];
+var MUSIC_TRIM = { battle: 0.8, casino: 0.9 }; // the louder tracks sit a little lower so places feel even
+var MUSIC_FADE = 0.04; // per 100 ms: about 2.5 s from silence to full
 try { MUSIC.on = localStorage.getItem("marsl-music") !== "off"; var mvv = Number(localStorage.getItem("marsl-music-vol")); if (mvv > 0) MUSIC.vol = mvv; } catch (e) {}
 function musicLoad() {
   fetch("/api/music").then(function (r) { return r.json(); }).then(function (j) {
+    // "colony", "colony-2", "colony-3" ... form one playlist for that place; the same name in ogg wins over other formats
     MUSIC.tracks = {};
-    (j.tracks || []).forEach(function (t) { if (!MUSIC.tracks[t.name]) MUSIC.tracks[t.name] = "/music/" + encodeURIComponent(t.file) + "?v=" + t.v; });
+    (j.tracks || []).forEach(function (t) {
+      var m = /^(title|colony|map|casino|battle)(?:[_-]?(\\d+))?$/.exec(t.name);
+      if (!m) return;
+      var sc = m[1];
+      if (!MUSIC.tracks[sc]) MUSIC.tracks[sc] = [];
+      if (MUSIC.tracks[sc].some(function (x) { return x.name === t.name; })) return;
+      MUSIC.tracks[sc].push({ name: t.name, url: "/music/" + encodeURIComponent(t.file) + "?v=" + t.v });
+    });
+    Object.keys(MUSIC.tracks).forEach(function (k) {
+      MUSIC.tracks[k].sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
+    });
     MUSIC.list = Object.keys(MUSIC.tracks);
     if (data && sheet && sheet.kind === "account") renderSheet();
   }).catch(function () {});
 }
+// Fields, Colony, Army, Players and Inbox all count as "colony": the same song keeps playing across them without a restart
 function musicScene() {
   if (!loggedIn) return "title";
   if (document.getElementById("scene")) return "battle";
@@ -13475,28 +13489,42 @@ function musicScene() {
   if (view === "map") return "map";
   return "colony";
 }
-function musicPick(scene) { return MUSIC.tracks[scene] ? scene : MUSIC.tracks.colony ? "colony" : MUSIC.list[0] || ""; }
+function musicPickScene(scene) { return MUSIC.tracks[scene] ? scene : MUSIC.tracks.colony ? "colony" : MUSIC.list[0] || ""; }
+// the track to play now: the one already playing for this place, otherwise the next on its playlist
+function musicWant(scene) {
+  var sc = musicPickScene(scene), pl = MUSIC.tracks[sc];
+  if (!pl || !pl.length) return null;
+  if (MUSIC.idx[sc] == null) MUSIC.idx[sc] = 0;
+  var i = MUSIC.idx[sc] % pl.length, cur = MUSIC.live[pl[i].name];
+  if (cur && pl.length > 1 && cur.el.duration > 0 && cur.el.duration - cur.el.currentTime < 4) { i = MUSIC.idx[sc] = (i + 1) % pl.length; MUSIC.pos[pl[i].name] = 0; }
+  return { key: pl[i].name, url: pl[i].url, sc: sc };
+}
 function musicDuck(ms) { MUSIC.duckUntil = Math.max(MUSIC.duckUntil, Date.now() + ms); }
 function musicStep() {
   var ids = Object.keys(MUSIC.live);
   if (!MUSIC.list.length && !ids.length) return;
   if (MUSIC.hid) { ids.forEach(function (k) { if (!MUSIC.live[k].el.paused) MUSIC.live[k].el.pause(); }); return; }
   var ctx = MUSIC.unlocked ? audio() : null;
-  var want = MUSIC.on && sound.on && ctx ? musicPick(musicScene()) : "";
-  if (want && !MUSIC.live[want]) {
-    var el = new Audio(MUSIC.tracks[want]);
-    el.loop = true; el.preload = "auto";
+  var w = MUSIC.on && sound.on && ctx ? musicWant(musicScene()) : null, want = w ? w.key : "";
+  if (w && !MUSIC.live[want]) {
+    var el = new Audio(w.url);
+    el.loop = MUSIC.tracks[w.sc].length < 2; el.preload = "auto";
     var g = ctx.createGain(); g.gain.value = 0;
     try { ctx.createMediaElementSource(el).connect(g); g.connect(ctx.destination); } catch (e) { return; }
-    MUSIC.live[want] = { el: el, g: g, lvl: 0 };
+    // a song you left (map, casino) picks up where it stopped instead of starting over
+    var at = MUSIC.pos[want] || 0;
+    if (at > 1) el.addEventListener("loadedmetadata", function () { try { if (at < el.duration - 5) el.currentTime = at; } catch (e) {} }, { once: true });
+    MUSIC.live[want] = { el: el, g: g, lvl: 0, trim: MUSIC_TRIM[w.sc] || 1 };
   }
   MUSIC.dk += Math.max(-0.06, Math.min(0.06, (Date.now() < MUSIC.duckUntil ? 0.35 : 1) - MUSIC.dk));
   Object.keys(MUSIC.live).forEach(function (k) {
     var t = MUSIC.live[k], tgt = k === want ? 1 : 0;
-    t.lvl += Math.max(-0.05, Math.min(0.05, tgt - t.lvl)); // about two seconds from silence to full
+    t.lvl += Math.max(-MUSIC_FADE, Math.min(MUSIC_FADE, tgt - t.lvl));
+    if (t.el.currentTime > 0) MUSIC.pos[k] = t.el.currentTime;
     if (t.lvl <= 0 && !tgt) { t.el.pause(); try { t.g.disconnect(); } catch (e) {} delete MUSIC.live[k]; return; }
     if (t.el.paused) { var pr = t.el.play(); if (pr && pr.catch) pr.catch(function () {}); }
-    t.g.gain.value = MUSIC.vol * t.lvl * MUSIC.dk;
+    var e = t.lvl * t.lvl * (3 - 2 * t.lvl); // smooth in and out, so the crossfade has no bump
+    t.g.gain.value = MUSIC.vol * t.trim * e * MUSIC.dk;
   });
 }
 function musicToggle() {

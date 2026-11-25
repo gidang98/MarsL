@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.538";
+const GAME_VERSION = "1.0.539";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.539",date:"2026-11-25",title:"Music: playlists and smoother fades",groups:[["🎵 Music",["Several songs can play in one place: the colony, map and title screen rotate through their songs, fading from one into the next.","Switching between Fields, Colony, Army, Players and Inbox keeps the same song playing. A song you leave for the map or the casino picks up where it stopped.","Fades between places are longer and smoother, and the louder songs are turned down a little so every place feels even."]]]},
   {v:"1.0.538",date:"2026-11-25",title:"Background music",groups:[["🎵 Music",["The game can play background music, with a different track for the title screen, the colony, the map, the casino and story scenes. It fades between places.","The music gets quieter while somebody talks, stops when you leave the tab, and follows the Sound switch.","Turn it on or off, and set its volume (Low, Medium, High), under Settings."]]]},
   {v:"1.0.537",date:"2026-11-25",title:"Easier on phones",groups:[["📱 Phones",["On the Fields and Colony pages the island now comes first and the \"What should I build next?\" tips sit below it, so more of the island is on screen without scrolling.","Colony lots have a bigger touch area, and the small buttons (rename, wallet, claim, the top fold) are easier to hit. On small phones the title row fits on one line."]]]},
   {v:"1.0.536",date:"2026-11-25",title:"Bigger resource island",groups:[["🌾 Fields",["The resource island is shown 10% closer. Only the rim of its base is cut off at the sides; all 12 fields stay in view."]]]},
@@ -23897,7 +23898,7 @@ app.get("/art/:file", (req, res) => {
 function musicFiles() {
   const fs = require("fs"), dir = require("path").join(__dirname, "music"), out = [];
   try {
-    for (const f of fs.readdirSync(dir).sort()) {
+    for (const f of fs.readdirSync(dir).sort((a, b) => (/\.ogg$/i.test(b) - /\.ogg$/i.test(a)) || a.localeCompare(b))) {
       const m = /^([a-z0-9_-]+)\.(mp3|ogg|m4a|wav|webm)$/i.exec(f);
       if (m) out.push({ name: m[1].toLowerCase(), file: f, v: Math.floor(fs.statSync(require("path").join(dir, f)).mtimeMs / 1000).toString(36) });
     }
