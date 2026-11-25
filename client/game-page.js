@@ -4649,6 +4649,9 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .cz-lbl { position: absolute; left: 50%; top: 50%; width: 0; height: 0; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 700; font-size: calc(var(--w) * 0.056); color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; }
 .cz-frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
 .cz-wheelbox.art .cz-hub { background: none; border: 0; }
+/* the painted frame's window sits 3 px right and 1 px up of its centre (of 512): move the spinning numbers and the hub to match */
+.cz-wheelbox.art .cz-wheel { position: relative; left: 0.586%; top: -0.23%; }
+.cz-wheelbox.art .cz-hub { left: 50.586%; top: 49.77%; }
 .cz-pointer { position: absolute; left: 50%; top: -8px; margin-left: -8px; border: 8px solid transparent; border-top: 14px solid #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
 .cz-hub { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #3a2a14; display: flex; align-items: center; justify-content: center; border: 3px solid #e0b040; }
 .cz-hub .cz-num { min-width: 0; width: 100%; padding: 0; font-size: 17px; border: 0; background: transparent; }
