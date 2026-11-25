@@ -13579,36 +13579,36 @@ var tut = { step: -1 };
 // steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
 // 💬 Beppo pops up once for the big firsts (a small bubble; tap to close; Settings turns it off)
 var BEPPO_SAY = {
-  built: ["happy", "Your first build is done! The colony is officially a place now."],
-  trained: ["happy", "Fresh troops! They eat a lot, so keep an eye on the food."],
-  report: ["surprised", "A report! Open your Inbox to see how it went."],
-  threat: ["worried", "Incoming! Hide the snacks and check the Army tab."],
-  robbed: ["worried", "Ouch, someone helped themselves. A bunker would hide some of it next time."],
-  codex: ["happy", "The Codex shows monster camps and commanders. Check it before you pick a fight."],
-  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first. I take no responsibility for the prices.", "trickster"],
-  hunt: ["happy", "Creatures in slots earn Space-Cash every second, also while you are away."],
-  cmd: ["neutral", "Fuse shards from the shop to get more commanders. Your active commander is never for sale."],
-  farm: ["surprised", "A farm list sends many raids with one tap. Test a fight in the simulator first."],
-  relics: ["neutral", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt. Hold them with dignity.", "marshal"],
-  "b-hq": ["neutral", "The HQ unlocks everything else and makes every build faster. Upgrade it first, we will do the rest. Probably.", "steward"],
-  "b-barracks": ["neutral", "Infantry and scouts start here. Keep them fed, a hungry soldier is a loud soldier.", "drill"],
-  "b-workshop": ["neutral", "Siege machines come out of here. They are heavy, slow and very good at doors.", "drill"],
-  "b-hangar": ["neutral", "Fighters and bombers. Please do not park anything on the roof.", "drill"],
-  "b-market": ["neutral", "Merchants carry resources between colonies. I take no cut. Today.", "banker"],
-  "b-warehouse": ["neutral", "A full warehouse wastes production. Spend it, or build a bigger one.", "forager"],
-  "b-granary": ["neutral", "Troops eat every hour. If the food runs out, so does the army.", "forager"],
-  "b-bunker": ["neutral", "What is in the bunker, raiders cannot take. Think of it as a very expensive sock drawer.", "warden"],
-  "b-wall": ["neutral", "The wall and your defenders hold the line. Allies can send help here too.", "warden"],
-  "b-bakery": ["happy", "The bakery boosts food for the whole colony. It needs a food field at level 5. Mind the crumbs.", "chef"],
-  "b-greenhouse": ["neutral", "A second food booster that stacks with the bakery. I am not jealous. I am not.", "chef"],
-  "b-ration": ["happy", "In a Breadbasket colony, troops eat 1% less per level. My finest work.", "chef"],
-  "b-weaponry": ["happy", "Better weapons come from here. Please stand back. I mean that kindly.", "tinker"],
-  "b-assembly": ["surprised", "An Industrial Town gets +1% wood, stone and metal per level. Mostly because I stopped breaking things.", "tinker"],
-  "b-hospital": ["neutral", "Rest is the best medicine. I am an owl, not a doctor.", "owl"],
-  inbox: ["worried", "Reports and mail come through me. I run fast. The news does not always deserve it.", "courier"],
-  alliance: ["neutral", "Servers are won by alliances. Join or found one under Players, in the alliance tab. Allies cannot attack each other.", "marshal"],
-  send: ["happy", "Sending troops? Splendid. Test the fight in the simulator first. I insist, a little.", "warlord"],
-  "b-lab": ["surprised", "Research unlocks better troops. I have already broken the tea machine, for science.", "prof"]
+  built: ["happy", "Your first build is done! The colony is officially a place now. I am telling the sand."],
+  trained: ["happy", "Fresh troops! They are brave, loyal and always hungry. Mostly hungry. Watch the food."],
+  report: ["surprised", "A report?! I did not read it. I definitely did not read it. Open your Inbox!"],
+  threat: ["worried", "Incoming! Hide the snacks! Hide the other snacks! Then check the Army tab."],
+  robbed: ["worried", "They took your stuff and did not even say thanks. A bunker would hide some next time."],
+  codex: ["happy", "The Codex knows every monster and commander. Read it before you poke anything with teeth."],
+  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first. Prices are not my fault. Probably.", "trickster"],
+  hunt: ["happy", "Creatures in slots earn Space-Cash every second, even while you nap. Jealous? Me too."],
+  cmd: ["neutral", "Fuse shards from the shop for more commanders. Your active one is never for sale. Rude to ask."],
+  farm: ["surprised", "One tap, many raids! Efficient. Slightly evil. Test a fight in the simulator first."],
+  relics: ["neutral", "Relics give a bonus to whoever holds them. Hold enough and you win a hunt. Do not drop them. Dignity first.", "marshal"],
+  "b-hq": ["neutral", "The HQ unlocks everything and makes every build faster. Upgrade it first. I have a good feeling. About 40 percent.", "steward"],
+  "b-barracks": ["neutral", "Infantry and scouts start here! Keep them fed. A hungry soldier is a loud soldier. A loud soldier is MY problem.", "drill"],
+  "b-workshop": ["neutral", "Siege machines come out of here. Heavy, slow, and very, very good at doors.", "drill"],
+  "b-hangar": ["neutral", "Fighters and bombers! Please do not park anything on the roof. Again.", "drill"],
+  "b-market": ["neutral", "Merchants carry resources between colonies. I take no cut. Today. Ask me tomorrow.", "banker"],
+  "b-warehouse": ["neutral", "A full warehouse wastes production. Spend it, or build a bigger one. Do not stare at it.", "forager"],
+  "b-granary": ["neutral", "Troops eat every hour. When the food runs out, so does the army. Straight out the door.", "forager"],
+  "b-bunker": ["neutral", "What is in the bunker, raiders cannot take. Think of it as a very expensive, very boring sock drawer.", "warden"],
+  "b-wall": ["neutral", "The wall and your defenders hold the line. Allies can send help here too. Friends! Finally.", "warden"],
+  "b-bakery": ["happy", "The bakery boosts food for the whole colony. It needs a food field at level 5. Mind the crumbs. And me.", "chef"],
+  "b-greenhouse": ["neutral", "A second food booster that stacks with the bakery. Plants and bread. I am not jealous. I am NOT.", "chef"],
+  "b-ration": ["happy", "In a Breadbasket colony, troops eat 1% less per level. My finest work. Also my only work.", "chef"],
+  "b-weaponry": ["happy", "Better weapons come from here! Please stand back. Further. Further still. Lovely.", "tinker"],
+  "b-assembly": ["surprised", "An Industrial Town gets +1% wood, stone and metal per level. Mostly because I stopped breaking things. Mostly.", "tinker"],
+  "b-hospital": ["neutral", "Rest is the best medicine. I am an owl, not a doctor. Who? Exactly.", "owl"],
+  inbox: ["worried", "Reports and mail come through me. I run fast! The news does not always deserve it. Do not shoot the courier.", "courier"],
+  alliance: ["neutral", "Servers are won by alliances. Join or found one under Players, in the alliance tab. Allies cannot attack each other. It is in the rules.", "marshal"],
+  send: ["happy", "Sending troops? SPLENDID! Test the fight in the simulator first. I insist. Gently. With a sword.", "warlord"],
+  "b-lab": ["surprised", "Research unlocks better troops. I have already broken the tea machine. For science! And tea.", "prof"]
 };
 // first time a place is opened (the bubble sits at the top so it never covers the sheet)
 var BEPPO_OPEN = { "[data-codex-open]": "codex", "[data-auction]": "auction", "[data-hunt-open]": "hunt", "[data-cmd-open],[data-hero-open]": "cmd", "[data-farm-open]": "farm", "[data-relics]": "relics" };
@@ -13780,22 +13780,22 @@ function voiceWatch(d) {
   if (!rdy) mem.rdySince = 0;
   try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
   var se = d.world && d.world.season;
-  if (se && se.active && se.kind === "aurora") voiceSay("aurora", "void", "neutral", "The light stirs. Charge the pylons. Or do not.", 7 * 24 * HOUR);
+  if (se && se.active && se.kind === "aurora") voiceSay("aurora", "void", "neutral", "The light stirs. Charge the pylons. Or do not. The void is patient. It has had practice.", 7 * 24 * HOUR);
   if (!mem.say) {
-    if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", "Mission rewards have been waiting for a day. They do not spoil, but I am getting bored.", 24 * HOUR);
+    if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", "Your mission rewards have waited a day. They do not spoil. I do. Out of boredom.", 24 * HOUR);
     return;
   }
   mem.say = 0;
   try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
   setTimeout(function () {
     var streak = mem.streak || 1;
-    if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", "Commander! The crew started a betting pool on when you would return. I lost.", 12 * HOUR);
-    else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", "You are back! I guarded the snacks. Mostly.", 12 * HOUR);
-    else if (new Date().getHours() < 5) voiceSay("night", "owl", "neutral", "It is very late, Commander. The colony will still be here tomorrow.", 20 * HOUR);
-    else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", streak + " days in a row! I am telling everyone. Everyone being me.", 20 * HOUR);
-    else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", "Nothing is being built. The crew has started a card game.", 6 * HOUR);
-    else if (data && data.cash >= 100000) voiceSay("cash", "trickster", "neutral", "All that Space-Cash, just sitting there? Shocking. I know a place.", 24 * HOUR);
-    else if (data && data.unread >= 6) voiceSay("pile", "courier", "worried", "That is " + data.unread + " unread reports. I am not carrying them forever.", 12 * HOUR);
+    if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", "Commander! The crew bet on when you would return. I lost. They have my hat now.", 12 * HOUR);
+    else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", "You are back! I guarded the snacks. Well. Guarded. Near. Next to.", 12 * HOUR);
+    else if (new Date().getHours() < 5) voiceSay("night", "owl", "neutral", "It is very late, Commander. The colony will still be here tomorrow. Unlike my sleep schedule.", 20 * HOUR);
+    else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", streak + " days in a row! I am telling everyone. Everyone being the wall. The wall is impressed.", 20 * HOUR);
+    else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", "Nothing is being built. The crew started a card game. Someone is cheating. I think it is me.", 6 * HOUR);
+    else if (data && data.cash >= 100000) voiceSay("cash", "trickster", "neutral", "All that Space-Cash, just sitting there? Shocking. I know a place. No, not a scam. Mostly not.", 24 * HOUR);
+    else if (data && data.unread >= 6) voiceSay("pile", "courier", "worried", "That is " + data.unread + " unread reports. My arms hurt. My ears hurt. Read some!", 12 * HOUR);
   }, 2500);
 }
 // empty barracks: said when you open the Army page with no troops at home and none training
@@ -13803,7 +13803,7 @@ function voiceArmy(d) {
   var home = 0, train = 0;
   (d.units || []).forEach(function (u) { if (!u.scout && !u.settler) home += u.home || 0; });
   Object.keys(d.training || {}).forEach(function (w) { train += (d.training[w] || []).length; });
-  if (!home && !train) voiceSay("noarmy", "drill", "neutral", "No troops. The wall feels lonely and so do I.", 8 * HOUR, true);
+  if (!home && !train) voiceSay("noarmy", "drill", "neutral", "No troops. The wall feels lonely. So do I. We have started talking.", 8 * HOUR, true);
 }
 // a short shake for hits
 function quake() {
