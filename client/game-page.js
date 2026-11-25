@@ -10181,7 +10181,11 @@ function say(lines, opts) {
 var UNIT_ICO = { "Peckling": "chicken-peckling", "Rooster Guard": "chicken-rooster", "Hawk Interceptor": "chicken-hawk", "Pigeon Spy": "chicken-pigeon", "Dust Raider": "chicken-runner", "Turkey Tank": "chicken-turkey", "Eagle Squadron": "chicken-eagle", "Emu Charger": "chicken-owl", "Battering Dodo": "chicken-ram", "Egg Catapult": "chicken-catapult", "Mother Hen": "chicken-envoy", "Nest Builder": "chicken-settler",
   "Space-Soldier": "human-marine", "Shield Trooper": "human-guard", "Skyguard": "human-skyguard", "Spy": "human-drone", "Drop Trooper": "human-bike", "Rover Tank": "human-tank", "Jet Fighter": "human-jet", "Sky Bomber": "human-heli", "Wall Crusher": "human-ram", "Mortar": "human-catapult", "Governor": "human-envoy", "Colonist": "human-settler",
   "Grey Trooper": "alien-grey", "Goo Guard": "alien-blob", "Spore Flak": "alien-spitter", "Mind Probe": "alien-probe", "Tunnel Worm": "alien-squid", "Tentacle Titan": "alien-titan", "Saucer Fighter": "alien-saucer", "Jelly Bomber": "alien-jelly", "Acid Slug": "alien-ram", "Overmind": "alien-envoy", "Spore Seeder": "alien-settler" };
+// painted monster portraits for camp monsters in reports (falls back to the drawn icon / emoji)
+var MON_ART = { "Spore Puff": "spore", "Dust Scorpion": "scorpion", "Crater Bat": "bat", "Rock Troll": "troll", "Sand Worm": "worm", "Lava Lizard": "lizard", "Crystal Golem": "golem", "Dust Titan": "titan", "Dust Kraken": "kraken" };
 function UI(u) {
+  var mk = u && MON_ART[u.name];
+  if (mk && FX_ART.t["monster-" + mk]) return '<img class="uic" src="/art/monster-' + mk + '.webp?v=' + FX_ART.v + '" alt="" width="96" height="96" draggable="false">';
   var id = u && UNIT_ICO[u.name];
   return id ? '<img class="uic" src="/uicon/' + id + '.webp?v=__VER__" alt="" width="96" height="96" draggable="false">' : esc((u && u.icon) || "");
 }
