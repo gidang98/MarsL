@@ -3475,6 +3475,9 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .lp-facts { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
   .lp-facts li { font-size: 13px; font-weight: 700; padding: 4px 11px; border-radius: 999px; background: rgba(62,34,38,.78); color: #fff1e0; }
   .lp-facts li::before { content: "✓ "; color: var(--accent); }
+  .lp-hero .lang-pick { justify-content: flex-start; margin: 0; }
+  .lp-hero .lang-pick button { color: #fff1e0; background: rgba(62,34,38,.78); border-color: rgba(255,241,224,.35); }
+  .lp-hero .lang-pick button.on { color: #fff; background: var(--accent); border-color: var(--accent); }
   .lp-stack { position: relative; height: 520px; min-width: 0; }
   .lp-phone { margin: 0; background: var(--ink); border: 5px solid var(--ink); border-radius: 30px; overflow: hidden; box-shadow: 0 22px 40px -18px rgba(62,34,38,.75); aspect-ratio: 1 / 2; }
   .lp-phone img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: var(--radius-lg); }
@@ -4226,6 +4229,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   body.landing .sky { background: #1b1330 url("/art/bg-login.webp?v=__ARTV__") center bottom / cover no-repeat; }
   body.landing .sky::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,10,40,.82) 0%, rgba(20,10,40,.7) 48%, rgba(20,10,40,.25) 100%); pointer-events: none; }
   body.landing #app h2, body.landing #app p, body.landing #app .lp-sub { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  /* paragraphs inside the light cards keep the card's own text colour; only the text sitting on the dark sky is white */
+  body.landing #app .lp-band p, body.landing #app .lp-steps p, body.landing #app .lp-tribe p, body.landing #app .lp-step-t p, body.landing #app .lp-srv p, body.landing #app .lp-road p { color: inherit; opacity: .85; text-shadow: none; }
   body.landing .sky .hill, body.landing .sky .crater, body.landing .sky .rover, body.landing .sky .ufo, body.landing .sky .rocket-bg, body.landing .sky .hopper, body.landing .sky .sun, body.landing .sky .moon { display: none; }
   @media (max-width: 700px) {
     body.landing .sky { background-image: url("/art/bg-login-m.webp?v=__ARTV__"); }
@@ -5383,7 +5388,7 @@ var LANG_NAMES = { en: "English", de: "Deutsch", it: "Italiano", fr: "Français"
 var I18N = {
  "de": {
   "<h2>Build a colony.<br>Raise an army.<br>Win Mars together.</h2>": "<h2>Baue eine Kolonie.<br>Stelle ein Heer auf.<br>Gewinne den Mars gemeinsam.</h2>",
-  "A free strategy game in your browser. Farm space potatoes, train Turkey Tanks, raid monster camps and team up with an alliance to light the Aurora over Mars.": "Ein kostenloses Strategiespiel im Browser. Baue Weltraumkartoffeln an, trainiere Truthahn-Panzer, überfalle Monsterlager und verbünde dich mit einer Allianz, um die Aurora über dem Mars zu entzünden.",
+  "A free strategy game in your browser. Farm space potatoes, train Turkey Tanks, catch raiders in your traps and team up with an alliance to light the Aurora over Mars.": "Ein kostenloses Strategiespiel im Browser. Baue Weltraumkartoffeln an, trainiere Truthahn-Panzer, überfalle Monsterlager und verbünde dich mit einer Allianz, um die Aurora über dem Mars zu entzünden.",
   "🚀 Play for free": "🚀 Kostenlos spielen",
   "Log in": "Anmelden",
   "Free to play": "Kostenlos",
@@ -8352,7 +8357,10 @@ function renderLanding() {
 
   h += '<section class="lp-band lp-two"><div class="lp-two-t"><h3>Two minutes are enough</h3><ul class="lp-list">';
   h += "<li><b>Mission Board</b> One build, one army and one world mission at a time, each with a reward.</li>";
+  h += "<li><b>🐶 Beppo guides you</b> A talking dog explains the game as you go, in short speech bubbles. Turn him off any time.</li>";
   h += "<li><b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.</li>";
+  h += "<li><b>🪤 Traps and prisoners</b> Build traps to catch raiders, then keep them fed or let them go.</li>";
+  h += "<li><b>🎰 Casino</b> Spin the slots or bet on the roulette wheel with your spare Space-Cash.</li>";
   h += "<li><b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.</li>";
   h += "<li><b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.</li>";
   h += "<li><b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.</li>";
