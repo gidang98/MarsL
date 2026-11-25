@@ -1570,11 +1570,11 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   #beppo-say { position: fixed; left: 70px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(330px, calc(100% - 84px)); animation: tagpop 0.22s ease-out; }
   #beppo-say.top { left: 8px; max-width: calc(100% - 16px); bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
   #beppo-say.bye { opacity: 0; transition: opacity 0.2s; }
-  #beppo-say img { width: 88px; height: 88px; flex: none; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(90,40,30,.3)); }
-  .bs-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 8px; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.4; }
-  .bs-bub::before { content: ""; position: absolute; left: -7px; bottom: 16px; width: 12px; height: 12px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+  #beppo-say img { width: 88px; height: 88px; flex: none; object-fit: contain; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
+  .bs-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 8px; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: var(--radius-md); box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4); font-size: 13px; line-height: 1.4; }
+  .bs-bub::before { content: ""; position: absolute; left: -8px; bottom: 16px; width: 12px; height: 12px; background: #fffbe6; border-left: 2px solid #3a2a1a; border-bottom: 2px solid #3a2a1a; transform: rotate(45deg); }
   .bs-bub b { display: block; font-size: 12px; opacity: 0.7; }
-  .dark-mode .bs-bub, .dark-mode .bs-bub::before { background: #3a3220; color: #f3e9d2; border-color: #5a4b2c; }
+  .dark-mode .bs-bub, .dark-mode .bs-bub::before { background: #2e2616; color: #fff3d6; border-color: #f2d58a; }
   .tut-p.fin::after, .bs-t.fin::after { content: " ▼"; font-size: 10px; color: #e2574c; animation: tutblink 0.9s steps(2) infinite; }
   @keyframes tutblink { 50% { opacity: 0; } }
   .tut-btns .btn:hover::before { content: "♥ "; color: #e2574c; }
@@ -4449,11 +4449,11 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 /* the tour is told by Beppo in a speech bubble */
 .tut-card.tut-say { display: flex; gap: 10px; align-items: flex-end; padding: 0; background: none; border: 0; box-shadow: none; }
 .tut-beppo { flex: none; width: 64px; text-align: center; }
-.tut-beppo img { display: block; width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(90,40,30,.3)); }
+.tut-beppo img { display: block; width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
 .tut-beppo b { display: block; font-size: 11px; opacity: .75; }
-.tut-bub { position: relative; flex: 1; min-width: 0; padding: 12px 16px; background: #fffbe6; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
-.tut-bub::before { content: ""; position: absolute; left: -8px; bottom: 26px; width: 14px; height: 14px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
-.dark-mode .tut-bub, .dark-mode .tut-bub::before { background: #3a3220; border-color: #5a4b2c; }
+.tut-bub { position: relative; flex: 1; min-width: 0; padding: 12px 16px; background: #fffbe6; color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: var(--radius-md); box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4); }
+.tut-bub::before { content: ""; position: absolute; left: -9px; bottom: 26px; width: 14px; height: 14px; background: #fffbe6; border-left: 2px solid #3a2a1a; border-bottom: 2px solid #3a2a1a; transform: rotate(45deg); }
+.dark-mode .tut-bub, .dark-mode .tut-bub::before { background: #2e2616; color: #fff3d6; border-color: #f2d58a; }
 .tut-say .tut-p { cursor: pointer; }
 .dark-mode .panel, .dark-mode .lead, .dark-mode .card, .dark-mode .sheet { background-image: none !important; }
 .dark-mode .verfoot { background: rgba(40,35,45,.86) !important; color: var(--muted) !important; }

@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.500";
+const GAME_VERSION = "1.0.501";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.501",date:"2026-11-25",title:"Easier to read",groups:[["🔧 Fixed",["Speech bubbles have a dark outline, a stronger shadow and a white edge around the speaker, so they stand out on any background, also in dark mode."]]]},
   {v:"1.0.500",date:"2026-11-25",title:"Real theme tunes",groups:[["✨ New",["Each voice has a proper little theme with its own instrument, rhythm and mood, and its own typing sound: Beppo bouncy, the Steward a fanfare, the Drillmaster a march with drums, the Banker sparkling coins, the Forager a gentle folk tune, the Warden a low solemn drone, the Professor a quirky run."]]]},
   {v:"1.0.499",date:"2026-11-25",title:"Typewriter text",groups:[["🔧 Fixed",["Speech bubbles type their text out letter by letter again, also when your phone has Reduce Motion on, and the words no longer flash up before the voice arrives."]]]},
   {v:"1.0.498",date:"2026-11-25",title:"8-bit voices",groups:[["✨ New",["Everyone now talks with short, dry 8-bit blips, and each voice has its own little theme tune that plays when they arrive."]]]},
