@@ -3789,8 +3789,15 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
     details.build-advice { order: 1; }
     details.build-advice ~ * { order: 2; }
     details.build-advice ~ .fx-stage { order: 0; }
+    div:has(> details.build-advice) > .fx-stage { width: 100%; box-sizing: border-box; }
     .edit, .wallet, .tf-sum, [data-quest], .cx-zoom button, .pan { position: relative; }
     .edit::after, .wallet::after, .tf-sum::after, [data-quest]::after { content: ""; position: absolute; inset: -8px; }
+  }
+  @media (max-width: 360px) { /* small phones: keep the title row and the colony card on one line each */
+    .bld-head { flex-wrap: nowrap; }
+    .bld-head h2.section { font-size: 15px; padding: 5px 10px; white-space: nowrap; }
+    .bld-head .lots { font-size: 12px; padding: 4px 8px; white-space: nowrap; }
+    .topbar > div:first-child > b { font-size: 16px; }
   }
   .cx-zoom { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 6px; z-index: 4; }
   .cx-zoom button { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line, #c9a77a); background: var(--card, #fff7ea); color: var(--ink, #3a2a1a); font-size: 22px; font-weight: 800; line-height: 1; padding: 0; box-shadow: 0 2px 0 rgba(58, 42, 26, .25); }
