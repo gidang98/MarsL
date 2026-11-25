@@ -4577,6 +4577,21 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 /* 1.0.377 gear auction */
 .auc-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
 .auc-tabs.sub { margin-top: -2px; }
+.cz-reels { display: flex; gap: 8px; justify-content: center; margin: 12px 0 6px; }
+.cz-reels span { width: 74px; height: 84px; display: flex; align-items: center; justify-content: center; font-size: 42px; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; background: rgba(255,255,255,.55); }
+.cz-reels span.spin { filter: blur(1.2px); transform: translateY(2px); }
+.cz-pay { display: block; text-align: center; opacity: .75; margin-bottom: 8px; }
+.cz-ball { display: flex; justify-content: center; margin: 12px 0; }
+.cz-num { min-width: 64px; padding: 10px 0; text-align: center; border-radius: 50%; font-size: 28px; color: #fff; border: 3px solid rgba(0,0,0,.2); }
+.cz-num.r { background: #c23b32; } .cz-num.b { background: #2a2a30; } .cz-num.g { background: #2f8a4f; }
+.cz-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+.cz-kinds .btn small { display: block; opacity: .7; }
+.cz-one { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cz-one input { width: 56px; }
+.cz-bets { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+.cz-bets .on, .cz-kinds .on, .cz-one .on { outline: 2px solid #e2574c; }
+.cz-go { width: 100%; margin: 4px 0; }
+.cz-msg { text-align: center; min-height: 22px; font-weight: 700; }
 .auc-row { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; margin-bottom: 6px; }
 .auc-row.lead { border-color: #2f9e6e; background: rgba(47, 158, 110, .1); }
 .auc-row.mine { border-color: #c9a227; background: rgba(201, 162, 39, .08); }
@@ -15469,6 +15484,9 @@ function renderSheet() {
   } else if (sheet.kind === "codex") {
     if (!codex.data) { closeSheet(); return; }
     h += codexSheet();
+  } else if (sheet.kind === "casino") {
+    if (!casino.data) { closeSheet(); return; }
+    h += casinoSheet();
   } else if (sheet.kind === "auction") {
     if (!auc.data) { closeSheet(); return; }
     h += auctionSheet();
@@ -17245,6 +17263,10 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
+    cards.push(wkCard("casino", "🎰", "Casino", wkP("Open it from your 💲 wallet. It uses Space-Cash only, bets run from 10 to 5,000, and the house keeps a small edge: it is a way to spend Space-Cash, not to earn it.") + wkList([
+      "🎰 <b>Slots:</b> three of a kind pays 5× (🍒) up to 200× (7️⃣); exactly two 🍒 pay 2×.",
+      "🎡 <b>Roulette:</b> numbers 0 to 36. Red, black, odd, even and the halves pay 2×, a dozen 3×, one number 36×. The zero loses every bet."
+    ])));
     if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear, commander shards, creatures from your hunt inventory and your commander’s supplies (dressings, medkits, journals, recovery kits, Insight tokens) to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
       head: ["Skill", "Per point", "Max", "Effect"],
@@ -18110,7 +18132,7 @@ function walletSheet() {
   h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
   var cr = wallet.crRate, cfr = walletCr() % 1;
   h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + Math.floor(walletCr()).toLocaleString("en-US") + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
-  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button></div>';
+  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button><button class="btn small ghost" data-casino="1">🎰 Casino</button></div>';
   return h;
 }
 function openHunt() {
@@ -18211,6 +18233,84 @@ function huntSheet() {
 
 // ---------- the gear auction ----------
 var auc = { data: null, tab: "browse" };
+// 🎰 casino: the server rolls and pays, this only shows it
+var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "" };
+function openCasino() {
+  fetch("/api/casino").then(function (r) { return r.json(); }).then(function (j) {
+    casino.data = j; casino.msg = "";
+    if (casino.bet && j.bets.indexOf(casino.bet) < 0) casino.bet = j.bets[1];
+    if (sheet && sheet.kind === "casino") renderSheet(); else openSheet("casino", null);
+  }).catch(function () { toast("⚠️ The server does not answer"); });
+}
+var CASINO_KINDS = [["red", "🟥 Red", 0, "2×"], ["black", "⬛ Black", 0, "2×"], ["odd", "Odd", 0, "2×"], ["even", "Even", 0, "2×"], ["low", "1–18", 0, "2×"], ["high", "19–36", 0, "2×"], ["dozen", "1–12", 0, "3×"], ["dozen", "13–24", 1, "3×"], ["dozen", "25–36", 2, "3×"]];
+var CASINO_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+function casinoNum(n) { return '<b class="cz-num ' + (n === 0 ? "g" : CASINO_RED.indexOf(n) >= 0 ? "r" : "b") + '">' + n + "</b>"; }
+function casinoSheet() {
+  var C = casino.data, h = '<div class="sheet-head"><span class="hi">🎰</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + Math.floor(walletNow()).toLocaleString("en-US") + "</span> Space-Cash</b></div></div>";
+  h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>🎰</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>🎡</span>Roulette</button></div>';
+  if (casino.game === "slots") {
+    h += '<div class="cz-reels" id="cz-reels"><span>🍒</span><span>🍋</span><span>🔔</span></div>';
+    h += '<small class="cz-pay">' + C.slots.map(function (x) { return x.s + "×3 " + x.pays + "×"; }).join(" · ") + " · 🍒🍒 " + C.twoCherries + "×</small>";
+  } else {
+    h += '<div class="cz-ball" id="cz-ball">' + casinoNum(0) + "</div>";
+    h += '<div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + '</div>';
+    h += '<div class="cz-one"><label>Single number <small>36×</small> <input type="number" min="0" max="36" id="cz-n" value="' + (casino.kind === "number" ? casino.pick : 7) + '"></label><button class="btn small ghost" data-casino-kind="number" data-casino-pick="n">Bet it</button></div>';
+  }
+  h += '<div class="cz-bets">' + C.bets.map(function (b) { return '<button class="btn small ghost" data-casino-bet="' + b + '">💲 ' + shortNum(b) + "</button>"; }).join("") + "</div>";
+  h += '<button class="btn cz-go" data-casino-spin="1">' + (casino.game === "slots" ? "Spin" : "Spin the wheel") + "</button>";
+  h += '<div class="cz-msg" id="cz-msg">' + esc(casino.msg || "") + "</div>";
+  setTimeout(casinoMark, 0);
+  return h;
+}
+function casinoMark() {
+  var box = document.getElementById("sheet"); if (!box) return;
+  Array.prototype.forEach.call(box.querySelectorAll("[data-casino-bet]"), function (b) { b.classList.toggle("on", Number(b.getAttribute("data-casino-bet")) === casino.bet); });
+  Array.prototype.forEach.call(box.querySelectorAll("[data-casino-kind]"), function (b) {
+    var k = b.getAttribute("data-casino-kind"), pk = b.getAttribute("data-casino-pick");
+    b.classList.toggle("on", k === casino.kind && (k === "number" || k === "dozen" ? (k === "number" ? casino.kind === "number" : Number(pk) === casino.pick) : true));
+  });
+}
+function casinoSpin() {
+  if (casino.busy || !casino.data) return;
+  var body = { bet: casino.bet }, url = "/api/casino/slots", n = document.getElementById("cz-n");
+  if (casino.game === "roulette") {
+    url = "/api/casino/roulette"; body.kind = casino.kind;
+    if (casino.kind === "number") { casino.pick = Math.max(0, Math.min(36, Math.floor(Number(n && n.value) || 0))); body.pick = casino.pick; } else body.pick = casino.pick;
+  }
+  casino.busy = true;
+  var msg = document.getElementById("cz-msg"); if (msg) msg.textContent = "";
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+    if (!x.ok) { casino.busy = false; toast(x.j.error || "The casino said no."); sfx("error"); return; }
+    var j = x.j, sy = casino.data.slots.map(function (q) { return q.s; });
+    var done = function () {
+      var m = document.getElementById("cz-msg"), c = document.getElementById("cz-cash");
+      casino.msg = j.win > j.bet ? "🎉 +" + (j.win - j.bet).toLocaleString("en-US") + " Space-Cash" : j.win === j.bet ? "Even. You get your bet back." : "−" + j.bet.toLocaleString("en-US") + " Space-Cash";
+      if (m) m.textContent = casino.msg;
+      wallet.cash = j.cash; wallet.at = Date.now();
+      if (c) c.textContent = j.cash.toLocaleString("en-US");
+      sfx(j.win > j.bet ? "done" : "click");
+      casino.busy = false;
+      loadColony(false);
+    };
+    if (casino.game === "slots") {
+      var reels = document.querySelectorAll("#cz-reels span");
+      if (calmMotion || !reels.length) { Array.prototype.forEach.call(reels, function (r, i) { r.textContent = j.reels[i]; }); done(); return; }
+      var t0 = Date.now(), iv = setInterval(function () {
+        var el = Date.now() - t0;
+        Array.prototype.forEach.call(reels, function (r, i) { r.textContent = el > 600 + i * 350 ? j.reels[i] : sy[Math.floor(Math.random() * sy.length)]; r.classList.toggle("spin", el <= 600 + i * 350); });
+        if (el % 3 < 1) sfx("click");
+        if (el > 600 + 2 * 350 + 60) { clearInterval(iv); done(); }
+      }, 70);
+    } else {
+      var ball = document.getElementById("cz-ball");
+      if (calmMotion || !ball) { if (ball) ball.innerHTML = casinoNum(j.n); done(); return; }
+      var t1 = Date.now(), iv2 = setInterval(function () {
+        var e2 = Date.now() - t1;
+        if (e2 > 1500) { clearInterval(iv2); ball.innerHTML = casinoNum(j.n); done(); } else ball.innerHTML = casinoNum(Math.floor(Math.random() * 37));
+      }, 70 + 0);
+    }
+  }).catch(function () { casino.busy = false; toast("⚠️ The server does not answer"); });
+}
 function openAuction(tab) {
   fetch("/api/auction").then(function (r) { return r.json(); }).then(function (j) {
     auc.data = j;
@@ -19195,7 +19295,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-casino],[data-casino-tab],[data-casino-bet],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -19351,6 +19451,16 @@ document.addEventListener("click", function (e) {
   } else if (has("data-hero-arch")) {
     var ak = attr("data-hero-arch");
     if (confirm("Choose this archetype? Changing it later means resetting all skill points.")) post("/api/hero", { action: "arch", key: ak }, function (r) { confetti(); toast("🎭 " + (r && r.archPicked || "Archetype") + " it is!", true); });
+  } else if (has("data-casino")) {
+    openCasino();
+  } else if (has("data-casino-tab")) {
+    casino.game = attr("data-casino-tab"); casino.msg = ""; renderSheet();
+  } else if (has("data-casino-bet")) {
+    casino.bet = Number(attr("data-casino-bet")); sfx("click"); casinoMark();
+  } else if (has("data-casino-kind")) {
+    casino.kind = attr("data-casino-kind"); casino.pick = Number(attr("data-casino-pick")) || 0; sfx("click"); casinoMark();
+  } else if (has("data-casino-spin")) {
+    casinoSpin();
   } else if (has("data-wallet-open")) {
     openSheet("wallet", null);
   } else if (has("data-codex-open")) {

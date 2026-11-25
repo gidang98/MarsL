@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.510";
+const GAME_VERSION = "1.0.511";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -11597,6 +11597,64 @@ app.post("/api/auction/list", requireLogin, (req, res) => {
   db.prepare("INSERT INTO auctions (seller_id, item, start_price, created_at, ends_at, cash) VALUES (?, ?, ?, ?, ?, 1)").run(uid, JSON.stringify(item), price, now, now + hours * 3600000);
   res.json({ ok: true });
 });
+// ---------- 🎰 casino: slot machine and roulette (Space-Cash only) ----------
+// One request per round: the server rolls, pays and answers; the client only animates.
+const CASINO_BETS = [10, 50, 250, 1000, 5000];
+const SLOT_SYMBOLS = [["🍒", 34, 5], ["🍋", 26, 8], ["🔔", 18, 14], ["⭐", 12, 30], ["💎", 7, 70], ["7️⃣", 3, 200]]; // symbol, weight, pays x bet for three
+const SLOT_TWO_CHERRIES = 2; // exactly two 🍒 pay 2x
+const ROULETTE_RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const casinoLast = new Map();
+function casinoRoll(weighted) {
+  let r = crypto.randomInt(0, weighted.reduce((a, x) => a + x[1], 0));
+  for (const x of weighted) { if (r < x[1]) return x; r -= x[1]; }
+  return weighted[0];
+}
+function casinoStart(req, res) {
+  if (req.sitterId) { res.status(403).json({ error: "Use your own account to play." }); return null; }
+  const uid = req.user.id, now = Date.now();
+  if (now - (casinoLast.get(uid) || 0) < 700) { res.status(429).json({ error: "Easy there, one round at a time." }); return null; }
+  const bet = Math.floor(Number((req.body || {}).bet));
+  if (!CASINO_BETS.includes(bet)) { res.status(400).json({ error: "Pick one of the bets." }); return null; }
+  if (cashOf(uid) < bet) { res.status(400).json({ error: "You need " + bet + " " + CASH.name + " for that bet." }); return null; }
+  casinoLast.set(uid, now);
+  return { uid, bet };
+}
+app.get("/api/casino", requireLogin, (req, res) => {
+  res.json({ bets: CASINO_BETS, cash: cashOf(req.user.id), slots: SLOT_SYMBOLS.map((x) => ({ s: x[0], pays: x[2] })), twoCherries: SLOT_TWO_CHERRIES });
+});
+app.post("/api/casino/slots", requireLogin, (req, res) => {
+  const g = casinoStart(req, res);
+  if (!g) return;
+  const reels = [casinoRoll(SLOT_SYMBOLS), casinoRoll(SLOT_SYMBOLS), casinoRoll(SLOT_SYMBOLS)].map((x) => x[0]);
+  let mult = 0;
+  if (reels[0] === reels[1] && reels[1] === reels[2]) mult = SLOT_SYMBOLS.find((x) => x[0] === reels[0])[2];
+  else if (reels.filter((x) => x === "🍒").length === 2) mult = SLOT_TWO_CHERRIES;
+  const win = g.bet * mult;
+  addCash(g.uid, win - g.bet);
+  res.json({ ok: true, reels, win, bet: g.bet, cash: cashOf(g.uid) });
+});
+app.post("/api/casino/roulette", requireLogin, (req, res) => {
+  const b = req.body || {}, kind = String(b.kind || ""), pick = Math.floor(Number(b.pick));
+  const KINDS = ["red", "black", "odd", "even", "low", "high", "dozen", "number"];
+  if (!KINDS.includes(kind) || (kind === "dozen" && !(pick >= 0 && pick <= 2)) || (kind === "number" && !(pick >= 0 && pick <= 36))) return res.status(400).json({ error: "Pick a bet on the table." });
+  const g = casinoStart(req, res);
+  if (!g) return;
+  const n = crypto.randomInt(0, 37);
+  let mult = 0;
+  if (n > 0) {
+    if (kind === "red" && ROULETTE_RED.has(n)) mult = 2;
+    else if (kind === "black" && !ROULETTE_RED.has(n)) mult = 2;
+    else if (kind === "odd" && n % 2 === 1) mult = 2;
+    else if (kind === "even" && n % 2 === 0) mult = 2;
+    else if (kind === "low" && n <= 18) mult = 2;
+    else if (kind === "high" && n >= 19) mult = 2;
+    else if (kind === "dozen" && Math.floor((n - 1) / 12) === pick) mult = 3;
+  }
+  if (kind === "number" && n === pick) mult = 36;
+  const win = g.bet * mult;
+  addCash(g.uid, win - g.bet);
+  res.json({ ok: true, n, red: ROULETTE_RED.has(n), win, bet: g.bet, cash: cashOf(g.uid) });
+});
 app.post("/api/auction/bid", requireLogin, (req, res) => {
   const uid = req.user.id;
   const b = req.body || {};
@@ -17762,6 +17820,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.511",date:"2026-11-25",title:"The casino",groups:[["🎰 New",["A 🎰 Casino in your wallet: a slot machine and roulette, played with Space-Cash only.","Slots: three reels, three of a kind pays 5x to 200x, two 🍒 pay 2x. Roulette: 37 numbers with one zero, colors and halves pay 2x, dozens 3x, a single number 36x.","Bets run from 10 to 5,000 Space-Cash. The house keeps a small edge, so it is a Space-Cash sink, not a faucet."]]]},
   {v:"1.0.510",date:"2026-11-25",title:"A slot for the bounty",groups:[["🔧 Fixed",["The commander's bounty stash now has a slot of its own, so a bag full of gear can no longer make camp bounty disappear."]]]},
   {v:"1.0.509",date:"2026-11-25",title:"Commander-only camp bounty",groups:[["🔧 Fixed",["A commander sent alone to a monster camp now keeps the bounty in its inventory, as it should. Before, it only came with troops."]]]},
   {v:"1.0.508",date:"2026-11-25",title:"Rewards once per server",groups:[["🔧 Fixed",["The 🎓 graduation reward and the landing guide gifts are now paid once per server. Respawning no longer pays them again; a new server round starts fresh."]]]},
