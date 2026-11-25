@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.526";
+const GAME_VERSION = "1.0.527";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.527",date:"2026-11-25",title:"Beppo has more to say",groups:[["💬 Beppo",["The landing tour on a new server is now told by Beppo in a speech bubble with a portrait, typed out one step at a time.","Beppo reacts when your traps catch someone, and when prisoners starve or are freed and their traps are lost.","Visit the same place over and over and Beppo starts to notice.","Now and then Beppo says something very odd.","His voice follows his mood: happy bounces, worried sags and babbles, surprised climbs. Each mood has its own arrival tune."]]]},
   {v:"1.0.526",date:"2026-11-25",title:"Traps are produced",groups:[["🪤 Traps",["Traps no longer come free with every trap building level. Each level only gives room for 20 traps; you produce them in the building for resources and time.","A trap is lost when its prisoners are freed by an enemy win or starve, and has to be produced again.","Letting prisoners go still rebuilds their traps for free, at half the production time.","Colonies keep the traps they already had."]]]},
   {v:"1.0.525",date:"2026-11-25",title:"Slots and roulette animate again",groups:[["🎰 Casino",["The slot reels spin and stop on the symbols you rolled, and the roulette wheel keeps spinning until it lands. Before, the sheet refreshing every second wiped both."]]]},
   {v:"1.0.524",date:"2026-11-25",title:"Monster pictures in reports",groups:[["⚔️ Reports",["Battle and scout reports now show the painted monster portraits instead of emoji."]]]},

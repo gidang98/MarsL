@@ -12467,6 +12467,7 @@ function renderReports() {
 //  Popups (fields, lots, sending troops)
 // =====================================================================
 function openSheet(kind, slot) {
+  if (kind === "casino" || kind === "building" || kind === "send") visitCount("sheet-" + kind + (kind === "building" && data && typeof slot === "number" ? ":" + ((data.buildings.filter(function (x) { return x.slot === slot; })[0] || {}).type || "") : ""));
   if (kind === "send") setTimeout(function () { beppoSay("send", true); }, 700);
   if (kind === "building" && data && typeof slot === "number") {
     var ob = data.buildings.filter(function (x) { return x.slot === slot; })[0];
@@ -13264,6 +13265,9 @@ var SFX = {
   "v-void": [[55.0, 0, 1.8, "pulse12", 0.05, 0, 0], [82.4, 0.4, 1.4, "triangle", 0.05, 0, 0], [1318.5, 0.9, 0.5, "triangle", 0.015, 0, 0]],
   "v-croupier": [[392.0, 0.0, 0.09, "triangle", 0.05, 0, 0], [493.9, 0.11, 0.09, "triangle", 0.05, 0, 0], [587.3, 0.22, 0.09, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.09, "triangle", 0.05, 0, 0], [587.3, 0.46, 0.14, "triangle", 0.05, 0, 3], [784.0, 0.64, 0.3, "triangle", 0.05, 0, 4]],
   "v-villain": [[147, 0, 0.12, "pulse12", 0.045, 0, 0], [147, 0.14, 0.12, "pulse12", 0.045, 0, 0], [156, 0.28, 0.2, "pulse12", 0.045, 0, 0], [147, 0.52, 0.4, "pulse12", 0.045, 0, 5]],
+  "v-beppo-happy": [[659.3, 0.0, 0.07, "pulse25", 0.03, 0, 0], [784.0, 0.075, 0.07, "pulse25", 0.03, 0, 0], [987.8, 0.15, 0.07, "pulse25", 0.03, 0, 0], [784.0, 0.225, 0.07, "pulse25", 0.03, 0, 0], [987.8, 0.3, 0.07, "pulse25", 0.03, 0, 0], [1318.5, 0.375, 0.16, "pulse25", 0.03, 0, 0]],
+  "v-beppo-worried": [[587.3, 0.0, 0.1, "pulse25", 0.03, 0, 0], [554.4, 0.11, 0.1, "pulse25", 0.03, 0, 0], [466.2, 0.22, 0.1, "pulse25", 0.03, 0, 0], [440.0, 0.33, 0.2, "pulse25", 0.03, 392.0, 0]],
+  "v-beppo-surprised": [[523.3, 0.0, 0.05, "pulse25", 0.03, 0, 0], [1046.5, 0.06, 0.05, "pulse25", 0.03, 0, 0], [1568.0, 0.12, 0.18, "pulse25", 0.03, 1760.0, 0]],
   "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
   "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
   "v-drill": [[65.4, 0.0, 0.126, "pulse12", 0.045, 0, 0], [65.4, 0.14, 0.126, "pulse12", 0.045, 0, 0], [77.8, 0.28, 0.126, "pulse12", 0.045, 0, 0], [98.0, 0.42, 0.126, "pulse12", 0.045, 0, 0], [130.8, 0.56, 0.252, "pulse12", 0.045, 0, 0], [0, 0.14, 0.06, "noise", 0.05, 0, 0], [0, 0.42000000000000004, 0.06, "noise", 0.05, 0, 0], [0, 0.7000000000000001, 0.06, "noise", 0.05, 0, 0], [0, 0.8400000000000001, 0.12, "noise", 0.05, 0, 0]],
@@ -13489,7 +13493,8 @@ function tutWin(d) {
 //  The server says which step is next (d.onboarding) and checks it.
 //  One highlighted thing at a time; done steps pay a little and move on.
 // =====================================================================
-var onbBusy = false, onbLastAct = Date.now(), onbKit = "builder", onbShownFx = false, onbLastKey = "";
+var onbBusy = false, onbLastAct = Date.now(), onbKit = "builder", onbShownFx = false, onbLastKey = "", onbTyped = "";
+var ONB_MOOD = { welcome: "surprised", name: "happy", squad: "happy", scorp: "worried", ally: "neutral", protect: "worried", goal: "happy" };
 function onbName(d, type) {
   var b = d.buildings.filter(function (x) { return x.type === type; })[0] || (d.buildable || []).filter(function (x) { return x.type === type; })[0];
   return b ? trStr(b.name) : type;
@@ -13505,7 +13510,7 @@ function onbProd(d) {
   return RES.map(function (k) { return RES_ICON[k] + " +" + Math.round(d.production[k]) + "/h"; }).join(" · ");
 }
 var ONB = {
-  welcome: { view: "resources", title: "🚀 Crash-landed!", text: function () { return "Welcome to your first colony. Follow the highlighted button to produce resources, build storage and train your first troops. You can take your time."; }, btn: "Let’s go" },
+  welcome: { view: "resources", title: "🚀 Crash-landed!", text: function () { return "Woof! That landing was… loud. The good news: the colony is mostly fine, and so am I. Follow the highlighted button to produce resources, build storage and train your first troops. You can take your time."; }, btn: "Let’s go" },
   field: { view: "resources", title: "🌾 First harvest", text: function () { return "Tap a resource field, then choose <b>Upgrade</b>. Its timer shows when level 1 will finish. Fields produce resources automatically, even while you are away."; }, spot: function (d) { return ["[data-up-field]", onbFieldSel(d)]; }, go: function () { questField(null, 1); }, yay: "First harvest! Fields work even while you sleep." },
   res: { view: "resources", title: "📦 Use your resources", text: function (d) { return trf("Your fields produce resources for this colony:<br><b>{0}</b><br>Quest rewards go into your <b>commander inventory</b>. To use them for a build, tap a missing resource marked <b>📦+</b>. A transfer window opens with the missing amount filled in. Review it, press <b>Transfer selected</b>, then return to the build and choose <b>Upgrade</b>.", onbProd(d)); }, spot: function () { return [".resbar"]; }, btn: "Got it" },
   name: { view: "resources", title: "✏️ Name your colony", text: function () { return "It’s yours now. Give it a name."; }, spot: function () { return ["#rn", "[data-rename]"]; }, go: function () { openSheet("rename", null); }, yay: "Welcome home!" },
@@ -13617,7 +13622,9 @@ function renderOnb(d) {
   if (O.key !== onbLastKey) { onbLastKey = O.key; onbLastAct = Date.now(); }
   var dots = "";
   for (var k = 0; k < O.n; k++) dots += '<i class="' + (k < O.i ? "done" : k === O.i ? "on" : "") + '"></i>';
-  var h = '<div class="tut-card onb-card"><div class="tut-dots">' + dots + "</div>";
+  var omood = O.final || O.key === "loot" ? "happy" : ONB_MOOD[O.key] || "neutral", obk = "beppo-" + omood;
+  var oface = FX_ART.t[obk] ? '<img src="/art/' + obk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : CAST.beppo.icon;
+  var h = '<div class="tut-card onb-card tut-say"><div class="tut-beppo">' + oface + "<b>" + CAST.beppo.name + '</b></div><div class="tut-bub"><div class="tut-dots">' + dots + "</div>";
   if (O.final) {
     var S = O.summary;
     h += "<h3>" + trStr("🎖️ Landing complete, Commander!") + "</h3><ul class='onb-sum'>";
@@ -13626,7 +13633,7 @@ function renderOnb(d) {
     h += "<p class='tut-p'><b>" + trStr("Next goals") + "</b></p><ol class='onb-goals'>" + onbNextGoals(d, S).map(function (g) { return "<li>" + g + "</li>"; }).join("") + "</ol>";
     h += '<div class="onb-kit"><button class="' + (onbKit === "builder" ? "on" : "") + '" data-onb-kit="builder">' + '🌾' + ' +' + S.builder.wood + " " + trStr("of each") + "</button>";
     if (S.raider) h += '<button class="' + (onbKit === "raider" ? "on" : "") + '" data-onb-kit="raider">⚔️ ' + S.raider.count + " " + S.raider.icon + " " + esc(trStr(S.raider.name)) + "</button>";
-    h += '</div><div class="tut-btns"><button class="btn" data-onb="finish">' + trStr("I’m ready, Commander 🚀") + '</button></div></div>';
+    h += '</div><div class="tut-btns"><button class="btn" data-onb="finish">' + trStr("I’m ready, Commander 🚀") + '</button></div></div></div>';
   } else {
     h += "<h3>" + trStr(def.title) + "</h3><div class='tut-p'>" + trStr(def.text(d, O)) + "</div>";
     if (O.key === "res" && d.hero) h += '<button type="button" class="btn small ghost" data-stash-add="wood|0">Open commander inventory</button>';
@@ -13642,10 +13649,15 @@ function renderOnb(d) {
       if (O.key === "loot" ? O.lander && O.lander.done : O.scorp && O.scorp.won) h += '<button class="btn small" data-onb="report">' + '📜' + ' Open the report</button>';
     } else if (O.info) h += '<button class="btn small" data-onb="next">' + trStr(def.btn || "Next") + "</button>";
     else if (def.go) h += '<button class="btn small" data-onb="go">' + '👉' + ' Show me</button>';
-    h += "</div></div>";
+    h += "</div></div></div>";
   }
   box.className = "on onb" + (onbTop() ? " top" : "");
   setHTML(box, h);
+  if (onbTyped !== O.key + (O.final ? "!" : "")) { // Beppo says each new step out loud, once
+    onbTyped = O.key + (O.final ? "!" : "");
+    var otp = box.querySelector(".tut-p");
+    if (otp && !O.final) { sfx("v-" + voiceTune("beppo", omood)); typeHtml(otp, CAST.beppo.pitch, CAST.beppo.wave, omood); otp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
+  }
   onbSpot(d, O);
 }
 // with a sheet open (or on the map) the guide moves to the top, out of the thumb's way
@@ -13770,12 +13782,16 @@ function voiceSay(id, who, mood, text, cdMs, top) {
   voiceShow(who, mood, text, top);
   return true;
 }
+function voiceTune(whoKey, mood) { return whoKey === "beppo" && SFX["v-beppo-" + mood] ? "beppo-" + mood : whoKey; }
 function themeLen(k) {
   var m = 0;
   (SFX["v-" + k] || []).forEach(function (n) { m = Math.max(m, (n[1] + n[2]) * 1000); });
   return m;
 }
+// 1 in 50 of Beppo's remarks slips into something odd
+var BEPPO_RARE = ["Do you ever wonder who writes my lines? Me neither. Okay, a little.", "I counted the pixels on this screen. Some of them are very good pixels.", "Sometimes I say a thing and a number somewhere goes up. I do not ask questions.", "If you read this, you are my favourite commander. Do not tell the others. They also read this.", "I was told to stay in the bubble. The bubble is cozy. The bubble is small. Help.", "Fun fact: I am a dog. This is not a fun fact. It is a lifestyle."];
 function voiceShow(whoKey, mood, text, top) {
+  if (whoKey === "beppo" && Math.random() < 0.02) { text = pickOne(BEPPO_RARE); mood = "surprised"; }
   var who = CAST[whoKey] || CAST.beppo, own = whoKey !== "beppo";
   var bk = own ? who.art : "beppo-" + mood, el = document.createElement("div");
   el.id = "beppo-say";
@@ -13796,8 +13812,8 @@ function voiceShow(whoKey, mood, text, top) {
     setTimeout(function () { el.remove(); sc.remove(); }, calmMotion ? 0 : 220);
   };
   t.style.visibility = "hidden"; // the words wait for the arrival tune, then type out
-  sfx("v-" + whoKey); // each voice has its own little arrival tune
-  setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch, who.wave); t.style.visibility = ""; } }, Math.min(900, themeLen(whoKey)));
+  sfx("v-" + voiceTune(whoKey, mood)); // each voice has its own little arrival tune, Beppo one per mood
+  setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch, who.wave, own ? null : mood); t.style.visibility = ""; } }, Math.min(900, themeLen(voiceTune(whoKey, mood))));
   el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
   setTimeout(bye, 9500);
 }
@@ -13887,8 +13903,40 @@ function villainWatch(d) {
 var HOUR = 3600000;
 function voiceMem() { try { return JSON.parse(localStorage.getItem("marsl-voice-mem") || "{}") || {}; } catch (e) { return {}; } }
 var voiceBoot = false;
+// 🪤 Beppo reacts when the traps catch someone, or lose their prisoners (a release by you is not an accident)
+var trapPrev = null, trapReleased = 0;
+var TRAP_CAUGHT = ["Snap! Look at them. They look confused. Do not make eye contact.", "Got one! Got several! I would like to apologise to nobody.", "The trap went click. The raider went oh. A perfect day.", "Prisoners! Please feed them. Or do not. I am a dog, not a warden."];
+var TRAP_STARVED = ["A prisoner starved. I am not sad. I am just quiet. The trap is gone too. Build a new one.", "Hunger got to them first. The trap broke with them. Rude.", "Fewer prisoners, fewer traps. That is the deal. It was never a good deal."];
+var TRAP_FREED = ["They broke out! The traps went with them. I heard a lot of snapping. Not the good kind.", "Someone opened the door from outside. Rude. The traps are gone. Time to build some.", "The prisoners walked out and took my traps. I take it personally."];
+function trapWatch(d) {
+  var T = d.traps;
+  if (!T) { trapPrev = null; return; }
+  var prev = trapPrev;
+  trapPrev = { used: T.used, owned: T.owned, starving: T.prisoners.some(function (p) { return p.starving; }) };
+  if (!prev) return;
+  if (T.used > prev.used) voiceSay("trap-caught", "beppo", "happy", pickOne(TRAP_CAUGHT), 20 * 60000, true);
+  else if (T.owned < prev.owned && T.used < prev.used) {
+    if (prev.starving) voiceSay("trap-starved", "beppo", "worried", pickOne(TRAP_STARVED), 20 * 60000, true);
+    else voiceSay("trap-freed", "beppo", "worried", pickOne(TRAP_FREED), 20 * 60000, true);
+  }
+}
+// 🔁 Beppo notices when you keep opening the same place (counted in this browser)
+var VISIT_LINES = {
+  5: ["Back again? Good. I keep your seat warm.", "That is five. I am counting. I am not weird about it."],
+  10: ["Ten visits. At this point we should split the rent.", "You and this screen. Ten times. I am happy for you both."],
+  25: ["Twenty-five! Beppo is not worried. Beppo is proud. A little worried.", "You live here now. I will bring a blanket."],
+  50: ["Fifty visits. I have started naming the pixels. This one is Gary.", "Fifty. There is a plaque for you. I made it. It is made of snacks."]
+};
+function visitCount(key) {
+  var m = {};
+  try { m = JSON.parse(localStorage.getItem("marsl-visits") || "{}") || {}; } catch (e) {}
+  m[key] = (m[key] || 0) + 1;
+  try { localStorage.setItem("marsl-visits", JSON.stringify(m)); } catch (e) {}
+  if (VISIT_LINES[m[key]]) setTimeout(function () { voiceSay("visit-" + key + "-" + m[key], "beppo", m[key] >= 25 ? "surprised" : "happy", pickOne(VISIT_LINES[m[key]]), 365 * 24 * 3600000, true); }, 900);
+}
 function voiceWatch(d) {
   if (!d || !beppoOn()) return;
+  trapWatch(d);
   var mem = voiceMem(), now = Date.now(), first = !voiceBoot;
   if (first) {
     voiceBoot = true;
@@ -13969,14 +14017,14 @@ function startTutorial() {
 }
 
 // types an HTML text out letter by letter (tags stay in place), with a soft blip; tap the text to show it all
-function typeHtml(el, pitch, wave) {
+function typeHtml(el, pitch, wave, mood) {
   if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
   // typing out text is not movement, so it stays on with Reduce Motion
   el.style.minHeight = el.offsetHeight + "px"; // the bubble keeps its final size while the text types
   el.classList.remove("fin");
   var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), nodes = [], n;
   while ((n = w.nextNode())) { nodes.push({ node: n, full: n.nodeValue }); n.nodeValue = ""; }
-  var ni = 0, ci = 0, tick = 0;
+  var ni = 0, ci = 0, tick = 0, gap = mood === "worried" ? 17 : mood === "surprised" ? 20 : 24; // worried babbles, surprised rushes in
   function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; el.classList.add("fin"); }
   tut.finish = finish;
   tut.timer = setInterval(function () {
@@ -13984,11 +14032,17 @@ function typeHtml(el, pitch, wave) {
       var x = nodes[ni];
       ci++;
       x.node.nodeValue = x.full.slice(0, ci);
-      if (x.full.charAt(ci - 1).trim() && ++tick % 2) blip(pitch || 380, true, wave);
+      if (x.full.charAt(ci - 1).trim() && ++tick % 2) {
+        var pp = pitch || 380;
+        if (mood === "happy") pp *= tick % 8 < 4 ? 1 : 1.122; // bouncy: hops up a whole step every few letters
+        else if (mood === "worried") pp *= 1 - Math.min(0.14, tick * 0.0016) + (tick % 6 < 3 ? 0.02 : -0.02); // sags and shivers
+        else if (mood === "surprised") pp *= 1 + Math.min(0.3, tick * 0.006); // climbs
+        blip(pp, true, wave);
+      }
       if (ci >= x.full.length) { ni++; ci = 0; }
     }
     if (ni >= nodes.length) finish();
-  }, 24);
+  }, gap);
 }
 var TUT_MOOD = { 0: "happy", 6: "surprised", 7: "worried", 10: "surprised", 14: "happy" };
 
@@ -14024,7 +14078,7 @@ function showTutorial() {
   box.innerHTML = h;
   box.className = "on";
   var tp = box.querySelector(".tut-p");
-  if (tp) { typeHtml(tp, CAST.beppo.pitch, CAST.beppo.wave); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
+  if (tp) { typeHtml(tp, CAST.beppo.pitch, CAST.beppo.wave, TUT_MOOD[tut.step] || "neutral"); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
   setTimeout(function () { var el = tutSpot(); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
 }
 // light up the step's place (again after every refresh, which redraws the page)
@@ -19158,6 +19212,7 @@ function navGlide(from) {
 }
 function switchView(v, target) {
   if (!VIEWS[v]) v = "resources";
+  if (v !== view && loggedIn) visitCount("view-" + v);
   var prevView = view;
   var navFrom = v !== view ? navPill() : null;
   if (v !== view && window.matchMedia && window.matchMedia("(max-width: 559px)").matches) {
