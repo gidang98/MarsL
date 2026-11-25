@@ -1119,6 +1119,11 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
     background: rgba(255,255,255,0.85); border: 1px solid var(--line); border-radius: 50%;
     box-shadow: 0 2px 6px rgba(62,34,38,0.1); cursor: pointer;
   }
+  .pan { display: flex; align-items: center; justify-content: center; }
+  .pan svg { display: block; pointer-events: none; }
+  .p-s svg { transform: rotate(180deg); }
+  .p-w svg { transform: rotate(-90deg); }
+  .p-e svg { transform: rotate(90deg); }
   .pan:active { transform: translateY(2px); }
   .p-n { top: 8px; left: calc(50% - 20px); }
   .p-s { bottom: 8px; left: calc(50% - 20px); }
@@ -16231,8 +16236,10 @@ function mapShell() {
   h += '<button class="tbtn map-enter" data-map-full="1" title="Full screen">' + giSvg("expand") + '</button><button class="tbtn map-exit" data-map-full="0" title="Leave full screen">' + giSvg("shrink") + '</button></div></div>';
   h += '<div class="mapview" id="mapview"><div class="world" id="world"><div id="tiles"></div><div class="selbox" id="selbox"></div></div>';
   h += '<span class="coords" id="coords"></span><span class="compass">N</span>';
-  h += '<button class="pan p-n" data-pan="0,3">▲</button><button class="pan p-s" data-pan="0,-3">▼</button>';
-  h += '<button class="pan p-w" data-pan="-3,0">◀</button><button class="pan p-e" data-pan="3,0">▶</button></div>';
+  // one drawn arrow, rotated: the text triangles ▶ ◀ turn into coloured emoji on phones
+  var PAN_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 6.5 19 17H5z" fill="currentColor" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg>';
+  h += '<button class="pan p-n" data-pan="0,3" aria-label="North">' + PAN_SVG + '</button><button class="pan p-s" data-pan="0,-3" aria-label="South">' + PAN_SVG + "</button>";
+  h += '<button class="pan p-w" data-pan="-3,0" aria-label="West">' + PAN_SVG + '</button><button class="pan p-e" data-pan="3,0" aria-label="East">' + PAN_SVG + "</button></div>";
   h += '<div class="maptools"><canvas id="minimap" width="61" height="61" title="Click to jump"></canvas><div class="side-tools">';
   h += '<form class="goto" id="gotoform"><b>Go to</b><input aria-label="X coordinate" id="gx" type="number" placeholder="X"><input aria-label="Y coordinate" id="gy" type="number" placeholder="Y"><button aria-label="Go to coordinates" class="btn small" type="submit">' + '🔭' + '</button></form>';
   h += '<div class="legend"><span>🧑‍🚀 Human</span><span>' + '🐔' + ' Chicken</span><span>' + '👽' + ' Alien</span><span>' + '🦂' + ' Monster camp</span><span>' + '🚩' + ' Landing Zone</span><span>❄️ Ice</span><span>' + '🌋' + ' Volcano</span><span>' + '🗿' + ' Landmark</span></div>';
