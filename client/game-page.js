@@ -1569,6 +1569,18 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
   #beppo-say { position: fixed; left: 70px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(330px, calc(100% - 84px)); animation: tagpop 0.22s ease-out; }
   #beppo-say.top { left: 8px; max-width: calc(100% - 16px); bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
+  #scene { position: fixed; inset: 0; z-index: 95; background: rgba(20, 12, 6, 0.4); display: flex; align-items: flex-end; justify-content: center; padding: 0 10px calc(96px + env(safe-area-inset-bottom)); animation: scrimin 0.25s ease-out; cursor: pointer; }
+  .sc-row { display: flex; align-items: flex-end; gap: 4px; width: min(460px, 100%); }
+  .sc-img { width: 132px; height: 132px; flex: none; object-fit: contain; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
+  .sc-img.hop { animation: schop 0.3s ease-out; }
+  @keyframes schop { 40% { transform: translateY(-10px); } }
+  .sc-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 14px; padding: 10px 14px; background: #fffbe6; color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: var(--radius-md); box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4); font-size: clamp(13px, 3.7vw, 15px); line-height: 1.4; }
+  .sc-bub::before { content: ""; position: absolute; left: -9px; bottom: 22px; width: 14px; height: 14px; background: #fffbe6; border-left: 2px solid #3a2a1a; border-bottom: 2px solid #3a2a1a; transform: rotate(45deg); }
+  .sc-bub b { display: block; font-size: 12px; opacity: 0.7; }
+  .sc-t.fin::after { content: " ▼"; font-size: 10px; color: #e2574c; animation: tutblink 0.9s steps(2) infinite; }
+  .sc-go { margin-top: 8px; }
+  .sc-skip { position: absolute; top: calc(58px + env(safe-area-inset-top)); right: 12px; background: rgba(255, 251, 230, 0.9); color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
+  .dark-mode .sc-bub, .dark-mode .sc-bub::before { background: #2e2616; color: #fff3d6; border-color: #f2d58a; }
   #beppo-scrim { position: fixed; inset: 0; z-index: 23; pointer-events: none; background: rgba(20, 12, 6, 0.16); animation: scrimin 0.25s ease-out; }
   #beppo-scrim.top { z-index: 89; }
   #beppo-scrim.bye { opacity: 0; transition: opacity 0.2s; }
@@ -4725,7 +4737,7 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   @keyframes qin { from { opacity: 0; transform: translateY(14px); } }
   @media (prefers-reduced-motion: reduce) { .overlay, .sheet.anim, .overlay.closing, .overlay.closing .sheet, body.qopen #quests .qpanel, #app > .vin-r, #app > .vin-l, #app > .vfade { animation: none !important; }
     .nav-glide { display: none; }
-    #app.quake, #beppo-say { animation: none !important; }
+    #app.quake, #beppo-say, #scene, .sc-img.hop { animation: none !important; }
     .tut-p.fin::after, .bs-t.fin::after { animation: none; } }
 </style>
 </head>
@@ -9990,6 +10002,7 @@ var CAST = {
   trickster: { name: "Trickster", icon: "🃏", pitch: 410, wave: "pulse25", art: "hero-trickster" },
   owl: { name: "Nightowl", icon: "🦉", pitch: 280, wave: "triangle", art: "hero-nightowl" },
   marshal: { name: "Star Marshal", icon: "🎖️", pitch: 340, wave: "pulse25", art: "hero-starmarshal" },
+  villain: { name: "Mysterious Villain", icon: "🎭", pitch: 300, wave: "pulse12" },
   void: { name: "Void Sovereign", icon: "🌌", pitch: 120, wave: "pulse12", art: "hero-voidsovereign" }
 };
 var BEPPO_LINES = {
@@ -13130,6 +13143,7 @@ var SFX = {
   "v-owl": [[220.0, 0.0, 0.306, "triangle", 0.06, 0, 4], [261.6, 0.34, 0.153, "triangle", 0.06, 0, 4], [329.6, 0.51, 0.306, "triangle", 0.06, 0, 4], [293.7, 0.85, 0.153, "triangle", 0.06, 0, 4], [220.0, 1.02, 0.459, "triangle", 0.06, 0, 4]],
   "v-marshal": [[261.6, 0.0, 0.099, "pulse25", 0.026, 0, 0], [261.6, 0.11, 0.099, "pulse25", 0.026, 0, 0], [392.0, 0.22, 0.099, "pulse25", 0.026, 0, 0], [523.3, 0.33, 0.198, "pulse25", 0.026, 0, 0], [329.6, 0.0, 0.099, "triangle", 0.05, 0, 0], [329.6, 0.11, 0.099, "triangle", 0.05, 0, 0], [493.9, 0.22, 0.099, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.198, "triangle", 0.05, 0, 0]],
   "v-void": [[55.0, 0, 1.8, "pulse12", 0.05, 0, 0], [82.4, 0.4, 1.4, "triangle", 0.05, 0, 0], [1318.5, 0.9, 0.5, "triangle", 0.015, 0, 0]],
+  "v-villain": [[147, 0, 0.12, "pulse12", 0.045, 0, 0], [147, 0.14, 0.12, "pulse12", 0.045, 0, 0], [156, 0.28, 0.2, "pulse12", 0.045, 0, 0], [147, 0.52, 0.4, "pulse12", 0.045, 0, 5]],
   "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
   "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
   "v-drill": [[65.4, 0.0, 0.126, "pulse12", 0.045, 0, 0], [65.4, 0.14, 0.126, "pulse12", 0.045, 0, 0], [77.8, 0.28, 0.126, "pulse12", 0.045, 0, 0], [98.0, 0.42, 0.126, "pulse12", 0.045, 0, 0], [130.8, 0.56, 0.252, "pulse12", 0.045, 0, 0], [0, 0.14, 0.06, "noise", 0.05, 0, 0], [0, 0.42000000000000004, 0.06, "noise", 0.05, 0, 0], [0, 0.7000000000000001, 0.06, "noise", 0.05, 0, 0], [0, 0.8400000000000001, 0.12, "noise", 0.05, 0, 0]],
@@ -13376,7 +13390,7 @@ var ONB = {
   map: { view: "map", title: "🗺️ This is Mars", text: function () { return "Other colonies are out there. Some are weaker. And a <b>wrecked lander 🛸</b> crashed right next to you."; }, btn: "Show me" },
   raid: { view: "map", title: "💰 Grab the cargo", text: function () { return "Tap the 🛸 lander, then <b>💰 Raid</b> with your troops."; }, spot: function () { return ["[data-send-go]", "[data-send]", ".meteor.lander"]; }, go: function (d, O) { onbRaid(O); } },
   loot: { view: "map", title: "🏃 On the way", text: function (d, O) { var L = O.lander || {}; return L.done ? "<b>Loot secured!</b> Your troops are carrying it home." : trf("Your troops reach the lander in <b>{0}</b>.", shortTime(Math.max(0, (L.arriveAt || 0) - serverNow()))); } },
-  scorp: { view: "resources", title: "🦂 Uninvited guests", text: function (d, O) { var S = O.scorp || {}; return S.won ? "<b>They ran!</b> Your first defense report is waiting." : trf("<b>{0} Dust Scorpions</b> want your snacks. They arrive in <b>{1}</b>. Your troops at home will handle them.", S.n || 4, fmt(Math.max(0, (S.at || 0) - serverNow()))); } },
+  scorp: { view: "resources", title: "🎭 A mysterious villain", btn: "Got it", text: function (d, O) { var S = O.scorp || {}; return S.won ? "<b>They ran!</b> Your first defense report is waiting." : trf("A villain sent <b>{0} Dust Scorpions</b>. They arrive in <b>{1}</b>. Your troops at home will handle them.", S.n || 4, fmt(Math.max(0, (S.at || 0) - serverNow()))); } },
   ally: { view: "ranking", title: "🤝 Lonely colonies die", text: function () { return "An alliance helps you find teammates and support. Join one or create your own from the Players page. You can choose Later and continue learning."; }, spot: function () { return ["[data-ally-create]", ".ptabs"]; }, go: function () { playersTab = "alliance"; switchView("ranking"); loadAlliance(); }, yay: "Stronger together!" },
   protect: { view: "resources", title: "🛡️ You are protected", text: function (d) { var p = d.protection || {}; return p.active && !p.vacation ? trf("For <b>{0}</b> or until <b>{1} points</b>. After that, anyone can attack you. A wall and a bunker help.", shortTime(p.until - serverNow()), p.pointsNeeded) : "Your protection is over: anyone can attack you now. A wall and a bunker help."; }, spot: function () { return [".protect"]; }, btn: "Got it" },
   goal: { view: "resources", title: "🏆 How Mars is won", text: function (d) { var se = d.world && d.world.season; return se && se.active && se.kind !== "aurora" ? trf("The <b>Relic Hunt</b> is on: hold {0} landmarks for {1} h. Later, the first alliance to light <b>🌌 Project Aurora</b> wins the server.", se.count, hrTxt(se.hours)) : "The first <b>alliance</b> to light <b>🌌 Project Aurora</b> wins the server. Until then: grow, grab the 🚩 Landing Zone, climb the ranking."; }, spot: function () { return [".seasonbar"]; }, btn: "Got it" },
@@ -13615,7 +13629,7 @@ function beppoSay(id, top) {
   try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
   voiceShow(m[2] || "beppo", m[0], m[1], top);
 }
-function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say"); }
+function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy; }
 // 🗣️ a remark that can come again, but not before its cooldown is over (remembered in this browser)
 function voiceSay(id, who, mood, text, cdMs, top) {
   if (!voiceFree()) return false;
@@ -13657,6 +13671,85 @@ function voiceShow(whoKey, mood, text, top) {
   setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch, who.wave); t.style.visibility = ""; } }, Math.min(900, themeLen(whoKey)));
   el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
   setTimeout(bye, 9500);
+}
+// 🎭 the first defense as a little play: a big Beppo sprite, one line per tap
+var villainBusy = false;
+var VILLAIN_INTRO = [
+  ["villain-neutral", "Ha ha ha! Greetings, Commander! I am… a villain! A very scary villain you have never met!"],
+  ["villain-happy", "Definitely not Beppo. Beppo is far away, having a snack. Not here. Nowhere near."],
+  ["villain-neutral", "I have sent an attack! It will DESTROY your colony! In exactly… one hour! Muahaha!"],
+  ["villain-worried", "…Is one hour too soon? Take your time. It would be rude to attack an unprepared colony."],
+  ["villain-surprised", "Oh no, I said too much! Anyway. Look after your troops and your wall. Do not look at the scary timer."]
+];
+var VILLAIN_THANKS = [
+  ["happy", "You did it! The villain’s scorpions ran away with sore tails!"],
+  ["neutral", "Fine, fine. The villain was me. The costume is off. I only wanted you to see a real defense report."],
+  ["happy", "You are ready, Commander. Truly. You know your colony, your army and how to hold the line."],
+  ["neutral", "Whatever else you wonder about is in the 📖 Guide. Every number, table and rule lives there. I will be around, for snacks."]
+];
+function beppoScene(lines, who, opts) {
+  var old = document.getElementById("scene");
+  if (old) old.remove();
+  Array.prototype.forEach.call(document.querySelectorAll("#beppo-say, #beppo-scrim"), function (n) { n.remove(); });
+  var el = document.createElement("div");
+  el.id = "scene";
+  el.setAttribute("role", "dialog");
+  el.innerHTML = '<div class="sc-row"><img class="sc-img" alt="" draggable="false"><div class="sc-bub"><b class="sc-n"></b><div class="sc-t"></div></div></div><button type="button" class="sc-skip">Skip</button>';
+  document.body.appendChild(el);
+  var img = el.querySelector(".sc-img"), nm = el.querySelector(".sc-n"), tx = el.querySelector(".sc-t"), i = 0, gone = false;
+  var who0 = CAST[who] || CAST.beppo;
+  function close() {
+    if (gone) return;
+    gone = true;
+    if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
+    el.remove();
+    villainBusy = false;
+    if (opts && opts.done) opts.done();
+  }
+  function show() {
+    var L = lines[i], k = "beppo-" + L[0];
+    if (FX_ART.t[k]) img.src = "/art/" + k + ".webp?v=" + FX_ART.v;
+    else if (FX_ART.t["beppo-" + L[0].replace("villain-", "")]) img.src = "/art/beppo-" + L[0].replace("villain-", "") + ".webp?v=" + FX_ART.v;
+    img.classList.remove("hop");
+    void img.offsetWidth;
+    if (!calmMotion) img.classList.add("hop");
+    nm.textContent = who0.name;
+    tx.textContent = trStr(L[1]);
+    if (i === 0) sfx("v-" + who);
+    typeHtml(tx, who0.pitch, who0.wave);
+    if (opts && opts.btn) { var b = el.querySelector(".sc-go"); if (b) b.remove(); }
+    if (i === lines.length - 1 && opts && opts.btn) {
+      var g = document.createElement("button");
+      g.type = "button"; g.className = "btn small sc-go"; g.textContent = opts.btn.label;
+      g.addEventListener("click", function (e) { e.stopPropagation(); close(); opts.btn.fn(); });
+      el.querySelector(".sc-bub").appendChild(g);
+    }
+  }
+  el.addEventListener("click", function (e) {
+    if (e.target.closest(".sc-skip")) { close(); return; }
+    if (tut.timer && tut.finish) { tut.finish(); return; }
+    i++;
+    if (i >= lines.length) close(); else show();
+  });
+  show();
+}
+function villainWatch(d) {
+  var V = d && d.villain;
+  if (!V || villainBusy || tut.step >= 0 || sheet || document.getElementById("scene")) return;
+  var go = function (lines, who, act, btn) {
+    villainBusy = true;
+    setTimeout(function () {
+      beppoScene(lines, who, {
+        btn: btn,
+        done: function () {
+          if (data && data.villain) { if (act === "thanks") data.villain = null; else data.villain.intro = true; }
+          post("/api/villain", { do: act });
+        }
+      });
+    }, 900);
+  };
+  if (V.won) go(VILLAIN_THANKS, "beppo", "thanks", { label: "📖 Open the guide", fn: function () { var b = document.querySelector('[data-wiki="basics"]'); if (b) b.click(); } });
+  else if (!V.intro) go(VILLAIN_INTRO, "villain", "intro");
 }
 // 🧠 the colony remembers how you play: breaks, streaks, forgotten missions, an empty army
 var HOUR = 3600000;
@@ -15793,6 +15886,7 @@ function showWon(w) {
 function renderColony(d) {
   tutCheck(d);
   voiceWatch(d);
+  villainWatch(d);
   data = d;
   if (d.won && !wonShown) showWon(d.won);
   // 🎉 milestones are celebrated on the mission board now
@@ -17093,7 +17187,7 @@ function wikiMore(W, tab, cards) {
       "Every step is a real action. When it is done the guide moves on and pays a small reward. 👉 Show me takes you to the right place and highlights what to tap.",
       "🪖 The guide hands over a small landing party (" + On.squad + " troops here, more on faster servers) before the map, so the first raid needs no barracks. The army steps come last, when a build time no longer holds the guide up.",
       "The lander is a sure win: no defenders, " + On.landerLoot + " of every resource, and your troops are back within a minute.",
-      "🦂 Right after the lander, a small pack of Dust Scorpions comes for your snacks (about 90 seconds later). They always lose: it is your first defense report, with nothing at stake. Skipping the tour skips them too.",
+      "🦂 After the lander raid, a mysterious villain announces an attack: a small pack of Dust Scorpions arrives one hour later (faster on faster servers) while you keep playing. They always lose: it is your first defense report, with nothing at stake. Skipping the tour skips them too.",
       "At the end you pick a parting gift (resources or troops worth " + On.kit + ") and get three next goals. Skip tour ends it at any time; the 📋 Mission Board keeps guiding you.",
       "Every quest also gives your commander a little experience.",
     ])));
