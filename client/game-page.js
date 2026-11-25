@@ -3521,7 +3521,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   details.lp-win[open] > summary { margin-bottom: 16px; }
   .lp-sticky { display: none; }
   .lp-tribe span { font-size: 44px; line-height: 1; }
-  .lp-tribe img { width: 96px; height: 96px; object-fit: contain; justify-self: center; filter: drop-shadow(0 8px 10px rgba(122,46,34,.25)); }
+  .lp-tribe > img { width: 96px; height: 96px; object-fit: contain; justify-self: center; filter: drop-shadow(0 8px 10px rgba(122,46,34,.25)); }
   .lp-tribe b { font-family: "Chakra Petch", "Barlow", sans-serif; font-size: 22px; }
   .lp-tribe p { font-size: 15px; color: #5d4652; }
   .lp-steps > h3 { margin-bottom: 16px; }
@@ -3811,6 +3811,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .fx-stage { position: relative; max-width: 560px; margin: 0 auto 10px; display: grid; justify-items: center; }
   .fx-scene { display: block; width: 100%; height: auto; overflow: visible; }
   .fx-fields { clip-path: inset(-60px 0); }
+  @media (min-width: 701px) { .fx-fields { clip-path: none; } } /* room to spare: show the whole slab, the sides are only trimmed on phones */
   .fx-f, .fx-dome, .fx-coin { cursor: pointer; }
   .fx-f { transition: transform 0.12s ease; }
   .fx-f:hover, .fx-f:focus-visible { transform: translateY(-3px); outline: none; }
@@ -9303,7 +9304,7 @@ function fxOval(n, cx, cy, rx, ry, startDeg) {
 }
 // Colony tab (1.0.234+): the lots on a wavy clay slab. HQ in the middle, 8 lots around it, 12 on the rim.
 // 🔍 zoom and drag the island (state lives here, so the once-a-second redraw keeps it)
-var CX_DEF = 1.2; // the island is shown a bit closer by default: the rim of its base is cut off at the sides, the buildings stay in view
+var CX_DEF = window.innerWidth > 700 ? 1 : 1.2; // phones start closer; with room to spare the whole island shows. // the island is shown a bit closer by default: the rim of its base is cut off at the sides, the buildings stay in view
 var cxZ = { s: CX_DEF, cx: 190, cy: 170 }, CX_VB = { x: -12, y: 34, w: 404, h: 272 };
 function cxBox() {
   var w = CX_VB.w / cxZ.s, h = CX_VB.h / cxZ.s;
@@ -13475,12 +13476,16 @@ function musicLoad() {
   fetch("/api/music").then(function (r) { return r.json(); }).then(function (j) {
     // "colony", "colony-2", "colony-3" ... form one playlist for that place; the same name in ogg wins over other formats
     MUSIC.tracks = {};
-    (j.tracks || []).forEach(function (t) {
-      var m = /^(title|colony|map|casino|battle)(?:[_-]?(\\d+))?$/.exec(t.name);
+    // iPhones older than iOS 18.4 cannot play ogg, so pick the best format this browser can play for each name
+    var okOgg = !!document.createElement("audio").canPlayType('audio/ogg; codecs="vorbis"');
+    var rank = function (f) { var e = (/\\.(\\w+)$/.exec(f) || [])[1] || ""; e = e.toLowerCase(); if (e === "ogg") return okOgg ? 0 : 99; return { mp3: 1, m4a: 2, wav: 3, webm: 4 }[e] || 50; };
+    var best = {};
+    (j.tracks || []).forEach(function (t) { if (rank(t.file) < 99 && (!best[t.name] || rank(t.file) < rank(best[t.name].file))) best[t.name] = t; });
+    Object.keys(best).forEach(function (nm) {
+      var t = best[nm], m = /^(title|colony|map|casino|battle)(?:[_-]?(\\d+))?$/.exec(t.name);
       if (!m) return;
       var sc = m[1];
       if (!MUSIC.tracks[sc]) MUSIC.tracks[sc] = [];
-      if (MUSIC.tracks[sc].some(function (x) { return x.name === t.name; })) return;
       MUSIC.tracks[sc].push({ name: t.name, url: "/music/" + encodeURIComponent(t.file) + "?v=" + t.v });
     });
     Object.keys(MUSIC.tracks).forEach(function (k) {
@@ -13513,17 +13518,21 @@ function musicStep() {
   var ids = Object.keys(MUSIC.live);
   if (!MUSIC.list.length && !ids.length) return;
   if (MUSIC.hid) { ids.forEach(function (k) { if (!MUSIC.live[k].el.paused) MUSIC.live[k].el.pause(); }); return; }
-  var ctx = MUSIC.unlocked ? audio() : null;
+  var ctx = MUSIC.unlocked && MUSIC.pool ? audio() : null;
   var w = MUSIC.on && sound.on && ctx ? musicWant(musicScene()) : null, want = w ? w.key : "";
-  if (w && !MUSIC.live[want]) {
-    var el = new Audio(w.url);
-    el.loop = MUSIC.tracks[w.sc].length < 2; el.preload = "auto";
-    var g = ctx.createGain(); g.gain.value = 0;
-    try { ctx.createMediaElementSource(el).connect(g); g.connect(ctx.destination); } catch (e) { return; }
+  if (w && !MUSIC.live[want] && MUSIC.pool) {
+    // a free player from the pool (each was started inside a tap, which is what iPhones require)
+    var slot = null;
+    MUSIC.pool.forEach(function (sl) { if (!slot && !sl.busy) slot = sl; });
+    if (!slot) return;
+    slot.busy = true; slot.g.gain.value = 0;
+    var el = slot.el;
+    el.loop = MUSIC.tracks[w.sc].length < 2;
+    el.src = w.url;
     // a song you left (map, casino) picks up where it stopped instead of starting over
     var at = MUSIC.pos[want] || 0;
     if (at > 1) el.addEventListener("loadedmetadata", function () { try { if (at < el.duration - 5) el.currentTime = at; } catch (e) {} }, { once: true });
-    MUSIC.live[want] = { el: el, g: g, lvl: 0, trim: MUSIC_TRIM[w.sc] || 1 };
+    MUSIC.live[want] = { slot: slot, el: el, g: slot.g, lvl: 0, trim: MUSIC_TRIM[w.sc] || 1 };
   }
   MUSIC.dk += Math.max(-0.06, Math.min(0.06, (Date.now() < MUSIC.duckUntil ? 0.35 : 1) - MUSIC.dk));
   Object.keys(MUSIC.live).forEach(function (k) {
@@ -13531,7 +13540,7 @@ function musicStep() {
     var fs = k === "battle" ? 0.1 : MUSIC_FADE; // the villain\u2019s entrance should hit quickly
     t.lvl += Math.max(-fs, Math.min(fs, tgt - t.lvl));
     if (t.el.currentTime > 0) MUSIC.pos[k] = t.el.currentTime;
-    if (t.lvl <= 0 && !tgt) { t.el.pause(); try { t.g.disconnect(); } catch (e) {} delete MUSIC.live[k]; if (k === "battle") MUSIC.pos[k] = 0; return; }
+    if (t.lvl <= 0 && !tgt) { t.el.pause(); t.g.gain.value = 0; t.slot.busy = false; delete MUSIC.live[k]; if (k === "battle") MUSIC.pos[k] = 0; return; }
     if (t.el.paused) { var pr = t.el.play(); if (pr && pr.catch) pr.catch(function () {}); }
     var e = t.lvl * t.lvl * (3 - 2 * t.lvl); // smooth in and out, so the crossfade has no bump
     t.g.gain.value = MUSIC.vol * t.trim * e * MUSIC.dk;
@@ -13549,9 +13558,27 @@ function musicLevel() {
 }
 function musicVolName() { var n = "Medium"; MUSIC_VOLS.forEach(function (v) { if (Math.abs(v[0] - MUSIC.vol) < 0.003) n = v[1]; }); return n; }
 (function () {
-  function unlock() { MUSIC.unlocked = true; }
-  document.addEventListener("pointerdown", unlock, { once: true, capture: true });
-  document.addEventListener("keydown", unlock, { once: true, capture: true });
+  // iPhones only allow sound after a real tap (touchend or click, not pointerdown) and need each player started inside it:
+  // the first tap builds a small pool of players and starts them silently, later songs just swap their source.
+  var SILENT = "/silence.wav"; // a tiny silent clip served by the game (a data: address is blocked by the page policy)
+  var evs = ["touchend", "click", "pointerup", "keydown"];
+  function unlock() {
+    var ctx = audio();
+    if (!ctx) return;
+    if (!MUSIC.pool) {
+      MUSIC.pool = [];
+      for (var i = 0; i < 3; i++) {
+        var el = new Audio(), g = ctx.createGain();
+        g.gain.value = 0; el.preload = "auto"; el.setAttribute("playsinline", ""); el.src = SILENT;
+        try { ctx.createMediaElementSource(el).connect(g); g.connect(ctx.destination); } catch (e) { MUSIC.pool = null; return; }
+        var pr = el.play(); if (pr && pr.catch) pr.catch(function () {});
+        MUSIC.pool.push({ el: el, g: g, busy: false });
+      }
+    }
+    MUSIC.unlocked = true;
+    if (ctx.state === "running") evs.forEach(function (e) { document.removeEventListener(e, unlock, true); });
+  }
+  evs.forEach(function (e) { document.addEventListener(e, unlock, true); });
   document.addEventListener("visibilitychange", function () { MUSIC.hid = document.hidden; });
   setInterval(musicStep, 100);
   musicLoad();

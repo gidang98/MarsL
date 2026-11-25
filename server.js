@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.544";
+const GAME_VERSION = "1.0.545";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.545",date:"2026-11-26",title:"iPhone music, whole islands on desktop",groups:[["🎵 Music",["Music now starts on iPhones: your first tap unlocks it. Phones that cannot play OGG files use an MP3 copy of each song when one is in the music folder."]],["🏝️ Islands",["On wide screens the resource island and the colony island show their whole base. Phones keep the closer view with the sides trimmed."]],["🌄 Start page",["The small stopwatch next to each tribe's play time is small again instead of as big as the tribe picture."]]]},
   {v:"1.0.544",date:"2026-11-25",title:"Start page screenshots from a real colony",groups:[["🌄 Start page",["The phone screenshots on the start page now come from a fully built colony: Fields, Colony, Army, the map and the missions list.","The screenshots refresh right away after an update instead of staying cached for a week."]]]},
   {v:"1.0.543",date:"2026-11-25",title:"New start page screenshots",groups:[["🌄 Start page",["The phone screenshots on the start page now show the current game: the Fields, Colony, Army and map screens and the Mission Board."]]]},
   {v:"1.0.542",date:"2026-11-25",title:"Start page refresh",groups:[["🌄 Start page",["The \"Two minutes are enough\" list now also shows Beppo, traps and prisoners, and the casino.","The first sentence now mentions the traps.","The language buttons are readable again on the dark top of the page and line up with the rest of the text.","The descriptions in the tribe, how-to-play and server cards were white on a light background and hard to read. They use the card's normal text colour now."]]]},
@@ -23911,6 +23912,9 @@ function musicFiles() {
   } catch (e) {}
   return out;
 }
+// a 0.25 s silent clip: the music players are started on it inside the first tap, which iPhones require
+const SILENCE_WAV = (() => { const n = 2000, b = Buffer.alloc(44 + n, 0x80); b.write("RIFF", 0); b.writeUInt32LE(36 + n, 4); b.write("WAVEfmt ", 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(8000, 24); b.writeUInt32LE(8000, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34); b.write("data", 36); b.writeUInt32LE(n, 40); return b; })();
+app.get("/silence.wav", (req, res) => { res.setHeader("Content-Type", "audio/wav"); res.setHeader("Cache-Control", "public, max-age=604800"); res.end(SILENCE_WAV); });
 app.get("/api/music", (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.json({ tracks: musicFiles() });
