@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.507";
+const GAME_VERSION = "1.0.508";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -6778,7 +6778,7 @@ function graduationView(userId, colony, now) {
   const wall = perkOf(colony.tribe, "wall") * levelOf(s, "wall");
   const def = Math.round(d.g * (1 + wall / 100) * specDef(s));
   const atk = typicalRaidAttack();
-  return { until: p.until, atRisk, hide, def, atk, verdict: def >= atk ? "holds" : def >= atk * 0.6 ? "close" : "falls", gift: retentionOf(userId).graduated ? 0 : GRAD_GIFT };
+  return { until: p.until, atRisk, hide, def, atk, verdict: def >= atk ? "holds" : def >= atk * 0.6 ? "close" : "falls", gift: retentionOf(userId).gradRound === roundNumber() ? 0 : GRAD_GIFT };
 }
 app.post("/api/graduate", requireLogin, (req, res) => {
   if (req.sitterId) return res.status(403).json({ error: "Use your own account to graduate." });
@@ -6790,6 +6790,7 @@ app.post("/api/graduate", requireLogin, (req, res) => {
   const r = retentionOf(req.user.id);
   if (g.gift) addCredits(req.user.id, g.gift);
   r.graduated = now;
+  r.gradRound = roundNumber();
   saveRetention(req.user.id, r);
   giveBadge(req.user.id, "grad", "🎓", "Graduated early from beginner protection");
   req.extra = { graduated: g.gift };
@@ -17760,6 +17761,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.508",date:"2026-11-25",title:"Rewards once per server",groups:[["🔧 Fixed",["The 🎓 graduation reward and the landing guide gifts are now paid once per server. Respawning no longer pays them again; a new server round starts fresh."]]]},
   {v:"1.0.507",date:"2026-11-25",title:"Beppo joke fix",groups:[["🔧 Fixed",["Beppo's line after your first build has a better joke."]]]},
   {v:"1.0.506",date:"2026-11-25",title:"Funnier voices",groups:[["✨ New",["Beppo and the other characters have new, funnier lines that fit their expressions."]]]},
   {v:"1.0.505",date:"2026-11-25",title:"The villain",groups:[["✨ New",["The first defense is now a little story: a \"mysterious villain\" (not Beppo, definitely) announces an attack that arrives one hour later. It is a tiny pack that always loses, so new commanders see a real defense report with nothing at stake.","Afterwards Beppo drops the costume, says you are ready and points to the Guide.","The attack no longer holds the landing up: you keep playing while the timer runs."]]]},
@@ -20643,6 +20645,16 @@ function onboardingView(user, colony, now) {
   return out;
 }
 
+// 🎁 the landing pays once per player per server round: a respawn replays the guide, but not the rewards
+function onbPays(userId, f) {
+  if (f.paid) return true;
+  const r = retentionOf(userId), round = roundNumber();
+  if (r.landingRound === round) return false;
+  r.landingRound = round;
+  saveRetention(userId, r);
+  f.paid = 1;
+  return true;
+}
 app.post("/api/onboard", requireLogin, (req, res) => {
   withColony(req, res, (s, tribe, colony) => {
     const b = req.body || {};
@@ -20662,7 +20674,7 @@ app.post("/api/onboard", requireLogin, (req, res) => {
       if (step.final) return "Pick your gift first";
       if (act === "skip" && !step.skip) return "This step can't be skipped";
       if (act === "next" && !step.info && !(step.done && step.done(s, ctx, tribe, f))) return "Not done yet";
-      if (act === "next" && step.reward) {
+      if (act === "next" && step.reward && onbPays(req.user.id, f)) {
         const r = step.reward;
         if (!questInventoryReward(req.user.id, { wood: r, stone: r, metal: r, food: r })) return "Commander inventory unavailable. Try again.";
         req.extra = { onbReward: r };
@@ -20679,7 +20691,7 @@ app.post("/api/onboard", requireLogin, (req, res) => {
       if (now2.key === "scorp" && !f.scorp) scorpSchedule(f, colony, now);
       // 🪖 the landing party: the troops that walked out of the wreck, there the
       // moment the guide says so - enough for the first raid, never a whole army
-      if (now2.squad && !f.squadGiven) {
+      if (now2.squad && !f.squadGiven && onbPays(req.user.id, f)) {
         const unit = firstDayUnit(tribe);
         if (unit) {
           const n = onbSquadSize();
@@ -20693,7 +20705,8 @@ app.post("/api/onboard", requireLogin, (req, res) => {
       if (!step.final) return "Not yet";
       const per = Math.round(ONB_KIT / 4);
       const unit = firstDayUnit(tribe);
-      if (b.kit === "raider" && unit) s.troops[unit.key] = (s.troops[unit.key] || 0) + unit.count;
+      if (!onbPays(req.user.id, f)) { /* the gift was already paid this server round: a respawn does not pay it again */ }
+      else if (b.kit === "raider" && unit) s.troops[unit.key] = (s.troops[unit.key] || 0) + unit.count;
       else refund(s, { wood: per, stone: per, metal: per, food: per });
       f.onb.done = now;
       f.path = b.kit === "raider" ? "raider" : "builder"; // the old first-day card stays away too
