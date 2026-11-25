@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.514";
+const GAME_VERSION = "1.0.515";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17904,6 +17904,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.515",date:"2026-11-25",title:"A better casino",groups:[["🎰 Casino",["New layout: the game is at the top, the croupier is a slim strip, and Spin or Deal stays pinned at the bottom.","Betting is one row: − and + step through the bets, Max picks the highest you can afford.","Slots: reels that scroll and stop one after another, with a golden glow on a win.","Roulette: a real wheel that spins to your number, and a felt table where you tap a number or a bet spot.","Blackjack: a felt table, cards that slide in, and a dealer card that flips."]]]},
   {v:"1.0.514",date:"2026-11-25",title:"Casino art",groups:[["🎰 Casino",["The casino now has painted art: slot symbols (with a dog instead of the lemon), game icons, a card back and bet chips."]]]},
   {v:"1.0.513",date:"2026-11-25",title:"Short big numbers",groups:[["🔧 Improved",["Big numbers are shortened from a million up: 2M, 2.5B, 3T and so on. This applies to the wallet, Star Credits, the casino and troop counts. The exact amount is in the tooltip of your wallet."]]]},
   {v:"1.0.512",date:"2026-11-25",title:"Blackjack and the croupier",groups:[["🎰 Casino",["New: 🃏 Blackjack. The dealer stands on every 17, blackjack pays 3 to 2, you can double on your first two cards. A hand in progress is kept if you close the game.","Bets now go up to 10,000,000 Space-Cash.","A croupier comments every round with a face that fits the result."]]]},

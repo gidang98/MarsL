@@ -4577,39 +4577,60 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 /* 1.0.377 gear auction */
 .auc-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
 .auc-tabs.sub { margin-top: -2px; }
-.cz-chief { display: flex; gap: 10px; align-items: center; margin: 6px 0 8px; }
-.cz-chief img, .cz-chief .cz-emo { width: 88px; height: 88px; flex: none; object-fit: contain; font-size: 52px; display: flex; align-items: center; justify-content: center; }
-.cz-bub { flex: 1; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; padding: 6px 10px; background: rgba(255,255,255,.7); min-height: 62px; }
-.cz-bub b { display: block; font-size: 12px; opacity: .7; }
-.cz-bub #cz-say { font-size: 14px; }
-.cz-hand { margin: 8px 0; text-align: center; }
-.cz-hand small { display: block; opacity: .75; margin-bottom: 4px; }
-.cz-hand > div { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
-.cz-card { min-width: 42px; height: 58px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 7px; background: #fff; color: #222; font-weight: 700; font-size: 17px; }
-.cz-card.red { color: #c23b32; }
 .ca { display: inline-block; vertical-align: middle; object-fit: contain; background: none; border: 0; padding: 0; min-height: 0; border-radius: 0; box-shadow: none; }
 .ca.sym { width: 58px; height: 58px; } .cz-pay .ca.sym { width: 20px; height: 20px; }
 .ca.tab { width: 30px; height: 30px; } .ca.btn { width: 18px; height: 18px; } .ca.chip { width: 20px; height: 20px; margin-right: 2px; }
 .ca.hd { width: 46px; height: 46px; }
-.cz-card.back.art { background-color: transparent; background-size: contain; background-repeat: no-repeat; background-position: center; border: 0; }
-.cz-card.back { background: repeating-linear-gradient(45deg, #2b4a8a, #2b4a8a 4px, #3a5ca3 4px, #3a5ca3 8px); }
-.cz-bjhint { text-align: center; opacity: .8; margin: 14px 4px; font-size: 13px; }
-.cz-acts { display: flex; gap: 8px; margin: 8px 0; } .cz-acts .btn { flex: 1; }
-.cz-reels { display: flex; gap: 8px; justify-content: center; margin: 12px 0 6px; }
-.cz-reels span { width: 74px; height: 84px; display: flex; align-items: center; justify-content: center; font-size: 42px; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; background: rgba(255,255,255,.55); }
-.cz-reels span.spin { filter: blur(1.2px); transform: translateY(2px); }
-.cz-pay { display: block; text-align: center; opacity: .75; margin-bottom: 8px; }
-.cz-ball { display: flex; justify-content: center; margin: 12px 0; }
+.cz-chief { display: flex; gap: 8px; align-items: center; margin: 2px 0 6px; }
+.cz-chief img, .cz-chief .cz-emo { width: 60px; height: 60px; flex: none; object-fit: contain; font-size: 40px; display: flex; align-items: center; justify-content: center; }
+.cz-chief img.hop { animation: czhop .5s ease-out; }
+.cz-bub { flex: 1; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; padding: 6px 10px; background: rgba(255,255,255,.7); min-height: 44px; display: flex; align-items: center; }
+.cz-bub #cz-say { font-size: 13px; line-height: 1.3; }
+.cz-stage { position: relative; margin: 6px 0; padding: 10px 6px; border-radius: 14px; background: radial-gradient(ellipse at center, #2f7a4f 0%, #1f5a3a 100%); border: 3px solid #7a4a1e; box-shadow: inset 0 0 18px rgba(0,0,0,.35); }
+.cz-stage.winfx { animation: czwin .9s ease-out; }
+.cz-felt { position: relative; margin: 6px 0; padding: 8px 6px; border-radius: 14px; background: radial-gradient(ellipse at center, #2f7a4f 0%, #1f5a3a 100%); border: 3px solid #7a4a1e; box-shadow: inset 0 0 18px rgba(0,0,0,.35); color: #fff; }
+.cz-felt.winfx { animation: czwin .9s ease-out; }
+.cz-reels { display: flex; gap: 8px; justify-content: center; }
+.cz-reel { width: 74px; height: 84px; overflow: hidden; border: 2px solid #3a2a14; border-radius: 12px; background: #fff7e6; box-shadow: inset 0 6px 8px rgba(0,0,0,.18), inset 0 -6px 8px rgba(0,0,0,.18); }
+.cz-reel.win { border-color: #f2c200; box-shadow: 0 0 12px #f2c200, inset 0 0 8px rgba(242,194,0,.5); }
+.cz-strip { will-change: transform; }
+.cz-strip span { height: 84px; display: flex; align-items: center; justify-content: center; font-size: 42px; }
+.cz-pay { display: block; text-align: center; opacity: .75; margin: 2px 0 6px; }
+.cz-rstage { display: flex; justify-content: center; padding: 14px 6px 6px; }
+.cz-wheelbox { position: relative; width: 112px; height: 112px; }
+.cz-wheel { width: 100%; height: 100%; border-radius: 50%; border: 5px solid #e0b040; box-shadow: 0 0 0 3px #7a4a1e, inset 0 0 10px rgba(0,0,0,.5); will-change: transform; }
+.cz-pointer { position: absolute; left: 50%; top: -8px; margin-left: -8px; border: 8px solid transparent; border-top: 14px solid #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+.cz-hub { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #3a2a14; display: flex; align-items: center; justify-content: center; border: 3px solid #e0b040; }
+.cz-hub .cz-num { min-width: 0; width: 100%; padding: 0; font-size: 17px; border: 0; background: transparent; }
 .cz-num { min-width: 64px; padding: 10px 0; text-align: center; border-radius: 50%; font-size: 28px; color: #fff; border: 3px solid rgba(0,0,0,.2); }
 .cz-num.r { background: #c23b32; } .cz-num.b { background: #2a2a30; } .cz-num.g { background: #2f8a4f; }
-.cz-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
-.cz-kinds .btn small { display: block; opacity: .7; }
-.cz-one { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.cz-one input { width: 56px; }
-.cz-bets { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
-.cz-bets .on, .cz-kinds .on, .cz-one .on { outline: 2px solid #e2574c; }
-.cz-go { width: 100%; margin: 4px 0; }
+.cz-table { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; margin: 6px 0; padding: 6px; border-radius: 10px; background: #1f5a3a; border: 2px solid #7a4a1e; }
+.cz-table .cz-n { grid-column: span 1; min-height: 32px; padding: 0; border: 2px solid rgba(255,255,255,.35); border-radius: 6px; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; }
+.cz-table .cz-n.g { grid-column: 1 / -1; background: #2f8a4f; } .cz-table .cz-n.r { background: #c23b32; } .cz-table .cz-n.b { background: #2a2a30; }
+.cz-table .cz-n.on, .cz-kinds .on { outline: 3px solid #f2c200; outline-offset: 1px; }
+.cz-kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 6px; }
+.cz-kinds .btn { padding-top: 4px; padding-bottom: 4px; } .cz-kinds .btn small { display: block; opacity: .7; }
+.cz-hand { margin: 4px 0 8px; text-align: center; }
+.cz-hand small { display: block; opacity: .85; margin-bottom: 4px; }
+.cz-hand > div { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; min-height: 58px; }
+.cz-card { min-width: 42px; height: 58px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 7px; background: #fff; color: #222; font-weight: 700; font-size: 17px; box-shadow: 0 2px 4px rgba(0,0,0,.35); }
+.cz-card.red { color: #c23b32; }
+.cz-card.deal { animation: czdeal .35s ease-out both; animation-delay: calc(var(--i, 0) * 140ms); }
+.cz-card.flip { animation: czflip .4s ease-out; }
+.cz-card.back { background: repeating-linear-gradient(45deg, #2b4a8a, #2b4a8a 4px, #3a5ca3 4px, #3a5ca3 8px); }
+.cz-card.back.art { background-color: transparent; background-size: contain; background-repeat: no-repeat; background-position: center; border: 0; box-shadow: none; width: 44px; }
+.cz-bjhint { text-align: center; opacity: .9; margin: 14px 4px; font-size: 13px; }
+.cz-bet { display: flex; gap: 6px; align-items: center; justify-content: center; margin: 8px 0; }
+.cz-bet #cz-betv { min-width: 130px; text-align: center; font-size: 18px; }
+.cz-dock { position: sticky; bottom: 0; padding: 6px 0 2px; background: var(--card, #fdf0dc); }
+.cz-acts { display: flex; gap: 8px; } .cz-acts .btn { flex: 1; }
+.cz-go { width: 100%; margin: 2px 0; }
 .cz-msg { text-align: center; min-height: 22px; font-weight: 700; }
+@keyframes czdeal { from { transform: translateY(-34px) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes czflip { 0% { transform: scaleX(1); } 50% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+@keyframes czwin { 0% { box-shadow: inset 0 0 18px rgba(0,0,0,.35), 0 0 0 0 rgba(242,194,0,.9); } 40% { box-shadow: inset 0 0 18px rgba(0,0,0,.35), 0 0 18px 6px rgba(242,194,0,.9); } 100% { box-shadow: inset 0 0 18px rgba(0,0,0,.35), 0 0 0 0 rgba(242,194,0,0); } }
+@keyframes czhop { 0%, 100% { transform: none; } 35% { transform: translateY(-9px); } 65% { transform: translateY(0); } 80% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .cz-card.deal, .cz-card.flip, .cz-stage.winfx, .cz-felt.winfx, .cz-chief img.hop { animation: none; } }
 .auc-row { display: flex; gap: 10px; justify-content: space-between; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line, #d8d2c4); border-radius: 10px; margin-bottom: 6px; }
 .auc-row.lead { border-color: #2f9e6e; background: rgba(47, 158, 110, .1); }
 .auc-row.mine { border-color: #c9a227; background: rgba(201, 162, 39, .08); }
@@ -18259,7 +18280,7 @@ function huntSheet() {
 // ---------- the gear auction ----------
 var auc = { data: null, tab: "browse" };
 // 🎰 casino: the server rolls and pays, this only shows it. The croupier talks, his face fits the result.
-var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "", bj: null, say: null, fresh: false };
+var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "", bj: null, say: null, fresh: false, wheelDeg: 0, last: null, seen: { p: 0, d: 0, h: false } };
 // 🎨 casino art: a painted icon when the file is there, the emoji when it is not
 function caImg(key, fb, cls) {
   return FX_ART.t[key] ? '<img class="ca ' + (cls || "") + '" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : fb;
@@ -18271,32 +18292,30 @@ function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
 function croupierSay(mood, text) { casino.say = { mood: mood, text: text }; casino.fresh = true; }
 function croupierHtml() {
   var q = casino.say || { mood: "neutral", text: "" }, k = "croupier-" + q.mood;
-  return '<div class="cz-chief">' + (FX_ART.t[k] ? '<img id="cz-face" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : '<span id="cz-face" class="cz-emo">🎩</span>') + '<div class="cz-bub"><b>Croupier</b><div id="cz-say">' + esc(q.text) + "</div></div></div>";
+  return '<div class="cz-chief">' + (FX_ART.t[k] ? '<img id="cz-face" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : '<span id="cz-face" class="cz-emo">🎩</span>') + '<div class="cz-bub"><div id="cz-say">' + esc(q.text) + "</div></div></div>";
 }
 function croupierShow() {
   var el = document.getElementById("cz-say");
   if (!el || !casino.fresh) return;
   casino.fresh = false;
-  croupierTop();
   typeHtml(el, 420, "triangle");
 }
 function croupierFace(mood) {
   var f = document.getElementById("cz-face"), k = "croupier-" + mood;
   if (f && f.tagName === "IMG" && FX_ART.t[k]) f.src = "/art/" + k + ".webp?v=" + FX_ART.v;
+  if (f && mood === "happy" && !calmMotion) { f.classList.remove("hop"); void f.offsetWidth; f.classList.add("hop"); }
 }
-function croupierTop() { var sh = document.querySelector("#sheet .sheet"); if (sh) sh.scrollTop = 0; } // the croupier talks at the top: show him
 function croupierLine(mood, text) {
   casino.say = { mood: mood, text: text };
-  croupierTop();
   var el = document.getElementById("cz-say");
   croupierFace(mood);
   if (el) { el.textContent = text; casino.fresh = false; typeHtml(el, 420, "triangle"); }
 }
 function openCasino() {
   fetch("/api/casino").then(function (r) { return r.json(); }).then(function (j) {
-    casino.data = j; casino.msg = ""; casino.bj = j.bj || null;
+    casino.data = j; casino.msg = ""; casino.bj = j.bj || null; casino.busy = false;
     if (casino.bet && j.bets.indexOf(casino.bet) < 0) casino.bet = j.bets[1];
-    if (casino.bj) { casino.game = "blackjack"; croupierSay("neutral", "Welcome back. Your hand is still on the table."); }
+    if (casino.bj) { casino.game = "blackjack"; bjSeen(casino.bj); croupierSay("neutral", "Welcome back. Your hand is still on the table."); }
     else croupierSay("neutral", pickOne(["Welcome! Keep your hands, feet and savings inside the casino.", "Place your bets. I promise nothing but fun.", "Good evening, Commander. The house is in a generous mood. Statistically not."]));
     sfx("v-croupier");
     if (sheet && sheet.kind === "casino") renderSheet(); else openSheet("casino", null);
@@ -18304,45 +18323,81 @@ function openCasino() {
 }
 var CASINO_KINDS = [["red", "🟥 Red", 0, "2×"], ["black", "⬛ Black", 0, "2×"], ["odd", "Odd", 0, "2×"], ["even", "Even", 0, "2×"], ["low", "1–18", 0, "2×"], ["high", "19–36", 0, "2×"], ["dozen", "1–12", 0, "3×"], ["dozen", "13–24", 1, "3×"], ["dozen", "25–36", 2, "3×"]];
 var CASINO_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-function casinoNum(n) { return '<b class="cz-num ' + (n === 0 ? "g" : CASINO_RED.indexOf(n) >= 0 ? "r" : "b") + '">' + n + "</b>"; }
-function bjCard(c) {
-  if (c === "?") return '<span class="cz-card back' + (FX_ART.t["casino-cardback"] ? " art" : "") + '"' + (FX_ART.t["casino-cardback"] ? ' style="background-image:url(/art/casino-cardback.webp?v=' + FX_ART.v + ')"' : "") + "></span>";
+var WHEEL_ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+function casinoCol(n) { return n === 0 ? "g" : CASINO_RED.indexOf(n) >= 0 ? "r" : "b"; }
+function casinoNum(n) { return '<b class="cz-num ' + casinoCol(n) + '">' + n + "</b>"; }
+function wheelBg() {
+  var seg = 360 / WHEEL_ORDER.length, st = WHEEL_ORDER.map(function (n, i) {
+    var c = n === 0 ? "#2f8a4f" : CASINO_RED.indexOf(n) >= 0 ? "#c23b32" : "#2a2a30";
+    return c + " " + (i * seg).toFixed(2) + "deg " + ((i + 1) * seg).toFixed(2) + "deg";
+  });
+  return "conic-gradient(" + st.join(",") + ")";
+}
+// 🃏 cards: new ones slide in, the dealer's hidden card flips
+function bjSeen(B) { casino.seen = { p: B.player.length, d: B.dealer.length, h: B.dealer.indexOf("?") >= 0 }; }
+function bjCard(c, cls, i) {
+  var st = ' style="--i:' + (i || 0) + '"';
+  if (c === "?") return '<span class="cz-card back' + (FX_ART.t["casino-cardback"] ? " art" : "") + (cls || "") + '"' + (FX_ART.t["casino-cardback"] ? ' style="--i:' + (i || 0) + ";background-image:url(/art/casino-cardback.webp?v=" + FX_ART.v + ')"' : st) + "></span>";
   var red = c.slice(-1) === "♥" || c.slice(-1) === "♦";
-  return '<span class="cz-card' + (red ? " red" : "") + '">' + esc(c) + "</span>";
+  return '<span class="cz-card' + (red ? " red" : "") + (cls || "") + '"' + st + ">" + esc(c) + "</span>";
 }
 function bjTable() {
   var B = casino.bj;
-  if (!B) return '<div class="cz-bjhint">Beat the dealer without going over 21. Blackjack pays 3 to 2, the dealer stands on 17, you can double on two cards.</div>';
-  var h = '<div class="cz-hand"><small>Dealer · ' + (B.result ? B.dt : "?") + "</small><div>" + B.dealer.map(bjCard).join("") + "</div></div>";
-  h += '<div class="cz-hand"><small>You · ' + B.pt + " · bet 💲 " + shortNum(B.bet) + "</small><div>" + B.player.map(bjCard).join("") + "</div></div>";
+  if (!B) return '<div class="cz-bjhint">Beat the dealer without going over 21.<br>Blackjack pays 3 to 2, the dealer stands on 17, you can double on two cards.</div>';
+  var S = casino.seen, k = 0;
+  var dh = B.dealer.map(function (c, i) {
+    var isNew = i >= S.d, flip = i === 1 && S.h && c !== "?";
+    return bjCard(c, isNew ? " deal" : flip ? " flip" : "", isNew ? k++ : 0);
+  }).join("");
+  var ph = B.player.map(function (c, i) { return bjCard(c, i >= S.p ? " deal" : "", i >= S.p ? k++ : 0); }).join("");
+  var h = '<div class="cz-hand"><small>Dealer · ' + (B.result ? B.dt : "?") + "</small><div>" + dh + "</div></div>";
+  h += '<div class="cz-hand"><small>You · ' + B.pt + " · bet " + caChip(B.bet) + " " + shortNum(B.bet) + "</small><div>" + ph + "</div></div>";
+  bjSeen(B);
   return h;
 }
 function casinoSheet() {
-  var C = casino.data, h = '<div class="sheet-head"><span class="hi">' + caImg("casino-icon", "🎰", "hd") + '</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + cashText(Math.floor(walletNow())) + "</span> Space-Cash</b></div></div>";
+  var C = casino.data, g = casino.game, playing = g === "blackjack" && casino.bj && !casino.bj.result;
+  var h = '<div class="sheet-head"><span class="hi">' + caImg("casino-icon", "🎰", "hd") + '</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + cashText(Math.floor(walletNow())) + "</span> Space-Cash</b></div></div>";
   h += croupierHtml();
-  h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>' + caImg("casino-slots", "🎰", "tab") + '</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>' + caImg("casino-roulette", "🎡", "tab") + '</span>Roulette</button><button class="' + (casino.game === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>' + caImg("casino-blackjack", "🃏", "tab") + '</span>Blackjack</button></div>';
-  var playing = casino.game === "blackjack" && casino.bj && !casino.bj.result;
-  if (casino.game === "slots") {
-    h += '<div class="cz-reels" id="cz-reels"><span>' + caSym("🍒") + '</span><span>' + caSym("🐶") + '</span><span>' + caSym("🔔") + '</span></div>';
+  h += '<div class="subtabs"><button class="' + (g === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>' + caImg("casino-slots", "🎰", "tab") + '</span>Slots</button><button class="' + (g === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>' + caImg("casino-roulette", "🎡", "tab") + '</span>Roulette</button><button class="' + (g === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>' + caImg("casino-blackjack", "🃏", "tab") + "</span>Blackjack</button></div>";
+  if (g === "slots") {
+    h += '<div class="cz-stage" id="cz-stage"><div class="cz-reels" id="cz-reels">' + ["🍒", "🐶", "🔔"].map(function (s) { return '<div class="cz-reel"><div class="cz-strip"><span>' + caSym(s) + "</span></div></div>"; }).join("") + "</div></div>";
     h += '<small class="cz-pay">' + C.slots.map(function (x) { return caSym(x.s) + "×3 " + x.pays + "×"; }).join(" · ") + " · " + caSym("🍒") + caSym("🍒") + " " + C.twoCherries + "×</small>";
-  } else if (casino.game === "roulette") {
-    h += '<div class="cz-ball" id="cz-ball">' + casinoNum(0) + "</div>";
-    h += '<div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + '</div>';
-    h += '<div class="cz-one"><label>Single number <small>36×</small> <input type="number" min="0" max="36" id="cz-n" value="' + (casino.kind === "number" ? casino.pick : 7) + '"></label><button class="btn small ghost" data-casino-kind="number" data-casino-pick="n">Bet it</button></div>';
-  } else h += '<div id="cz-bj">' + bjTable() + "</div>";
-  if (!playing) h += '<div class="cz-bets">' + C.bets.map(function (b) { return '<button class="btn small ghost" data-casino-bet="' + b + '">' + caChip(b) + " " + shortNum(b) + "</button>"; }).join("") + "</div>";
+  } else if (g === "roulette") {
+    h += '<div class="cz-stage cz-rstage" id="cz-stage"><div class="cz-wheelbox"><div class="cz-wheel" id="cz-wheel" style="background:' + wheelBg() + ";transform:rotate(" + casino.wheelDeg + 'deg)"></div><i class="cz-pointer"></i><div class="cz-hub" id="cz-ball">' + (casino.last === null ? "" : casinoNum(casino.last)) + "</div></div></div>";
+    h += '<div class="cz-table"><button class="cz-n g" data-casino-kind="number" data-casino-pick="0">0</button>';
+    for (var n = 1; n <= 36; n++) h += '<button class="cz-n ' + casinoCol(n) + '" data-casino-kind="number" data-casino-pick="' + n + '">' + n + "</button>";
+    h += '</div><div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + "</div>";
+    h += '<small class="cz-pay">A single number pays 36×. The zero loses every bet.</small>';
+  } else h += '<div class="cz-felt" id="cz-bj">' + bjTable() + "</div>";
+  if (!playing) h += '<div class="cz-bet"><button class="btn small ghost" data-casino-step="-1" aria-label="Lower bet">−</button><b id="cz-betv"></b><button class="btn small ghost" data-casino-step="1" aria-label="Raise bet">+</button><button class="btn small ghost" data-casino-max="1">Max</button></div>';
+  h += '<div class="cz-dock">';
   if (playing) h += '<div class="cz-acts"><button class="btn" data-bj="hit">Hit</button><button class="btn" data-bj="stand">Stand</button>' + (casino.bj.canDouble ? '<button class="btn ghost" data-bj="double">Double</button>' : "") + "</div>";
-  else h += '<button class="btn cz-go" data-casino-spin="1">' + (casino.game === "slots" ? "Spin" : casino.game === "roulette" ? "Spin the wheel" : "Deal") + "</button>";
-  h += '<div class="cz-msg" id="cz-msg">' + esc(casino.msg || "") + "</div>";
-  setTimeout(function () { casinoMark(); croupierShow(); }, 0);
+  else h += '<button class="btn cz-go" data-casino-spin="1">' + (g === "slots" ? "Spin" : g === "roulette" ? "Spin the wheel" : "Deal") + "</button>";
+  h += '<div class="cz-msg" id="cz-msg">' + esc(casino.msg || "") + "</div></div>";
+  setTimeout(function () { casinoMark(); casinoBetShow(); croupierShow(); }, 0);
   return h;
+}
+function casinoBetShow() {
+  var v = document.getElementById("cz-betv"); if (!v || !casino.data) return;
+  var i = casino.data.bets.indexOf(casino.bet), b = casino.data.bets;
+  v.innerHTML = caChip(casino.bet) + " " + casino.bet.toLocaleString("en-US");
+  Array.prototype.forEach.call(document.querySelectorAll("[data-casino-step]"), function (x) { x.disabled = Number(x.getAttribute("data-casino-step")) < 0 ? i <= 0 : i >= b.length - 1; });
+}
+function casinoStep(d) {
+  var b = casino.data.bets, i = Math.max(0, Math.min(b.length - 1, b.indexOf(casino.bet) + d));
+  casino.bet = b[i]; sfx("click"); casinoBetShow();
+}
+function casinoMax() {
+  var b = casino.data.bets, cash = Math.floor(walletNow()), best = b[0];
+  b.forEach(function (x) { if (x <= cash) best = x; });
+  casino.bet = best; sfx("click"); casinoBetShow();
 }
 function casinoMark() {
   var box = document.getElementById("sheet"); if (!box) return;
-  Array.prototype.forEach.call(box.querySelectorAll("[data-casino-bet]"), function (b) { b.classList.toggle("on", Number(b.getAttribute("data-casino-bet")) === casino.bet); });
   Array.prototype.forEach.call(box.querySelectorAll("[data-casino-kind]"), function (b) {
-    var k = b.getAttribute("data-casino-kind"), pk = b.getAttribute("data-casino-pick");
-    b.classList.toggle("on", k === casino.kind && (k === "number" || k === "dozen" ? (k === "number" ? casino.kind === "number" : Number(pk) === casino.pick) : true));
+    var k = b.getAttribute("data-casino-kind"), pk = Number(b.getAttribute("data-casino-pick"));
+    b.classList.toggle("on", k === casino.kind && (k === "number" || k === "dozen" ? pk === casino.pick : true));
   });
 }
 function casinoMoney(j) {
@@ -18350,11 +18405,17 @@ function casinoMoney(j) {
   wallet.cash = j.cash; wallet.at = Date.now();
   if (c) { c.textContent = cashText(j.cash); c.title = j.cash.toLocaleString("en-US"); }
 }
-function casinoSettled(j, extra) {
+function casinoWinFx(net) {
+  var st = document.getElementById("cz-stage") || document.getElementById("cz-bj");
+  if (!st || calmMotion) return;
+  if (net > 0) { st.classList.remove("winfx"); void st.offsetWidth; st.classList.add("winfx"); cashPop(st, "+" + numText(net), "#2f8a4f"); }
+}
+function casinoSettled(j) {
   var net = j.win - j.bet, m = document.getElementById("cz-msg");
   casino.msg = net > 0 ? "🎉 +" + numText(net) + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + numText(j.bet) + " Space-Cash";
   if (m) m.textContent = casino.msg;
   casinoMoney(j);
+  casinoWinFx(net);
   sfx(net > 0 ? "done" : "click");
   casino.busy = false;
   loadColony(false);
@@ -18362,11 +18423,8 @@ function casinoSettled(j, extra) {
 function casinoSpin() {
   if (casino.busy || !casino.data) return;
   if (casino.game === "blackjack") { bjDeal(); return; }
-  var body = { bet: casino.bet }, url = "/api/casino/slots", n = document.getElementById("cz-n");
-  if (casino.game === "roulette") {
-    url = "/api/casino/roulette"; body.kind = casino.kind;
-    if (casino.kind === "number") { casino.pick = Math.max(0, Math.min(36, Math.floor(Number(n && n.value) || 0))); body.pick = casino.pick; } else body.pick = casino.pick;
-  }
+  var body = { bet: casino.bet }, url = "/api/casino/slots";
+  if (casino.game === "roulette") { url = "/api/casino/roulette"; body.kind = casino.kind; body.pick = casino.pick; }
   casino.busy = true;
   var msg = document.getElementById("cz-msg"); if (msg) msg.textContent = "";
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
@@ -18375,10 +18433,11 @@ function casinoSpin() {
     var done = function () {
       var net = j.win - j.bet;
       if (casino.game === "slots") {
-        var NM = { "🍒": "Cherry", "🐶": "Dog", "🔔": "Bell", "⭐": "Star", "💎": "Gem", "7️⃣": "Seven" }, r3 = j.reels.map(function (x) { return NM[x] || x; }).join(", ");
+        var NM = { "🍒": "Cherry", "🐶": "Dog", "🔔": "Bell", "⭐": "Star", "💎": "Gem", "7️⃣": "Seven" }, r3 = j.reels.map(function (z) { return NM[z] || z; }).join(", ");
         if (j.win >= j.bet * 30) croupierLine("surprised", r3 + ". " + pickOne(["Jackpot! I did not see that. Nobody saw that.", "That is a lot of zeros. On your side. I need to sit down."]));
         else if (net > 0) croupierLine("happy", r3 + ". " + pickOne(["You win! The reels like you today.", "Winner! Do not tell the other machines.", "A win! I will pretend I am not jealous."]));
         else croupierLine("worried", r3 + ". " + pickOne(["You lose. The reels were being shy.", "No luck. The machine says sorry. It lies.", "You lose. It was almost a win. Almost is free."]));
+        Array.prototype.forEach.call(document.querySelectorAll("#cz-reels .cz-reel"), function (r) { r.classList.toggle("win", net > 0); });
       } else {
         var col = j.n === 0 ? "green" : j.red ? "red" : "black";
         if (j.n === 0) croupierLine("surprised", "0, green. The house wins every bet. I am sorry. A little.");
@@ -18386,24 +18445,38 @@ function casinoSpin() {
         else if (net > 0) croupierLine("happy", j.n + ", " + col + ". You win!");
         else croupierLine("worried", j.n + ", " + col + ". You lose.");
       }
+      if (casino.game === "roulette") { var sh = document.querySelector("#sheet .sheet"); if (sh) sh.scrollTop = 0; } // the wheel and the croupier are at the top
       casinoSettled(j);
     };
     if (casino.game === "slots") {
-      var reels = document.querySelectorAll("#cz-reels span");
-      if (calmMotion || !reels.length) { Array.prototype.forEach.call(reels, function (r, i) { r.innerHTML = caSym(j.reels[i]); }); done(); return; }
-      var t0 = Date.now(), iv = setInterval(function () {
-        var el = Date.now() - t0;
-        Array.prototype.forEach.call(reels, function (r, i) { r.innerHTML = caSym(el > 600 + i * 350 ? j.reels[i] : sy[Math.floor(Math.random() * sy.length)]); r.classList.toggle("spin", el <= 600 + i * 350); });
-        if (el % 3 < 1) sfx("click");
-        if (el > 600 + 2 * 350 + 60) { clearInterval(iv); done(); }
-      }, 70);
+      var reels = document.querySelectorAll("#cz-reels .cz-reel");
+      if (calmMotion || !reels.length) { Array.prototype.forEach.call(reels, function (r, i) { r.querySelector(".cz-strip").innerHTML = "<span>" + caSym(j.reels[i]) + "</span>"; }); done(); return; }
+      var longest = 0;
+      Array.prototype.forEach.call(reels, function (r, i) {
+        var strip = r.querySelector(".cz-strip"), H = r.clientHeight || 84, n = 12 + i * 5, items = [], dur = 1000 + i * 500;
+        for (var k = 0; k < n; k++) items.push(sy[Math.floor(Math.random() * sy.length)]);
+        items.push(j.reels[i]);
+        strip.style.transition = "none"; strip.style.transform = "translateY(0)";
+        strip.innerHTML = items.map(function (z) { return "<span>" + caSym(z) + "</span>"; }).join("");
+        void strip.offsetWidth;
+        strip.style.transition = "transform " + dur + "ms cubic-bezier(.12,.75,.18,1)";
+        strip.style.transform = "translateY(-" + n * H + "px)";
+        r.classList.remove("win");
+        setTimeout(function () { sfx("click"); }, dur - 60);
+        longest = Math.max(longest, dur);
+      });
+      setTimeout(done, longest + 80);
     } else {
-      var ball = document.getElementById("cz-ball");
-      if (calmMotion || !ball) { if (ball) ball.innerHTML = casinoNum(j.n); done(); return; }
-      var t1 = Date.now(), iv2 = setInterval(function () {
-        var e2 = Date.now() - t1;
-        if (e2 > 1500) { clearInterval(iv2); ball.innerHTML = casinoNum(j.n); done(); } else ball.innerHTML = casinoNum(Math.floor(Math.random() * 37));
-      }, 70);
+      var wheel = document.getElementById("cz-wheel"), hub = document.getElementById("cz-ball");
+      var idx = WHEEL_ORDER.indexOf(j.n), seg = 360 / WHEEL_ORDER.length, target = 360 - (idx + 0.5) * seg, cur = casino.wheelDeg;
+      casino.wheelDeg = cur + ((target - (cur % 360)) + 360) % 360 + 360 * 5;
+      casino.last = j.n;
+      if (hub) hub.innerHTML = "";
+      if (calmMotion || !wheel) { if (wheel) wheel.style.transform = "rotate(" + casino.wheelDeg + "deg)"; if (hub) hub.innerHTML = casinoNum(j.n); done(); return; }
+      wheel.style.transition = "transform 2800ms cubic-bezier(.1,.7,.12,1)";
+      wheel.style.transform = "rotate(" + casino.wheelDeg + "deg)";
+      var tk = setInterval(function () { sfx("click"); }, 260);
+      setTimeout(function () { clearInterval(tk); if (hub) hub.innerHTML = casinoNum(j.n); done(); }, 2900);
     }
   }).catch(function () { casino.busy = false; toast("⚠️ The server does not answer"); });
 }
@@ -18415,6 +18488,8 @@ function bjAsk(body) {
     casino.busy = false;
     if (!x.ok) { toast(x.j.error || "The casino said no."); sfx("error"); return; }
     var B = x.j.hand;
+    if (body.do === "deal" && !x.j.resumed) casino.seen = { p: 0, d: 0, h: false };
+    else if (x.j.resumed) bjSeen(B);
     casino.bj = B; casino.msg = "";
     if (x.j.resumed) croupierSay("neutral", "You still have a hand on the table. Let us finish it.");
     else if (!B.result) croupierSay("neutral", body.do === "deal" ? pickOne(["Cards are out. You have " + B.pt + ". Your move.", "Dealt. You hold " + B.pt + ". Brave or sensible?"]) : "You hold " + B.pt + ". " + pickOne(["Another?", "Bold.", "The cards are listening."]));
@@ -18428,11 +18503,12 @@ function bjAsk(body) {
       else croupierSay("worried", d + " against your " + me + ". You lose." + (d === 21 && B.dealer.length === 2 ? " Blackjack. Sorry." : ""));
     }
     casinoMoney(B);
+    var net = B.win - B.bet;
+    if (B.result) casino.msg = net > 0 ? "🎉 +" + numText(net) + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + numText(B.bet) + " Space-Cash";
     renderSheet();
     if (B.result) {
-      var net = B.win - B.bet;
-      casino.msg = net > 0 ? "🎉 +" + numText(net) + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + numText(B.bet) + " Space-Cash";
-      var m = document.getElementById("cz-msg"); if (m) m.textContent = casino.msg;
+      if (casino.say && casino.say.mood === "happy") croupierFace("happy");
+      casinoWinFx(net);
       sfx(net > 0 ? "done" : "click");
       loadColony(false);
     }
@@ -19423,7 +19499,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-casino],[data-bj],[data-casino-tab],[data-casino-bet],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-casino],[data-bj],[data-casino-tab],[data-casino-step],[data-casino-max],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -19583,8 +19659,10 @@ document.addEventListener("click", function (e) {
     openCasino();
   } else if (has("data-casino-tab")) {
     if (casino.busy) return; casino.game = attr("data-casino-tab"); casino.msg = ""; renderSheet();
-  } else if (has("data-casino-bet")) {
-    casino.bet = Number(attr("data-casino-bet")); sfx("click"); casinoMark();
+  } else if (has("data-casino-step")) {
+    casinoStep(Number(attr("data-casino-step")));
+  } else if (has("data-casino-max")) {
+    casinoMax();
   } else if (has("data-casino-kind")) {
     casino.kind = attr("data-casino-kind"); casino.pick = Number(attr("data-casino-pick")) || 0; sfx("click"); casinoMark();
   } else if (has("data-casino-spin")) {
