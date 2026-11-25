@@ -20774,7 +20774,7 @@ function scorpTick(now) {
       attacker: { name: "Dust Scorpions", owner: "Mysterious villain", x: S.x, y: S.y, units: monsterList(pack, pack) },
       defender: Object.assign({}, colonyInfo(colony), { units: unitList(home, tribe, {}) }),
       support: [],
-      flavor: "A mysterious villain sent them for the snacks. They left with sore tails. Nobody on your side got a scratch.",
+      flavor: "A mysterious villain sent them. They took one look at your wall and left with sore tails. Nobody on your side got a scratch.",
       first: true,
     });
     saveColony(colony.id, colony.state);

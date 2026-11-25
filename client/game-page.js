@@ -13675,17 +13675,20 @@ function voiceShow(whoKey, mood, text, top) {
 // 🎭 the first defense as a little play: a big Beppo sprite, one line per tap
 var villainBusy = false;
 var VILLAIN_INTRO = [
-  ["villain-neutral", "Ha ha ha! Greetings, Commander! I am… a villain! A very scary villain you have never met!"],
-  ["villain-happy", "Definitely not Beppo. Beppo is far away, having a snack. Not here. Nowhere near."],
-  ["villain-neutral", "I have sent an attack! It will DESTROY your colony! In exactly… one hour! Muahaha!"],
-  ["villain-worried", "…Is one hour too soon? Take your time. It would be rude to attack an unprepared colony."],
-  ["villain-surprised", "Oh no, I said too much! Anyway. Look after your troops and your wall. Do not look at the scary timer."]
+  ["villain-happy", "Muahaha! Greetings, Commander! I am… a villain! A very scary one you have definitely never met!"],
+  ["villain-neutral", "Not Beppo. Beppo is far away, eating a snack. Why are you looking at my ears?"],
+  ["villain-happy", "I have sent an attack that will DESTROY you!…"],
+  ["villain-worried", "…in one hour. They walk really slow. Tiny legs. Lots of sand."],
+  ["villain-happy", "…but then it will be over for you! Muahaha! Muah… ha."],
+  ["villain-worried", "Is one hour too soon? Take your time. It is rude to attack an unprepared colony."],
+  ["villain-surprised", "Oh no, I said too much! Forget everything. Especially the timer. Do not look at the timer."]
 ];
 var VILLAIN_THANKS = [
-  ["happy", "You did it! The villain’s scorpions ran away with sore tails!"],
-  ["neutral", "Fine, fine. The villain was me. The costume is off. I only wanted you to see a real defense report."],
-  ["happy", "You are ready, Commander. Truly. You know your colony, your army and how to hold the line."],
-  ["neutral", "Whatever else you wonder about is in the 📖 Guide. Every number, table and rule lives there. I will be around, for snacks."]
+  ["happy", "You did it! The villain’s scorpions are running home with sore tails!"],
+  ["surprised", "Wait, you won?! The villain will be so… I mean, I would be so… upset!"],
+  ["neutral", "Fine. The villain was me. The costume was itchy and I regret the moustache."],
+  ["happy", "But look at that defense report! You are ready, Commander. Truly."],
+  ["neutral", "Anything else you wonder about is in the 📖 Guide. Every number, table and rule. It is very thorough. Unlike my disguise."]
 ];
 function beppoScene(lines, who, opts) {
   var old = document.getElementById("scene");
