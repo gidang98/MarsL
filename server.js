@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.508";
+const GAME_VERSION = "1.0.509";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -4196,7 +4196,7 @@ function resolveCamp(m) {
     const carry = Math.round((carryOf(survivors, tribe) + (m.mission === "raid" ? raiderCarryBonus(survivors, tribe) : 0)) * (hero ? 1 + heroBonus(hero).carry / 100 : 1) * (m.power === "chicken" ? 1 + WAR_LOOT : 1) * bm.carry); // 🐔 Stampede
     if (f.attackerWins && carry > 0) loot = takeLoot(camp.treasure, carry, 0);
     // trophies for every killed monster - if anybody survives to carry them
-    const bountyAll = countUnits(survivors) > 0 ? bountyOf(campLost) : null;
+    const bountyAll = countUnits(survivors) > 0 || (hero && f.attackerWins) ? bountyOf(campLost) : null; // a commander alone carries the trophies in its inventory
     // 🎖️ a commander keeps the bounty in its inventory
     const heroNote = hero ? heroAfterFight(att.userId, hero, { xp: (f.D * f.defFrac) / heroXpDiv(), dmg: heroDmg(f.atkFrac, HERO_DMG_LEAD), beaten: (countUnits(survivors) === 0 && countUnits(troops) > 0) || (!f.attackerWins && f.atkFrac >= HERO_FALL_FRAC), won: f.attackerWins, campTier: campTier(m.target_x, m.target_y), bounty: bountyAll, at: T, bonus: heroBonus(hero).atk }) : null;
     const bounty = heroNote && heroNote.stash ? null : bountyAll;
@@ -17761,6 +17761,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.509",date:"2026-11-25",title:"Commander-only camp bounty",groups:[["🔧 Fixed",["A commander sent alone to a monster camp now keeps the bounty in its inventory, as it should. Before, it only came with troops."]]]},
   {v:"1.0.508",date:"2026-11-25",title:"Rewards once per server",groups:[["🔧 Fixed",["The 🎓 graduation reward and the landing guide gifts are now paid once per server. Respawning no longer pays them again; a new server round starts fresh."]]]},
   {v:"1.0.507",date:"2026-11-25",title:"Beppo joke fix",groups:[["🔧 Fixed",["Beppo's line after your first build has a better joke."]]]},
   {v:"1.0.506",date:"2026-11-25",title:"Funnier voices",groups:[["✨ New",["Beppo and the other characters have new, funnier lines that fit their expressions."]]]},
