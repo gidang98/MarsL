@@ -13581,8 +13581,9 @@ function voiceShow(whoKey, mood, text, top) {
     el.classList.add("bye");
     setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
   };
+  t.style.visibility = "hidden"; // the words wait for the arrival tune, then type out
   sfx("v-" + whoKey); // each voice has its own little arrival tune
-  setTimeout(function () { if (!gone) typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch); }, 700);
+  setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch); t.style.visibility = ""; } }, 700);
   el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
   setTimeout(bye, 9500);
 }
@@ -13669,7 +13670,7 @@ function startTutorial() {
 // types an HTML text out letter by letter (tags stay in place), with a soft blip; tap the text to show it all
 function typeHtml(el, pitch) {
   if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
-  if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) { el.classList.add("fin"); return; }
+  // typing out text is not movement, so it stays on with Reduce Motion
   el.style.minHeight = el.offsetHeight + "px"; // the bubble keeps its final size while the text types
   el.classList.remove("fin");
   var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), nodes = [], n;
