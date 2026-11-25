@@ -2849,10 +2849,20 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .cmd-row { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid rgba(0,0,0,.08); } .cmd-row > div { flex: 1; min-width: 0; } .cmd-row b, .cmd-row small { display: block; } .cmd-row.on { background: rgba(0,0,0,.05); border-radius: 10px; }
   .sh-1 { box-shadow: 0 0 0 2px #c9d3e0, 0 0 10px rgba(201,211,224,.8); } .sh-2 { box-shadow: 0 0 0 2px #ffc53d, 0 0 12px rgba(255,197,61,.85); } .sh-3 { box-shadow: 0 0 0 2px #6fe3ff, 0 0 14px rgba(111,227,255,.9); }
   .sh-4 { animation: shinyrb 2.4s linear infinite; }
+  /* shiny tint: the picture itself takes the metal's colour, a small star twinkles in the corner */
+  .sh-1, .sh-2, .sh-3, .sh-4 { position: relative; }
+  .sh-1 img { filter: grayscale(.9) brightness(1.18) contrast(1.12); }
+  .sh-2 img { filter: sepia(1) saturate(3.2) hue-rotate(-6deg) brightness(1.12); }
+  .sh-3 img { filter: grayscale(.25) sepia(1) hue-rotate(150deg) saturate(2.8) brightness(1.25); }
+  .sh-4 img { animation: shinyhue 4s linear infinite; }
+  @keyframes shinyhue { from { filter: saturate(1.5) hue-rotate(0deg); } to { filter: saturate(1.5) hue-rotate(360deg); } }
+  .sh-1::after, .sh-2::after, .sh-3::after, .sh-4::after { content: "✦"; position: absolute; top: 2px; right: 6px; font-size: 11px; line-height: 1; pointer-events: none; animation: shinytwinkle 1.9s ease-in-out infinite; }
+  .sh-1::after { color: #c9d3e0; } .sh-2::after { color: #ffc53d; } .sh-3::after { color: #6fe3ff; } .sh-4::after { color: #ff9ad5; }
+  @keyframes shinytwinkle { 0%, 100% { opacity: .15; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
   @keyframes shinyrb { 0% { box-shadow: 0 0 0 2px #ff5a47, 0 0 14px #ff5a47; } 20% { box-shadow: 0 0 0 2px #ffc53d, 0 0 14px #ffc53d; } 40% { box-shadow: 0 0 0 2px #62c46a, 0 0 14px #62c46a; } 60% { box-shadow: 0 0 0 2px #6fe3ff, 0 0 14px #6fe3ff; } 80% { box-shadow: 0 0 0 2px #8c73ff, 0 0 14px #8c73ff; } 100% { box-shadow: 0 0 0 2px #ff5a47, 0 0 14px #ff5a47; } }
   i.sh-t1, span.sh-t1 { color: #8a98ac; font-style: normal; font-weight: 700; } i.sh-t2, span.sh-t2 { color: #c98f00; font-style: normal; font-weight: 700; } i.sh-t3, span.sh-t3 { color: #1fa8cc; font-style: normal; font-weight: 700; } i.sh-t4, span.sh-t4 { background: linear-gradient(90deg, #ff5a47, #ffc53d, #62c46a, #6fe3ff, #8c73ff); -webkit-background-clip: text; background-clip: text; color: transparent; font-style: normal; font-weight: 800; }
   .idx-shiny > summary { cursor: pointer; list-style: none; } .idx-shiny > summary::-webkit-details-marker { display: none; } .idx-shiny > summary h4 { display: inline-block; margin: 8px 0; }
-  @media (prefers-reduced-motion: reduce) { .sh-4 { animation: none; box-shadow: 0 0 0 2px #8c73ff, 0 0 14px #ff5a47; } }
+  @media (prefers-reduced-motion: reduce) { .sh-4 { animation: none; box-shadow: 0 0 0 2px #8c73ff, 0 0 14px #ff5a47; } .sh-4 img { animation: none; filter: saturate(1.5) hue-rotate(290deg); } .sh-1::after, .sh-2::after, .sh-3::after, .sh-4::after { animation: none; opacity: .9; } }
   .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
   .hunt-ic { font-size: 44px; line-height: 1; } .hunt-body { flex: 1; min-width: 0; } .hunt-body b, .hunt-body small { display: block; }
   .hunt-hp i { transition: width .12s linear; }
