@@ -10118,7 +10118,7 @@ function blip(pitch, soft, wave) {
   var t = ctx.currentTime + 0.005, o = ctx.createOscillator(), g = ctx.createGain();
   setWave(o, ctx, wave || "square"); // every voice has its own 8-bit wave
   o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
-  g.gain.setValueAtTime(soft ? 0.03 : 0.04, t);
+  g.gain.setValueAtTime(waveVol(wave || "square", soft), t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
   o.connect(g); g.connect(ctx.destination);
   o.start(t); o.stop(t + 0.06);
@@ -13292,6 +13292,10 @@ function setWave(o, ctx, type) {
   else if (type === "pulse25") o.setPeriodicWave(pulseWave(ctx, 0.25));
   else o.type = type;
 }
+// every wave has its own loudness (a triangle is much quieter than a square at the same gain), so one level
+// for all sounds is multiplied by what the wave needs. The volume written in a sound table is not used any more.
+var SFX_LEVEL = 0.03, WAVE_GAIN = { square: 1, pulse25: 1.15, pulse12: 1.5, triangle: 1.7, sine: 1.4, sawtooth: 1.7, noise: 1.7 };
+function waveVol(wave, soft) { return SFX_LEVEL * (soft ? 0.8 : 1) * (WAVE_GAIN[wave] || 1); }
 function sfx(name) {
   if (sound.on && BUZZ[name] && navigator.vibrate) { try { navigator.vibrate(BUZZ[name]); } catch (e) {} }
   if (!sound.on || !SFX[name]) return;
@@ -13319,7 +13323,7 @@ function sfx(name) {
       }
     }
     g.gain.setValueAtTime(0.0001, t0 + n[1]);
-    g.gain.exponentialRampToValueAtTime(n[4], t0 + n[1] + 0.01);
+    g.gain.exponentialRampToValueAtTime(waveVol(n[3]), t0 + n[1] + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
     o.connect(g);
     g.connect(ctx.destination);

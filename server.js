@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.520";
+const GAME_VERSION = "1.0.521";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.521",date:"2026-11-25",title:"Even sound volumes",groups:[["🔊 Sound",["All sound effects and voice blips now play at the same loudness. Before, the soft triangle sounds were much quieter than the sharp square ones."]]]},
   {v:"1.0.520",date:"2026-11-25",title:"Chiptune alerts",groups:[["🔊 Sound",["New message and new report sounds are 8-bit blips now.","The error and alarm sounds are short stepped blips instead of a buzzer."]]]},
   {v:"1.0.519",date:"2026-11-25",title:"Space-Cash in While you were away",groups:[["🌙 While you were away",["The summary now shows how much Space-Cash your hunters earned while you were offline."]]]},
   {v:"1.0.518",date:"2026-11-25",title:"Sounds, a streak track and lighter backdrops",groups:[["🔊 Sound",["New short sounds for opening a crate, winning or losing a battle, starting construction, and casino wins (a bigger one for a big win)."]],["🎁 Daily supply",["The daily supply shows a 7-day crate track. Day 3 is a silver bonus crate (+80 of each) and day 7 a gold one (+280 of each), every week of your streak."]],["🎨 Polish",["Roulette Red and Black buttons use painted dots instead of emoji squares.","The login and loading screens load a lighter picture on phones, so the first load is faster."]]]},
