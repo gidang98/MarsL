@@ -11318,7 +11318,7 @@ function estChip(e) {
 }
 function targetsSheet(d) {
   var h = '<div class="sheet-head"><span class="hi">🎯</span><div><h3>Targets near you</h3><b>' + esc(d.colony) + " (" + d.x + "|" + d.y + ")</b></div></div>";
-  h += trainingBox(d) + bubble();
+  h += trainingBox(d);
   var T = targets;
   if (!T) return h + '<p class="empty">Looking around…</p>';
   if (!T.hasArmy) h += '<p class="hint">No troops at home: <a href="#" data-targets-army="1">train some</a> to see who you can beat.</p>';
@@ -14896,7 +14896,6 @@ function renderQuests(d) {
   if (ready) h += '<span class="qready" title="Rewards to claim">' + '🎁' + ' ' + ready + "</span>";
   h += '<button class="btn small ghost" data-mboard-toggle="1" aria-expanded="' + questsOpen + '">' + (questsOpen ? 'Collapse' : 'Expand') + '</button>';
   h += '<button class="btn small ghost" data-progress="all" title="Every mission, task and server goal">All</button></div>';
-  h += bubble();
   if (d.milestone) h += '<div class="mb-mile">' + milestoneSheet(d) + "</div>";
   if (!d.sitting) h += mbHead(d);
   cards.forEach(function (c) { h += c.html; });
@@ -15136,7 +15135,7 @@ function swapPanel(d) {
 
 function marketPanel(d) {
   var m = d.market;
-  var h = bubble() + '<div class="mkhead"><span id="mkfree">' + mkFreeText(d) + "</span><span>🎒 " + m.carry + " each</span><span>💱 " + m.rate + "%</span></div>";
+  var h = '<div class="mkhead"><span id="mkfree">' + mkFreeText(d) + "</span><span>🎒 " + m.carry + " each</span><span>💱 " + m.rate + "%</span></div>";
   var tabs = [["send", "🐪", "Send"], ["offers", "📋", "Offers"], ["auto", "🔁", "Auto " + m.routes.length + "/" + m.maxRoutes], ["swap", "💱", "Swap"], ["balance", "⚖️", "Balance"]];
   h += '<div class="mktabs">';
   tabs.forEach(function (t) { h += '<button type="button" class="' + (mkTab === t[0] ? "on" : "") + '" data-mk-tab="' + t[0] + '"><span>' + t[1] + "</span>" + t[2] + "</button>"; });
