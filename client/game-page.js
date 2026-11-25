@@ -3792,7 +3792,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
     details.build-advice { order: 1; }
     details.build-advice ~ * { order: 2; }
     details.build-advice ~ .fx-stage { order: 0; }
-    div:has(> details.build-advice) > .fx-stage { width: 100%; box-sizing: border-box; }
+    div:has(> details.build-advice) > .fx-stage { width: calc(100% + 20px); margin-left: -10px; margin-right: -10px; max-width: none; box-sizing: border-box; } /* the island runs edge to edge, so less of its base has to be trimmed */
     .edit, .wallet, .tf-sum, [data-quest], .cx-zoom button, .pan { position: relative; }
     .edit::after, .wallet::after, .tf-sum::after, [data-quest]::after { content: ""; position: absolute; inset: -8px; }
   }
@@ -4138,7 +4138,11 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 @media (max-width: 600px) { .sheet-head { padding-top: 10px; padding-bottom: 10px; } .sheet-head .hi { width: 46px; height: 42px; font-size: 24px; } .sheet-head h3 { font-size: 19px; } }
 .sheet-close { z-index: 4; }
 .setquick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 12px; }
+.msl { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 6px 4px 0; font-size: 13.5px; font-weight: 800; }
+.msl input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent, #d4552b); height: 28px; }
+.msl-v { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
 .setquick .btn { margin: 0; padding-left: 4px; padding-right: 4px; min-width: 0; font-size: 13.5px; white-space: nowrap; }
+@media (max-width: 480px) { .setquick { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 380px) { .setquick { grid-template-columns: 1fr 1fr; } }
 .setcard { margin: 0 0 14px; padding: 14px; border-radius: var(--radius-md); background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
 .setcard > h4, .setcard .sidesub { margin: 0 0 8px; font-size: 14.5px; font-weight: 800; }
@@ -9244,7 +9248,7 @@ function fieldScene(d, order) {
     if (cls === "up") g += '<path class="ar" d="M' + (x + 3.2) + " " + (y + 6.6) + "l2.6-3.6 2.6 3.6z" + '"/>';
     g += '<text x="' + (x + wd / 2 + (cls === "up" ? 3.4 : 0)) + '" y="' + (y + 7.6) + '">' + t + "</text></g>";
   });
-  return '<svg class="fx-scene fx-fields" viewBox="6 8 368 248" role="group" aria-label="Your resource fields">' + g + "</svg>"; // 10% closer: only the rim of the slab is cut at the sides
+  return '<svg class="fx-scene fx-fields" viewBox="-4 8 388 248" role="group" aria-label="Your resource fields">' + g + "</svg>"; // 10% closer: only the rim of the slab is cut at the sides
 }
 function fieldList(d, order) {
   var h = '<section class="panel fx-list"><div class="fx-key"><span class="up">can upgrade</span><span class="max">max level</span><span class="bld">building</span></div>';
@@ -9304,7 +9308,7 @@ function fxOval(n, cx, cy, rx, ry, startDeg) {
 }
 // Colony tab (1.0.234+): the lots on a wavy clay slab. HQ in the middle, 8 lots around it, 12 on the rim.
 // 🔍 zoom and drag the island (state lives here, so the once-a-second redraw keeps it)
-var CX_DEF = window.innerWidth > 700 ? 1 : 1.2; // phones start closer; with room to spare the whole island shows. // the island is shown a bit closer by default: the rim of its base is cut off at the sides, the buildings stay in view
+var CX_DEF = window.innerWidth > 700 ? 1 : 1.1; // phones start closer; with room to spare the whole island shows. // the island is shown a bit closer by default: the rim of its base is cut off at the sides, the buildings stay in view
 var cxZ = { s: CX_DEF, cx: 190, cy: 170 }, CX_VB = { x: -12, y: 34, w: 404, h: 272 };
 function cxBox() {
   var w = CX_VB.w / cxZ.s, h = CX_VB.h / cxZ.s;
@@ -13466,12 +13470,14 @@ function toggleSound() {
 // 🎵 Background music: tracks are files the server owner drops into the "music" folder, named after the place they play in
 // (title, colony, map, casino, battle). A place without its own track plays "colony". Starts after the first tap, fades between
 // places, ducks under speech, pauses when the tab is hidden, and follows the Sound switch.
-var MUSIC = { tracks: {}, list: [], on: true, vol: 0.05, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false, pos: {}, idx: {}, scene: "" };
+var MUSIC = { tracks: {}, list: [], on: true, vol: 0.05, lvl: 64, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false, pos: {}, idx: {}, scene: "" };
 // The game's own sounds are quiet chip beeps (about -30 dB), so the music sits well under them: Medium is roughly 20 dB below the files' full level.
-var MUSIC_VOLS = [[0.025, "Low"], [0.05, "Medium"], [0.09, "High"]];
+// The game's own sounds are quiet chip beeps (about -30 dB), so even the top of the slider stays gentle: the gain follows a curve of the 0-100 setting.
+function musicGain(l) { return l <= 0 ? 0 : 0.12 * Math.pow(l / 100, 2); }
 var MUSIC_TRIM = { battle: 0.8, casino: 0.9 }; // the louder tracks sit a little lower so places feel even
 var MUSIC_FADE = 0.04; // per 100 ms: about 2.5 s from silence to full
-try { MUSIC.on = localStorage.getItem("marsl-music") !== "off"; var mvv = Number(localStorage.getItem("marsl-music-vol")); if (mvv > 0 && mvv <= 0.1) MUSIC.vol = mvv; } catch (e) {}
+try { MUSIC.on = localStorage.getItem("marsl-music") !== "off"; var mlv = localStorage.getItem("marsl-music-lvl"); if (mlv !== null && mlv !== "" && isFinite(Number(mlv))) MUSIC.lvl = Math.max(0, Math.min(100, Math.round(Number(mlv)))); } catch (e) {}
+MUSIC.vol = musicGain(MUSIC.lvl);
 function musicLoad() {
   fetch("/api/music").then(function (r) { return r.json(); }).then(function (j) {
     // "colony", "colony-2", "colony-3" ... form one playlist for that place; the same name in ogg wins over other formats
@@ -13550,13 +13556,18 @@ function musicToggle() {
   MUSIC.on = !MUSIC.on;
   try { localStorage.setItem("marsl-music", MUSIC.on ? "on" : "off"); } catch (e) {}
 }
-function musicLevel() {
-  var i = 0;
-  MUSIC_VOLS.forEach(function (v, k) { if (Math.abs(v[0] - MUSIC.vol) < 0.003) i = k; });
-  MUSIC.vol = MUSIC_VOLS[(i + 1) % MUSIC_VOLS.length][0];
-  try { localStorage.setItem("marsl-music-vol", String(MUSIC.vol)); } catch (e) {}
+function musicSetLevel(v) {
+  MUSIC.lvl = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+  MUSIC.vol = musicGain(MUSIC.lvl);
+  try { localStorage.setItem("marsl-music-lvl", String(MUSIC.lvl)); } catch (e) {}
 }
-function musicVolName() { var n = "Medium"; MUSIC_VOLS.forEach(function (v) { if (Math.abs(v[0] - MUSIC.vol) < 0.003) n = v[1]; }); return n; }
+document.addEventListener("input", function (e) {
+  var t = e.target;
+  if (!t || !t.matches || !t.matches("[data-music-level]")) return;
+  musicSetLevel(t.value); // takes effect at once, no redraw so dragging stays smooth
+  var lab = t.parentNode && t.parentNode.querySelector(".msl-v");
+  if (lab) lab.textContent = MUSIC.lvl + "%";
+});
 (function () {
   // iPhones only allow sound after a real tap (touchend or click, not pointerdown) and need each player started inside it:
   // the first tap builds a small pool of players and starts them silently, later songs just swap their source.
@@ -15828,7 +15839,7 @@ function renderSheet() {
     h += translateSheet();
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
-    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" + (MUSIC.on ? '<button class="btn ghost" data-music-vol="1">🔉 Music: ' + musicVolName() + "</button>" : "") : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
+    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🔉 Music volume</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play
@@ -19896,7 +19907,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-music],[data-music-vol],[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-music],[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -20292,9 +20303,6 @@ document.addEventListener("click", function (e) {
     if (data) renderSheet();
   } else if (has("data-music")) {
     musicToggle();
-    if (data) renderColony(data);
-  } else if (has("data-music-vol")) {
-    musicLevel();
     if (data) renderColony(data);
   } else if (has("data-sound")) {
     toggleSound();
