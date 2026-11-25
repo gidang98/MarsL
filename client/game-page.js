@@ -4138,6 +4138,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 @media (max-width: 600px) { .sheet-head { padding-top: 10px; padding-bottom: 10px; } .sheet-head .hi { width: 46px; height: 42px; font-size: 24px; } .sheet-head h3 { font-size: 19px; } }
 .sheet-close { z-index: 4; }
 .setquick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 12px; }
+.msl > span { min-width: 8.2em; white-space: nowrap; }
 .msl { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 6px 4px 0; font-size: 13.5px; font-weight: 800; }
 .msl input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent, #d4552b); height: 28px; }
 .msl-v { min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
@@ -10241,7 +10242,7 @@ function blip(pitch, soft, wave) {
   o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
   g.gain.setValueAtTime(waveVol(wave || "square", soft), t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-  o.connect(g); g.connect(ctx.destination);
+  o.connect(g); g.connect(sound.sfxBus || ctx.destination);
   o.start(t); o.stop(t + 0.06);
 }
 // say([{ who, icon, text, pitch }], { done }): tap to hurry up, tap again for the next line
@@ -13350,14 +13351,28 @@ function simResult() {
 // =====================================================================
 //  SOUND EFFECTS - made by the browser itself, no sound files needed
 // =====================================================================
-var sound = { on: true, ctx: null };
+var sound = { on: true, ctx: null, master: null, sfxBus: null, mv: 100, sv: 70 };
 try { sound.on = localStorage.getItem("marsl-sound") !== "off"; } catch (e) {}
+// three volume bars: total (everything), game sounds (everything but the music) and the music itself (see MUSIC.lvl)
+try { var lv1 = localStorage.getItem("marsl-vol-master"), lv2 = localStorage.getItem("marsl-vol-sfx"); if (lv1 !== null && isFinite(Number(lv1))) sound.mv = Math.max(0, Math.min(100, Math.round(Number(lv1)))); if (lv2 !== null && isFinite(Number(lv2))) sound.sv = Math.max(0, Math.min(100, Math.round(Number(lv2)))); } catch (e) {}
+function masterGain() { return Math.pow(sound.mv / 100, 2); }
+function sfxGain() { return 2 * Math.pow(sound.sv / 100, 2); } // 70% is the level the game always had, the top adds 6 dB for noisy rooms
+function soundApplyVol() { if (sound.master) sound.master.gain.value = masterGain(); if (sound.sfxBus) sound.sfxBus.gain.value = sfxGain(); }
+function soundSetVol(which, v) {
+  v = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+  if (which === "master") sound.mv = v; else sound.sv = v;
+  try { localStorage.setItem(which === "master" ? "marsl-vol-master" : "marsl-vol-sfx", String(v)); } catch (e) {}
+  soundApplyVol();
+}
 
 function audio() {
   if (!sound.ctx) {
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     sound.ctx = new AC();
+    sound.master = sound.ctx.createGain(); sound.master.connect(sound.ctx.destination);
+    sound.sfxBus = sound.ctx.createGain(); sound.sfxBus.connect(sound.master);
+    soundApplyVol();
   }
   if (sound.ctx.state === "suspended") sound.ctx.resume();
   return sound.ctx;
@@ -13454,7 +13469,7 @@ function sfx(name) {
     g.gain.exponentialRampToValueAtTime(waveVol(n[3]), t0 + n[1] + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
     o.connect(g);
-    g.connect(ctx.destination);
+    g.connect(sound.sfxBus || ctx.destination);
     o.start(t0 + n[1]);
     o.stop(t0 + n[1] + n[2] + 0.02);
   });
@@ -13563,6 +13578,12 @@ function musicSetLevel(v) {
 }
 document.addEventListener("input", function (e) {
   var t = e.target;
+  if (t && t.matches && t.matches("[data-vol]")) {
+    soundSetVol(t.getAttribute("data-vol"), t.value);
+    var lb = t.parentNode && t.parentNode.querySelector(".msl-v");
+    if (lb) lb.textContent = t.value + "%";
+    return;
+  }
   if (!t || !t.matches || !t.matches("[data-music-level]")) return;
   musicSetLevel(t.value); // takes effect at once, no redraw so dragging stays smooth
   var lab = t.parentNode && t.parentNode.querySelector(".msl-v");
@@ -13581,7 +13602,7 @@ document.addEventListener("input", function (e) {
       for (var i = 0; i < 3; i++) {
         var el = new Audio(), g = ctx.createGain();
         g.gain.value = 0; el.preload = "auto"; el.setAttribute("playsinline", ""); el.src = SILENT;
-        try { ctx.createMediaElementSource(el).connect(g); g.connect(ctx.destination); } catch (e) { MUSIC.pool = null; return; }
+        try { ctx.createMediaElementSource(el).connect(g); g.connect(sound.master || ctx.destination); } catch (e) { MUSIC.pool = null; return; }
         var pr = el.play(); if (pr && pr.catch) pr.catch(function () {});
         MUSIC.pool.push({ el: el, g: g, busy: false });
       }
@@ -15839,7 +15860,7 @@ function renderSheet() {
     h += translateSheet();
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
-    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🔉 Music volume</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
+    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (function (r) { return r("🔊 Total volume", "master", sound.mv) + r("🎮 Game sounds", "sfx", sound.sv); })(function (lab, k, v) { return '<label class="msl"><span>' + lab + '</span><input type="range" min="0" max="100" step="1" value="' + v + '" data-vol="' + k + '" aria-label="' + lab + '"><b class="msl-v">' + v + "%</b></label>"; }) + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🎵 Music</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play
