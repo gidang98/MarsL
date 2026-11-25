@@ -1569,12 +1569,16 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
   #beppo-say { position: fixed; left: 70px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(330px, calc(100% - 84px)); animation: tagpop 0.22s ease-out; }
   #beppo-say.top { left: 8px; max-width: calc(100% - 16px); bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
+  #beppo-scrim { position: fixed; inset: 0; z-index: 23; pointer-events: none; background: rgba(20, 12, 6, 0.16); animation: scrimin 0.25s ease-out; }
+  #beppo-scrim.top { z-index: 89; }
+  #beppo-scrim.bye { opacity: 0; transition: opacity 0.2s; }
+  @keyframes scrimin { from { opacity: 0; } }
   #beppo-say.bye { opacity: 0; transition: opacity 0.2s; }
-  #beppo-say img { width: 88px; height: 88px; flex: none; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(90,40,30,.3)); }
-  .bs-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 8px; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.4; }
-  .bs-bub::before { content: ""; position: absolute; left: -7px; bottom: 16px; width: 12px; height: 12px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
+  #beppo-say img { width: 88px; height: 88px; flex: none; object-fit: contain; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
+  .bs-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 8px; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: var(--radius-md); box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4); font-size: 13px; line-height: 1.4; }
+  .bs-bub::before { content: ""; position: absolute; left: -8px; bottom: 16px; width: 12px; height: 12px; background: #fffbe6; border-left: 2px solid #3a2a1a; border-bottom: 2px solid #3a2a1a; transform: rotate(45deg); }
   .bs-bub b { display: block; font-size: 12px; opacity: 0.7; }
-  .dark-mode .bs-bub, .dark-mode .bs-bub::before { background: #3a3220; color: #f3e9d2; border-color: #5a4b2c; }
+  .dark-mode .bs-bub, .dark-mode .bs-bub::before { background: #2e2616; color: #fff3d6; border-color: #f2d58a; }
   .tut-p.fin::after, .bs-t.fin::after { content: " ▼"; font-size: 10px; color: #e2574c; animation: tutblink 0.9s steps(2) infinite; }
   @keyframes tutblink { 50% { opacity: 0; } }
   .tut-btns .btn:hover::before { content: "♥ "; color: #e2574c; }
@@ -3839,6 +3843,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .unit-head .ui.has-pic { width: 72px; height: 72px; background: transparent; box-shadow: none; border: 0; border-radius: 0; overflow: visible; }
   .upic { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 5px rgba(122,46,34,.25)); }
   .upic.sm { width: 40px; height: 40px; }
+  .pill .uic { width: 1.6em; height: 1.6em; vertical-align: -0.45em; margin: -2px 2px -2px -2px; }
   .upic.xs { display: inline-block; width: 26px; height: 26px; vertical-align: middle; margin: -6px 0 -6px -4px; filter: none; }
   .unit:hover .unit-head .ui.has-pic { animation: none; }
   .unit:hover .unit-head .ui.has-pic .upic { transform: translateY(-2px) rotate(-3deg); transition: transform .15s ease; }
@@ -4449,11 +4454,11 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 /* the tour is told by Beppo in a speech bubble */
 .tut-card.tut-say { display: flex; gap: 10px; align-items: flex-end; padding: 0; background: none; border: 0; box-shadow: none; }
 .tut-beppo { flex: none; width: 64px; text-align: center; }
-.tut-beppo img { display: block; width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(90,40,30,.3)); }
+.tut-beppo img { display: block; width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
 .tut-beppo b { display: block; font-size: 11px; opacity: .75; }
-.tut-bub { position: relative; flex: 1; min-width: 0; padding: 12px 16px; background: #fffbe6; border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
-.tut-bub::before { content: ""; position: absolute; left: -8px; bottom: 26px; width: 14px; height: 14px; background: #fffbe6; border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: rotate(45deg); }
-.dark-mode .tut-bub, .dark-mode .tut-bub::before { background: #3a3220; border-color: #5a4b2c; }
+.tut-bub { position: relative; flex: 1; min-width: 0; padding: 12px 16px; background: #fffbe6; color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: var(--radius-md); box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4); }
+.tut-bub::before { content: ""; position: absolute; left: -9px; bottom: 26px; width: 14px; height: 14px; background: #fffbe6; border-left: 2px solid #3a2a1a; border-bottom: 2px solid #3a2a1a; transform: rotate(45deg); }
+.dark-mode .tut-bub, .dark-mode .tut-bub::before { background: #2e2616; color: #fff3d6; border-color: #f2d58a; }
 .tut-say .tut-p { cursor: pointer; }
 .dark-mode .panel, .dark-mode .lead, .dark-mode .card, .dark-mode .sheet { background-image: none !important; }
 .dark-mode .verfoot { background: rgba(40,35,45,.86) !important; color: var(--muted) !important; }
@@ -9977,7 +9982,15 @@ var CAST = {
   banker: { name: "Banker", icon: "💼", pitch: 440, wave: "triangle", art: "hero-banker" },
   forager: { name: "Forager", icon: "🌾", pitch: 400, wave: "triangle", art: "hero-forager" },
   warden: { name: "Warden", icon: "🛡️", pitch: 280, wave: "pulse12", art: "hero-warden" },
-  prof: { name: "Professor", icon: "🔬", pitch: 520, wave: "pulse25", art: "hero-professor" }
+  prof: { name: "Professor", icon: "🔬", pitch: 520, wave: "pulse25", art: "hero-professor" },
+  courier: { name: "Courier", icon: "📨", pitch: 600, wave: "pulse25", art: "hero-courier" },
+  chef: { name: "Chef", icon: "🍞", pitch: 360, wave: "triangle", art: "hero-chef" },
+  tinker: { name: "Tinkerer", icon: "🔧", pitch: 470, wave: "square", art: "hero-tinkerer" },
+  warlord: { name: "Warlord", icon: "⚔️", pitch: 180, wave: "pulse12", art: "hero-warlord" },
+  trickster: { name: "Trickster", icon: "🃏", pitch: 410, wave: "pulse25", art: "hero-trickster" },
+  owl: { name: "Nightowl", icon: "🦉", pitch: 280, wave: "triangle", art: "hero-nightowl" },
+  marshal: { name: "Star Marshal", icon: "🎖️", pitch: 340, wave: "pulse25", art: "hero-starmarshal" },
+  void: { name: "Void Sovereign", icon: "🌌", pitch: 120, wave: "pulse12", art: "hero-voidsovereign" }
 };
 var BEPPO_LINES = {
   neutral: ["Everything is under control. Mostly.", "I sniffed around. Nothing suspicious. Except the cat.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
@@ -10509,7 +10522,7 @@ function renderTroops(d) {
   d.units.forEach(function (u) {
     if (u.home > 0) {
       any = true;
-      h += '<span class="pill">' + unitPic(u, "upic xs") + " <b>" + u.home + "</b> " + u.name + "</span>";
+      h += '<span class="pill">' + (UNIT_ICO[u.name] ? UI(u) : unitPic(u, "upic xs")) + " <b>" + u.home + "</b> " + u.name + "</span>"; // the drawn icon, like the battle reports
     }
   });
   if (!any) h += '<p class="empty">Nobody home but the cat.</p>';
@@ -12322,6 +12335,7 @@ function renderReports() {
 //  Popups (fields, lots, sending troops)
 // =====================================================================
 function openSheet(kind, slot) {
+  if (kind === "send") setTimeout(function () { beppoSay("send", true); }, 700);
   if (kind === "building" && data && typeof slot === "number") {
     var ob = data.buildings.filter(function (x) { return x.slot === slot; })[0];
     if (ob && BEPPO_SAY["b-" + ob.type]) setTimeout(function () { beppoSay("b-" + ob.type, true); }, 700);
@@ -13108,6 +13122,14 @@ function audio() {
 
 // [frequency, start, duration, wave, volume, slide to frequency]
 var SFX = {
+  "v-courier": [[659.3, 0.0, 0.05, "pulse25", 0.03, 0, 0], [784.0, 0.055, 0.05, "pulse25", 0.03, 0, 0], [659.3, 0.11, 0.05, "pulse25", 0.03, 0, 0], [784.0, 0.165, 0.05, "pulse25", 0.03, 0, 0], [987.8, 0.22, 0.05, "pulse25", 0.03, 0, 0], [1318.5, 0.275, 0.099, "pulse25", 0.03, 0, 0], [164.8, 0.0, 0.297, "triangle", 0.05, 0, 0], [246.9, 0.33, 0.297, "triangle", 0.05, 0, 0]],
+  "v-chef": [[261.6, 0.0, 0.117, "triangle", 0.06, 0, 5], [329.6, 0.13, 0.117, "triangle", 0.06, 0, 5], [392.0, 0.26, 0.117, "triangle", 0.06, 0, 5], [329.6, 0.39, 0.117, "triangle", 0.06, 0, 5], [392.0, 0.52, 0.117, "triangle", 0.06, 0, 5], [523.3, 0.65, 0.234, "triangle", 0.06, 0, 5], [130.8, 0.0, 0.351, "triangle", 0.05, 0, 0], [196.0, 0.39, 0.351, "triangle", 0.05, 0, 0]],
+  "v-tinker": [[392.0, 0.0, 0.072, "square", 0.022, 0, 0], [587.3, 0.16, 0.072, "square", 0.022, 0, 0], [392.0, 0.24, 0.072, "square", 0.022, 0, 0], [523.3, 0.4, 0.072, "square", 0.022, 0, 0], [740.0, 0.56, 0.144, "square", 0.022, 0, 0], [0, 0.16, 0.04, "noise", 0.03, 0, 0], [0, 0.4, 0.04, "noise", 0.03, 0, 0], [0, 0.56, 0.04, "noise", 0.03, 0, 0]],
+  "v-warlord": [[73.4, 0.0, 0.117, "pulse12", 0.045, 0, 0], [73.4, 0.13, 0.117, "pulse12", 0.045, 0, 0], [87.3, 0.26, 0.117, "pulse12", 0.045, 0, 0], [110.0, 0.39, 0.117, "pulse12", 0.045, 0, 0], [146.8, 0.52, 0.351, "pulse12", 0.045, 0, 0], [0, 0, 0.07, "noise", 0.05, 0, 0], [0, 0.26, 0.07, "noise", 0.05, 0, 0], [0, 0.52, 0.07, "noise", 0.05, 0, 0], [0, 0.78, 0.07, "noise", 0.05, 0, 0], [220.0, 0.52, 0.5, "square", 0.015, 0, 0]],
+  "v-trickster": [[659.3, 0.0, 0.068, "pulse25", 0.03, 0, 0], [698.5, 0.075, 0.068, "pulse25", 0.03, 0, 0], [659.3, 0.15, 0.068, "pulse25", 0.03, 0, 0], [622.3, 0.225, 0.068, "pulse25", 0.03, 0, 0], [659.3, 0.3, 0.068, "pulse25", 0.03, 0, 0], [784.0, 0.375, 0.135, "pulse25", 0.03, 0, 0], [660.0, 0.62, 0.18, "pulse25", 0.03, 1100.0, 0]],
+  "v-owl": [[220.0, 0.0, 0.306, "triangle", 0.06, 0, 4], [261.6, 0.34, 0.153, "triangle", 0.06, 0, 4], [329.6, 0.51, 0.306, "triangle", 0.06, 0, 4], [293.7, 0.85, 0.153, "triangle", 0.06, 0, 4], [220.0, 1.02, 0.459, "triangle", 0.06, 0, 4]],
+  "v-marshal": [[261.6, 0.0, 0.099, "pulse25", 0.026, 0, 0], [261.6, 0.11, 0.099, "pulse25", 0.026, 0, 0], [392.0, 0.22, 0.099, "pulse25", 0.026, 0, 0], [523.3, 0.33, 0.198, "pulse25", 0.026, 0, 0], [329.6, 0.0, 0.099, "triangle", 0.05, 0, 0], [329.6, 0.11, 0.099, "triangle", 0.05, 0, 0], [493.9, 0.22, 0.099, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.198, "triangle", 0.05, 0, 0]],
+  "v-void": [[55.0, 0, 1.8, "pulse12", 0.05, 0, 0], [82.4, 0.4, 1.4, "triangle", 0.05, 0, 0], [1318.5, 0.9, 0.5, "triangle", 0.015, 0, 0]],
   "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
   "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
   "v-drill": [[65.4, 0.0, 0.126, "pulse12", 0.045, 0, 0], [65.4, 0.14, 0.126, "pulse12", 0.045, 0, 0], [77.8, 0.28, 0.126, "pulse12", 0.045, 0, 0], [98.0, 0.42, 0.126, "pulse12", 0.045, 0, 0], [130.8, 0.56, 0.252, "pulse12", 0.045, 0, 0], [0, 0.14, 0.06, "noise", 0.05, 0, 0], [0, 0.42000000000000004, 0.06, "noise", 0.05, 0, 0], [0, 0.7000000000000001, 0.06, "noise", 0.05, 0, 0], [0, 0.8400000000000001, 0.12, "noise", 0.05, 0, 0]],
@@ -13549,11 +13571,11 @@ var BEPPO_SAY = {
   threat: ["worried", "Incoming! Hide the snacks and check the Army tab."],
   robbed: ["worried", "Ouch, someone helped themselves. A bunker would hide some of it next time."],
   codex: ["happy", "The Codex shows monster camps and commanders. Check it before you pick a fight."],
-  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first."],
+  auction: ["neutral", "Sell what you do not need here. Creatures in a hunt slot stay put, so take them out first. I take no responsibility for the prices.", "trickster"],
   hunt: ["happy", "Creatures in slots earn Space-Cash every second, also while you are away."],
   cmd: ["neutral", "Fuse shards from the shop to get more commanders. Your active commander is never for sale."],
   farm: ["surprised", "A farm list sends many raids with one tap. Test a fight in the simulator first."],
-  relics: ["surprised", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt."],
+  relics: ["neutral", "Relics give a bonus to whoever holds them. Hold enough of them and you win a hunt. Hold them with dignity.", "marshal"],
   "b-hq": ["neutral", "The HQ unlocks everything else and makes every build faster. Upgrade it first, we will do the rest. Probably.", "steward"],
   "b-barracks": ["neutral", "Infantry and scouts start here. Keep them fed, a hungry soldier is a loud soldier.", "drill"],
   "b-workshop": ["neutral", "Siege machines come out of here. They are heavy, slow and very good at doors.", "drill"],
@@ -13563,6 +13585,15 @@ var BEPPO_SAY = {
   "b-granary": ["neutral", "Troops eat every hour. If the food runs out, so does the army.", "forager"],
   "b-bunker": ["neutral", "What is in the bunker, raiders cannot take. Think of it as a very expensive sock drawer.", "warden"],
   "b-wall": ["neutral", "The wall and your defenders hold the line. Allies can send help here too.", "warden"],
+  "b-bakery": ["happy", "The bakery boosts food for the whole colony. It needs a food field at level 5. Mind the crumbs.", "chef"],
+  "b-greenhouse": ["neutral", "A second food booster that stacks with the bakery. I am not jealous. I am not.", "chef"],
+  "b-ration": ["happy", "In a Breadbasket colony, troops eat 1% less per level. My finest work.", "chef"],
+  "b-weaponry": ["happy", "Better weapons come from here. Please stand back. I mean that kindly.", "tinker"],
+  "b-assembly": ["surprised", "An Industrial Town gets +1% wood, stone and metal per level. Mostly because I stopped breaking things.", "tinker"],
+  "b-hospital": ["neutral", "Rest is the best medicine. I am an owl, not a doctor.", "owl"],
+  inbox: ["worried", "Reports and mail come through me. I run fast. The news does not always deserve it.", "courier"],
+  alliance: ["neutral", "Servers are won by alliances. Join or found one under Players, in the alliance tab. Allies cannot attack each other.", "marshal"],
+  send: ["happy", "Sending troops? Splendid. Test the fight in the simulator first. I insist, a little.", "warlord"],
   "b-lab": ["surprised", "Research unlocks better troops. I have already broken the tea machine, for science.", "prof"]
 };
 // first time a place is opened (the bubble sits at the top so it never covers the sheet)
@@ -13607,6 +13638,10 @@ function voiceShow(whoKey, mood, text, top) {
   el.id = "beppo-say";
   if (top) el.className = "top";
   el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + trStr(text) + "</div></div>";
+  var sc = document.createElement("div");
+  sc.id = "beppo-scrim"; // a very light veil so the bubble never gets lost on busy screens
+  if (top) sc.className = "top";
+  document.body.appendChild(sc);
   document.body.appendChild(el);
   var t = el.querySelector(".bs-t"), gone = 0;
   var bye = function () {
@@ -13614,7 +13649,8 @@ function voiceShow(whoKey, mood, text, top) {
     gone = 1;
     if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
     el.classList.add("bye");
-    setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
+    sc.classList.add("bye");
+    setTimeout(function () { el.remove(); sc.remove(); }, calmMotion ? 0 : 220);
   };
   t.style.visibility = "hidden"; // the words wait for the arrival tune, then type out
   sfx("v-" + whoKey); // each voice has its own little arrival tune
@@ -13647,6 +13683,8 @@ function voiceWatch(d) {
   if (rdy && !mem.rdySince) mem.rdySince = now;
   if (!rdy) mem.rdySince = 0;
   try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
+  var se = d.world && d.world.season;
+  if (se && se.active && se.kind === "aurora") voiceSay("aurora", "void", "neutral", "The light stirs. Charge the pylons. Or do not.", 7 * 24 * HOUR);
   if (!mem.say) {
     if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", "Mission rewards have been waiting for a day. They do not spoil, but I am getting bored.", 24 * HOUR);
     return;
@@ -13657,8 +13695,11 @@ function voiceWatch(d) {
     var streak = mem.streak || 1;
     if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", "Commander! The crew started a betting pool on when you would return. I lost.", 12 * HOUR);
     else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", "You are back! I guarded the snacks. Mostly.", 12 * HOUR);
+    else if (new Date().getHours() < 5) voiceSay("night", "owl", "neutral", "It is very late, Commander. The colony will still be here tomorrow.", 20 * HOUR);
     else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", streak + " days in a row! I am telling everyone. Everyone being me.", 20 * HOUR);
     else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", "Nothing is being built. The crew has started a card game.", 6 * HOUR);
+    else if (data && data.cash >= 100000) voiceSay("cash", "trickster", "neutral", "All that Space-Cash, just sitting there? Shocking. I know a place.", 24 * HOUR);
+    else if (data && data.unread >= 6) voiceSay("pile", "courier", "worried", "That is " + data.unread + " unread reports. I am not carrying them forever.", 12 * HOUR);
   }, 2500);
 }
 // empty barracks: said when you open the Army page with no troops at home and none training
@@ -18631,6 +18672,8 @@ function switchView(v, target) {
   if (v === "ranking") { loadRanking(); loadAlliance(); loadMyProfile(); }
   if (v === "messages") loadMessages();
   if (data) { renderColony(data); viewMotion(prevView, v); navGlide(navFrom); if (v === "troops") setTimeout(function () { voiceArmy(data); }, 900); }
+  if (v === "reports" || v === "messages") setTimeout(function () { beppoSay("inbox", true); }, 700);
+  if (v === "ranking") setTimeout(function () { beppoSay("alliance", true); }, 700);
   loadColony(false);
 }
 
