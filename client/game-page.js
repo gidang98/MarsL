@@ -4587,6 +4587,11 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .cz-hand > div { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
 .cz-card { min-width: 42px; height: 58px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 7px; background: #fff; color: #222; font-weight: 700; font-size: 17px; }
 .cz-card.red { color: #c23b32; }
+.ca { display: inline-block; vertical-align: middle; object-fit: contain; background: none; border: 0; padding: 0; min-height: 0; border-radius: 0; box-shadow: none; }
+.ca.sym { width: 58px; height: 58px; } .cz-pay .ca.sym { width: 20px; height: 20px; }
+.ca.tab { width: 30px; height: 30px; } .ca.btn { width: 18px; height: 18px; } .ca.chip { width: 20px; height: 20px; margin-right: 2px; }
+.ca.hd { width: 46px; height: 46px; }
+.cz-card.back.art { background-color: transparent; background-size: contain; background-repeat: no-repeat; background-position: center; border: 0; }
 .cz-card.back { background: repeating-linear-gradient(45deg, #2b4a8a, #2b4a8a 4px, #3a5ca3 4px, #3a5ca3 8px); }
 .cz-bjhint { text-align: center; opacity: .8; margin: 14px 4px; font-size: 13px; }
 .cz-acts { display: flex; gap: 8px; margin: 8px 0; } .cz-acts .btn { flex: 1; }
@@ -18152,7 +18157,7 @@ function walletSheet() {
   h += '<div class="wal-row"><span class="wal-ic">💲</span><div><small>Space-Cash</small><b class="wal-n" id="wl-cash">' + cashText(v) + "</b>" + (r ? "<small>+" + r.toLocaleString("en-US") + " every second · " + shortNum(r * 3600) + " an hour · " + shortNum(r * 86400) + " a day</small>" : "<small>Nothing earns right now. Put creatures in the hunt slots.</small>") + "</div></div>";
   var cr = wallet.crRate, cfr = walletCr() % 1;
   h += '<div class="wal-row"><span class="wal-ic">🎫</span><div><small>Star Credits</small><b class="wal-n" id="wl-cr">' + numText(Math.floor(walletCr())) + "</b>" + (cr ? '<div class="wal-bar"><i id="wl-crbar" style="width:' + Math.round(cfr * 100) + '%"></i></div><small>+' + (Math.round(cr * 10) / 10) + " an hour · +" + (Math.round(cr * 24 * 10) / 10) + ' a day · next in <b id="wl-crnext">' + cdText((1 - cfr) * 3600000 / cr) + "</b></small>" : "<small>Your active commander earns them all the time, online or away.</small>") + "</div></div>";
-  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button><button class="btn small ghost" data-casino="1">🎰 Casino</button></div>';
+  h += '<div class="wal-btns"><button class="btn small" data-hunt-open="1">🐾 Hunt</button><button class="btn small ghost" data-auction="1">🏛️ Auction</button><button class="btn small ghost" data-cmd-open="1">🎖️ Commanders</button><button class="btn small ghost" data-codex-open="1">📖 Codex</button><button class="btn small ghost" data-casino="1">' + caImg("casino-icon", "🎰", "btn") + ' Casino</button></div>';
   return h;
 }
 function openHunt() {
@@ -18255,6 +18260,13 @@ function huntSheet() {
 var auc = { data: null, tab: "browse" };
 // 🎰 casino: the server rolls and pays, this only shows it. The croupier talks, his face fits the result.
 var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "", bj: null, say: null, fresh: false };
+// 🎨 casino art: a painted icon when the file is there, the emoji when it is not
+function caImg(key, fb, cls) {
+  return FX_ART.t[key] ? '<img class="ca ' + (cls || "") + '" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : fb;
+}
+var CA_SYM = { "🍒": "cherry", "🍋": "lemon", "🔔": "bell", "⭐": "star", "💎": "gem", "7️⃣": "seven" };
+function caSym(s) { return CA_SYM[s] ? caImg("casino-" + CA_SYM[s], s, "sym") : s; }
+function caChip(b) { return caImg("casino-chip-" + (b <= 1000 ? 1 : b <= 100000 ? 2 : b <= 1000000 ? 3 : 4), "💲", "chip"); }
 function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
 function croupierSay(mood, text) { casino.say = { mood: mood, text: text }; casino.fresh = true; }
 function croupierHtml() {
@@ -18294,7 +18306,7 @@ var CASINO_KINDS = [["red", "🟥 Red", 0, "2×"], ["black", "⬛ Black", 0, "2�
 var CASINO_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 function casinoNum(n) { return '<b class="cz-num ' + (n === 0 ? "g" : CASINO_RED.indexOf(n) >= 0 ? "r" : "b") + '">' + n + "</b>"; }
 function bjCard(c) {
-  if (c === "?") return '<span class="cz-card back"></span>';
+  if (c === "?") return '<span class="cz-card back' + (FX_ART.t["casino-cardback"] ? " art" : "") + '"' + (FX_ART.t["casino-cardback"] ? ' style="background-image:url(/art/casino-cardback.webp?v=' + FX_ART.v + ')"' : "") + "></span>";
   var red = c.slice(-1) === "♥" || c.slice(-1) === "♦";
   return '<span class="cz-card' + (red ? " red" : "") + '">' + esc(c) + "</span>";
 }
@@ -18306,19 +18318,19 @@ function bjTable() {
   return h;
 }
 function casinoSheet() {
-  var C = casino.data, h = '<div class="sheet-head"><span class="hi">🎰</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + cashText(Math.floor(walletNow())) + "</span> Space-Cash</b></div></div>";
+  var C = casino.data, h = '<div class="sheet-head"><span class="hi">' + caImg("casino-icon", "🎰", "hd") + '</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + cashText(Math.floor(walletNow())) + "</span> Space-Cash</b></div></div>";
   h += croupierHtml();
-  h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>🎰</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>🎡</span>Roulette</button><button class="' + (casino.game === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>🃏</span>Blackjack</button></div>';
+  h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>' + caImg("casino-slots", "🎰", "tab") + '</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>' + caImg("casino-roulette", "🎡", "tab") + '</span>Roulette</button><button class="' + (casino.game === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>' + caImg("casino-blackjack", "🃏", "tab") + '</span>Blackjack</button></div>';
   var playing = casino.game === "blackjack" && casino.bj && !casino.bj.result;
   if (casino.game === "slots") {
-    h += '<div class="cz-reels" id="cz-reels"><span>🍒</span><span>🍋</span><span>🔔</span></div>';
-    h += '<small class="cz-pay">' + C.slots.map(function (x) { return x.s + "×3 " + x.pays + "×"; }).join(" · ") + " · 🍒🍒 " + C.twoCherries + "×</small>";
+    h += '<div class="cz-reels" id="cz-reels"><span>' + caSym("🍒") + '</span><span>' + caSym("🍋") + '</span><span>' + caSym("🔔") + '</span></div>';
+    h += '<small class="cz-pay">' + C.slots.map(function (x) { return caSym(x.s) + "×3 " + x.pays + "×"; }).join(" · ") + " · " + caSym("🍒") + caSym("🍒") + " " + C.twoCherries + "×</small>";
   } else if (casino.game === "roulette") {
     h += '<div class="cz-ball" id="cz-ball">' + casinoNum(0) + "</div>";
     h += '<div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + '</div>';
     h += '<div class="cz-one"><label>Single number <small>36×</small> <input type="number" min="0" max="36" id="cz-n" value="' + (casino.kind === "number" ? casino.pick : 7) + '"></label><button class="btn small ghost" data-casino-kind="number" data-casino-pick="n">Bet it</button></div>';
   } else h += '<div id="cz-bj">' + bjTable() + "</div>";
-  if (!playing) h += '<div class="cz-bets">' + C.bets.map(function (b) { return '<button class="btn small ghost" data-casino-bet="' + b + '">💲 ' + shortNum(b) + "</button>"; }).join("") + "</div>";
+  if (!playing) h += '<div class="cz-bets">' + C.bets.map(function (b) { return '<button class="btn small ghost" data-casino-bet="' + b + '">' + caChip(b) + " " + shortNum(b) + "</button>"; }).join("") + "</div>";
   if (playing) h += '<div class="cz-acts"><button class="btn" data-bj="hit">Hit</button><button class="btn" data-bj="stand">Stand</button>' + (casino.bj.canDouble ? '<button class="btn ghost" data-bj="double">Double</button>' : "") + "</div>";
   else h += '<button class="btn cz-go" data-casino-spin="1">' + (casino.game === "slots" ? "Spin" : casino.game === "roulette" ? "Spin the wheel" : "Deal") + "</button>";
   h += '<div class="cz-msg" id="cz-msg">' + esc(casino.msg || "") + "</div>";
@@ -18363,7 +18375,7 @@ function casinoSpin() {
     var done = function () {
       var net = j.win - j.bet;
       if (casino.game === "slots") {
-        var r3 = j.reels.join(" ");
+        var NM = { "🍒": "Cherry", "🍋": "Lemon", "🔔": "Bell", "⭐": "Star", "💎": "Gem", "7️⃣": "Seven" }, r3 = j.reels.map(function (x) { return NM[x] || x; }).join(", ");
         if (j.win >= j.bet * 30) croupierLine("surprised", r3 + ". " + pickOne(["Jackpot! I did not see that. Nobody saw that.", "That is a lot of zeros. On your side. I need to sit down."]));
         else if (net > 0) croupierLine("happy", r3 + ". " + pickOne(["You win! The reels like you today.", "Winner! Do not tell the other machines.", "A win! I will pretend I am not jealous."]));
         else croupierLine("worried", r3 + ". " + pickOne(["You lose. The reels were being shy.", "No luck. The machine says sorry. It lies.", "You lose. It was almost a win. Almost is free."]));
@@ -18378,10 +18390,10 @@ function casinoSpin() {
     };
     if (casino.game === "slots") {
       var reels = document.querySelectorAll("#cz-reels span");
-      if (calmMotion || !reels.length) { Array.prototype.forEach.call(reels, function (r, i) { r.textContent = j.reels[i]; }); done(); return; }
+      if (calmMotion || !reels.length) { Array.prototype.forEach.call(reels, function (r, i) { r.innerHTML = caSym(j.reels[i]); }); done(); return; }
       var t0 = Date.now(), iv = setInterval(function () {
         var el = Date.now() - t0;
-        Array.prototype.forEach.call(reels, function (r, i) { r.textContent = el > 600 + i * 350 ? j.reels[i] : sy[Math.floor(Math.random() * sy.length)]; r.classList.toggle("spin", el <= 600 + i * 350); });
+        Array.prototype.forEach.call(reels, function (r, i) { r.innerHTML = caSym(el > 600 + i * 350 ? j.reels[i] : sy[Math.floor(Math.random() * sy.length)]); r.classList.toggle("spin", el <= 600 + i * 350); });
         if (el % 3 < 1) sfx("click");
         if (el > 600 + 2 * 350 + 60) { clearInterval(iv); done(); }
       }, 70);
