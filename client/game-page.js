@@ -4597,8 +4597,13 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .cz-strip span { height: 84px; display: flex; align-items: center; justify-content: center; font-size: 42px; }
 .cz-pay { display: block; text-align: center; opacity: .75; margin: 2px 0 6px; }
 .cz-rstage { display: flex; justify-content: center; padding: 14px 6px 6px; }
-.cz-wheelbox { position: relative; width: 112px; height: 112px; }
+.cz-wheelbox { position: relative; width: 132px; height: 132px; }
 .cz-wheel { width: 100%; height: 100%; border-radius: 50%; border: 5px solid #e0b040; box-shadow: 0 0 0 3px #7a4a1e, inset 0 0 10px rgba(0,0,0,.5); will-change: transform; }
+.cz-wheelbox { --w: 132px; }
+.cz-wheelbox.art .cz-wheel { border: 0; box-shadow: none; -webkit-mask: radial-gradient(circle closest-side, transparent 43%, #000 44%, #000 82%, transparent 83%); mask: radial-gradient(circle closest-side, transparent 43%, #000 44%, #000 82%, transparent 83%); }
+.cz-lbl { position: absolute; left: 50%; top: 50%; width: 0; height: 0; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 700; font-size: calc(var(--w) * 0.056); color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; }
+.cz-frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.cz-wheelbox.art .cz-hub { background: none; border: 0; }
 .cz-pointer { position: absolute; left: 50%; top: -8px; margin-left: -8px; border: 8px solid transparent; border-top: 14px solid #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
 .cz-hub { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #3a2a14; display: flex; align-items: center; justify-content: center; border: 3px solid #e0b040; }
 .cz-hub .cz-num { min-width: 0; width: 100%; padding: 0; font-size: 17px; border: 0; background: transparent; }
@@ -18333,6 +18338,11 @@ function wheelBg() {
   });
   return "conic-gradient(" + st.join(",") + ")";
 }
+// the painted wheel frame covers rim and hub; the pockets and their numbers are drawn here, so they always match the real order
+function wheelLabels() {
+  var seg = 360 / WHEEL_ORDER.length;
+  return WHEEL_ORDER.map(function (n, i) { return '<i class="cz-lbl" style="transform:rotate(' + ((i + 0.5) * seg).toFixed(2) + 'deg) translateY(calc(var(--w) * -0.325)) rotate(90deg)">' + n + "</i>"; }).join("");
+}
 // 🃏 cards: new ones slide in, the dealer's hidden card flips
 function bjSeen(B) { casino.seen = { p: B.player.length, d: B.dealer.length, h: B.dealer.indexOf("?") >= 0 }; }
 function bjCard(c, cls, i) {
@@ -18364,7 +18374,8 @@ function casinoSheet() {
     h += '<div class="cz-stage" id="cz-stage"><div class="cz-reels" id="cz-reels">' + ["🍒", "🐶", "🔔"].map(function (s) { return '<div class="cz-reel"><div class="cz-strip"><span>' + caSym(s) + "</span></div></div>"; }).join("") + "</div></div>";
     h += '<small class="cz-pay">' + C.slots.map(function (x) { return caSym(x.s) + "×3 " + x.pays + "×"; }).join(" · ") + " · " + caSym("🍒") + caSym("🍒") + " " + C.twoCherries + "×</small>";
   } else if (g === "roulette") {
-    h += '<div class="cz-stage cz-rstage" id="cz-stage"><div class="cz-wheelbox"><div class="cz-wheel" id="cz-wheel" style="background:' + wheelBg() + ";transform:rotate(" + casino.wheelDeg + 'deg)"></div><i class="cz-pointer"></i><div class="cz-hub" id="cz-ball">' + (casino.last === null ? "" : casinoNum(casino.last)) + "</div></div></div>";
+    var art = !!FX_ART.t["casino-wheel"];
+    h += '<div class="cz-stage cz-rstage" id="cz-stage"><div class="cz-wheelbox' + (art ? " art" : "") + '"><div class="cz-wheel" id="cz-wheel" style="background:' + wheelBg() + ";transform:rotate(" + casino.wheelDeg + 'deg)">' + (art ? wheelLabels() : "") + "</div>" + (art ? '<img class="cz-frame" src="/art/casino-wheel.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "") + '<i class="cz-pointer"></i><div class="cz-hub" id="cz-ball">' + (casino.last === null ? "" : casinoNum(casino.last)) + "</div></div></div>";
     h += '<div class="cz-table"><button class="cz-n g" data-casino-kind="number" data-casino-pick="0">0</button>';
     for (var n = 1; n <= 36; n++) h += '<button class="cz-n ' + casinoCol(n) + '" data-casino-kind="number" data-casino-pick="' + n + '">' + n + "</button>";
     h += '</div><div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + "</div>";
