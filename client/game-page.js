@@ -4174,6 +4174,11 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   body:not(.landing) .sky { background: var(--sky2) url("/art/backdrop-day.webp?v=__ARTV__") center bottom / cover no-repeat; }
   html[data-sky="night"] body:not(.landing) .sky { background-image: url("/art/backdrop-night.webp?v=__ARTV__"); }
   html[data-sky="night"] body.in .sun { display: none; }
+  body.landing .sky { background: #1b1330 url("/art/bg-login.webp?v=__ARTV__") center bottom / cover no-repeat; }
+  body.landing .sky::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,10,40,.82) 0%, rgba(20,10,40,.7) 48%, rgba(20,10,40,.25) 100%); pointer-events: none; }
+  body.landing #app h2, body.landing #app p, body.landing #app .lp-sub { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  body.landing .sky .hill, body.landing .sky .crater, body.landing .sky .rover, body.landing .sky .ufo, body.landing .sky .rocket-bg, body.landing .sky .hopper, body.landing .sky .sun, body.landing .sky .moon { display: none; }
+  .boot { position: fixed; inset: 0; z-index: 50; background: #1b1330 url("/art/bg-loading.webp?v=__ARTV__") center / cover no-repeat; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14vh; color: #fff; font-weight: 800; text-shadow: 0 2px 6px #000; }
   body:not(.landing) .sky .hill, body:not(.landing) .sky .crater, body:not(.landing) .sky .rover, body:not(.landing) .sky .ufo, body:not(.landing) .sky .rocket-bg, body:not(.landing) .sky .hopper { display: none; }
   @media (max-aspect-ratio: 1/1) {
     body:not(.landing) .sky { background-image: url("/art/backdrop-day-m.webp?v=__ARTV__"); }
@@ -4580,6 +4585,12 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 .ca { display: inline-block; vertical-align: middle; object-fit: contain; background: none; border: 0; padding: 0; min-height: 0; border-radius: 0; box-shadow: none; }
 .ca.sym { width: 58px; height: 58px; } .cz-pay .ca.sym { width: 20px; height: 20px; }
 .ca.tab { width: 30px; height: 30px; } .ca.btn { width: 18px; height: 18px; } .ca.chip { width: 20px; height: 20px; margin-right: 2px; }
+.ev-banner { display: block; width: 100%; height: auto; border: 0; padding: 0; background: none; box-shadow: none; border-radius: 10px; margin: 0 0 8px; }
+.rep-banner { display: block; width: 100%; max-height: 120px; object-fit: contain; margin: 4px 0 8px; border: 0; padding: 0; background: none; box-shadow: none; }
+.ca.crate { width: 34px; height: 34px; } .stash > b .ca.crate { width: 26px; height: 26px; margin-right: 2px; }
+.emb { width: 22px; height: 22px; vertical-align: middle; margin-right: 4px; border: 0; padding: 0; background: none; box-shadow: none; } .emb.big { width: 44px; height: 44px; margin-right: 8px; }
+.emb-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; } .emb-opt { width: 40px; height: 40px; padding: 2px; border: 2px solid var(--line); border-radius: 10px; background: var(--card); display: grid; place-items: center; } .emb-opt.on { border-color: var(--accent); } .emb-opt .emb { width: 32px; height: 32px; margin: 0; }
+.ca.ln { width: 1.25em; height: 1.25em; vertical-align: -0.25em; }
 .ca.hd { width: 46px; height: 46px; }
 .cz-chief { display: flex; gap: 8px; align-items: center; margin: 2px 0 6px; }
 .cz-chief img, .cz-chief .cz-emo { width: 60px; height: 60px; flex: none; object-fit: contain; font-size: 40px; display: flex; align-items: center; justify-content: center; }
@@ -4825,7 +4836,7 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   </header>
   <div class="layout">
     <aside class="questbar" id="quests"></aside>
-    <main id="app">Warming up the rockets...</main>
+    <main id="app"><div class="boot"><span>Warming up the rockets...</span></div></main>
     <div class="side-back" data-side-close="1"></div>
     <aside class="sidebar" id="side"></aside>
   </div>
@@ -11356,7 +11367,7 @@ function traderAt(x, y) {
 }
 var npcPick = {}; // trader id -> picked amount
 function traderInfo(t, x, y, dist) {
-  var h = tipHead("🐫", esc(t.name), "Wandering trader · " + where(x, y, dist));
+  var h = evBanner("trader") + tipHead("🐫", esc(t.name), "Wandering trader · " + where(x, y, dist));
   var room = data ? Math.max(0, Math.floor(data.capacity[t.give] - data.res[t.give])) : 0;
   var max = data ? Math.max(0, Math.min(t.amount, Math.floor(data.res[t.want]), room)) : 0;
   h += tipFacts([
@@ -11536,7 +11547,12 @@ function alliancePanel() {
     var M = A.mine;
     var lead = M.role === "leader";
     var staff = lead || M.role === "officer";
-    h += '<section class="panel"><div class="allyhead"><span class="atag big">' + esc(M.tag) + "</span><div><h2>" + esc(M.name) + "</h2><small>" + M.members.length + " / " + A.max + " members" + (lead ? " · you lead" : staff ? " · officer" : "") + "</small></div></div>";
+    h += '<section class="panel"><div class="allyhead">' + embImg(M.emblem, "big") + '<span class="atag big">' + esc(M.tag) + "</span><div><h2>" + esc(M.name) + "</h2><small>" + M.members.length + " / " + A.max + " members" + (lead ? " · you lead" : staff ? " · officer" : "") + "</small></div></div>";
+    if (staff && FX_ART.t["emblem-1"]) {
+      h += '<div class="emb-pick">';
+      for (var ei = 0; ei <= 12; ei++) h += '<button type="button" class="emb-opt' + ((M.emblem || 0) === ei ? " on" : "") + '" data-ally-emblem="' + ei + '" title="' + (ei ? "Emblem " + ei : "No emblem") + '">' + (ei ? embImg(ei) : "✕") + "</button>";
+      h += "</div>";
+    }
     if (staff) {
       var ab = allyForm.about === null ? M.about : allyForm.about;
       h += '<textarea class="allyabout" data-ally="about" maxlength="300" placeholder="What is your alliance about?">' + esc(ab) + "</textarea>";
@@ -11601,7 +11617,7 @@ function alliancePanel() {
     h += '<table class="rank"><tr><th>#</th><th>Alliance</th><th class="n">points</th></tr>';
     A.ranking.forEach(function (a, i) {
       var me = A.mine && A.mine.id === a.id;
-      h += '<tr class="' + (me ? "me" : "") + '"><td class="pos">' + (i + 1) + "</td><td><b><i class='atag'>" + esc(a.tag) + "</i>" + esc(a.name) + "</b><small>" + a.members + " members</small></td><td class='n'>" + a.points + "</td></tr>";
+      h += '<tr class="' + (me ? "me" : "") + '"><td class="pos">' + (i + 1) + "</td><td><b>" + embImg(a.emblem) + "<i class='atag'>" + esc(a.tag) + "</i>" + esc(a.name) + "</b><small>" + a.members + " members</small></td><td class='n'>" + a.points + "</td></tr>";
     });
     h += "</table>";
   }
@@ -12030,6 +12046,17 @@ function trf(k) {
   var t = (l !== undefined && e && e[l]) ? e[l] : k;
   return t.replace(/\\{(\\d)\\}/g, function (x, i) { return a[+i] !== undefined ? a[+i] : ""; });
 }
+function evBanner(key, cls) {
+  return FX_ART.t["event-" + key] ? '<img class="ev-banner ' + (cls || "") + '" src="/art/event-' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "";
+}
+function repBanner(r) {
+  var d = r.data || {}, k = "";
+  if (d.attack !== undefined && (d.mission === "attack" || d.mission === "raid")) {
+    var won = d.side === "attacker" ? d.attackerWins : !d.attackerWins;
+    k = !won ? "defeat" : d.camp ? "camp" : d.side === "attacker" ? "victory" : "defended";
+  } else if (d.mission === "scout" && d.success === false) k = "draw";
+  return k && FX_ART.t["report-" + k] ? '<img class="rep-banner" src="/art/report-' + k + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "";
+}
 function renderReportBody(r) {
   var d = r.data;
   var battle = d.attack !== undefined && d.mission !== "scout";
@@ -12392,7 +12419,7 @@ function renderReports() {
     if (st) h += '<span class="rpills">' + st.pills.join("") + "</span>";
     h += "</button>";
     if (open) {
-      h += renderReportBody(r);
+      h += repBanner(r) + renderReportBody(r);
       var rb = "";
       if (repRepeatable(r)) rb += '<button class="btn small" data-rep-repeat="' + r.id + '">🔁 Repeat attack</button>';
       if (data && data.alliance) rb += '<button class="btn small ghost" data-rep-share="' + r.id + '">📤 Share with alliance</button>';
@@ -12564,7 +12591,7 @@ function sendSheet(d) {
     if (fc.needed === null) h += '<p class="reason">You already have the most colonies one player can handle.</p>';
     else h += '<p class="stat">' + '🌱' + ' Terra <b>' + fc.terra + " / " + fc.needed + "</b>" + (fc.terra >= fc.needed ? " ✅" : " ❌ not enough yet") + "<br>👷 Send exactly <b>" + fc.settlersNeeded + "</b> settlers. They become the new colony.</p>";
   } else if (t.meteor) {
-    h = '<div class="sheet-head t-food"><span class="hi">' + (t.info.lander ? "🛸" : "☄️") + "</span><div><h3>" + (t.info.lander ? "Wrecked lander" : "Meteor crate") + "</h3><b>💎 " + t.info.total + " inside · (" + t.x + "|" + t.y + ")</b></div></div>";
+    h = '<div class="sheet-head t-food"><span class="hi">' + (t.info.lander ? "🛸" : "☄️") + "</span><div><h3>" + (t.info.lander ? "Wrecked lander" : "Meteor crate") + "</h3><b>💎 " + t.info.total + " inside · (" + t.x + "|" + t.y + ")</b></div></div>" + (t.info.lander ? "" : evBanner("meteor"));
   } else if (t.camp) {
     h = '<div class="sheet-head t-war"><span class="hi">⛰️</span><div><h3>' + t.name + "</h3><b>Tier " + t.tier + " monster camp · (" + t.x + "|" + t.y + ")</b></div></div>";
     h += '<p class="stat">' + (t.units.length ? t.units.map(function (u) { return UI(u) + " " + u.count; }).join(" · ") + " · 🛡️ <b>" + t.defG + "</b> · 🎯 <b>" + t.defA + "</b>" : "💤 No monsters") + "<br>💎 Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + t.treasure[k]; }).join(" ") + "</p>";
@@ -14326,7 +14353,7 @@ function heroSheet(d) {
   } else {
     var crate = H.bag.filter(function (x) { return x.kind === "crate"; })[0];
     if (crate) {
-      h += '<div class="stash"><b>' + '📦' + ' ' + esc(crate.name) + '</b><small>into ' + esc(H.stashTo || H.home) + '</small><div class="stash-grid">';
+      h += '<div class="stash"><b>' + crateImg(crateTierBy(crate.total || 0, 2000, 20000)) + ' ' + esc(crate.name) + '</b><small>into ' + esc(H.stashTo || H.home) + '</small><div class="stash-grid">';
       RES.forEach(function (r) {
         if (!crate.res[r]) return;
         var v = stashPick(H, r);
@@ -14696,7 +14723,7 @@ function mbHead(d) {
   if (D) {
     var dots = "";
     for (var k = 1; k <= D.max; k++) dots += '<i class="' + (k <= (D.can ? D.nextStreak - 1 : D.streak) ? "done" : D.can && k === D.nextStreak ? "on" : "") + '"></i>';
-    h += '<div class="mb-daily' + (D.can ? " can" : "") + '" title="The crate grows every day in a row up to day ' + D.max + '. Missing a day starts over."><span>' + '🎁' + '</span><div><b>Daily supply</b><i class="mb-dots">' + dots + "</i></div>";
+    h += '<div class="mb-daily' + (D.can ? " can" : "") + '" title="The crate grows every day in a row up to day ' + D.max + '. Missing a day starts over."><span>' + crateImg(crateTierBy(D.can ? D.nextStreak : D.streak, Math.ceil(D.max / 3), Math.ceil(D.max * 2 / 3)), D.can) + '</span><div><b>Daily supply</b><i class="mb-dots">' + dots + "</i></div>";
     h += D.can ? '<button class="btn small" data-daily="1">+' + shortNum(D.amount) + " each</button>" : "<small>Next in " + shortTime(Math.max(0, D.nextAt - serverNow())) + "</small>";
     h += "</div>";
   }
@@ -16692,7 +16719,7 @@ function clockBar(d) {
 // 🎭 the acts of the round, one line everybody sees
 function actsLine(d) {
   var A = d.acts, now = serverNow(), cur = A.list[A.now], nx = A.list[A.now + 1];
-  var h = '<div class="sb-top"><b>' + cur.icon + " Act " + (A.now + 1) + " of " + A.list.length + " · " + esc(cur.name) + '</b><small>🗓️ Round started ' + dateText(d.clock.start) + "</small>" + helpBtn("seasons:acts", "About the six acts") + "</div>";
+  var h = (A.now > 0 && cur.at && now - cur.at < 86400000 ? evBanner("act") : "") + '<div class="sb-top"><b>' + cur.icon + " Act " + (A.now + 1) + " of " + A.list.length + " · " + esc(cur.name) + '</b><small>🗓️ Round started ' + dateText(d.clock.start) + "</small>" + helpBtn("seasons:acts", "About the six acts") + "</div>";
   h += '<ol class="acts">' + A.list.map(function (a, i) { return '<li class="' + (i < A.now ? "done" : i === A.now ? "on" : "") + '" title="' + esc(a.name + ": " + a.rule) + '"><span>' + a.icon + "</span><small>" + esc(a.name) + "<br>" + dateText(a.at) + "</small></li>"; }).join("") + "</ol>";
   h += '<p class="acts-rule">' + esc(trStr(cur.rule)) + (nx ? " <b>" + trf("Next: {0} in {1}", nx.icon + " " + esc(trStr(nx.name)), shortTime(Math.max(0, nx.at - now))) + "</b> · " + esc(trStr(nx.rule)) : "") + "</p>";
   return h;
@@ -17314,9 +17341,9 @@ function wikiMore(W, tab, cards) {
     ])));
   } else if (tab === "troops") {
     cards.push(wkCard("casino", "🎰", "Casino", wkP("Open it from your 💲 wallet. It uses Space-Cash only, bets run from 10 to 10,000,000, and the house keeps a small edge: it is a way to spend Space-Cash, not to earn it.") + wkList([
-      "🎰 <b>Slots:</b> three of a kind pays 5× (🍒) up to 200× (7️⃣); exactly two 🍒 pay 2×.",
+      caImg("casino-ico-slot", "🎰", "ln") + " <b>Slots:</b> three of a kind pays 5× (" + caImg("casino-ico-cherry", "🍒", "ln") + ") up to 200× (7️⃣); exactly two " + caImg("casino-ico-cherry", "🍒", "ln") + " pay 2×.",
       "🃏 <b>Blackjack:</b> get closer to 21 than the dealer without going over. Blackjack pays 3 to 2, the dealer stands on every 17, you can double on your first two cards. A hand in progress waits for you.",
-      "🎡 <b>Roulette:</b> numbers 0 to 36. Red, black, odd, even and the halves pay 2×, a dozen 3×, one number 36×. The zero loses every bet."
+      caImg("casino-ico-wheel", "🎡", "ln") + " <b>Roulette:</b> numbers 0 to 36. Red, black, odd, even and the halves pay 2×, a dozen 3×, one number 36×. The zero loses every bet."
     ])));
     if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear, commander shards, creatures from your hunt inventory and your commander’s supplies (dressings, medkits, journals, recovery kits, Insight tokens) to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
     cards.push(wkCard("hero", "🎖️", "The commander", kt({
@@ -17955,7 +17982,7 @@ function auroraBar(se) {
     }
     return "";
   }
-  var h = '<div class="seasonbar aurora"><div class="sb-top"><b>🌌 Project Aurora</b><small>Charge all 4 🗼 pylons, link them to the 🚩 with colonies max ' + se.link + " tiles apart, then hold the flag for " + se.hours + "h</small></div>";
+  var h = '<div class="seasonbar aurora">' + evBanner(se.ignition ? "storm" : "aurora") + '<div class="sb-top"><b>🌌 Project Aurora</b><small>Charge all 4 🗼 pylons, link them to the 🚩 with colonies max ' + se.link + " tiles apart, then hold the flag for " + se.hours + "h</small></div>";
   if (se.ignition) {
     var mine = se.ignition.key === se.myKey;
     h += '<p class="au-ig' + (mine ? "" : " foe") + '">' + '⚡' + ' <b>' + esc(se.ignition.name) + "</b> " + (se.ignition.paused ? "paused · " + Math.floor(se.ignition.progressMs / (se.hours * 3600000) * 100) + "% retained" + (se.ignition.graceUntil > now ? " · recovery window " + fmt(se.ignition.graceUntil - now) : " · progress decaying") : "ignites in <b>" + fmt(Math.max(0, se.ignition.winsAt - now)) + "</b>") + (mine ? " · keep the flag and every ley line!" : " · take the 🚩 or cut a ley line!") + "</p>";
@@ -18293,6 +18320,14 @@ function caImg(key, fb, cls) {
 var CA_SYM = { "🍒": "cherry", "🐶": "dog", "🔔": "bell", "⭐": "star", "💎": "gem", "7️⃣": "seven" };
 function caSym(s) { return CA_SYM[s] ? caImg("casino-" + CA_SYM[s], s, "sym") : s; }
 function caChip(b) { return caImg("casino-chip-" + (b <= 1000 ? 1 : b <= 100000 ? 2 : b <= 1000000 ? 3 : 4), "💲", "chip"); }
+function embImg(n, cls) {
+  return n && FX_ART.t["emblem-" + n] ? '<img class="emb ' + (cls || "") + '" src="/art/emblem-' + n + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "";
+}
+function crateImg(tier, open, cls) {
+  var n = tier === 2 ? "gold" : tier === 1 ? "silver" : "bronze";
+  return caImg("crate-" + n + (open ? "-open" : ""), "📦", "crate " + (cls || ""));
+}
+function crateTierBy(v, lo, hi) { return v >= hi ? 2 : v >= lo ? 1 : 0; }
 function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
 function croupierSay(mood, text) { casino.say = { mood: mood, text: text }; casino.fresh = true; }
 function croupierHtml() {
@@ -18560,6 +18595,7 @@ function aucMine(a, A) {
 }
 function auctionSheet() {
   var A = auc.data, h = "";
+  if (FX_ART.t["bg-auction"]) h += '<img class="ev-banner" src="/art/bg-auction.webp?v=' + FX_ART.v + '" alt="" draggable="false" style="max-height:120px;object-fit:cover">';
   h += '<div class="sheet-head"><span class="hi">🏛️</span><div><h3>Auction</h3><b>' + A.currency.icon + " " + shortNum(A.credits) + " " + esc(A.currency.name) + "</b></div></div>";
   var open = A.mine.filter(function (a) { return a.status === "active" || (a.status === "done" && !a.claimed && (a.won || (a.mine && a.outcome !== "sold"))); }).length;
   var cats = [["sell", "Gear"], ["commanders", "Commanders"], ["shards", "Shards"], ["creatures", "Creatures"], ["cons", "Supplies"]];
@@ -19513,7 +19549,7 @@ document.addEventListener("click", function (e) {
     "[data-casino],[data-bj],[data-casino-tab],[data-casino-step],[data-casino-max],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
-    "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
+    "[data-progress-tab],[data-ally-emblem],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
     "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
@@ -20305,6 +20341,8 @@ document.addEventListener("click", function (e) {
     allyPost("/api/alliance/answer", { id: parseInt(aa[0], 10), accept: aa[1] === "1" }, aa[1] === "1" ? "🤝 Welcome to the alliance!" : "Invitation declined");
   } else if (has("data-ally-create")) {
     allyPost("/api/alliance/create", { name: allyForm.name, tag: allyForm.tag }, "🤝 Alliance founded!", function () { allyForm.name = ""; allyForm.tag = ""; });
+  } else if (has("data-ally-emblem")) {
+    allyPost("/api/alliance/emblem", { emblem: Number(el.getAttribute("data-ally-emblem")) }, "Emblem saved");
   } else if (has("data-ally-about")) {
     allyPost("/api/alliance/about", { about: allyForm.about }, "💾 Saved", function () { allyForm.about = null; });
   } else if (has("data-ally-invite")) {
