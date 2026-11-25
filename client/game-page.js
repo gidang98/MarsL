@@ -18448,12 +18448,12 @@ function casinoSheet() {
   } else if (g === "roulette") {
     var art = !!FX_ART.t["casino-wheel"];
     h += '<div class="cz-stage cz-rstage" id="cz-stage"><div class="cz-wheelbox' + (art ? " art" : "") + '"><div class="cz-wheel" id="cz-wheel" style="background:' + wheelBg() + ";transform:rotate(" + casino.wheelDeg + 'deg)">' + (art ? wheelLabels() : "") + "</div>" + (art ? '<img class="cz-frame" src="/art/casino-wheel.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "") + '<i class="cz-pointer"></i><div class="cz-hub" id="cz-ball">' + (casino.last === null ? "" : casinoNum(casino.last)) + "</div></div></div>";
-    h += '<div class="cz-table"><button class="cz-n g" data-casino-kind="number" data-casino-pick="0">0</button>';
-    for (var n = 1; n <= 36; n++) h += '<button class="cz-n ' + casinoCol(n) + '" data-casino-kind="number" data-casino-pick="' + n + '">' + n + "</button>";
-    h += '</div><div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + "</div>";
+    h += '<div class="cz-table"><button class="cz-n g' + casinoOn("number", 0) + '" data-casino-kind="number" data-casino-pick="0">0</button>';
+    for (var n = 1; n <= 36; n++) h += '<button class="cz-n ' + casinoCol(n) + casinoOn("number", n) + '" data-casino-kind="number" data-casino-pick="' + n + '">' + n + "</button>";
+    h += '</div><div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost' + casinoOn(k[0], k[2]) + '" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + "</div>";
     h += '<small class="cz-pay">A single number pays 36×. The zero loses every bet.</small>';
   } else h += '<div class="cz-felt" id="cz-bj">' + bjTable() + "</div>";
-  if (!playing) h += '<div class="cz-bet"><button class="btn small ghost" data-casino-step="-1" aria-label="Lower bet">−</button><b id="cz-betv"></b><button class="btn small ghost" data-casino-step="1" aria-label="Raise bet">+</button><button class="btn small ghost" data-casino-max="1">Max</button></div>';
+  if (!playing) h += '<div class="cz-bet"><button class="btn small ghost" data-casino-step="-1" aria-label="Lower bet"' + casinoStepOff(-1) + '>−</button><b id="cz-betv">' + casinoBetInner() + '</b><button class="btn small ghost" data-casino-step="1" aria-label="Raise bet"' + casinoStepOff(1) + '>+</button><button class="btn small ghost" data-casino-max="1">Max</button></div>';
   h += '<div class="cz-dock">';
   if (playing) h += '<div class="cz-acts"><button class="btn" data-bj="hit">Hit</button><button class="btn" data-bj="stand">Stand</button>' + (casino.bj.canDouble ? '<button class="btn ghost" data-bj="double">Double</button>' : "") + "</div>";
   else h += '<button class="btn cz-go" data-casino-spin="1">' + (g === "slots" ? "Spin" : g === "roulette" ? "Spin the wheel" : "Deal") + "</button>";
@@ -18461,10 +18461,16 @@ function casinoSheet() {
   setTimeout(function () { casinoMark(); casinoBetShow(); croupierShow(); }, 0);
   return h;
 }
+// the bet, its arrows and the chosen roulette field are written straight into the page HTML. The screen is redrawn every
+// second (the wallet ticks), and filling them in afterwards made them empty and refill, which showed as flashing
+function casinoBetInner() { return casino.data ? caChip(casino.bet) + " " + casino.bet.toLocaleString("en-US") : ""; }
+function casinoStepOff(d) { if (!casino.data) return ""; var b = casino.data.bets, i = b.indexOf(casino.bet); return (d < 0 ? i <= 0 : i >= b.length - 1) ? " disabled" : ""; }
+function casinoOn(k, pk) { return k === casino.kind && (k === "number" || k === "dozen" ? pk === casino.pick : true) ? " on" : ""; }
 function casinoBetShow() {
   var v = document.getElementById("cz-betv"); if (!v || !casino.data) return;
   var i = casino.data.bets.indexOf(casino.bet), b = casino.data.bets;
-  v.innerHTML = caChip(casino.bet) + " " + casino.bet.toLocaleString("en-US");
+  var inner = casinoBetInner();
+  if (v._inner !== inner || !v.firstChild) { v.innerHTML = inner; v._inner = inner; } // only when the bet changed, rewriting it every second made the chip flash
   Array.prototype.forEach.call(document.querySelectorAll("[data-casino-step]"), function (x) { x.disabled = Number(x.getAttribute("data-casino-step")) < 0 ? i <= 0 : i >= b.length - 1; });
 }
 function casinoStep(d) {

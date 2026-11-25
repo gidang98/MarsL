@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.522";
+const GAME_VERSION = "1.0.523";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.523",date:"2026-11-25",title:"Steady casino bet",groups:[["🎰 Casino",["The bet amount no longer flashes every second."]]]},
   {v:"1.0.522",date:"2026-11-25",title:"Shiny colours",groups:[["✨ Shiny",["Shiny creatures and commanders now take the colour of their tier: silver is grey metal, gold is warm yellow, diamond is icy blue and rainbow slowly cycles through all colours. A small star twinkles in the corner."]]]},
   {v:"1.0.521",date:"2026-11-25",title:"Even sound volumes",groups:[["🔊 Sound",["All sound effects and voice blips now play at the same loudness. Before, the soft triangle sounds were much quieter than the sharp square ones."]]]},
   {v:"1.0.520",date:"2026-11-25",title:"Chiptune alerts",groups:[["🔊 Sound",["New message and new report sounds are 8-bit blips now.","The error and alarm sounds are short stepped blips instead of a buzzer."]]]},
