@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.506";
+const GAME_VERSION = "1.0.507";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17760,6 +17760,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.507",date:"2026-11-25",title:"Beppo joke fix",groups:[["🔧 Fixed",["Beppo's line after your first build has a better joke."]]]},
   {v:"1.0.506",date:"2026-11-25",title:"Funnier voices",groups:[["✨ New",["Beppo and the other characters have new, funnier lines that fit their expressions."]]]},
   {v:"1.0.505",date:"2026-11-25",title:"The villain",groups:[["✨ New",["The first defense is now a little story: a \"mysterious villain\" (not Beppo, definitely) announces an attack that arrives one hour later. It is a tiny pack that always loses, so new commanders see a real defense report with nothing at stake.","Afterwards Beppo drops the costume, says you are ready and points to the Guide.","The attack no longer holds the landing up: you keep playing while the timer runs."]]]},
   {v:"1.0.504",date:"2026-11-25",title:"Home army icons",groups:[["🔧 Fixed",["Troops at home on the Army page show the small drawn unit icons, like the battle reports, instead of the big portraits."]]]},

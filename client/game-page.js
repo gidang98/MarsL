@@ -13579,7 +13579,7 @@ var tut = { step: -1 };
 // steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
 // 💬 Beppo pops up once for the big firsts (a small bubble; tap to close; Settings turns it off)
 var BEPPO_SAY = {
-  built: ["happy", "Your first build is done! The colony is officially a place now. I am telling the sand."],
+  built: ["happy", "Your first build is done! The colony is officially a place now. Please do not touch the walls yet. They are still wet."],
   trained: ["happy", "Fresh troops! They are brave, loyal and always hungry. Mostly hungry. Watch the food."],
   report: ["surprised", "A report?! I did not read it. I definitely did not read it. Open your Inbox!"],
   threat: ["worried", "Incoming! Hide the snacks! Hide the other snacks! Then check the Army tab."],
