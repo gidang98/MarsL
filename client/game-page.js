@@ -3793,7 +3793,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
     details.build-advice ~ * { order: 2; }
     details.build-advice ~ .fx-stage { order: 0; }
     div:has(> details.build-advice) > .fx-stage { width: calc(100% + 20px); margin-left: -10px; margin-right: -10px; max-width: none; box-sizing: border-box; } /* the island runs edge to edge, so less of its base has to be trimmed */
-    .edit, .wallet, .tf-sum, [data-quest], .cx-zoom button, .pan { position: relative; }
+    .edit, .wallet, .tf-sum, [data-quest], .cx-zoom button { position: relative; }
     .edit::after, .wallet::after, .tf-sum::after, [data-quest]::after { content: ""; position: absolute; inset: -8px; }
   }
   @media (max-width: 360px) { /* small phones: keep the title row and the colony card on one line each */
