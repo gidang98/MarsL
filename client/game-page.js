@@ -4577,6 +4577,19 @@ body .fl-sort.repsub span { flex: 0 0 100%; margin: 0; }
 /* 1.0.377 gear auction */
 .auc-tabs { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
 .auc-tabs.sub { margin-top: -2px; }
+.cz-chief { display: flex; gap: 10px; align-items: center; margin: 6px 0 8px; }
+.cz-chief img, .cz-chief .cz-emo { width: 88px; height: 88px; flex: none; object-fit: contain; font-size: 52px; display: flex; align-items: center; justify-content: center; }
+.cz-bub { flex: 1; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; padding: 6px 10px; background: rgba(255,255,255,.7); min-height: 62px; }
+.cz-bub b { display: block; font-size: 12px; opacity: .7; }
+.cz-bub #cz-say { font-size: 14px; }
+.cz-hand { margin: 8px 0; text-align: center; }
+.cz-hand small { display: block; opacity: .75; margin-bottom: 4px; }
+.cz-hand > div { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+.cz-card { min-width: 42px; height: 58px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 7px; background: #fff; color: #222; font-weight: 700; font-size: 17px; }
+.cz-card.red { color: #c23b32; }
+.cz-card.back { background: repeating-linear-gradient(45deg, #2b4a8a, #2b4a8a 4px, #3a5ca3 4px, #3a5ca3 8px); }
+.cz-bjhint { text-align: center; opacity: .8; margin: 14px 4px; font-size: 13px; }
+.cz-acts { display: flex; gap: 8px; margin: 8px 0; } .cz-acts .btn { flex: 1; }
 .cz-reels { display: flex; gap: 8px; justify-content: center; margin: 12px 0 6px; }
 .cz-reels span { width: 74px; height: 84px; display: flex; align-items: center; justify-content: center; font-size: 42px; border: 2px solid var(--line, #d8d2c4); border-radius: 12px; background: rgba(255,255,255,.55); }
 .cz-reels span.spin { filter: blur(1.2px); transform: translateY(2px); }
@@ -10018,6 +10031,7 @@ var CAST = {
   owl: { name: "Nightowl", icon: "🦉", pitch: 280, wave: "triangle", art: "hero-nightowl" },
   marshal: { name: "Star Marshal", icon: "🎖️", pitch: 340, wave: "pulse25", art: "hero-starmarshal" },
   villain: { name: "Mysterious Villain", icon: "🎭", pitch: 300, wave: "pulse12" },
+  croupier: { name: "Croupier", icon: "🎩", pitch: 420, wave: "triangle" },
   void: { name: "Void Sovereign", icon: "🌌", pitch: 120, wave: "pulse12", art: "hero-voidsovereign" }
 };
 var BEPPO_LINES = {
@@ -13158,6 +13172,7 @@ var SFX = {
   "v-owl": [[220.0, 0.0, 0.306, "triangle", 0.06, 0, 4], [261.6, 0.34, 0.153, "triangle", 0.06, 0, 4], [329.6, 0.51, 0.306, "triangle", 0.06, 0, 4], [293.7, 0.85, 0.153, "triangle", 0.06, 0, 4], [220.0, 1.02, 0.459, "triangle", 0.06, 0, 4]],
   "v-marshal": [[261.6, 0.0, 0.099, "pulse25", 0.026, 0, 0], [261.6, 0.11, 0.099, "pulse25", 0.026, 0, 0], [392.0, 0.22, 0.099, "pulse25", 0.026, 0, 0], [523.3, 0.33, 0.198, "pulse25", 0.026, 0, 0], [329.6, 0.0, 0.099, "triangle", 0.05, 0, 0], [329.6, 0.11, 0.099, "triangle", 0.05, 0, 0], [493.9, 0.22, 0.099, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.198, "triangle", 0.05, 0, 0]],
   "v-void": [[55.0, 0, 1.8, "pulse12", 0.05, 0, 0], [82.4, 0.4, 1.4, "triangle", 0.05, 0, 0], [1318.5, 0.9, 0.5, "triangle", 0.015, 0, 0]],
+  "v-croupier": [[392.0, 0.0, 0.09, "triangle", 0.05, 0, 0], [493.9, 0.11, 0.09, "triangle", 0.05, 0, 0], [587.3, 0.22, 0.09, "triangle", 0.05, 0, 0], [659.3, 0.33, 0.09, "triangle", 0.05, 0, 0], [587.3, 0.46, 0.14, "triangle", 0.05, 0, 3], [784.0, 0.64, 0.3, "triangle", 0.05, 0, 4]],
   "v-villain": [[147, 0, 0.12, "pulse12", 0.045, 0, 0], [147, 0.14, 0.12, "pulse12", 0.045, 0, 0], [156, 0.28, 0.2, "pulse12", 0.045, 0, 0], [147, 0.52, 0.4, "pulse12", 0.045, 0, 5]],
   "v-beppo": [[523.3, 0.0, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.085, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.17, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.255, 0.153, "pulse25", 0.03, 0, 0], [784.0, 0.425, 0.077, "pulse25", 0.03, 0, 0], [659.3, 0.51, 0.077, "pulse25", 0.03, 0, 0], [784.0, 0.595, 0.077, "pulse25", 0.03, 0, 0], [1046.5, 0.68, 0.23, "pulse25", 0.03, 0, 0], [130.8, 0.0, 0.306, "triangle", 0.05, 0, 0], [196.0, 0.34, 0.306, "triangle", 0.05, 0, 0], [130.8, 0.68, 0.306, "triangle", 0.05, 0, 0], [196.0, 1.02, 0.306, "triangle", 0.05, 0, 0], [130.8, 1.36, 0.306, "triangle", 0.05, 0, 0]],
   "v-steward": [[392.0, 0.0, 0.27, "square", 0.022, 0, 0], [493.9, 0.3, 0.135, "square", 0.022, 0, 0], [587.3, 0.45, 0.135, "square", 0.022, 0, 0], [784.0, 0.6, 0.54, "square", 0.022, 0, 0], [329.6, 0.0, 0.27, "triangle", 0.05, 0, 0], [392.0, 0.3, 0.135, "triangle", 0.05, 0, 0], [493.9, 0.45, 0.135, "triangle", 0.05, 0, 0], [587.3, 0.6, 0.54, "triangle", 0.05, 0, 0]],
@@ -13644,7 +13659,7 @@ function beppoSay(id, top) {
   try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
   voiceShow(m[2] || "beppo", m[0], m[1], top);
 }
-function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy; }
+function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy && !(sheet && sheet.kind === "casino"); }
 // 🗣️ a remark that can come again, but not before its cooldown is over (remembered in this browser)
 function voiceSay(id, who, mood, text, cdMs, top) {
   if (!voiceFree()) return false;
@@ -17263,8 +17278,9 @@ function wikiMore(W, tab, cards) {
       "A started crew job finishes even if the commander leaves. Cancelling refunds everything.",
     ])));
   } else if (tab === "troops") {
-    cards.push(wkCard("casino", "🎰", "Casino", wkP("Open it from your 💲 wallet. It uses Space-Cash only, bets run from 10 to 5,000, and the house keeps a small edge: it is a way to spend Space-Cash, not to earn it.") + wkList([
+    cards.push(wkCard("casino", "🎰", "Casino", wkP("Open it from your 💲 wallet. It uses Space-Cash only, bets run from 10 to 10,000,000, and the house keeps a small edge: it is a way to spend Space-Cash, not to earn it.") + wkList([
       "🎰 <b>Slots:</b> three of a kind pays 5× (🍒) up to 200× (7️⃣); exactly two 🍒 pay 2×.",
+      "🃏 <b>Blackjack:</b> get closer to 21 than the dealer without going over. Blackjack pays 3 to 2, the dealer stands on every 17, you can double on your first two cards. A hand in progress waits for you.",
       "🎡 <b>Roulette:</b> numbers 0 to 36. Red, black, odd, even and the halves pay 2×, a dozen 3×, one number 36×. The zero loses every bet."
     ])));
     if (W.auction) cards.push(wkCard("auction", "🏛️", "Auction", wkP("Sell commander gear, commander shards, creatures from your hunt inventory and your commander’s supplies (dressings, medkits, journals, recovery kits, Insight tokens) to other players for 💲 Space-Cash, which your creatures in the hunt slots earn. Open it with the 🏛️ button at the top. Everybody can browse; to bid or sell you need a commander. Pick a piece of gear from your bag (equipped gear can’t be sold), set a start price and run it for " + W.auction.hours.map(hrTxt).join(", ") + " of real time. Everyone can bid: each bid must be at least " + W.auction.step + "% higher, and the credits are paid up front and returned when somebody outbids you. A bid in the last " + hrTxt(W.auction.snipeMs / 3600000) + " adds " + hrTxt(W.auction.snipeMs / 3600000) + ". The highest bid wins when the time is up, the seller gets the price minus a " + W.auction.fee + "% fee, and gear nobody bid on goes back to the seller. You can run " + W.auction.maxActive + " auctions at once and take an item back as long as nobody has bid.")));
@@ -18233,33 +18249,76 @@ function huntSheet() {
 
 // ---------- the gear auction ----------
 var auc = { data: null, tab: "browse" };
-// 🎰 casino: the server rolls and pays, this only shows it
-var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "" };
+// 🎰 casino: the server rolls and pays, this only shows it. The croupier talks, his face fits the result.
+var casino = { data: null, game: "slots", bet: 50, kind: "red", pick: 0, busy: false, msg: "", bj: null, say: null, fresh: false };
+function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
+function croupierSay(mood, text) { casino.say = { mood: mood, text: text }; casino.fresh = true; }
+function croupierHtml() {
+  var q = casino.say || { mood: "neutral", text: "" }, k = "croupier-" + q.mood;
+  return '<div class="cz-chief">' + (FX_ART.t[k] ? '<img id="cz-face" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : '<span id="cz-face" class="cz-emo">🎩</span>') + '<div class="cz-bub"><b>Croupier</b><div id="cz-say">' + esc(q.text) + "</div></div></div>";
+}
+function croupierShow() {
+  var el = document.getElementById("cz-say");
+  if (!el || !casino.fresh) return;
+  casino.fresh = false;
+  croupierTop();
+  typeHtml(el, 420, "triangle");
+}
+function croupierFace(mood) {
+  var f = document.getElementById("cz-face"), k = "croupier-" + mood;
+  if (f && f.tagName === "IMG" && FX_ART.t[k]) f.src = "/art/" + k + ".webp?v=" + FX_ART.v;
+}
+function croupierTop() { var sh = document.querySelector("#sheet .sheet"); if (sh) sh.scrollTop = 0; } // the croupier talks at the top: show him
+function croupierLine(mood, text) {
+  casino.say = { mood: mood, text: text };
+  croupierTop();
+  var el = document.getElementById("cz-say");
+  croupierFace(mood);
+  if (el) { el.textContent = text; casino.fresh = false; typeHtml(el, 420, "triangle"); }
+}
 function openCasino() {
   fetch("/api/casino").then(function (r) { return r.json(); }).then(function (j) {
-    casino.data = j; casino.msg = "";
+    casino.data = j; casino.msg = ""; casino.bj = j.bj || null;
     if (casino.bet && j.bets.indexOf(casino.bet) < 0) casino.bet = j.bets[1];
+    if (casino.bj) { casino.game = "blackjack"; croupierSay("neutral", "Welcome back. Your hand is still on the table."); }
+    else croupierSay("neutral", pickOne(["Welcome! Keep your hands, feet and savings inside the casino.", "Place your bets. I promise nothing but fun.", "Good evening, Commander. The house is in a generous mood. Statistically not."]));
+    sfx("v-croupier");
     if (sheet && sheet.kind === "casino") renderSheet(); else openSheet("casino", null);
   }).catch(function () { toast("⚠️ The server does not answer"); });
 }
 var CASINO_KINDS = [["red", "🟥 Red", 0, "2×"], ["black", "⬛ Black", 0, "2×"], ["odd", "Odd", 0, "2×"], ["even", "Even", 0, "2×"], ["low", "1–18", 0, "2×"], ["high", "19–36", 0, "2×"], ["dozen", "1–12", 0, "3×"], ["dozen", "13–24", 1, "3×"], ["dozen", "25–36", 2, "3×"]];
 var CASINO_RED = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 function casinoNum(n) { return '<b class="cz-num ' + (n === 0 ? "g" : CASINO_RED.indexOf(n) >= 0 ? "r" : "b") + '">' + n + "</b>"; }
+function bjCard(c) {
+  if (c === "?") return '<span class="cz-card back"></span>';
+  var red = c.slice(-1) === "♥" || c.slice(-1) === "♦";
+  return '<span class="cz-card' + (red ? " red" : "") + '">' + esc(c) + "</span>";
+}
+function bjTable() {
+  var B = casino.bj;
+  if (!B) return '<div class="cz-bjhint">Beat the dealer without going over 21. Blackjack pays 3 to 2, the dealer stands on 17, you can double on two cards.</div>';
+  var h = '<div class="cz-hand"><small>Dealer · ' + (B.result ? B.dt : "?") + "</small><div>" + B.dealer.map(bjCard).join("") + "</div></div>";
+  h += '<div class="cz-hand"><small>You · ' + B.pt + " · bet 💲 " + shortNum(B.bet) + "</small><div>" + B.player.map(bjCard).join("") + "</div></div>";
+  return h;
+}
 function casinoSheet() {
   var C = casino.data, h = '<div class="sheet-head"><span class="hi">🎰</span><div><h3>Casino</h3><b>💲 <span id="cz-cash">' + Math.floor(walletNow()).toLocaleString("en-US") + "</span> Space-Cash</b></div></div>";
-  h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>🎰</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>🎡</span>Roulette</button></div>';
+  h += croupierHtml();
+  h += '<div class="subtabs"><button class="' + (casino.game === "slots" ? "on" : "") + '" data-casino-tab="slots"><span>🎰</span>Slots</button><button class="' + (casino.game === "roulette" ? "on" : "") + '" data-casino-tab="roulette"><span>🎡</span>Roulette</button><button class="' + (casino.game === "blackjack" ? "on" : "") + '" data-casino-tab="blackjack"><span>🃏</span>Blackjack</button></div>';
+  var playing = casino.game === "blackjack" && casino.bj && !casino.bj.result;
   if (casino.game === "slots") {
     h += '<div class="cz-reels" id="cz-reels"><span>🍒</span><span>🍋</span><span>🔔</span></div>';
     h += '<small class="cz-pay">' + C.slots.map(function (x) { return x.s + "×3 " + x.pays + "×"; }).join(" · ") + " · 🍒🍒 " + C.twoCherries + "×</small>";
-  } else {
+  } else if (casino.game === "roulette") {
     h += '<div class="cz-ball" id="cz-ball">' + casinoNum(0) + "</div>";
     h += '<div class="cz-kinds">' + CASINO_KINDS.map(function (k) { return '<button class="btn small ghost" data-casino-kind="' + k[0] + '" data-casino-pick="' + k[2] + '">' + k[1] + "<small>" + k[3] + "</small></button>"; }).join("") + '</div>';
     h += '<div class="cz-one"><label>Single number <small>36×</small> <input type="number" min="0" max="36" id="cz-n" value="' + (casino.kind === "number" ? casino.pick : 7) + '"></label><button class="btn small ghost" data-casino-kind="number" data-casino-pick="n">Bet it</button></div>';
-  }
-  h += '<div class="cz-bets">' + C.bets.map(function (b) { return '<button class="btn small ghost" data-casino-bet="' + b + '">💲 ' + shortNum(b) + "</button>"; }).join("") + "</div>";
-  h += '<button class="btn cz-go" data-casino-spin="1">' + (casino.game === "slots" ? "Spin" : "Spin the wheel") + "</button>";
+  } else h += '<div id="cz-bj">' + bjTable() + "</div>";
+  if (!playing) h += '<div class="cz-bets">' + C.bets.map(function (b) { return '<button class="btn small ghost" data-casino-bet="' + b + '">💲 ' + shortNum(b) + "</button>"; }).join("") + "</div>";
+  if (playing) h += '<div class="cz-acts"><button class="btn" data-bj="hit">Hit</button><button class="btn" data-bj="stand">Stand</button>' + (casino.bj.canDouble ? '<button class="btn ghost" data-bj="double">Double</button>' : "") + "</div>";
+  else h += '<button class="btn cz-go" data-casino-spin="1">' + (casino.game === "slots" ? "Spin" : casino.game === "roulette" ? "Spin the wheel" : "Deal") + "</button>";
   h += '<div class="cz-msg" id="cz-msg">' + esc(casino.msg || "") + "</div>";
-  setTimeout(casinoMark, 0);
+  setTimeout(function () { casinoMark(); croupierShow(); }, 0);
   return h;
 }
 function casinoMark() {
@@ -18270,8 +18329,23 @@ function casinoMark() {
     b.classList.toggle("on", k === casino.kind && (k === "number" || k === "dozen" ? (k === "number" ? casino.kind === "number" : Number(pk) === casino.pick) : true));
   });
 }
+function casinoMoney(j) {
+  var c = document.getElementById("cz-cash");
+  wallet.cash = j.cash; wallet.at = Date.now();
+  if (c) c.textContent = j.cash.toLocaleString("en-US");
+}
+function casinoSettled(j, extra) {
+  var net = j.win - j.bet, m = document.getElementById("cz-msg");
+  casino.msg = net > 0 ? "🎉 +" + net.toLocaleString("en-US") + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + j.bet.toLocaleString("en-US") + " Space-Cash";
+  if (m) m.textContent = casino.msg;
+  casinoMoney(j);
+  sfx(net > 0 ? "done" : "click");
+  casino.busy = false;
+  loadColony(false);
+}
 function casinoSpin() {
   if (casino.busy || !casino.data) return;
+  if (casino.game === "blackjack") { bjDeal(); return; }
   var body = { bet: casino.bet }, url = "/api/casino/slots", n = document.getElementById("cz-n");
   if (casino.game === "roulette") {
     url = "/api/casino/roulette"; body.kind = casino.kind;
@@ -18283,14 +18357,20 @@ function casinoSpin() {
     if (!x.ok) { casino.busy = false; toast(x.j.error || "The casino said no."); sfx("error"); return; }
     var j = x.j, sy = casino.data.slots.map(function (q) { return q.s; });
     var done = function () {
-      var m = document.getElementById("cz-msg"), c = document.getElementById("cz-cash");
-      casino.msg = j.win > j.bet ? "🎉 +" + (j.win - j.bet).toLocaleString("en-US") + " Space-Cash" : j.win === j.bet ? "Even. You get your bet back." : "−" + j.bet.toLocaleString("en-US") + " Space-Cash";
-      if (m) m.textContent = casino.msg;
-      wallet.cash = j.cash; wallet.at = Date.now();
-      if (c) c.textContent = j.cash.toLocaleString("en-US");
-      sfx(j.win > j.bet ? "done" : "click");
-      casino.busy = false;
-      loadColony(false);
+      var net = j.win - j.bet;
+      if (casino.game === "slots") {
+        var r3 = j.reels.join(" ");
+        if (j.win >= j.bet * 30) croupierLine("surprised", r3 + ". " + pickOne(["Jackpot! I did not see that. Nobody saw that.", "That is a lot of zeros. On your side. I need to sit down."]));
+        else if (net > 0) croupierLine("happy", r3 + ". " + pickOne(["You win! The reels like you today.", "Winner! Do not tell the other machines.", "A win! I will pretend I am not jealous."]));
+        else croupierLine("worried", r3 + ". " + pickOne(["You lose. The reels were being shy.", "No luck. The machine says sorry. It lies.", "You lose. It was almost a win. Almost is free."]));
+      } else {
+        var col = j.n === 0 ? "green" : j.red ? "red" : "black";
+        if (j.n === 0) croupierLine("surprised", "0, green. The house wins every bet. I am sorry. A little.");
+        else if (casino.kind === "number" && net > 0) croupierLine("surprised", j.n + ", " + col + ". Your exact number! I have never seen it. Not even once.");
+        else if (net > 0) croupierLine("happy", j.n + ", " + col + ". You win!");
+        else croupierLine("worried", j.n + ", " + col + ". You lose.");
+      }
+      casinoSettled(j);
     };
     if (casino.game === "slots") {
       var reels = document.querySelectorAll("#cz-reels span");
@@ -18307,10 +18387,42 @@ function casinoSpin() {
       var t1 = Date.now(), iv2 = setInterval(function () {
         var e2 = Date.now() - t1;
         if (e2 > 1500) { clearInterval(iv2); ball.innerHTML = casinoNum(j.n); done(); } else ball.innerHTML = casinoNum(Math.floor(Math.random() * 37));
-      }, 70 + 0);
+      }, 70);
     }
   }).catch(function () { casino.busy = false; toast("⚠️ The server does not answer"); });
 }
+// 🃏 blackjack
+function bjAsk(body) {
+  if (casino.busy) return;
+  casino.busy = true;
+  fetch("/api/casino/blackjack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (x) {
+    casino.busy = false;
+    if (!x.ok) { toast(x.j.error || "The casino said no."); sfx("error"); return; }
+    var B = x.j.hand;
+    casino.bj = B; casino.msg = "";
+    if (x.j.resumed) croupierSay("neutral", "You still have a hand on the table. Let us finish it.");
+    else if (!B.result) croupierSay("neutral", body.do === "deal" ? pickOne(["Cards are out. You have " + B.pt + ". Your move.", "Dealt. You hold " + B.pt + ". Brave or sensible?"]) : "You hold " + B.pt + ". " + pickOne(["Another?", "Bold.", "The cards are listening."]));
+    else {
+      var R = B.result, d = B.dt, me = B.pt;
+      if (R === "blackjack") croupierSay("surprised", "Blackjack! Pays 3 to 2. I need a moment.");
+      else if (R === "bust") croupierSay("worried", "Bust at " + me + ". Ouch. The cards were rude.");
+      else if (R === "dealerbust") croupierSay("happy", "I bust with " + d + ". You win! This never happened.");
+      else if (R === "win") croupierSay("happy", "You have " + me + " against my " + d + ". You win!");
+      else if (R === "push") croupierSay("surprised", (me === 21 && B.player.length === 2 ? "We both have blackjack. " : "We both have " + me + ". ") + "A push. Your bet is back.");
+      else croupierSay("worried", d + " against your " + me + ". You lose." + (d === 21 && B.dealer.length === 2 ? " Blackjack. Sorry." : ""));
+    }
+    casinoMoney(B);
+    renderSheet();
+    if (B.result) {
+      var net = B.win - B.bet;
+      casino.msg = net > 0 ? "🎉 +" + net.toLocaleString("en-US") + " Space-Cash" : net === 0 ? "Even. You get your bet back." : "−" + B.bet.toLocaleString("en-US") + " Space-Cash";
+      var m = document.getElementById("cz-msg"); if (m) m.textContent = casino.msg;
+      sfx(net > 0 ? "done" : "click");
+      loadColony(false);
+    }
+  }).catch(function () { casino.busy = false; toast("⚠️ The server does not answer"); });
+}
+function bjDeal() { bjAsk({ do: "deal", bet: casino.bet }); }
 function openAuction(tab) {
   fetch("/api/auction").then(function (r) { return r.json(); }).then(function (j) {
     auc.data = j;
@@ -19295,7 +19407,7 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-casino],[data-casino-tab],[data-casino-bet],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-casino],[data-bj],[data-casino-tab],[data-casino-bet],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
@@ -19454,13 +19566,15 @@ document.addEventListener("click", function (e) {
   } else if (has("data-casino")) {
     openCasino();
   } else if (has("data-casino-tab")) {
-    casino.game = attr("data-casino-tab"); casino.msg = ""; renderSheet();
+    if (casino.busy) return; casino.game = attr("data-casino-tab"); casino.msg = ""; renderSheet();
   } else if (has("data-casino-bet")) {
     casino.bet = Number(attr("data-casino-bet")); sfx("click"); casinoMark();
   } else if (has("data-casino-kind")) {
     casino.kind = attr("data-casino-kind"); casino.pick = Number(attr("data-casino-pick")) || 0; sfx("click"); casinoMark();
   } else if (has("data-casino-spin")) {
     casinoSpin();
+  } else if (has("data-bj")) {
+    bjAsk({ do: attr("data-bj") });
   } else if (has("data-wallet-open")) {
     openSheet("wallet", null);
   } else if (has("data-codex-open")) {
