@@ -13484,7 +13484,7 @@ function musicLoad() {
 // Fields, Colony, Army, Players and Inbox all count as "colony": the same song keeps playing across them without a restart
 function musicScene() {
   if (!loggedIn) return "title";
-  if (document.getElementById("scene")) return "battle";
+  if (document.querySelector("#scene[data-battle]")) return "battle";
   if (document.getElementById("cz-stage")) return "casino";
   if (view === "map") return "map";
   return "colony";
@@ -13519,9 +13519,10 @@ function musicStep() {
   MUSIC.dk += Math.max(-0.06, Math.min(0.06, (Date.now() < MUSIC.duckUntil ? 0.35 : 1) - MUSIC.dk));
   Object.keys(MUSIC.live).forEach(function (k) {
     var t = MUSIC.live[k], tgt = k === want ? 1 : 0;
-    t.lvl += Math.max(-MUSIC_FADE, Math.min(MUSIC_FADE, tgt - t.lvl));
+    var fs = k === "battle" ? 0.1 : MUSIC_FADE; // the villain\u2019s entrance should hit quickly
+    t.lvl += Math.max(-fs, Math.min(fs, tgt - t.lvl));
     if (t.el.currentTime > 0) MUSIC.pos[k] = t.el.currentTime;
-    if (t.lvl <= 0 && !tgt) { t.el.pause(); try { t.g.disconnect(); } catch (e) {} delete MUSIC.live[k]; return; }
+    if (t.lvl <= 0 && !tgt) { t.el.pause(); try { t.g.disconnect(); } catch (e) {} delete MUSIC.live[k]; if (k === "battle") MUSIC.pos[k] = 0; return; }
     if (t.el.paused) { var pr = t.el.play(); if (pr && pr.catch) pr.catch(function () {}); }
     var e = t.lvl * t.lvl * (3 - 2 * t.lvl); // smooth in and out, so the crossfade has no bump
     t.g.gain.value = MUSIC.vol * t.trim * e * MUSIC.dk;
@@ -14031,6 +14032,7 @@ function beppoScene(lines, who, opts) {
   Array.prototype.forEach.call(document.querySelectorAll("#beppo-say, #beppo-scrim"), function (n) { n.remove(); });
   var el = document.createElement("div");
   el.id = "scene";
+  if (who === "villain") el.setAttribute("data-battle", "1"); // the villain's entrance gets the battle music; Beppo's thanks does not
   el.setAttribute("role", "dialog");
   el.innerHTML = '<div class="sc-row"><img class="sc-img" alt="" draggable="false"><div class="sc-bub"><b class="sc-n"></b><div class="sc-t"></div></div></div><button type="button" class="sc-skip">Skip</button>';
   document.body.appendChild(el);
