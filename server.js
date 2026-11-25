@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.533";
+const GAME_VERSION = "1.0.534";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.534",date:"2026-11-25",title:"Zoom the colony island",groups:[["🏗️ Colony",["The colony island has zoom buttons (+ / −) in its corner. Pinch to zoom, drag to move around, and tap ⤢ to see the whole island again."]]]},
   {v:"1.0.533",date:"2026-11-25",title:"Less filler",groups:[["💬 Beppo",["Removed the random Beppo remark from the market, the send-troops sheet and the mission board. He still pops up for real events."]]]},
   {v:"1.0.532",date:"2026-11-25",title:"Centred roulette wheel",groups:[["🎰 Casino",["The roulette numbers now sit exactly in the middle of the painted wheel frame."]]]},
   {v:"1.0.531",date:"2026-11-25",title:"Quieter Beppo",groups:[["💬 Beppo",["Beppo no longer comments when you open the same page or sheet again and again."]]]},

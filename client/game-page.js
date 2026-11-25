@@ -3783,6 +3783,11 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .army-total { border-top: 0; }
   .army-total b { color: var(--tomato); }
   /* ---------- Fields tab: the playset and the field list ---------- */
+  .cx-zoom { position: absolute; top: 6px; right: 6px; display: flex; flex-direction: column; gap: 6px; z-index: 4; }
+  .cx-zoom button { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--line, #c9a77a); background: var(--card, #fff7ea); color: var(--ink, #3a2a1a); font-size: 22px; font-weight: 800; line-height: 1; padding: 0; box-shadow: 0 2px 0 rgba(58, 42, 26, .25); }
+  .cx-zoom .rs { display: none; }
+  .cx-stage.zoomed .cx-zoom .rs { display: block; }
+  .cx-stage.zoomed .cx-scene { overflow: hidden; touch-action: none; cursor: grab; border-radius: 22px; }
   .fx-stage { position: relative; max-width: 560px; margin: 0 auto 10px; display: grid; justify-items: center; }
   .fx-scene { display: block; width: 100%; height: auto; overflow: visible; }
   .fx-f, .fx-dome, .fx-coin { cursor: pointer; }
@@ -9271,6 +9276,65 @@ function fxOval(n, cx, cy, rx, ry, startDeg) {
   return out;
 }
 // Colony tab (1.0.234+): the lots on a wavy clay slab. HQ in the middle, 8 lots around it, 12 on the rim.
+// 🔍 zoom and drag the island (state lives here, so the once-a-second redraw keeps it)
+var cxZ = { s: 1, cx: 190, cy: 170 }, CX_VB = { x: -12, y: 34, w: 404, h: 272 };
+function cxBox() {
+  var w = CX_VB.w / cxZ.s, h = CX_VB.h / cxZ.s;
+  cxZ.cx = Math.min(CX_VB.x + CX_VB.w - w / 2, Math.max(CX_VB.x + w / 2, cxZ.cx));
+  cxZ.cy = Math.min(CX_VB.y + CX_VB.h - h / 2, Math.max(CX_VB.y + h / 2, cxZ.cy));
+  return (cxZ.cx - w / 2).toFixed(1) + " " + (cxZ.cy - h / 2).toFixed(1) + " " + w.toFixed(1) + " " + h.toFixed(1);
+}
+function cxApply() {
+  var sv = document.querySelector(".cx-scene"), st = document.querySelector(".cx-stage");
+  if (sv) sv.setAttribute("viewBox", cxBox());
+  if (st) st.classList.toggle("zoomed", cxZ.s > 1.001);
+}
+function cxZoomAt(s, fx, fy) { // keep the point (fx, fy) under the finger
+  s = Math.min(3, Math.max(1, s));
+  if (fx === undefined) { fx = cxZ.cx; fy = cxZ.cy; }
+  var k = cxZ.s / s;
+  cxZ.cx = fx + (cxZ.cx - fx) * k; cxZ.cy = fy + (cxZ.cy - fy) * k; cxZ.s = s;
+  if (s <= 1.001) { cxZ.s = 1; cxZ.cx = 190; cxZ.cy = 170; }
+  cxApply();
+}
+(function () {
+  var ptrs = {}, drag = null, pinch = null, moved = false;
+  function svgOf(e) { return e.target && e.target.closest && e.target.closest(".cx-scene"); }
+  function toVB(sv, x, y) { var m = sv.getScreenCTM(); if (!m) return null; var q = new DOMPoint(x, y).matrixTransform(m.inverse()); return { x: q.x, y: q.y }; }
+  document.addEventListener("pointerdown", function (e) {
+    var sv = svgOf(e);
+    if (!sv) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    moved = false;
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) { var a = ptrs[ids[0]], b = ptrs[ids[1]]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), s: cxZ.s }; drag = null; }
+    else if (cxZ.s > 1.001) drag = { x: e.clientX, y: e.clientY, cx: cxZ.cx, cy: cxZ.cy };
+  });
+  document.addEventListener("pointermove", function (e) {
+    var sv = document.querySelector(".cx-scene");
+    if (!sv || !ptrs[e.pointerId]) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (pinch && ids.length >= 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y), mid = toVB(sv, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      if (mid && pinch.d > 0) { moved = true; cxZoomAt(pinch.s * (d / pinch.d), mid.x, mid.y); }
+    } else if (drag) {
+      var m = sv.getScreenCTM(); if (!m) return;
+      var dx = (e.clientX - drag.x) / m.a, dy = (e.clientY - drag.y) / m.d;
+      if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 6) moved = true;
+      if (moved) { cxZ.cx = drag.cx - dx; cxZ.cy = drag.cy - dy; cxApply(); }
+    }
+  });
+  function up(e) { delete ptrs[e.pointerId]; if (Object.keys(ptrs).length < 2) pinch = null; if (!Object.keys(ptrs).length) drag = null; setTimeout(function () { moved = false; }, 60); }
+  document.addEventListener("pointerup", up); document.addEventListener("pointercancel", up);
+  document.addEventListener("click", function (e) { if (moved && svgOf(e)) { e.stopPropagation(); e.preventDefault(); } }, true); // a drag is not a tap on a lot
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-cx-zoom]");
+    if (!b) return;
+    var k = b.getAttribute("data-cx-zoom");
+    cxZoomAt(k === "in" ? cxZ.s * 1.5 : k === "out" ? cxZ.s / 1.5 : 1);
+  });
+})();
 function colonyScene(d) {
   var bySlot = {};
   d.buildings.forEach(function (b) { bySlot[b.slot] = b; });
@@ -9318,7 +9382,7 @@ function colonyScene(d) {
     var cls = b.level >= b.maxLevel ? "max" : b.pending > 0 ? "bld" : b.canBuild ? "up" : "";
     g += fxTag(c.x, c.y + c.W * 0.27 + 1.5, b.level, cls, 'data-lot="' + c.slot + '"');
   });
-  return '<svg class="fx-scene cx-scene" viewBox="-12 34 404 272" role="group" aria-label="Your colony lots">' + g + "</svg>";
+  return '<svg class="fx-scene cx-scene" viewBox="' + cxBox() + '" role="group" aria-label="Your colony lots">' + g + "</svg>";
 }
 
 // =====================================================================
@@ -9349,7 +9413,7 @@ function renderBuildings(d) {
 
   h += buildAdvice(d);
   // ---- the colony as a playset ----
-  h += '<div class="fx-stage cx-stage">' + colonyScene(d) + '<div class="fx-key"><span class="up">can upgrade</span><span class="max">max level</span><span class="bld">building</span><span class="free">free lot</span></div></div>';
+  h += '<div class="fx-stage cx-stage' + (cxZ.s > 1.001 ? " zoomed" : "") + '">' + colonyScene(d) + '<div class="cx-zoom"><button data-cx-zoom="in" aria-label="Zoom in">+</button><button data-cx-zoom="out" aria-label="Zoom out">−</button><button data-cx-zoom="reset" class="rs" aria-label="Show the whole island">⤢</button></div><div class="fx-key"><span class="up">can upgrade</span><span class="max">max level</span><span class="bld">building</span><span class="free">free lot</span></div></div>';
 
   // ---- the same buildings as a compact list, grouped by what they do ----
   var groups = [
