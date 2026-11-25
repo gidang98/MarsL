@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.497";
+const GAME_VERSION = "1.0.498";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17759,6 +17759,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.498",date:"2026-11-25",title:"8-bit voices",groups:[["✨ New",["Everyone now talks with short, dry 8-bit blips, and each voice has its own little theme tune that plays when they arrive."]]]},
   {v:"1.0.497",date:"2026-11-25",title:"The colony notices",groups:[["✨ New",["Your crew now reacts to how you play: Beppo and the Steward notice when you come back after a break, Beppo cheers a 3, 7, 14 or 30 day streak and nags about mission rewards left waiting for a day, the Steward points out an empty build queue, and the Drillmaster comments when you open the Army page with no troops.","Every voice now has its own short arrival tune."]]]},
   {v:"1.0.496",date:"2026-11-25",title:"Voices in the colony",groups:[["✨ New",["The first time you open a building, someone who works there says a few words: the Steward at the HQ, the Drillmaster at barracks, workshop and hangar, the Banker at the market, the Forager at warehouse and granary, the Warden at bunker and wall, the Professor in the lab. Each has their own voice. Settings → Voices turns them off."]]]},
   {v:"1.0.495",date:"2026-11-25",title:"Bigger Beppo",groups:[["🔧 Fixed",["Beppo is much bigger on phones, and the tour bubble no longer scrolls: the text and sprite shrink on small screens instead."]]]},

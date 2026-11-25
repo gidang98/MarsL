@@ -10003,10 +10003,10 @@ function blip(pitch, soft) {
   var ctx = audio();
   if (!ctx) return;
   var t = ctx.currentTime + 0.005, o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = soft ? "sine" : "square";
+  o.type = "square"; // the 8-bit voice: short, dry, one blip per letter
   o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
-  g.gain.setValueAtTime(soft ? 0.05 : 0.04, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + (soft ? 0.07 : 0.05));
+  g.gain.setValueAtTime(soft ? 0.03 : 0.04, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
   o.connect(g); g.connect(ctx.destination);
   o.start(t); o.stop(t + 0.06);
 }
@@ -13108,13 +13108,13 @@ function audio() {
 
 // [frequency, start, duration, wave, volume, slide to frequency]
 var SFX = {
-  "v-beppo": [[523, 0, 0.07, "sine", 0.035], [659, 0.07, 0.1, "sine", 0.035]],
-  "v-steward": [[294, 0, 0.09, "square", 0.025], [392, 0.1, 0.12, "square", 0.025]],
-  "v-drill": [[196, 0, 0.07, "square", 0.03], [196, 0.1, 0.07, "square", 0.03], [262, 0.2, 0.1, "square", 0.03]],
-  "v-banker": [[1046, 0, 0.05, "triangle", 0.035], [1318, 0.06, 0.08, "triangle", 0.035]],
-  "v-forager": [[349, 0, 0.12, "sine", 0.04], [440, 0.12, 0.14, "sine", 0.04]],
-  "v-warden": [[220, 0, 0.14, "sine", 0.045], [165, 0.14, 0.18, "sine", 0.045]],
-  "v-prof": [[587, 0, 0.05, "triangle", 0.03], [698, 0.05, 0.05, "triangle", 0.03], [880, 0.1, 0.05, "triangle", 0.03], [740, 0.15, 0.1, "triangle", 0.03]],
+  "v-beppo": [[523, 0.000, 0.06, "square", 0.028], [659, 0.075, 0.06, "square", 0.028], [784, 0.150, 0.06, "square", 0.028], [659, 0.225, 0.06, "square", 0.028], [784, 0.300, 0.06, "square", 0.028], [1046, 0.375, 0.16, "square", 0.028]],
+  "v-steward": [[196, 0.000, 0.10, "square", 0.028], [262, 0.120, 0.10, "square", 0.028], [330, 0.240, 0.10, "square", 0.028], [392, 0.360, 0.30, "square", 0.028]],
+  "v-drill": [[131, 0.000, 0.09, "square", 0.028], [131, 0.100, 0.09, "square", 0.028], [196, 0.200, 0.09, "square", 0.028], [262, 0.300, 0.22, "square", 0.028]],
+  "v-banker": [[1976, 0.000, 0.05, "square", 0.028], [2637, 0.060, 0.05, "square", 0.028], [1976, 0.120, 0.05, "square", 0.028], [2637, 0.180, 0.14, "square", 0.028]],
+  "v-forager": [[349, 0.000, 0.09, "square", 0.028], [440, 0.110, 0.09, "square", 0.028], [523, 0.220, 0.09, "square", 0.028], [440, 0.330, 0.09, "square", 0.028], [349, 0.440, 0.22, "square", 0.028]],
+  "v-warden": [[110, 0.000, 0.12, "square", 0.028], [165, 0.140, 0.12, "square", 0.028], [220, 0.280, 0.12, "square", 0.028], [165, 0.420, 0.34, "square", 0.028]],
+  "v-prof": [[587, 0.000, 0.06, "square", 0.028], [698, 0.070, 0.06, "square", 0.028], [880, 0.140, 0.06, "square", 0.028], [1046, 0.210, 0.06, "square", 0.028], [988, 0.280, 0.06, "square", 0.028], [784, 0.350, 0.16, "square", 0.028]],
   click: [[660, 0, 0.04, "triangle", 0.04]],
   pop: [[520, 0, 0.05, "triangle", 0.06, 780]],
   build: [[392, 0, 0.07, "square", 0.04], [523, 0.08, 0.1, "square", 0.04]],
@@ -13582,7 +13582,7 @@ function voiceShow(whoKey, mood, text, top) {
     setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
   };
   sfx("v-" + whoKey); // each voice has its own little arrival tune
-  setTimeout(function () { if (!gone) typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch); }, 260);
+  setTimeout(function () { if (!gone) typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch); }, 700);
   el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
   setTimeout(bye, 9500);
 }
