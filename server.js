@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.518";
+const GAME_VERSION = "1.0.519";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -2517,7 +2517,7 @@ function requireLogin(req, res, next) {
   // remember when the player was last online (at most once a minute)
   if (Date.now() - row.last_seen > 60000) {
     // 🌙 away for a while? remember since when, for the "while you were away" summary
-    if (row.last_seen > 0 && Date.now() - row.last_seen > AWAY_MIN_MS && !sitTarget(row)) db.prepare("UPDATE users SET last_seen = ?, away_since = ?, away_seen = 0 WHERE id = ?").run(Date.now(), row.last_seen, row.id);
+    if (row.last_seen > 0 && Date.now() - row.last_seen > AWAY_MIN_MS && !sitTarget(row)) db.prepare("UPDATE users SET last_seen = ?, away_since = ?, away_seen = 0, away_cash = 0 WHERE id = ?").run(Date.now(), row.last_seen, row.id);
     else db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(Date.now(), row.id);
   }
   trackActivity(row.id); // play time for the owner's statistics
@@ -16049,7 +16049,7 @@ function cashSettle(userId, now, force) {
   if (whole < 1 && !force) return;
   hu.cashFrac = gain - whole;
   hu.cashAt = now;
-  db.prepare("UPDATE users SET cash = cash + ?, roster = ? WHERE id = ?").run(whole, JSON.stringify(r), userId);
+  db.prepare("UPDATE users SET cash = cash + ?, away_cash = away_cash + CASE WHEN away_seen = 0 THEN ? ELSE 0 END, roster = ? WHERE id = ?").run(whole, whole, JSON.stringify(r), userId);
 }
 // for the wallet on the screen: balance, income per second and the fraction, so it can tick every second
 function cashInfo(userId, now) {
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.519",date:"2026-11-25",title:"Space-Cash in While you were away",groups:[["🌙 While you were away",["The summary now shows how much Space-Cash your hunters earned while you were offline."]]]},
   {v:"1.0.518",date:"2026-11-25",title:"Sounds, a streak track and lighter backdrops",groups:[["🔊 Sound",["New short sounds for opening a crate, winning or losing a battle, starting construction, and casino wins (a bigger one for a big win)."]],["🎁 Daily supply",["The daily supply shows a 7-day crate track. Day 3 is a silver bonus crate (+80 of each) and day 7 a gold one (+280 of each), every week of your streak."]],["🎨 Polish",["Roulette Red and Black buttons use painted dots instead of emoji squares.","The login and loading screens load a lighter picture on phones, so the first load is faster."]]]},
   {v:"1.0.517",date:"2026-11-25",title:"Painted crates, banners and emblems",groups:[["🎨 Art",["Bounty stashes and the daily supply show a painted crate in bronze, silver or gold, and the daily one opens when it is ready.","Battle reports open with a banner: victory, defeat, camp cleared or colony defended.","Aurora, meteor crates, wandering traders and a new act now have painted event banners.","The auction hall, the login screen and the loading screen have painted backdrops."]],["🛡️ Alliances",["Leaders and officers can pick one of 12 emblems for their alliance. It shows on the alliance page and in the ranking."]]]},
   {v:"1.0.516",date:"2026-11-25",title:"Painted roulette wheel",groups:[["🎰 Casino",["The roulette wheel has a painted rim and centre. The pockets and numbers are drawn by the game, so they always match the real wheel order."]]]},
@@ -22215,17 +22216,18 @@ app.get("/api/holdings", requireLogin, (req, res) => {
 const AWAY_MIN_MS = 30 * 60000;
 addColumn("users", "away_since", "INTEGER NOT NULL DEFAULT 0");
 addColumn("users", "away_seen", "INTEGER NOT NULL DEFAULT 1");
+addColumn("users", "away_cash", "INTEGER NOT NULL DEFAULT 0"); // Space-Cash earned while away, for the summary
 function awayPending(userId) {
   const r = db.prepare("SELECT away_seen, away_since FROM users WHERE id = ?").get(userId);
   return !!(r && !r.away_seen && r.away_since > 0);
 }
 function awaySum(o) { let n = 0; for (const k in o || {}) n += Number(o[k]) || 0; return n; }
 app.get("/api/away", requireLogin, (req, res) => {
-  const r = db.prepare("SELECT away_seen, away_since FROM users WHERE id = ?").get(req.user.id);
+  const r = db.prepare("SELECT away_seen, away_since, away_cash FROM users WHERE id = ?").get(req.user.id);
   if (!r || r.away_seen || !r.away_since) return res.json({ none: true });
   const now = Date.now();
   const rows = db.prepare("SELECT id, created_at, icon, title, data, seen FROM reports WHERE user_id = ? AND created_at > ? ORDER BY id DESC LIMIT 300").all(req.user.id, r.away_since);
-  const S = { defended: 0, lost: 0, won: 0, failed: 0, loot: 0, stolen: 0, landmarks: 0, founded: 0, spied: 0, razed: 0, other: 0 };
+  const S = { cash: Math.max(0, r.away_cash || 0), defended: 0, lost: 0, won: 0, failed: 0, loot: 0, stolen: 0, landmarks: 0, founded: 0, spied: 0, razed: 0, other: 0 };
   const events = [];
   for (const row of rows) {
     let d = {};
