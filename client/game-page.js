@@ -13454,6 +13454,71 @@ function toggleSound() {
   if (data) renderColony(data);
 }
 
+// 🎵 Background music: tracks are files the server owner drops into the "music" folder, named after the place they play in
+// (title, colony, map, casino, battle). A place without its own track plays "colony". Starts after the first tap, fades between
+// places, ducks under speech, pauses when the tab is hidden, and follows the Sound switch.
+var MUSIC = { tracks: {}, list: [], on: true, vol: 0.3, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false };
+var MUSIC_VOLS = [[0.15, "Low"], [0.3, "Medium"], [0.5, "High"]];
+try { MUSIC.on = localStorage.getItem("marsl-music") !== "off"; var mvv = Number(localStorage.getItem("marsl-music-vol")); if (mvv > 0) MUSIC.vol = mvv; } catch (e) {}
+function musicLoad() {
+  fetch("/api/music").then(function (r) { return r.json(); }).then(function (j) {
+    MUSIC.tracks = {};
+    (j.tracks || []).forEach(function (t) { if (!MUSIC.tracks[t.name]) MUSIC.tracks[t.name] = "/music/" + encodeURIComponent(t.file) + "?v=" + t.v; });
+    MUSIC.list = Object.keys(MUSIC.tracks);
+    if (data && sheet && sheet.kind === "account") renderSheet();
+  }).catch(function () {});
+}
+function musicScene() {
+  if (!loggedIn) return "title";
+  if (document.getElementById("scene")) return "battle";
+  if (document.getElementById("cz-stage")) return "casino";
+  if (view === "map") return "map";
+  return "colony";
+}
+function musicPick(scene) { return MUSIC.tracks[scene] ? scene : MUSIC.tracks.colony ? "colony" : MUSIC.list[0] || ""; }
+function musicDuck(ms) { MUSIC.duckUntil = Math.max(MUSIC.duckUntil, Date.now() + ms); }
+function musicStep() {
+  var ids = Object.keys(MUSIC.live);
+  if (!MUSIC.list.length && !ids.length) return;
+  if (MUSIC.hid) { ids.forEach(function (k) { if (!MUSIC.live[k].el.paused) MUSIC.live[k].el.pause(); }); return; }
+  var ctx = MUSIC.unlocked ? audio() : null;
+  var want = MUSIC.on && sound.on && ctx ? musicPick(musicScene()) : "";
+  if (want && !MUSIC.live[want]) {
+    var el = new Audio(MUSIC.tracks[want]);
+    el.loop = true; el.preload = "auto";
+    var g = ctx.createGain(); g.gain.value = 0;
+    try { ctx.createMediaElementSource(el).connect(g); g.connect(ctx.destination); } catch (e) { return; }
+    MUSIC.live[want] = { el: el, g: g, lvl: 0 };
+  }
+  MUSIC.dk += Math.max(-0.06, Math.min(0.06, (Date.now() < MUSIC.duckUntil ? 0.35 : 1) - MUSIC.dk));
+  Object.keys(MUSIC.live).forEach(function (k) {
+    var t = MUSIC.live[k], tgt = k === want ? 1 : 0;
+    t.lvl += Math.max(-0.05, Math.min(0.05, tgt - t.lvl)); // about two seconds from silence to full
+    if (t.lvl <= 0 && !tgt) { t.el.pause(); try { t.g.disconnect(); } catch (e) {} delete MUSIC.live[k]; return; }
+    if (t.el.paused) { var pr = t.el.play(); if (pr && pr.catch) pr.catch(function () {}); }
+    t.g.gain.value = MUSIC.vol * t.lvl * MUSIC.dk;
+  });
+}
+function musicToggle() {
+  MUSIC.on = !MUSIC.on;
+  try { localStorage.setItem("marsl-music", MUSIC.on ? "on" : "off"); } catch (e) {}
+}
+function musicLevel() {
+  var i = 0;
+  MUSIC_VOLS.forEach(function (v, k) { if (Math.abs(v[0] - MUSIC.vol) < 0.01) i = k; });
+  MUSIC.vol = MUSIC_VOLS[(i + 1) % MUSIC_VOLS.length][0];
+  try { localStorage.setItem("marsl-music-vol", String(MUSIC.vol)); } catch (e) {}
+}
+function musicVolName() { var n = "Medium"; MUSIC_VOLS.forEach(function (v) { if (Math.abs(v[0] - MUSIC.vol) < 0.01) n = v[1]; }); return n; }
+(function () {
+  function unlock() { MUSIC.unlocked = true; }
+  document.addEventListener("pointerdown", unlock, { once: true, capture: true });
+  document.addEventListener("keydown", unlock, { once: true, capture: true });
+  document.addEventListener("visibilitychange", function () { MUSIC.hid = document.hidden; });
+  setInterval(musicStep, 100);
+  musicLoad();
+})();
+
 // =====================================================================
 //  BEGINNER PROTECTION banner
 // =====================================================================
@@ -14108,6 +14173,7 @@ function typeHtml(el, pitch, wave, mood) {
   var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), nodes = [], n;
   while ((n = w.nextNode())) { nodes.push({ node: n, full: n.nodeValue }); n.nodeValue = ""; }
   var ni = 0, ci = 0, tick = 0, gap = mood === "worried" ? 17 : mood === "surprised" ? 20 : 24; // worried babbles, surprised rushes in
+  musicDuck(Math.min(9000, nodes.reduce(function (n, x) { return n + x.full.length; }, 0) * gap / 2 + 900)); // the music steps back while somebody talks
   function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; el.classList.add("fin"); }
   tut.finish = finish;
   tut.timer = setInterval(function () {
@@ -15696,7 +15762,7 @@ function renderSheet() {
     h += translateSheet();
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
-    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button><button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
+    h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" + (MUSIC.on ? '<button class="btn ghost" data-music-vol="1">🔉 Music: ' + musicVolName() + "</button>" : "") : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button></div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play
@@ -19764,7 +19830,7 @@ document.addEventListener("submit", function (e) {
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
     "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
-    "[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
+    "[data-music],[data-music-vol],[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
@@ -20158,6 +20224,12 @@ document.addEventListener("click", function (e) {
     document.documentElement.classList.toggle("dark-mode", dark);
     document.body.classList.toggle("dark-mode", dark);
     if (data) renderSheet();
+  } else if (has("data-music")) {
+    musicToggle();
+    if (data) renderColony(data);
+  } else if (has("data-music-vol")) {
+    musicLevel();
+    if (data) renderColony(data);
   } else if (has("data-sound")) {
     toggleSound();
   } else if (has("data-beppo")) {
