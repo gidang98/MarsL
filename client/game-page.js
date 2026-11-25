@@ -8319,7 +8319,7 @@ function langPicker() {
 var landing = true;
 var LP_TRIBES = __TRIBES__;
 function lpPhone(name, alt, cls) {
-  return '<figure class="lp-phone' + (cls ? " " + cls : "") + '"><img src="/shots/' + name + '.webp" width="540" height="1080" alt="' + alt + '"' + (cls === "lp-front" ? "" : ' loading="lazy"') + "></figure>";
+  return '<figure class="lp-phone' + (cls ? " " + cls : "") + '"><img src="/shots/' + name + '.webp?v=__SHOTV__" width="540" height="1080" alt="' + alt + '"' + (cls === "lp-front" ? "" : ' loading="lazy"') + "></figure>";
 }
 function renderLanding() {
   document.body.classList.add("landing");
