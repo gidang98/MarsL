@@ -1569,6 +1569,10 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .tut-step { float: right; font-weight: 800; font-size: 12px; opacity: 0.6; }
   #beppo-say { position: fixed; left: 70px; bottom: calc(150px + env(safe-area-inset-bottom)); z-index: 24; display: flex; align-items: flex-end; gap: 6px; max-width: min(330px, calc(100% - 84px)); animation: tagpop 0.22s ease-out; }
   #beppo-say.top { left: 8px; max-width: calc(100% - 16px); bottom: auto; top: calc(70px + env(safe-area-inset-top)); z-index: 90; }
+  #beppo-scrim { position: fixed; inset: 0; z-index: 23; pointer-events: none; background: rgba(20, 12, 6, 0.16); animation: scrimin 0.25s ease-out; }
+  #beppo-scrim.top { z-index: 89; }
+  #beppo-scrim.bye { opacity: 0; transition: opacity 0.2s; }
+  @keyframes scrimin { from { opacity: 0; } }
   #beppo-say.bye { opacity: 0; transition: opacity 0.2s; }
   #beppo-say img { width: 88px; height: 88px; flex: none; object-fit: contain; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 4px 6px rgba(0,0,0,.45)); }
   .bs-bub { position: relative; flex: 1; min-width: 0; margin-bottom: 8px; padding: 8px 12px; background: #fffbe6; color: #3a2a1a; border: 2px solid #3a2a1a; border-radius: var(--radius-md); box-shadow: 0 3px 0 rgba(58, 42, 26, 0.35), 0 8px 22px rgba(0, 0, 0, 0.4); font-size: 13px; line-height: 1.4; }
@@ -13607,6 +13611,10 @@ function voiceShow(whoKey, mood, text, top) {
   el.id = "beppo-say";
   if (top) el.className = "top";
   el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + trStr(text) + "</div></div>";
+  var sc = document.createElement("div");
+  sc.id = "beppo-scrim"; // a very light veil so the bubble never gets lost on busy screens
+  if (top) sc.className = "top";
+  document.body.appendChild(sc);
   document.body.appendChild(el);
   var t = el.querySelector(".bs-t"), gone = 0;
   var bye = function () {
@@ -13614,7 +13622,8 @@ function voiceShow(whoKey, mood, text, top) {
     gone = 1;
     if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
     el.classList.add("bye");
-    setTimeout(function () { el.remove(); }, calmMotion ? 0 : 220);
+    sc.classList.add("bye");
+    setTimeout(function () { el.remove(); sc.remove(); }, calmMotion ? 0 : 220);
   };
   t.style.visibility = "hidden"; // the words wait for the arrival tune, then type out
   sfx("v-" + whoKey); // each voice has its own little arrival tune
