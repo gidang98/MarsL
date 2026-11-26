@@ -1385,6 +1385,12 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
     text-shadow: 0 1px 0 #fff; pointer-events: none; animation: lossfly 2.2s ease-out forwards;
   }
   @keyframes lossfly { 0% { opacity: 0; transform: translateY(10px) scale(0.6); } 15% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-30px); } }
+  /* resources that arrive (loot, trades, collected supplies) rise out of their box in green, the box glows once */
+  .gainflash { position: fixed; z-index: 9998; pointer-events: none; font-weight: 800; font-size: 18px; color: #1f8f4e; white-space: nowrap;
+    text-shadow: 0 1px 0 #fff, 0 0 6px rgba(255,255,255,.9); transform: translate(-100%, 0); animation: gainfly 1.8s ease-out forwards; }
+  @keyframes gainfly { 0% { opacity: 0; transform: translate(-100%, 12px) scale(.6); } 15% { opacity: 1; transform: translate(-100%, 0) scale(1.08); } 30% { transform: translate(-100%, -4px) scale(1); } 100% { opacity: 0; transform: translate(-100%, -34px); } }
+  .gainglow { position: fixed; z-index: 9997; pointer-events: none; border-radius: 12px; box-shadow: inset 0 0 0 2px rgba(46,170,98,.75), 0 0 14px rgba(46,170,98,.45); animation: gainglow 1.1s ease-out forwards; }
+  @keyframes gainglow { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
 
   /* ---------- Monster camps on the map ---------- */
   .t-m::after { content: none; }
@@ -4340,7 +4346,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   @keyframes bob { from { transform: translateY(0) rotate(-3deg); } to { transform: translateY(-5px) rotate(3deg); } }
   @media (max-width: 559px) { body.in .critter { bottom: calc(78px + env(safe-area-inset-bottom)); width: 46px; height: 46px; } }
   @media (prefers-reduced-motion: reduce) {
-    body.in .sky::after, body.in .sky[data-wx], .ready-pulse, .fx-stage .pop, .nav .ci.pop, .coinfly, body.in .critter i { animation: none !important; }
+    body.in .sky::after, body.in .sky[data-wx], .ready-pulse, .fx-stage .pop, .nav .ci.pop, .coinfly, .gainflash, .gainglow, body.in .critter i { animation: none !important; }
     body.in .critter { display: none; }
     body.in .sky[data-wx="ion"]::after { opacity: 0; }
   }
@@ -16060,6 +16066,53 @@ function renderParts(parts) {
   parts.forEach(function (html, i) { setHTML(app.children[i], html); });
 }
 
+// 🟢 resources that arrive all at once (loot coming home, a trade, collected supplies, a claimed reward) rise out of their box
+var prevRes = null, prevReturns = null, gainSoundAt = 0;
+function flashGain(gain) {
+  var boxes = document.querySelectorAll(".resbar .res"), any = false;
+  RES.forEach(function (k, i) {
+    var b = boxes[i];
+    if (!gain[k] || !b) return;
+    var r = b.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > innerHeight) return;
+    any = true;
+    var gl = document.createElement("div");
+    gl.className = "gainglow";
+    gl.style.left = r.left + "px"; gl.style.top = r.top + "px"; gl.style.width = r.width + "px"; gl.style.height = r.height + "px";
+    var f = document.createElement("span");
+    f.className = "gainflash";
+    f.textContent = "+" + shortNum(gain[k]);
+    f.style.left = (r.right - 8) + "px"; f.style.top = (r.top - 6) + "px";
+    document.body.appendChild(gl); document.body.appendChild(f);
+    setTimeout(function () { gl.remove(); f.remove(); }, 1900);
+  });
+  if (any && Date.now() - gainSoundAt > 1500) { gainSoundAt = Date.now(); sfx("coins"); }
+}
+function watchGains(d) {
+  var now = Date.now();
+  if (prevRes && prevRes.id === d.colonyId) {
+    var hrs = Math.max(0, now - prevRes.t) / 3600000, gain = {}, any = false;
+    RES.forEach(function (k) {
+      var net = d.production[k] - (k === "food" ? d.upkeep : 0), cap = d.capacity[k] || 0;
+      var expect = Math.min(cap, prevRes.v[k] + Math.max(0, net) * hrs + 1);
+      var x = Math.floor((d.res[k] || 0) - expect);
+      if (x >= Math.max(10, cap * 0.004)) { gain[k] = x; any = true; }
+    });
+    if (any) flashGain(gain);
+  }
+  prevRes = { id: d.colonyId, t: now, v: {} };
+  RES.forEach(function (k) { prevRes.v[k] = d.res[k] || 0; });
+  // 🏡 troops coming home: the Army button gives a little hop and the march plays
+  var ret = {};
+  (d.movements || []).forEach(function (m) { if (m.type === "return") ret[m.id] = 1; });
+  if (prevReturns && prevReturns.id === d.colonyId && Object.keys(prevReturns.ids).some(function (id) { return !ret[id]; })) {
+    var ic = document.querySelector('.nav [data-view="troops"] .ci');
+    if (ic) { ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop"); }
+    if (Date.now() - gainSoundAt > 1500) sfx("march");
+  }
+  prevReturns = { id: d.colonyId, ids: ret };
+}
+
 // Celebrate finished buildings and shout about new reports or attacks
 var prevStolen = null;
 var prevMail = null;
@@ -16079,6 +16132,7 @@ function flashLoss(loot) {
 }
 
 function noticeChanges(d) {
+  watchGains(d);
   if (prevQueue && prevQueue.length && !justCancelled) {
     var first = prevQueue[0];
     var still = d.queue.some(function (q) { return q.name === first.name && q.targetLevel === first.targetLevel; });
