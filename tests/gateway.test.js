@@ -65,14 +65,17 @@ test("gateway: forwards requests, keeps cookies apart per server and signs the p
   assert.strictEqual(none.body, "hub");
   const r = await request(port, {
     method: "POST", path: "/api/x?y=1", body: '{"a":1}',
-    headers: { Host: "marsl-game.com", Cookie: "marsl_srv=speed-test; speed-test~marsl_session=tok; marsl_session=HUB; open-test~marsl_session=other", "Content-Type": "application/json", "x-marsl-gw": "forged", "x-marsl-gw-ip": "6.6.6.6" },
+    headers: { Host: "marsl-game.com", Origin: "https://marsl-game.com", Referer: "https://marsl-game.com/x", Cookie: "marsl_srv=speed-test; speed-test~marsl_session=tok; marsl_session=HUB; open-test~marsl_session=other", "Content-Type": "application/json", "x-marsl-gw": "forged", "x-marsl-gw-ip": "6.6.6.6" },
   });
   assert.strictEqual(r.status, 200);
   assert.strictEqual(r.body, "hello /api/x?y=1");
   const s = seen();
   assert.strictEqual(s.method, "POST");
   assert.strictEqual(s.body, '{"a":1}');
-  assert.strictEqual(s.headers.host, "marsl-game.com");
+  assert.strictEqual(s.headers.host, "127.0.0.1:" + s.headers.host.split(":")[1]);
+  assert.strictEqual(s.headers["x-forwarded-host"], "marsl-game.com");
+  assert.strictEqual(s.headers.origin, "http://" + s.headers.host);
+  assert.strictEqual(s.headers.referer, "http://" + s.headers.host + "/x");
   assert.strictEqual(s.headers.cookie, "marsl_session=tok");
   assert.strictEqual(gw.trustedIp({ headers: s.headers }), "203.0.113.7");
   assert.deepStrictEqual(r.headers["set-cookie"], ["speed-test~marsl_session=abc; HttpOnly; Path=/", "speed-test~marsl_dev=1; Path=/"]);
