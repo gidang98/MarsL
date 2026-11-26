@@ -4499,12 +4499,19 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 .stash-origin b,.stash-origin small { display:block; }
 .stash-origin b { font-size:13px; }
 .stash-origin small { font-size:11px; line-height:1.3; opacity:.75; }
-.st-head,.st-row { display:grid; grid-template-columns:1fr 90px 1fr; gap:8px; align-items:center; }
-.st-head { font-size:11px; opacity:.7; padding:6px 0; }
-.st-row { padding:10px 0; border-top:1px solid var(--line); font-size:13px; }
-.st-row input[type=number] { width:100%; min-width:0; box-sizing:border-box; padding:6px; }
-.st-row input[type=range] { grid-column:1 / -1; width:100%; margin:0; }
+.st-head,.st-row { display:grid; grid-template-columns:76px 1fr 62px 54px; gap:4px 8px; align-items:center; }
+.st-head { font-size:11px; opacity:.7; padding:2px 0 4px; }
+.st-head .st-h-t { grid-column:2 / 4; }
+.st-head span:last-child { text-align:right; }
+.st-row { padding:7px 0; border-top:1px solid var(--line); font-size:13px; }
+.st-row input[type=number] { width:100%; min-width:0; box-sizing:border-box; padding:5px 6px; }
+.st-row input[type=range] { width:100%; min-width:0; margin:0; }
 .st-row b { text-align:right; font-size:12px; }
+.stash-transfer .hint { margin:0 0 6px; }
+.stash-transfer ~ p.dim { margin:6px 0 0; font-size:11px; }
+.stash-origin { padding:6px 10px; margin:4px 0 6px; }
+.stash-origin-icon { font-size:18px; }
+.st-go { position:sticky; bottom:0; width:100%; margin-top:6px; z-index:1; box-shadow:0 -8px 10px -6px var(--paper,#fff); }
 .stash-short { display:block; margin-top:3px; color:var(--danger,#b33); font-size:10px; line-height:1.2; }
 .st-available { display:flex; align-items:center; gap:6px; }
 .st-available>span { font-size:19px; }
@@ -15849,17 +15856,17 @@ function stashTransferSheet(d) {
   if (!H) return '<p>No commander inventory available.</p>';
   var h = '<h3>Transfer from commander inventory</h3><div class="stash-origin"><span class="stash-origin-icon">🎖️📦</span><span><b>Commander inventory</b><small>Taking resources from the bounty stash · transfer to ' + esc(d.colony) + '</small></span></div><div class="stash-transfer">';
   if (d.onboarding) h += '<p class="hint">Available shows your commander’s supplies. Transfer is the amount to move. New amount shows what this colony will hold afterward. Adjust the numbers or sliders, then press Transfer selected. Close this window to return to your build.</p>';
-  h += '<div class="st-head"><span>Resource / available</span><span>Transfer</span><span>New amount</span></div>';
+  h += '<div class="st-head"><span>Resource / available</span><span class="st-h-t">Transfer</span><span>New amount</span></div>';
   RES.forEach(function(r) {
     var have = (H.stash && H.stash[r]) || 0;
     var room = Math.max(0, Math.floor(d.capacity[r] - d.res[r]));
     var max = Math.min(have, room);
     heroTake[r] = Math.min(max, Math.max(0, Math.floor(heroTake[r] || 0)));
     var stillMissing = Math.max(0, Math.floor((heroNeed[r] || 0) - heroTake[r]));
-    h += '<div class="st-row"><span>' + RES_ICON[r] + ' ' + shortNum(have) + (stillMissing ? '<small class="stash-short" data-stash-short="' + r + '">Still missing ' + shortNum(stillMissing) + '</small>' : '<small class="stash-short" data-stash-short="' + r + '" hidden></small>') + '</span><input aria-label="' + esc(RES_NAME[r]) + ' transfer" type="number" inputmode="numeric" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"><b data-stash-result="' + r + '">' + Math.floor(d.res[r] + heroTake[r]).toLocaleString() + '</b><input aria-label="' + esc(RES_NAME[r]) + ' transfer slider" type="range" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"></div>';
+    h += '<div class="st-row"><span>' + RES_ICON[r] + ' ' + shortNum(have) + (stillMissing ? '<small class="stash-short" data-stash-short="' + r + '">Still missing ' + shortNum(stillMissing) + '</small>' : '<small class="stash-short" data-stash-short="' + r + '" hidden></small>') + '</span><input aria-label="' + esc(RES_NAME[r]) + ' transfer slider" type="range" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"><input aria-label="' + esc(RES_NAME[r]) + ' transfer" type="number" inputmode="numeric" min="0" max="' + max + '" data-hero-take="' + r + '" value="' + heroTake[r] + '"><b data-stash-result="' + r + '">' + Math.floor(d.res[r] + heroTake[r]).toLocaleString() + '</b></div>';
   });
   var transferable = RES.some(function(r) { return (H.stash && H.stash[r] || 0) > 0 && d.capacity[r] > d.res[r]; });
-  return h + '</div><p class="dim">' + (transferable ? 'Amounts are limited by available inventory and free storage.' : 'Your inventory is empty or this colony has no free storage. Claim a quest reward or make room in storage, then return here.') + '</p><button class="btn small" data-hero-open-crate="1"' + (transferable ? '' : ' disabled') + '>Transfer selected</button>';
+  return h + '</div><p class="dim">' + (transferable ? 'Amounts are limited by available inventory and free storage.' : 'Your inventory is empty or this colony has no free storage. Claim a quest reward or make room in storage, then return here.') + '</p><button class="btn small st-go" data-hero-open-crate="1"' + (transferable ? '' : ' disabled') + '>Transfer selected</button>';
 }
 function darkModeOn() { try { return localStorage.getItem("marsl-dark-mode") === "1"; } catch (e) { return false; } }
 try { if (darkModeOn()) { document.documentElement.classList.add("dark-mode"); document.body.classList.add("dark-mode"); } } catch (e) {}
