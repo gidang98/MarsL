@@ -14034,6 +14034,13 @@ document.addEventListener("click", function (e) {
     if (e.target.closest(sel)) setTimeout(function () { beppoSay(BEPPO_OPEN[sel], true); }, 700);
   });
 });
+// explainers this account already heard on any device count as heard here
+function tipsMerge(d) {
+  if (!d || !d.tipsSeen || !d.tipsSeen.length) return;
+  var seen = beppoSeen(), add = false;
+  d.tipsSeen.forEach(function (id) { if (!seen[id]) { seen[id] = 1; add = true; } });
+  if (add) try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
+}
 function beppoSeen() { try { return JSON.parse(localStorage.getItem("marsl-beppo-seen") || "{}") || {}; } catch (e) { return {}; } }
 function beppoOn() { try { return localStorage.getItem("marsl-beppo-off") !== "1"; } catch (e) { return true; } }
 function beppoSay(id, top) {
@@ -14043,6 +14050,7 @@ function beppoSay(id, top) {
   if (seen[id]) return;
   seen[id] = 1;
   try { localStorage.setItem("marsl-beppo-seen", JSON.stringify(seen)); } catch (e) {}
+  try { fetch("/api/tips-seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); } catch (e) {} // also on the account, so other devices stay quiet too
   voiceShow(m[2] || "beppo", m[0], m[1], top);
 }
 function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy && !(sheet && sheet.kind === "casino"); }
@@ -14053,6 +14061,16 @@ function voiceSay(id, who, mood, text, cdMs, top) {
   try { mem = JSON.parse(localStorage.getItem("marsl-voice-t") || "{}") || {}; } catch (e) {}
   if (mem[id] && Date.now() - mem[id] < cdMs) return false;
   mem[id] = Date.now();
+  // a list of lines: pick one, never the same as last time
+  if (Array.isArray(text)) {
+    var last = {};
+    try { last = JSON.parse(localStorage.getItem("marsl-voice-l") || "{}") || {}; } catch (e) {}
+    var opts = text.map(function (t, i) { return i; }).filter(function (i) { return i !== last[id]; });
+    var pick = opts[Math.floor(Math.random() * opts.length)];
+    last[id] = pick;
+    try { localStorage.setItem("marsl-voice-l", JSON.stringify(last)); } catch (e) {}
+    text = text[pick];
+  }
   try { localStorage.setItem("marsl-voice-t", JSON.stringify(mem)); } catch (e) {}
   voiceShow(who, mood, text, top);
   return true;
@@ -14219,22 +14237,22 @@ function voiceWatch(d) {
   if (!rdy) mem.rdySince = 0;
   try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
   var se = d.world && d.world.season;
-  if (se && se.active && se.kind === "aurora") voiceSay("aurora", "void", "neutral", "The light stirs. Charge the pylons. Or do not. The void is patient. It has had practice.", 7 * 24 * HOUR);
+  if (se && se.active && se.kind === "aurora") voiceSay("aurora", "void", "neutral", ["The light stirs. Charge the pylons. Or do not. The void is patient. It has had practice.", "The Aurora wakes. I would hurry. I would also like to say I told you so. In advance. Efficient.", "Something glows beyond the pylons. It is not a lamp. I checked. Twice. Politely."], 7 * 24 * HOUR);
   if (!mem.say) {
-    if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", "Your mission rewards have waited a day. They do not spoil. I do. Out of boredom.", 24 * HOUR);
+    if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", ["Your mission rewards have waited a day. They do not spoil. I do. Out of boredom.", "Rewards are sitting on the board. Looking at me. I have started to feel judged.", "A whole day, and the rewards are still there. Very patient rewards. Take them!"], 24 * HOUR);
     return;
   }
   mem.say = 0;
   try { localStorage.setItem("marsl-voice-mem", JSON.stringify(mem)); } catch (e) {}
   setTimeout(function () {
     var streak = mem.streak || 1;
-    if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", "Commander! The crew bet on when you would return. I lost. They have my hat now.", 12 * HOUR);
-    else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", "You are back! I guarded the snacks. Well. Guarded. Near. Next to.", 12 * HOUR);
-    else if (new Date().getHours() < 5) voiceSay("night", "owl", "neutral", "It is very late, Commander. The colony will still be here tomorrow. Unlike my sleep schedule.", 20 * HOUR);
-    else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", streak + " days in a row! I am telling everyone. Everyone being the wall. The wall is impressed.", 20 * HOUR);
-    else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", "Nothing is being built. The crew started a card game. Someone is cheating. I think it is me.", 6 * HOUR);
-    else if (data && data.cash >= 100000) voiceSay("cash", "trickster", "neutral", "All that Space-Cash, just sitting there? Shocking. I know a place. No, not a scam. Mostly not.", 24 * HOUR);
-    else if (data && data.unread >= 6) voiceSay("pile", "courier", "worried", "That is " + data.unread + " unread reports. My arms hurt. My ears hurt. Read some!", 12 * HOUR);
+    if (mem.gap > 72 * HOUR) voiceSay("back", "steward", "neutral", ["Commander! The crew bet on when you would return. I lost. They have my hat now.", "You are back! The crew held a small parade. It was mostly me, walking in circles.", "Welcome home, Commander. Nothing exploded while you were away. A little smoke. Nothing exploded."], 12 * HOUR);
+    else if (mem.gap > 12 * HOUR) voiceSay("back", "beppo", "happy", ["You are back! I guarded the snacks. Well. Guarded. Near. Next to.", "Commander! The colony is fine. The snacks are fewer. These two facts are unrelated.", "Welcome back! I kept your chair warm. By sitting in it. Do not ask for how long."], 12 * HOUR);
+    else if (new Date().getHours() < 5) voiceSay("night", "owl", "neutral", ["It is very late, Commander. The colony will still be here tomorrow. Unlike my sleep schedule.", "Whoo. Still up? The potatoes grow at night anyway. They do not need supervision. I do.", "Night shift, Commander? I will keep watch. With both eyes. One at a time."], 20 * HOUR);
+    else if ([3, 7, 14, 30].indexOf(streak) >= 0) voiceSay("streak" + streak, "beppo", "happy", [streak + " days in a row! I am telling everyone. Everyone being the wall. The wall is impressed.", streak + " days straight! The crew made you a medal out of a bottle cap. It is very shiny.", streak + " days in a row, Commander. The colony notices. So do I. Mostly me."], 20 * HOUR);
+    else if (data && data.queue && data.queue.length === 0) voiceSay("idleq", "steward", "neutral", ["Nothing is being built. The crew started a card game. Someone is cheating. I think it is me.", "The build queue is empty. The builders are staring at the sky. One is naming the clouds.", "No construction at the moment. The hammers are bored. I can hear them. They hum.", "Nothing on the building list! The crew is asking for work. Or snacks. Mostly snacks."], 6 * HOUR);
+    else if (data && data.cash >= 100000) voiceSay("cash", "trickster", "neutral", ["All that Space-Cash, just sitting there? Shocking. I know a place. No, not a scam. Mostly not.", "That is a lot of Space-Cash. I have ideas. Some are even legal. Most are shiny.", "Your Space-Cash pile is looking lonely. The casino is open. Allegedly. Always."], 24 * HOUR);
+    else if (data && data.unread >= 6) voiceSay("pile", "courier", "worried", ["That is " + data.unread + " unread reports. My arms hurt. My ears hurt. Read some!", data.unread + " unread reports! I ran here as fast as I could. It was not fast. Please read them.", "The Inbox has " + data.unread + " unread reports. They are piling up. One just fell over."], 12 * HOUR);
   }, 2500);
 }
 // empty barracks: said when you open the Army page with no troops at home and none training
@@ -14242,7 +14260,7 @@ function voiceArmy(d) {
   var home = 0, train = 0;
   (d.units || []).forEach(function (u) { if (!u.scout && !u.settler) home += u.home || 0; });
   Object.keys(d.training || {}).forEach(function (w) { train += (d.training[w] || []).length; });
-  if (!home && !train) voiceSay("noarmy", "drill", "neutral", "No troops. The wall feels lonely. So do I. We have started talking.", 8 * HOUR, true);
+  if (!home && !train) voiceSay("noarmy", "drill", "neutral", ["No troops. The wall feels lonely. So do I. We have started talking.", "Empty barracks. The beds are made. Nobody to sleep in them. It is very tidy. Too tidy.", "No soldiers at home. The wall asked about them. I said they are on a long break. A very long one."], 8 * HOUR, true);
 }
 // a short shake for hits
 function quake() {
@@ -16423,6 +16441,7 @@ function showWon(w) {
   document.getElementById("won-close").onclick = function () { el.remove(); };
 }
 function renderColony(d) {
+  tipsMerge(d);
   tutCheck(d);
   voiceWatch(d);
   villainWatch(d);

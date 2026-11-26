@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.551";
+const GAME_VERSION = "1.0.552";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -1945,6 +1945,7 @@ addColumn("movements", "merchants", "INTEGER NOT NULL DEFAULT 0");
 addColumn("movements", "farm", "INTEGER NOT NULL DEFAULT 0"); // 1 = sent by a farm list
 addColumn("movements", "route", "INTEGER NOT NULL DEFAULT 0"); // 1 = sent by an automatic merchant route
 addColumn("users", "col_groups", "TEXT NOT NULL DEFAULT '{}'"); // private colony groups: { groups: [{ id, name, color }], map: { colonyId: groupId } }
+addColumn("users", "tips_seen", "TEXT NOT NULL DEFAULT '[]'"); // Beppo explainers this player already heard (shown once per account, on every device)
 addColumn("users", "route_quiet", "INTEGER NOT NULL DEFAULT 0"); // no reports for automatic merchants
 addColumn("users", "farm_quiet", "INTEGER NOT NULL DEFAULT 0"); // farm raids: report only when troops died
 addColumn("users", "farm_hidden", "INTEGER NOT NULL DEFAULT 0"); // how many reports were left out since the last look
@@ -6244,6 +6245,7 @@ function snapshot(user, colony) {
     colonies: myColonies(user.id, colony.id, now),
     unread: unreadReports(user.id),
     unreadMessages: unreadMessages(user.id),
+    tipsSeen: (() => { try { return JSON.parse((db.prepare("SELECT tips_seen FROM users WHERE id = ?").get(user.id) || {}).tips_seen || "[]"); } catch (e) { return []; } })(),
     protection: protectionOf(user.id, now),
     graduation: graduationView(user.id, colony, now),
     insurance: insuranceView(user.id),
@@ -7755,6 +7757,16 @@ app.post("/api/heal", requireLogin, (req, res) => {
     s.healJob = { troops: heal, cost: c.cost, duration: c.ms, finishAt: Date.now() + c.ms, at: Date.now() };
     return null;
   });
+});
+
+// Beppo explainers: remember per account that one was heard, so it never comes back on another device
+app.post("/api/tips-seen", requireLogin, (req, res) => {
+  const id = String((req.body || {}).id || "");
+  if (!/^[a-z0-9-]{1,40}$/.test(id)) return res.status(400).json({ error: "bad id" });
+  let list = [];
+  try { list = JSON.parse((db.prepare("SELECT tips_seen FROM users WHERE id = ?").get(req.user.id) || {}).tips_seen || "[]"); } catch (e) {}
+  if (!list.includes(id) && list.length < 120) { list.push(id); db.prepare("UPDATE users SET tips_seen = ? WHERE id = ?").run(JSON.stringify(list), req.user.id); }
+  res.json({ ok: true });
 });
 
 // Automatic merchants: reports on/off
@@ -17915,6 +17927,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.552",date:"2026-11-26",title:"Beppo says it once, or says it differently",groups:[["🗣️ Speech bubbles",["Remarks that can come back (empty build queue, empty barracks, welcome back, a pile of unread reports, a day streak and more) now have several versions each and never repeat the one you just heard.","Bubbles that explain something (storages, buildings, the Codex, the auction and so on) appear once per account. Hearing one on your phone also silences it on your computer."]]]},
   {v:"1.0.551",date:"2026-11-26",title:"Calm when the waves roll in",groups:[["✨ Feedback",["When many waves come home or many reports arrive at once, you hear one sound and see one note instead of one per wave. The Inbox badge and the green numbers still count everything.","The Army button hops once for a whole stream of returning troops.","A train of incoming attack waves rings the alarm and shakes the screen once; the incoming counter keeps counting.","Several trainings that finish together play one sound."]]]},
   {v:"1.0.550",date:"2026-11-26",title:"Feel the haul",groups:[["✨ Feedback",["Resources that arrive all at once now rise out of their box in green with a coin sound, and the box glows once. That covers loot coming home, trades, collected supplies and claimed rewards.","When troops come home, the Army button gives a little hop and the march plays."]]]},
   {v:"1.0.549",date:"2026-11-26",title:"Music that flows",groups:[["🎵 Music",["The casino music now plays in all casino games: slots, roulette and blackjack.","The music only follows you to a new place after a moment, so a quick window or redraw no longer makes the song flicker.","Songs crossfade with steady loudness instead of dipping in the middle.","A song that repeats on its own fades out at its end and in at its start, so there is no hard cut.","Coming back to the game from another app, the music eases in instead of jumping to full volume.","Fixed a rare stall where the music could stop fading if several songs were switching quickly."]]]},
