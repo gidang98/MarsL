@@ -2889,7 +2889,15 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   @media (prefers-reduced-motion: reduce) { .sh-4 { animation: none; box-shadow: 0 0 0 2px #8c73ff, 0 0 14px #ff5a47; } .sh-4 img { animation: none; filter: saturate(1.5) hue-rotate(290deg); } .sh-1::after, .sh-2::after, .sh-3::after, .sh-4::after { animation: none; opacity: .9; } }
   .hunt-card { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(0,0,0,.05); margin: 8px 0; } .hunt-card.won { background: rgba(80,160,90,.18); }
   .hunt-ic { font-size: 44px; line-height: 1; } .hunt-body { flex: 1; min-width: 0; } .hunt-body b, .hunt-body small { display: block; }
-  .hunt-hp i { transition: width .12s linear; }
+  .hunt-hp { position: relative; height: 14px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.25); }
+  .hunt-hp::before { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--g, 100%); background: linear-gradient(#fff, #ffd9a0); opacity: .85; transition: width .6s cubic-bezier(.2,.7,.2,1) .28s; }
+  .hunt-hp i { position: relative; z-index: 1; transition: width .16s cubic-bezier(.2,.8,.3,1), background-color .3s; background-image: linear-gradient(rgba(255,255,255,.45), rgba(255,255,255,0) 55%, rgba(0,0,0,.12)); }
+  .hunt-hp.hurt { animation: hp-hurt .22s ease-out; }
+  @keyframes hp-hurt { 0% { transform: translateX(0); filter: brightness(1); } 20% { transform: translateX(-3px) scaleY(1.25); filter: brightness(1.7); } 45% { transform: translateX(3px) scaleY(1.15); } 70% { transform: translateX(-1px); } 100% { transform: translateX(0); filter: brightness(1); } }
+  .hunt-hp.hpr i { animation: hp-low .9s ease-in-out infinite; }
+  @keyframes hp-low { 50% { filter: brightness(1.35); } }
+  .hunt-meter .hbar { height: 12px; } .hunt-meter .hbar i { background: linear-gradient(90deg, #8064a5, #e6a417); min-width: 4px; transition: width .6s ease; }
+  @media (prefers-reduced-motion: reduce) { .hunt-hp.hurt, .hunt-hp.hpr i { animation: none; } .hunt-hp::before { transition: none; } }
   .hbar.hpg i { background: #3fae4f; } .hbar.hpy i { background: #e6a417; } .hbar.hpr i { background: #e0483d; }
   .hunt-card { position: relative; }
   .hunt-card.hit .hunt-ic { animation: hunt-hit .14s ease-out; }
@@ -18675,7 +18683,8 @@ function huntPaint() {
   var d = huntDmgNow();
   var left = o.hp ? Math.max(0, 1 - d / o.hp) : 0;
   fill.style.width = left * 100 + "%";
-  var bar = document.getElementById("hunt-hpbar"); if (bar) bar.className = "hbar hunt-hp " + huntHpClass(left);
+  var bar = document.getElementById("hunt-hpbar");
+  if (bar) { bar.classList.remove("hpg", "hpy", "hpr"); bar.classList.add(huntHpClass(left)); bar.style.setProperty("--g", left * 100 + "%"); }
   if (txt) txt.textContent = "❤️ " + Math.max(0, Math.ceil(o.hp - d)) + " / " + o.hp + " HP";
   if (d >= o.hp && !hunt.inflight && !hunt.done) { hunt.done = true; huntFlush(); setTimeout(openHunt, 250); }
 }
@@ -18707,6 +18716,7 @@ function huntStrike() {
   var card = document.querySelector(".hunt-card");
   if (card) {
     card.classList.remove("hit"); void card.offsetWidth; card.classList.add("hit");
+    var hb = document.getElementById("hunt-hpbar"); if (hb) { hb.classList.remove("hurt"); void hb.offsetWidth; hb.classList.add("hurt"); }
     var pop = document.createElement("i"); pop.className = "hit-pop"; pop.textContent = "-" + hitTxt(hunt.data.tap.dmg);
     pop.style.left = 20 + Math.random() * 60 + "%"; card.appendChild(pop); setTimeout(function () { pop.remove(); }, 600);
   }
@@ -18800,7 +18810,7 @@ function huntSheet() {
   var D = hunt.data, o = D.opponent, left = Math.max(0, D.nextMs - (Date.now() - hunt.at)), h = "";
   h += '<div class="sheet-head"><span class="hi">🐾</span><div><h3>Hunt</h3><b>' + D.total + (D.total === 1 ? " creature" : " creatures") + " caught</b></div></div>";
   h += '<div class="hunt-card rc-' + o.rarity + (o.tier ? " sh-" + o.tier : "") + (o.won ? " won" : "") + '"><span class="hunt-ic">' + o.icon + '</span><div class="hunt-body"><b><span class="cmd-rar r-' + o.rarity + '">' + esc(o.name) + "</span> <small>" + o.rarity + "</small></b>";
-  h += '<div class="hbar hunt-hp ' + huntHpClass(o.hp ? (o.hp - o.dmgExact) / o.hp : 0) + '" id="hunt-hpbar"><i id="hunt-hpfill" style="width:' + (o.won ? 0 : o.hp ? Math.max(0, (1 - o.dmgExact / o.hp) * 100) : 0) + '%"></i></div><small id="hunt-dmg">' + (o.won ? "Caught!" : "❤️ " + Math.max(0, Math.ceil(o.hp - o.dmgExact)) + " / " + o.hp + " HP") + '</small>' + (o.won ? "" : '<small class="hunt-need' + (o.reach ? "" : " bad") + '">' + (o.reach ? "Catches by itself at " + o.need + " attack · yours " + D.atk : "Too strong: needs " + o.need + " attack · yours " + D.atk) + "</small>") + '</div><div class="hunt-cd"><small>next opponent</small>⏱ ' + cdSpan(left, "hunt") + "</div></div>";
+  h += '<div class="hbar hunt-hp ' + huntHpClass(o.hp ? (o.hp - o.dmgExact) / o.hp : 0) + '" id="hunt-hpbar" style="--g:' + (o.won ? 0 : o.hp ? Math.max(0, (1 - o.dmgExact / o.hp) * 100) : 0) + '%"><i id="hunt-hpfill" style="width:' + (o.won ? 0 : o.hp ? Math.max(0, (1 - o.dmgExact / o.hp) * 100) : 0) + '%"></i></div><small id="hunt-dmg">' + (o.won ? "Caught!" : "❤️ " + Math.max(0, Math.ceil(o.hp - o.dmgExact)) + " / " + o.hp + " HP") + '</small>' + (o.won ? "" : '<small class="hunt-need' + (o.reach ? "" : " bad") + '">' + (o.reach ? "Catches by itself at " + o.need + " attack · yours " + D.atk : "Too strong: needs " + o.need + " attack · yours " + D.atk) + "</small>") + '</div><div class="hunt-cd"><small>next opponent</small>⏱ ' + cdSpan(left, "hunt") + "</div></div>";
   h += '<div class="hunt-act"><button class="btn hunt-strike" data-hunt-tap="1"' + (o.won ? " disabled" : "") + ">⚔️ Strike · −" + hitTxt(D.tap.dmg) + " HP</button><small>Tap as fast as you like, up to " + Math.round(1000 / D.tap.cd) + " strikes a second. Your commander also strikes by itself: about " + D.auto + " damage per opponent" + (D.help ? " (helpers +" + D.help + "%)" : "") + ".</small></div>";
   if (D.log.length) h += '<p class="hint left">Latest: ' + D.log.map(function (l) { return l.icon + ' <span class="cmd-rar r-' + l.rarity + '">' + esc(l.name) + "</span>" + (l.lost ? " <small>(inventory full, got away)</small>" : l.sold ? " <small>(sold 💲" + shortNum(l.sold) + ")</small>" : ""); }).join(" · ") + "</p>";
   if (D.meter && D.meter.best) h += '<div class="hunt-meter' + (D.meter.n >= D.meter.of ? " due" : "") + '" title="Fills with every window (half while you are away). When it is full the next opponent is a ' + D.meter.best + ' creature, the best kind you can beat."><span>🎯</span><div class="hbar"><i style="width:' + Math.min(100, D.meter.n / D.meter.of * 100) + '%"></i></div><small>' + D.meter.n.toLocaleString("en-US") + " / " + D.meter.of.toLocaleString("en-US") + "</small></div>";
