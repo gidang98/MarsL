@@ -4534,8 +4534,11 @@ html.dark-mode, body.dark-mode { color-scheme:dark; background:#17131b!important
 /* 1.0.356 visual fixes */
 /* the welcome card: below open windows, clear of the phone tab bar, readable in dark mode */
 #tut, #tut.onb.top { z-index: 9; }
+body.side-open[data-tut] #tut { z-index: 18; }
 @media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-md); } .tut-beppo { width: 80px; } .tut-beppo img { width: 80px; height: 80px; } .tut-bub { padding: 10px 14px; } .tut-p { font-size: clamp(12px, 3.5vw, 14px); line-height: 1.4; } }
 @media (max-width: 559px) and (max-height: 700px) { .tut-beppo { width: 60px; } .tut-beppo img { width: 60px; height: 60px; border-radius: 14px; } .tut-beppo b { font-size: 11px; padding: 1px 8px; } .tut-bub { padding: 8px 12px; } .tut-p { font-size: 12px; line-height: 1.3; margin-bottom: 6px; } .tut-card h3 { font-size: 15px; } }
+/* long tour texts scroll inside the bubble instead of covering the lit-up place */
+@media (max-width: 559px) { #tut:not(.onb) .tut-bub .tut-p { max-height: 26vh; overflow-y: auto; overscroll-behavior: contain; } }
 @media (max-width: 559px) and (max-height: 600px) { #tut:not(.top) { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }
 .dark-mode .tut-card { background: #3a3220; color: var(--ink); border-color: #5a4b2c; }
 /* the tour is told by Beppo in a speech bubble */
@@ -11674,7 +11677,7 @@ function sharedPanel(M, staff) {
 
 function alliancePanel() {
   var A = alliance;
-  if (!A) return '<section class="panel"><p class="empty">Loading…</p></section>';
+  if (!A || (!A.mine && !A.invites)) return '<section class="panel"><p class="empty">Loading…</p></section>';
   var h = "";
   if (!A.mine) {
     if (A.invites.length) {
@@ -13983,8 +13986,8 @@ var TUTORIAL = [
   { mood: "happy", view: "troops", spot: ".subtabs|.army", base: tutTrained, wait: function (d, b) { return tutTrained(d) > b; }, title: "⚔️ Step 3: raise an army", text: function (d) { var W = d.workshops; return "Every training building has <b>its own queue</b>: infantry and scouts in the " + W.barracks.icon + " <b>" + W.barracks.name + "</b>, siege machines in the " + W.workshop.name + ", fighters and bombers in the " + W.hangar.name + ".<small>Troops eat food every hour: keep food production up.</small>"; } },
   { mood: "surprised", view: "map", spot: ".mappanel|.map", title: "🗺️ Step 4: explore", text: "Drag to look around, tap a tile for details. <b>⛰️ Monster camps</b> hold treasure to raid. 📋 Farm lists send many raids with one tap, the 🧮 simulator tests a fight first.<small>📌 Pin your own markers on the map.</small>" },
   { mood: "worried", view: "resources", spot: ".protect|.topbar", title: "🛡️ Stay safe", text: function (d) { var p = d.protection; return (p && p.active && !p.vacation ? "You are <b>protected</b> for " + shortTime(p.until - serverNow()) + " (or until " + p.pointsNeeded + " points). " : "") + "Later, others will raid you: a <b>bunker</b> hides loot, a <b>wall</b> and defenders hold the line, allies send help.<small>Turn on 🔔 attack alerts in ⚙️ Settings.</small>"; } },
-  { mood: "neutral", view: "ranking", spot: ".ptabs", title: "🤝 Step 6: team up", pre: function () { playersTab = "alliance"; }, text: "<b>The server is won by alliances.</b> Join or found one under Players → 🤝. Allies can’t attack each other, share a bank, plan joint attacks and fund <b>permanent bonuses</b> together." },
-  { more: true, mood: "happy", view: "resources", spot: ".terrabox|.topbar", title: "🌱 Step 5: expand", text: function (d) { return "Colonies earn <b>terra</b> by themselves. With enough terra and " + d.colonies.settlersNeeded + " settlers you <b>found a new colony</b>. Your first colony is your ⭐ main colony: its fields go up to level " + d.mainMove.max + "."; } },
+  { mood: "neutral", view: "ranking", spot: ".ptabs", title: "🤝 Step 5: team up", pre: function () { playersTab = "alliance"; }, text: "<b>The server is won by alliances.</b> Join or found one under Players → 🤝. Allies can’t attack each other, share a bank, plan joint attacks and fund <b>permanent bonuses</b> together." },
+  { more: true, mood: "happy", view: "resources", side: true, spot: ".terrabox|.topbar", title: "🌱 Expand your empire", text: function (d) { return "Colonies earn <b>terra</b> by themselves. With enough terra and " + d.colonies.settlersNeeded + " settlers you <b>found a new colony</b>. Your first colony is your ⭐ main colony: its fields go up to level " + d.mainMove.max + "."; } },
   { more: true, mood: "surprised", view: "resources", spot: ".wallet|.topbar", title: "💲 Two kinds of money", text: "<b>💲 Space-Cash</b> ticks up every second from the creatures in your 🐾 hunt slots. <b>🎫 Star Credits</b> come from your active commander. Credits finish a job right now: the less time is left, the cheaper it gets.<small>Tap the wallet for the exact amounts.</small>" },
   { more: true, mood: "surprised", view: "resources", spot: ".herobtn|.topbar", title: "🎖️ Your commander", text: "Your commander earns Star Credits all the time (they pile up while you are away, up to a limit), wears gear and adds a bonus to your colonies.<small>Tap your commander (bottom left) for commanders and the shard shop.</small>" },
   { more: true, mood: "happy", view: "resources", spot: "[data-auction]|.topbtns", title: "🐾 Hunt and 🏛️ Auction", text: "<b>Hunt</b> creatures and put them in slots to earn Space-Cash. At the <b>Auction</b> you sell what you do not need: gear, shards, creatures and supplies.<small>Both open from your wallet. The auction button sits in the top bar.</small>" },
@@ -14322,6 +14325,7 @@ function typeHtml(el, pitch, wave, mood) {
       }
       if (ci >= x.full.length) { ni++; ci = 0; }
     }
+    el.scrollTop = el.scrollHeight; // long texts follow the typing
     if (ni >= nodes.length) finish();
   }, gap);
 }
@@ -14336,6 +14340,7 @@ function showTutorial() {
     box.innerHTML = "";
     box.className = "";
     document.body.removeAttribute("data-tut");
+    tutSide(false);
     tutSpot();
     tutDim(null);
     return;
@@ -14345,6 +14350,7 @@ function showTutorial() {
   if (s.pre) s.pre();
   if (view !== s.view) switchView(s.view);
   else if (s.pre && data) renderColony(data);
+  tutSide(!!s.side); // the side panel is a drawer on phones and tablets: open it for the steps that point into it
   if (s.spot === "#quests") document.body.classList.add("qopen"); // hidden on phones otherwise
   else document.body.classList.remove("qopen");
   document.body.setAttribute("data-tut", "on");
@@ -14365,7 +14371,7 @@ function showTutorial() {
   tutSpot();
   var tp = box.querySelector(".tut-p");
   if (tp) { typeHtml(tp, CAST.beppo.pitch, CAST.beppo.wave, tutMood(tut.step)); tp.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); }); }
-  setTimeout(function () { var el = tutSpot(); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
+  setTimeout(function () { var el = tutSpot(); if (el) tutPlace(el.getBoundingClientRect(), true); tutDim(el); }, s.side && innerWidth < 980 ? 340 : 150);
 }
 // light up the step's place (again after every refresh, which redraws the page)
 function tutSpot() {
@@ -14394,8 +14400,38 @@ function tutDim(want) {
   var rc = want.getBoundingClientRect(), pad = 6, r = 14;
   var x = Math.max(0, rc.left - pad), y = Math.max(0, rc.top - pad), w = Math.min(innerWidth, rc.right + pad) - x, h = Math.min(innerHeight, rc.bottom + pad) - y;
   if (w > 0 && h > 0) dim.style.clipPath = 'path(evenodd, "M0 0H' + innerWidth + "V" + innerHeight + "H0Z M" + (x + r) + " " + y + "h" + (w - 2 * r) + "a" + r + " " + r + " 0 0 1 " + r + " " + r + "v" + (h - 2 * r) + "a" + r + " " + r + " 0 0 1 -" + r + " " + r + "h-" + (w - 2 * r) + "a" + r + " " + r + " 0 0 1 -" + r + " -" + r + "v-" + (h - 2 * r) + "a" + r + " " + r + " 0 0 1 " + r + ' -' + r + 'Z")';
+  tutPlace(rc, false);
+}
+// the drawer (phones, tablets) opens for steps that point into it, and closes again when the tour moves on
+function tutSide(want) {
+  if (innerWidth >= 980) return;
+  var open = document.body.classList.contains("side-open");
+  if (want && !open) { toggleSide(true); tut.sideByTour = true; }
+  else if (!want && open && tut.sideByTour) toggleSide(false);
+  if (!want) tut.sideByTour = false;
+}
+// Beppo sits at the bottom or the top, whichever leaves the lit-up place uncovered. If neither does, the page scrolls the place into the free strip.
+function tutPlace(rc, scroll) {
   var box = document.getElementById("tut");
-  if (box && box.classList.contains("on") && !box.classList.contains("onb")) box.classList.toggle("top", rc.top + rc.height / 2 > innerHeight * 0.55);
+  if (!box || !box.classList.contains("on") || box.classList.contains("onb")) return;
+  var pad = 8, hit = function (b) { return Math.max(0, Math.min(rc.right + pad, b.right) - Math.max(rc.left - pad, b.left)) * Math.max(0, Math.min(rc.bottom + pad, b.bottom) - Math.max(rc.top - pad, b.top)); };
+  var want = rc.top + rc.height / 2 > innerHeight * 0.55 ? 1 : 0, area = [];
+  [want, 1 - want].forEach(function (top) { box.classList.toggle("top", !!top); var b = box.getBoundingClientRect(); area.push({ top: top, hit: hit(b), b: b }); });
+  var pick = area[0].hit === 0 ? area[0] : area[1].hit === 0 ? area[1] : null;
+  if (pick) { box.classList.toggle("top", !!pick.top); return; }
+  // both positions cover it: move the page so the place lands in the strip the bubble leaves free (only where the page can scroll that far)
+  var sc = document.querySelector(".sidebar"), spotEl = document.querySelector(".tut-spot");
+  var inSide = !!(sc && spotEl && document.body.classList.contains("side-open") && sc.contains(spotEl));
+  var room = inSide ? [sc.scrollTop, sc.scrollHeight - sc.clientHeight - sc.scrollTop] : [window.scrollY, document.documentElement.scrollHeight - innerHeight - window.scrollY];
+  area.forEach(function (a) {
+    var freeTop = a.top ? a.b.bottom + pad : pad + 56, freeBottom = a.top ? innerHeight - pad : a.b.top - pad;
+    var dy = rc.height > freeBottom - freeTop || rc.top < freeTop ? rc.top - freeTop : rc.bottom > freeBottom ? rc.bottom - freeBottom : 0;
+    a.dy = dy; a.ok = dy > 0 ? dy <= room[1] + 1 : -dy <= room[0] + 1;
+  });
+  pick = area[0].ok && (!area[1].ok || Math.abs(area[0].dy) <= Math.abs(area[1].dy)) ? area[0] : area[1].ok ? area[1] : area[0];
+  box.classList.toggle("top", !!pick.top);
+  if (!scroll || !pick.dy) return;
+  if (inSide) sc.scrollTop += pick.dy; else window.scrollBy(0, pick.dy);
 }
 var tutDimRaf = 0;
 function tutDimSoon() { if (tutDimRaf || tut.step < 0) return; tutDimRaf = requestAnimationFrame(function () { tutDimRaf = 0; tutSpot(); }); }
