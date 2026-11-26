@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.557";
+const GAME_VERSION = "1.0.558";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15593,7 +15593,7 @@ const HELPER_RANK = [1, 1.5, 2, 2.5, 3.5];
 function helperScale(rank, tier) { return HELPER_RANK[Math.min(COMMANDER_MAX_RANK, Math.max(1, rank || 1)) - 1] * shinyMult(tier); }
 const COMMANDERS = {
   recruit: { name: "Private Pip", icon: "🎖️", rarity: "common", rate: 1.6, trait: { atk: 0.5, def: 0.5 }, starter: true, quip: "Eager, enthusiastic and wearing a helmet three sizes too big." },
-  drillmaster: { name: "Sergeant Stompy", icon: "🥁", rarity: "common", rate: 1.4, trait: { atk: 1.5, def: 0.5 }, quip: "Marches so loudly the enemy has time to panic." },
+  drillmaster: { name: "Alien Fairy Rosa", icon: "🧚", rarity: "common", rate: 1.4, trait: { atk: 1.5, def: 0.5 }, quip: "Waves her star wand with great confidence. Nobody, least of all Rosa, knows what it does." },
   warden: { name: "Captain Cushion", icon: "🛋️", rarity: "common", rate: 1.5, trait: { atk: 0.5, def: 1.5 }, quip: "Pads every wall with pillows, for safety." },
   courier: { name: "Pocket Pete", icon: "🧦", rarity: "common", rate: 1.7, trait: { atk: 0.5, def: 0.5, carry: 4 }, quip: "Has pockets inside his pockets and won't say what is in them." },
   chef: { name: "Chef Chomp", icon: "🍔", rarity: "common", rate: 1.8, trait: { atk: 0.5, def: 0.5, cash: 5 }, quip: "Feeds the creatures so well that they work harder. Mostly." },
@@ -17927,6 +17927,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.558",date:"2026-11-26",title:"Sergeant Stompy is now Alien Fairy Rosa",groups:[["🎖️ Commanders",["The common commander Sergeant Stompy has been replaced by Alien Fairy Rosa, with a new look and a new introduction. Her attack and defense are unchanged."]]]},
   {v:"1.0.557",date:"2026-11-26",title:"The hunt meter fills much faster",groups:[["🎯 Hunt",["The hunt meter now holds 1,000 instead of 15,000. Hunting nonstop fills it in about three and a half days, and a player who checks in a few times a day gets the guaranteed strong catch about once a week. A meter that was already above 1,000 pays out its prize at the next window."]]]},
   {v:"1.0.556",date:"2026-11-26",title:"One big picture for Mars",groups:[["🎨 Artwork",["The new Mars battle picture is now the loading screen and the backdrop of the start page, on phones and on big screens.","Links to MarsL show the picture as a preview when you share them in chats and forums.","Each tribe page in the guide and the Codex has a strip cut from the picture.","Wrong addresses and failed starts show a friendly Lost on Mars page instead of plain text."]]]},
   {v:"1.0.555",date:"2026-11-26",title:"Beppo has opinions",groups:[["💬 Beppo",["Four new one-time remarks: your first field at level 10, your first cleared monster camp, your first map marker, and the first time you open the guide."]]]},
