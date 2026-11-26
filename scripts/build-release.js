@@ -7,6 +7,7 @@ const imports = new Map([
   ['const runtimeTiming = require("./lib/runtime-timing")();', 'const runtimeTiming = (' + require('../lib/runtime-timing').toString() + ')();'],
   ['const nextRouteTime = require("./game/trade-schedule");', 'const nextRouteTime = ' + require('../game/trade-schedule').toString() + ';'],
   ['const PAGE = require("./client/game-page")(TRIBES, MONSTERS);', 'const PAGE = (' + gamePageTemplate.toString() + ')(TRIBES, MONSTERS);'],
+  ['const { createGateway } = require("./lib/gateway");', 'const { createGateway } = (function () { var module = { exports: {} }; ' + fs.readFileSync(path.join(__dirname, '..', 'lib', 'gateway.js'), 'utf8') + '\nreturn module.exports; })();'],
   ['const battleOdds = require("./game/battle-odds");', 'const battleOdds = ' + require('../game/battle-odds').toString() + ';'],
 ]);
 let source = fs.readFileSync(path.join(root, 'server.js'), 'utf8');

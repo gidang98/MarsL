@@ -34,6 +34,10 @@ const INVITE_SETTING = (process.env.INVITE_CODE || "").trim();
 app.set("trust proxy", process.env.RENDER || process.env.TRUST_PROXY || process.env.IP ? 1 : "loopback");
 
 app.disable("x-powered-by");
+// one address for every server (lib/gateway.js): the main server passes a player's traffic on to the server picked in their cookie,
+// and a connected server believes the real player address that the main server signs for it. Set up further down, once the servers are known.
+let gatewayEarly = null;
+app.use((req, res, next) => (gatewayEarly ? gatewayEarly(req, res, next) : next()));
 app.use((req, res, next) => {
   // standard safety headers for every answer
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -543,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.562";
+const GAME_VERSION = "1.0.563";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -7497,6 +7501,7 @@ app.get("/api/config", (req, res) => {
     version: GAME_VERSION,
     server: THIS_SERVER,
     hub: HUB_URL || null,
+    gateway: GATEWAY_ON,
     accounts: !HUB_URL,
     servers: SERVER_LIST.map((s) => {
       const here = s.id === THIS_SERVER;
@@ -17927,6 +17932,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.563",date:"2026-11-26",title:"One address for every server",groups:[["🌍 Servers",["All servers can now be played under one address, so a single Home Screen app works with every server and switching servers no longer opens a window. The direct addresses of the Speed and Classic servers keep working."]]]},
   {v:"1.0.562",date:"2026-11-26",title:"One app per server on the Home Screen",groups:[["📱 Home Screen",["Each server now installs as its own app, called MarsL, MarsL Speed or MarsL Classic, so the icons can be told apart. Add every server you play to the Home Screen from its own address. Switching servers from inside an app still opens the other server in a small window, because iPhone only keeps one address per app."]]]},
   {v:"1.0.561",date:"2026-11-26",title:"Smoother on iPhone and Safari",groups:[["📱 iPhone and Safari",["Clocks, countdowns, the hunt and the colony are set right from the server the moment you come back to the game, also when Safari restores it from the background or the network returns.","Timers, the news ticker and the hunt animation pause while the game is not on screen, which saves battery.","Pictures now decode off the main thread, so scrolling stays smooth.","Windows and the page use the real visible height of the screen, so the address bar no longer leaves a gap or a jump.","Safari players are shown once how to add MarsL to the Home Screen for fullscreen play and attack alerts."]]]},
   {v:"1.0.560",date:"2026-11-26",title:"Hunt bars that you can see",groups:[["🐾 Hunt",["The hunt meter bar was invisible and now fills with a purple-to-gold colour. The opponent health bar is livelier: it flashes and shakes on every hit, a pale trail shows how much you just took off, and the bar pulses when the opponent is nearly caught."]]]},
@@ -21158,6 +21164,28 @@ const HUB_URL = configuredOrigin(configuredHubUrl) === configuredOrigin(ownServe
 const HOP_SECRET = process.env.HOP_SECRET || (HUB_URL ? "" : crypto.randomBytes(24).toString("hex")); // without it: only this server
 const HOP_SHARED = !!process.env.HOP_SECRET;
 const HOP_MINUTES = 10;
+const { createGateway } = require("./lib/gateway");
+const GATEWAY = createGateway({ selfId: THIS_SERVER, secret: HOP_SHARED ? HOP_SECRET : "", servers: SERVER_LIST });
+// GATEWAY=1 on the main server turns the single address on; the connected servers need nothing but the shared HOP_SECRET
+const GATEWAY_ON = process.env.GATEWAY === "1" && !HUB_URL && HOP_SHARED;
+gatewayEarly = (req, res, next) => {
+  const ip = GATEWAY.trustedIp(req);
+  if (ip) Object.defineProperty(req, "ip", { value: ip, configurable: true });
+  if (GATEWAY_ON && !req.path.startsWith("/api/gw/")) {
+    const target = GATEWAY.pick(req);
+    if (target) return GATEWAY.proxy(req, res, target);
+  }
+  next();
+};
+// the player picks the server this browser talks to (an empty name: the main server)
+app.post("/api/gw/select", (req, res) => {
+  if (!GATEWAY_ON) return res.status(404).json({ error: "Not available" });
+  const id = String((req.body || {}).server || "");
+  const cookie = GATEWAY.pickCookie(id, req.secure);
+  if (cookie === null) return res.status(400).json({ error: "Unknown server" });
+  res.setHeader("Set-Cookie", cookie);
+  res.json({ ok: true });
+});
 addColumn("users", "hub", "TEXT NOT NULL DEFAULT ''"); // the main account's name
 db.exec(`
   CREATE TABLE IF NOT EXISTS accounts (
@@ -21364,6 +21392,10 @@ app.post("/api/hop", requireAcct, (req, res) => {
   if (blocked("hop:" + req.acct.id, 30)) return res.status(429).json({ error: "Too many tries. Wait a moment." });
   hit("hop:" + req.acct.id, 600000);
   const token = hopSign({ u: req.acct.username, e: req.acct.email_verified ? req.acct.email : "", to: srv.id, exp: Date.now() + HOP_MINUTES * 60000, n: crypto.randomBytes(9).toString("hex") });
+  if (GATEWAY_ON) {
+    res.setHeader("Set-Cookie", GATEWAY.pickCookie(here ? "" : srv.id, req.secure));
+    return res.json({ ok: true, url: "/?hop=" + token });
+  }
   res.json({ ok: true, url: (here ? "" : srv.url.replace(/\/+$/, "")) + "/?hop=" + token });
 });
 
@@ -24237,7 +24269,7 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-
 main{max-width:360px;text-align:center;padding:22px 24px;border-radius:22px;background:rgba(27,19,48,.78);box-shadow:0 10px 40px rgba(0,0,0,.45)}
 h1{margin:0 0 6px;font-size:26px}p{margin:0 0 16px;opacity:.9;line-height:1.4}a{display:inline-block;padding:11px 22px;border-radius:999px;background:#f2784b;color:#fff;font-weight:800;text-decoration:none}</style></head>
 <body><main><h1>Lost on Mars</h1><p>There is nothing at this address. The colony is back this way.</p><a href="/">Back to MarsL</a></main></body></html>`;
-app.listen(PORT, HOST, () => {
+const httpServer = app.listen(PORT, HOST, () => {
   console.log("MarsL is running!");
   console.log("  On this computer:   http://localhost:" + PORT);
   // the addresses for phones and other computers in the same Wi-Fi
@@ -24254,4 +24286,10 @@ app.listen(PORT, HOST, () => {
   console.log(INVITE_CODE ? "  Invite code for new players:  " + INVITE_CODE : "  Anybody may register (no invite code).");
   console.log("  Admin page:         http://localhost:" + PORT + "/admin");
   console.log("  Owner code:         " + OWNER_CODE + "   (keep it secret! only needed once to become owner)");
+});
+// WebSocket connections follow the picked server too
+httpServer.on("upgrade", (req, socket, head) => {
+  if (!GATEWAY_ON || req.url.startsWith("/api/gw/")) return;
+  const target = GATEWAY.pick(req);
+  if (target) GATEWAY.upgrade(req, socket, head, target);
 });

@@ -8461,6 +8461,8 @@ function renderAuth() {
   // other servers have no login of their own: off to the main server's
   // login and server selection
   if (config.hub) {
+    // behind the single address: the main server is the same address, so the browser is pointed back at it first
+    if (config.hub === location.origin) { gwSelect("", function () { location.replace("/"); }); return; }
     location.replace(config.hub + "/");
     return;
   }
@@ -8625,6 +8627,11 @@ function playing() {
 }
 var acct = null; // the main account: null = not asked yet, { ok: false } = logged out
 var acctFold = false;
+// the single address: points this browser at the main server (empty name) or another server, then goes on
+function gwSelect(id, after) {
+  fetch("/api/gw/select", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ server: id }) })
+    .then(function () { after(); }).catch(function () { after(); });
+}
 function apost(url, body, after) {
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })
     .then(function (r) { return r.json().then(function (d) {
@@ -15957,7 +15964,7 @@ function renderSheet() {
     h += away ? '<section class="setcard">' + away + "</section>" : "";
     if (d.linked) h += '<section class="setcard">' + linkedBox(d.linked) + "</section>";
     // "👤" account and devices
-    var ac = config.hub ? '<div class="setgrid one"><a class="btn ghost" href="' + esc(config.hub) + '/?servers=1" target="_blank" rel="noopener">🌍 Open account &amp; server settings ↗</a></div><p class="hint left">Opens your main account page in a new tab, where you can choose servers and manage your password and email.</p>' : '<p class="hint left">Account and server management is hosted on the main server. This game server has no main server address configured, so those settings cannot be opened from here.</p>';
+    var ac = config.hub && config.hub === location.origin ? '<div class="setgrid one"><button class="btn ghost" data-gw-hub="1">🌍 Account &amp; server settings</button></div><p class="hint left">Takes you to your main account page, where you can choose servers and manage your password and email.</p>' : config.hub ? '<div class="setgrid one"><a class="btn ghost" href="' + esc(config.hub) + '/?servers=1" target="_blank" rel="noopener">🌍 Open account &amp; server settings ↗</a></div><p class="hint left">Opens your main account page in a new tab, where you can choose servers and manage your password and email.</p>' : '<p class="hint left">Account and server management is hosted on the main server. This game server has no main server address configured, so those settings cannot be opened from here.</p>';
     if (!accountInfo) ac += '<p class="hint left">Loading devices…</p>';
     else {
       var dl = accountInfo.deviceList || [];
@@ -20113,13 +20120,15 @@ document.addEventListener("click", function (e) {
     var tfEl = el.closest(".tfold");
     if (tfEl) tfEl.classList.toggle("open", tfOpen);
     el.setAttribute("aria-expanded", tfOpen ? "true" : "false");
+  } else if (has("data-gw-hub")) {
+    gwSelect("", function () { location.href = "/?servers=1"; });
   } else if (has("data-close")) {
     // only close when the dark background or an X button was clicked (not the sheet itself)
     if (e.target === el || el.nodeName === "BUTTON") closeSheet();
   } else if (has("data-server")) {
     var srvId = attr("data-server");
     var srv = (config.servers || []).filter(function (s) { return s.id === srvId; })[0];
-    if (srv && !srv.here && srv.url) { location.href = srv.url; return; }
+    if (srv && !srv.here && srv.url && !config.gateway) { location.href = srv.url; return; }
     selServer = srvId;
     renderAuth();
   } else if (has("data-spot")) {

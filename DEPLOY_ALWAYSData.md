@@ -32,3 +32,7 @@ The workflow deploys the repository's `server.js` to one or all three MarsL site
 Open **Actions → Deploy MarsL to AlwaysData → Run workflow**, choose `all` or one server, and run it from the reviewed `main` branch. The action replaces only `server.js`, then asks AlwaysData to restart the selected site. Player databases and other files are not uploaded.
 
 The action is manual by design. That keeps an unreviewed change from restarting a live server automatically.
+
+## One address for every server (GATEWAY)
+
+With the environment variable `GATEWAY=1` on the **main** site (`marsl-game.com`), the main server passes a player's traffic on to the server picked in their `marsl_srv` cookie (see `lib/gateway.js`). One Home Screen app then works with all servers and switching servers never leaves the address. It needs `HOP_SECRET` (the same text on every server, already used for hopping); the Speed and Classic sites need nothing else. Without `GATEWAY=1` nothing changes. To turn it off again, remove the variable and restart the main site; the direct `speed.` and `classic.` addresses always keep working. Each server's cookies are kept apart under the server's name, and a connected server reads the player's real address from a header the main server signs.
