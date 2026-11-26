@@ -14004,10 +14004,14 @@ var BEPPO_SAY = {
   inbox: ["worried", "Reports and mail come through me. I run fast! The news does not always deserve it. Do not shoot the courier.", "courier"],
   alliance: ["neutral", "Servers are won by alliances. Join or found one under Players, in the alliance tab. Allies cannot attack each other. It is in the rules.", "marshal"],
   send: ["happy", "Sending troops? SPLENDID! Test the fight in the simulator first. I insist. Gently. With a sword.", "warlord"],
+  field10: ["happy", "Level 10! Wow, it’s getting serious! I’m giving you a 10/10!"],
+  camp: ["worried", "I’m calling animal-protection services!"],
+  marker: ["happy", "A marker! Mine says “snacks”. Yours is probably more useful."],
+  guide: ["neutral", "Every rule is in there! I read it once. Then I took a nap. Great book."],
   "b-lab": ["surprised", "Research unlocks better troops. I have already broken the tea machine. For science! And tea.", "prof"]
 };
 // first time a place is opened (the bubble sits at the top so it never covers the sheet)
-var BEPPO_OPEN = { "[data-codex-open]": "codex", "[data-auction]": "auction", "[data-hunt-open]": "hunt", "[data-cmd-open],[data-hero-open]": "cmd", "[data-farm-open]": "farm", "[data-relics]": "relics" };
+var BEPPO_OPEN = { "[data-codex-open]": "codex", "[data-auction]": "auction", "[data-hunt-open]": "hunt", "[data-cmd-open],[data-hero-open]": "cmd", "[data-farm-open]": "farm", "[data-relics]": "relics", "[data-wiki]": "guide" };
 document.addEventListener("click", function (e) {
   if (!e.target.closest) return;
   Object.keys(BEPPO_OPEN).forEach(function (sel) {
@@ -16167,8 +16171,14 @@ function flashLoss(loot) {
   });
 }
 
+var prevMaxField = null, prevCamps = null;
 function noticeChanges(d) {
   watchGains(d);
+  // two firsts, noticed only when they happen while playing (a veteran logging in is not greeted with them)
+  var mf = (d.fields || []).reduce(function (m, f) { return Math.max(m, f.level || 0); }, 0), cw = (d.mood && d.mood.camps) || 0;
+  if (prevMaxField !== null && mf >= 10 && prevMaxField < 10) setTimeout(function () { beppoSay("field10"); }, 900);
+  if (prevCamps !== null && cw > prevCamps) setTimeout(function () { beppoSay("camp"); }, 900);
+  prevMaxField = mf; prevCamps = cw;
   if (prevQueue && prevQueue.length && !justCancelled) {
     var first = prevQueue[0];
     var still = d.queue.some(function (q) { return q.name === first.name && q.targetLevel === first.targetLevel; });
@@ -21488,6 +21498,7 @@ document.addEventListener("click", function (e) {
     renderTileInfo();
   } else if (has("data-mark-save")) {
     markPost({ x: mkf.x, y: mkf.y, icon: mkf.icon, label: mkf.label }, "📌 Marker saved");
+    setTimeout(function () { beppoSay("marker", true); }, 900);
   } else if (has("data-mark-del")) {
     var md = attr("data-mark-del").split(",").map(Number);
     markPost({ x: md[0], y: md[1], remove: true }, "🗑️ Marker deleted");
