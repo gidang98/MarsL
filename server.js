@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.556";
+const GAME_VERSION = "1.0.557";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -15881,7 +15881,7 @@ const HUNT_TAP_BURST = 12; // strikes the server banks while taps are on their w
 const HUNT_TAP_REACH_S = 150; // "reachable" counts half a window of tapping
 // 🎯 Hunt meter: every window adds to it (a window you were away for counts half). When it is full, the next opponent is a
 // random creature of the best rarity this commander can beat; shinies come at their normal odds. Catching it empties the meter.
-const HUNT_METER = 15000;
+const HUNT_METER = 1000;
 const CREATURE_HP = { common: 140, uncommon: 340, rare: 800, epic: 1900, legendary: 4600, mythic: 11000 }; // 1.0.397: tiers need levels, strength, gear and helpers
 const CREATURES = {
   // cash = Space-Cash per real SECOND while the creature sits in a slot.
@@ -17927,6 +17927,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.557",date:"2026-11-26",title:"The hunt meter fills much faster",groups:[["🎯 Hunt",["The hunt meter now holds 1,000 instead of 15,000. Hunting nonstop fills it in about three and a half days, and a player who checks in a few times a day gets the guaranteed strong catch about once a week. A meter that was already above 1,000 pays out its prize at the next window."]]]},
   {v:"1.0.556",date:"2026-11-26",title:"One big picture for Mars",groups:[["🎨 Artwork",["The new Mars battle picture is now the loading screen and the backdrop of the start page, on phones and on big screens.","Links to MarsL show the picture as a preview when you share them in chats and forums.","Each tribe page in the guide and the Codex has a strip cut from the picture.","Wrong addresses and failed starts show a friendly Lost on Mars page instead of plain text."]]]},
   {v:"1.0.555",date:"2026-11-26",title:"Beppo has opinions",groups:[["💬 Beppo",["Four new one-time remarks: your first field at level 10, your first cleared monster camp, your first map marker, and the first time you open the guide."]]]},
   {v:"1.0.554",date:"2026-11-26",title:"A tidier clinic",groups:[["🏥 Feather Clinic",["The clinic no longer shows a Beppo remark above the wounded troops. Beppo still introduces the clinic once, the first time you open it."]]]},
