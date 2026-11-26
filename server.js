@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.561";
+const GAME_VERSION = "1.0.562";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17927,6 +17927,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.562",date:"2026-11-26",title:"One app per server on the Home Screen",groups:[["📱 Home Screen",["Each server now installs as its own app, called MarsL, MarsL Speed or MarsL Classic, so the icons can be told apart. Add every server you play to the Home Screen from its own address. Switching servers from inside an app still opens the other server in a small window, because iPhone only keeps one address per app."]]]},
   {v:"1.0.561",date:"2026-11-26",title:"Smoother on iPhone and Safari",groups:[["📱 iPhone and Safari",["Clocks, countdowns, the hunt and the colony are set right from the server the moment you come back to the game, also when Safari restores it from the background or the network returns.","Timers, the news ticker and the hunt animation pause while the game is not on screen, which saves battery.","Pictures now decode off the main thread, so scrolling stays smooth.","Windows and the page use the real visible height of the screen, so the address bar no longer leaves a gap or a jump.","Safari players are shown once how to add MarsL to the Home Screen for fullscreen play and attack alerts."]]]},
   {v:"1.0.560",date:"2026-11-26",title:"Hunt bars that you can see",groups:[["🐾 Hunt",["The hunt meter bar was invisible and now fills with a purple-to-gold colour. The opponent health bar is livelier: it flashes and shakes on every hit, a pale trail shows how much you just took off, and the bar pulses when the opponent is nearly caught."]]]},
   {v:"1.0.559",date:"2026-11-26",title:"Commander inventory transfer fits on one screen",groups:[["🎖️ Commanders",["The transfer window is much more compact: each resource now sits on one line with its slider, amount and new total, and the Transfer selected button stays in view without scrolling."]]]},
@@ -23882,7 +23883,7 @@ app.get("/game-assets/:filename", (req, res) => {
 app.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   const host = String(req.get("host") || ""), origin = /^[a-z0-9.:-]{1,100}$/i.test(host) ? req.protocol + "://" + host : "";
-  res.send(renderGamePage().html.split("__ORIGIN__").join(origin));
+  res.send(renderGamePage().html.split("__ORIGIN__").join(origin).split("__APPNAME__").join(appName()));
 });
 // the picture shown when the game's link is shared (chat apps, forums): 1200x630, kept in the art folder
 app.get("/og.jpg", (req, res) => {
@@ -24191,13 +24192,17 @@ for (const size of [192, 512]) {
     res.end(iconFor(size));
   });
 }
+// every server is its own app on the Home Screen: its own name and scope, so the icons are told apart
+function appName() { return THIS_SERVER === "speed-test" ? "MarsL Speed" : THIS_SERVER === "classic" ? "MarsL Classic" : "MarsL"; }
 app.get("/manifest.webmanifest", (req, res) => {
   res.setHeader("Content-Type", "application/manifest+json");
   res.end(
     JSON.stringify({
-      name: "MarsL",
-      short_name: "MarsL",
+      id: "/",
+      name: appName(),
+      short_name: appName(),
       start_url: "/",
+      scope: "/",
       display: "standalone",
       orientation: "portrait",
       background_color: "#8c2f1c",

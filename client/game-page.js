@@ -9,7 +9,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="MarsL">
+<meta name="apple-mobile-web-app-title" content="__APPNAME__">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
@@ -14004,7 +14004,7 @@ var tut = { step: -1 };
 // steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
 // 💬 Beppo pops up once for the big firsts (a small bubble; tap to close; Settings turns it off)
 var BEPPO_SAY = {
-  install: ["happy", "Psst! Tap the Share button in Safari, then “Add to Home Screen”. MarsL then opens fullscreen like a real app and can warn you when someone attacks."],
+  install: ["happy", "Psst! Tap the Share button in Safari, then “Add to Home Screen”. MarsL then opens fullscreen like a real app and can warn you when someone attacks. Each server is its own app, so add the ones you play."],
   built: ["happy", "Your first build is done! The colony is officially a place now. Please do not touch the walls yet. They are still wet."],
   trained: ["happy", "Fresh troops! They are brave, loyal and always hungry. Mostly hungry. Watch the food."],
   report: ["surprised", "A report?! I did not read it. I definitely did not read it. Open your Inbox!"],
