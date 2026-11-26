@@ -60,7 +60,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    min-height: 100vh;
+    min-height: 100vh; min-height: 100dvh;
     font-family: "Nunito", "Barlow", "Trebuchet MS", sans-serif;
     font-variant-numeric: tabular-nums;
     color: var(--ink);
@@ -228,14 +228,14 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   body:not(.in) #quests { display: none; }
   @media (min-width: 980px) {
     body.in .layout { grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: "q s" "m s"; }
-    .sidebar { position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow-y: auto; border-radius: var(--radius-md); }
+    .sidebar { position: sticky; top: 14px; max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); overflow-y: auto; border-radius: var(--radius-md); }
     .sidebtn, .side-back, .side-x, .alarm { display: none !important; }
   }
   body:not(.in) .sidebar { display: none; }
   @media (min-width: 1240px) {
     .wrap { max-width: 1480px; }
     body.in .layout { grid-template-columns: 260px minmax(0, 1fr) 320px; grid-template-areas: "q m s"; }
-    #quests { position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow-y: auto; }
+    #quests { position: sticky; top: 14px; max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px); overflow-y: auto; }
   }
   .qpanel {
     background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 12px 14px;
@@ -920,12 +920,12 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
   @media (min-width: 600px) { .overlay { align-items: center; } }
   .sheet {
-    position: relative; width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
+    position: relative; width: 100%; max-width: 520px; max-height: 88vh; max-height: 88dvh; overflow-y: auto;
     background: var(--paper); border: 1px solid var(--line); border-bottom: 0;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-lg);
     padding: 0 16px 20px;
   }
-  .sheet.translate-sheet { height: min(82vh, 720px); height: min(82dvh, 720px); overscroll-behavior: contain; }
+  .sheet.translate-sheet { height: min(82vh, 720px); height: min(82dvh, 720px); height: min(82dvh, 720px); overscroll-behavior: contain; }
   @media (min-width: 600px) { .sheet { border-bottom: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); } }
   /* the slide-in only plays when a popup is opened, not on every refresh */
   .sheet.anim { animation: up 0.25s cubic-bezier(.3,1.6,.6,1); }
@@ -3217,7 +3217,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
     /* no zooming in when tapping into a text box on iPhone */
     input, select, textarea { font-size: 16px !important; }
     /* popups use the whole width and respect the home bar */
-    .sheet { max-height: 92vh; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+    .sheet { max-height: 92vh; max-height: 92dvh; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
     /* map: the info about a tapped tile shows as a card above the tabs */
     .mapview { overscroll-behavior: contain; aspect-ratio: 1 / 1.4; max-height: max(380px, calc(100dvh - 230px)); }
     /* the map runs edge to edge; the title, buttons and the strip below keep a margin */
@@ -3227,7 +3227,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
     #minimap { width: 84px; height: 84px; }
     .mapgrid .tileinfo {
       position: fixed; left: 8px; right: 8px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 12;
-      max-height: 46vh; overflow-y: auto; margin: 0; padding: 12px 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      max-height: 46vh; max-height: 46dvh; overflow-y: auto; margin: 0; padding: 12px 14px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
     }
     .mapgrid .tileinfo:not(.has) { display: none; }
     .ti-close {
@@ -3658,8 +3658,8 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .sun { background: #fff8e8; box-shadow: 0 0 0 14px rgba(255, 248, 232, 0.5), 0 0 0 30px rgba(255, 248, 232, 0.25); }
   .sun::before, .sun::after { background: #c9a98f; }
   .phobos { background: #e8c9b8; } .deimos { background: #f0d8ca; }
-  .hill { bottom: 0; height: 32vh; background: linear-gradient(90deg, #f6b896 50%, #eaa283 50%); border-radius: 60% 40% 0 0; opacity: 0.55; }
-  .h2 { height: 24vh; background: linear-gradient(90deg, #f3ab88 50%, #e3967a 50%); }
+  .hill { bottom: 0; height: 32vh; height: 32dvh; background: linear-gradient(90deg, #f6b896 50%, #eaa283 50%); border-radius: 60% 40% 0 0; opacity: 0.55; }
+  .h2 { height: 24vh; height: 24dvh; background: linear-gradient(90deg, #f3ab88 50%, #e3967a 50%); }
   .crater { background: #eea386; opacity: 0.35; }
   .ufo, .rocket-bg, .rover, .hopper, .dust { display: none; }
 
@@ -4560,7 +4560,7 @@ body.side-open[data-tut] #tut { z-index: 18; }
 @media (max-width: 559px) { #tut:not(.top) { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius-md); } .tut-beppo { width: 80px; } .tut-beppo img { width: 80px; height: 80px; } .tut-bub { padding: 10px 14px; } .tut-p { font-size: clamp(12px, 3.5vw, 14px); line-height: 1.4; } }
 @media (max-width: 559px) and (max-height: 700px) { .tut-beppo { width: 60px; } .tut-beppo img { width: 60px; height: 60px; border-radius: 14px; } .tut-beppo b { font-size: 11px; padding: 1px 8px; } .tut-bub { padding: 8px 12px; } .tut-p { font-size: 12px; line-height: 1.3; margin-bottom: 6px; } .tut-card h3 { font-size: 15px; } }
 /* long tour texts scroll inside the bubble instead of covering the lit-up place */
-@media (max-width: 559px) { #tut:not(.onb) .tut-bub .tut-p { max-height: 26vh; overflow-y: auto; overscroll-behavior: contain; } }
+@media (max-width: 559px) { #tut:not(.onb) .tut-bub .tut-p { max-height: 26vh; max-height: 26dvh; overflow-y: auto; overscroll-behavior: contain; } }
 @media (max-width: 559px) and (max-height: 600px) { #tut:not(.top) { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); } }
 .dark-mode .tut-card { background: #3a3220; color: var(--ink); border-color: #5a4b2c; }
 /* the tour is told by Beppo in a speech bubble */
@@ -4820,7 +4820,7 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   }
   /* a phone held sideways: popups use the full height and their header takes less room */
   @media (max-height: 520px) and (orientation: landscape) {
-    .sheet { max-height: 96vh; max-height: 96dvh; }
+    .sheet { max-height: 96vh; max-height: 96dvh; max-height: 96dvh; }
     .sheet-head { padding: 8px 52px 8px 16px; margin-bottom: 8px; }
     .sheet-head .hi { width: 46px; height: 40px; font-size: 24px; }
     .sheet-head h3 { font-size: 18px; }
@@ -5133,6 +5133,7 @@ function syncFromServer() {
 
 var lastClock = "";
 setInterval(function () {
+  if (document.hidden) return;
   var t = clockText(serverNow());
   if (t !== lastClock) {
     lastClock = t;
@@ -5266,7 +5267,7 @@ function setHTML(el, html) {
 
 var morphTpl = document.createElement("template");
 function morph(el, html) {
-  morphTpl.innerHTML = html;
+  morphTpl.innerHTML = html.indexOf("<img") < 0 ? html : html.replace(/<img(?![^>]*decoding=)/g, '<img decoding="async"');
   trWalk(morphTpl.content);
   giWalk(morphTpl.content);
   morphChildren(el, morphTpl.content);
@@ -5368,7 +5369,7 @@ function costChips(cost, res, timeMs) {
     tag.classList.add("pop");
   }
   nextTag();
-  setInterval(nextTag, 7000);
+  setInterval(function () { if (!document.hidden) nextTag(); }, 7000);
   tag.addEventListener("click", nextTag);
 })();
 
@@ -8336,7 +8337,7 @@ try {
 } catch (err) {
   console.warn("Could not initialize translations", err);
 }
-setInterval(i18nBoot, 5000);
+setInterval(function () { if (!document.hidden) i18nBoot(); }, 5000);
 var LANG_MAIN = ["en", "de", "es", "fr", "pt"]; // the languages shown up front
 var langMoreOpen = false;
 function langPicker() {
@@ -8824,6 +8825,7 @@ function cashBump(el) {
 function cdSpan(ms, go) { return '<b class="cd" data-cd-end="' + (Date.now() + Math.max(0, ms)) + '" data-cd-go="' + go + '">' + cdText(ms) + "</b>"; }
 function cdText(ms) { var s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60); }
 setInterval(function () {
+  if (document.hidden) return;
   document.querySelectorAll(".cd[data-cd-end]").forEach(function (el) {
     var left = Number(el.getAttribute("data-cd-end")) - Date.now(), t = cdText(left);
     if (el.textContent !== t) el.textContent = t;
@@ -13634,8 +13636,8 @@ document.addEventListener("input", function (e) {
     if (ctx.state === "running") evs.forEach(function (e) { document.removeEventListener(e, unlock, true); });
   }
   evs.forEach(function (e) { document.addEventListener(e, unlock, true); });
-  document.addEventListener("visibilitychange", function () { MUSIC.hid = document.hidden; if (!document.hidden) MUSIC.dk = 0; }); // coming back to the tab, the music eases in
-  setInterval(musicStep, 100);
+  document.addEventListener("visibilitychange", function () { MUSIC.hid = document.hidden; if (!document.hidden) MUSIC.dk = 0; else musicStep(); }); // coming back to the tab, the music eases in
+  setInterval(function () { if (!document.hidden) musicStep(); }, 100);
   musicLoad();
 })();
 
@@ -14002,6 +14004,7 @@ var tut = { step: -1 };
 // steps with a "wait" are finished by doing the thing; Next stays available so nobody gets stuck
 // 💬 Beppo pops up once for the big firsts (a small bubble; tap to close; Settings turns it off)
 var BEPPO_SAY = {
+  install: ["happy", "Psst! Tap the Share button in Safari, then “Add to Home Screen”. MarsL then opens fullscreen like a real app and can warn you when someone attacks."],
   built: ["happy", "Your first build is done! The colony is officially a place now. Please do not touch the walls yet. They are still wet."],
   trained: ["happy", "Fresh troops! They are brave, loyal and always hungry. Mostly hungry. Watch the food."],
   report: ["surprised", "A report?! I did not read it. I definitely did not read it. Open your Inbox!"],
@@ -16198,9 +16201,16 @@ function flashLoss(loot) {
   });
 }
 
-var prevMaxField = null, prevCamps = null;
+var prevMaxField = null, prevCamps = null, playSince = Date.now();
+// iPhone and iPad in Safari only get the full screen and the alerts once the game sits on the Home Screen: one hint, after a few minutes of play
+function iosSafariTab() {
+  var ua = navigator.userAgent || "";
+  var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return ios && !navigator.standalone && !(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+}
 function noticeChanges(d) {
   watchGains(d);
+  if (Date.now() - playSince > 240000 && !d.onboarding && iosSafariTab()) beppoSay("install", true);
   // two firsts, noticed only when they happen while playing (a veteran logging in is not greeted with them)
   var mf = (d.fields || []).reduce(function (m, f) { return Math.max(m, f.level || 0); }, 0), cw = (d.mood && d.mood.camps) || 0;
   if (prevMaxField !== null && mf >= 10 && prevMaxField < 10) setTimeout(function () { beppoSay("field10"); }, 900);
@@ -18743,10 +18753,11 @@ function openHunt() {
     clearInterval(hunt.timer); clearInterval(hunt.anim);
     hunt.timer = setInterval(function () {
       if (!sheet || sheet.kind !== "hunt") { clearInterval(hunt.timer); clearInterval(hunt.anim); return; }
+      if (document.hidden) return;
       if (hunt.pend || hunt.inflight) { huntSync(); return; }
       openHunt();
     }, 5000);
-    hunt.anim = setInterval(huntPaint, 100);
+    hunt.anim = setInterval(function () { if (!document.hidden) huntPaint(); }, 100);
   }).catch(function () { toast("⚠️ The server does not answer"); });
 }
 var SHINY_NAMES = ["", "Silver", "Gold", "Diamond", "Rainbow"];
@@ -21740,12 +21751,18 @@ setInterval(function () { if (live() && view === "ranking") loadRanking(); }, 15
 // the alliance board and attacks on allies stay fresh
 setInterval(function () { if (live() && view === "ranking" && playersTab === "alliance") loadAlliance(); }, 6000);
 // back from the background: fresh data and the right clock straight away
-document.addEventListener("visibilitychange", function () {
+// Safari freezes a tab in the background and can restore it from its page cache: every clock is set right again from the server the moment the player is back
+function resumeResync() {
   if (document.hidden || !loggedIn) return;
+  tickAt = 0;
   syncFromServer();
   loadColony(false);
   if (view === "map") { loadChunk(true); loadMinimap(); }
-});
+  if (sheet && sheet.kind === "hunt" && hunt.data) huntSync();
+}
+document.addEventListener("visibilitychange", resumeResync);
+window.addEventListener("pageshow", function (e) { if (e.persisted) resumeResync(); });
+window.addEventListener("online", resumeResync);
 
 // small POSTs for the alliance and profile (they don't return a colony)
 function allyPost(url, body, okText, after) {

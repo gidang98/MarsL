@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.560";
+const GAME_VERSION = "1.0.561";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17927,6 +17927,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.561",date:"2026-11-26",title:"Smoother on iPhone and Safari",groups:[["📱 iPhone and Safari",["Clocks, countdowns, the hunt and the colony are set right from the server the moment you come back to the game, also when Safari restores it from the background or the network returns.","Timers, the news ticker and the hunt animation pause while the game is not on screen, which saves battery.","Pictures now decode off the main thread, so scrolling stays smooth.","Windows and the page use the real visible height of the screen, so the address bar no longer leaves a gap or a jump.","Safari players are shown once how to add MarsL to the Home Screen for fullscreen play and attack alerts."]]]},
   {v:"1.0.560",date:"2026-11-26",title:"Hunt bars that you can see",groups:[["🐾 Hunt",["The hunt meter bar was invisible and now fills with a purple-to-gold colour. The opponent health bar is livelier: it flashes and shakes on every hit, a pale trail shows how much you just took off, and the bar pulses when the opponent is nearly caught."]]]},
   {v:"1.0.559",date:"2026-11-26",title:"Commander inventory transfer fits on one screen",groups:[["🎖️ Commanders",["The transfer window is much more compact: each resource now sits on one line with its slider, amount and new total, and the Transfer selected button stays in view without scrolling."]]]},
   {v:"1.0.558",date:"2026-11-26",title:"Sergeant Stompy is now Alien Fairy Rosa",groups:[["🎖️ Commanders",["The common commander Sergeant Stompy has been replaced by Alien Fairy Rosa, with a new look and a new introduction. Her attack and defense are unchanged."]]]},
