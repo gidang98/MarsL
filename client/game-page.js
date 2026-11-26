@@ -13445,6 +13445,9 @@ function setWave(o, ctx, type) {
 // for all sounds is multiplied by what the wave needs. The volume written in a sound table is not used any more.
 var SFX_LEVEL = 0.03, WAVE_GAIN = { square: 1, pulse25: 1.15, pulse12: 1.5, triangle: 1.7, sine: 1.4, sawtooth: 1.7, noise: 1.7 };
 function waveVol(wave, soft) { return SFX_LEVEL * (soft ? 0.8 : 1) * (WAVE_GAIN[wave] || 1); }
+// the same news arriving again and again (many waves, many reports) is heard once, then stays quiet for a while
+var calmAt = {};
+function calm(key, ms) { var t = Date.now(); if (calmAt[key] && t - calmAt[key] < ms) return false; calmAt[key] = t; return true; }
 function sfx(name) {
   if (sound.on && BUZZ[name] && navigator.vibrate) { try { navigator.vibrate(BUZZ[name]); } catch (e) {} }
   if (!sound.on || !SFX[name]) return;
@@ -16086,7 +16089,7 @@ function flashGain(gain) {
     document.body.appendChild(gl); document.body.appendChild(f);
     setTimeout(function () { gl.remove(); f.remove(); }, 1900);
   });
-  if (any && Date.now() - gainSoundAt > 1500) { gainSoundAt = Date.now(); sfx("coins"); }
+  if (any && calm("gain", 8000)) { gainSoundAt = Date.now(); sfx("coins"); }
 }
 function watchGains(d) {
   var now = Date.now();
@@ -16106,9 +16109,11 @@ function watchGains(d) {
   var ret = {};
   (d.movements || []).forEach(function (m) { if (m.type === "return") ret[m.id] = 1; });
   if (prevReturns && prevReturns.id === d.colonyId && Object.keys(prevReturns.ids).some(function (id) { return !ret[id]; })) {
-    var ic = document.querySelector('.nav [data-view="troops"] .ci');
-    if (ic) { ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop"); }
-    if (Date.now() - gainSoundAt > 1500) sfx("march");
+    if (calm("home", 20000)) { // one hop for a whole stream of returning waves
+      var ic = document.querySelector('.nav [data-view="troops"] .ci');
+      if (ic) { ic.classList.remove("pop"); void ic.offsetWidth; ic.classList.add("pop"); }
+      if (Date.now() - gainSoundAt > 2500) sfx("march");
+    }
   }
   prevReturns = { id: d.colonyId, ids: ret };
 }
@@ -16150,15 +16155,18 @@ function noticeChanges(d) {
   if (d.training) {
     if (prevTrain && !justCancelledTrain) Object.keys(prevTrain).forEach(function (w) {
       var p = prevTrain[w][0], now = d.training[w] || [];
-      if (p && !now.some(function (t) { return t.name === p.name; })) { toast("🪖 " + p.name + ": training finished", true); sfx("done"); beppoSay("trained"); }
+      if (p && !now.some(function (t) { return t.name === p.name; })) { toast("🪖 " + p.name + ": training finished", true); if (calm("trained", 4000)) sfx("done"); beppoSay("trained"); }
     });
     justCancelledTrain = false;
     prevTrain = {};
     Object.keys(d.training).forEach(function (w) { prevTrain[w] = (d.training[w] || []).map(function (t) { return { name: t.name }; }); });
   }
   if (prevUnread !== null && d.unread > prevUnread) {
-    sfx("report");
-    if (view !== "reports") toast("📬 New report in your Inbox", true);
+    // a raid of many waves brings many reports: one sound and one note, then the Inbox badge does the counting
+    if (calm("report", 15000)) {
+      sfx("report");
+      if (view !== "reports") toast("📬 New report in your Inbox", true);
+    }
     beppoSay("report");
   }
   prevUnread = d.unread;
@@ -16177,9 +16185,8 @@ function noticeChanges(d) {
   prevStolen = d.stolen ? d.stolen.id : 0;
   var threats = d.movements.filter(isThreat).length;
   if (prevIncoming !== null && threats > prevIncoming) {
-    toast("🚨 Incoming attack! Grab your frying pans!");
-    sfx("alarm");
-    quake();
+    // one alarm for a train of attack waves: more arriving within 12 s add to the incoming count without ringing again
+    if (calm("alarm", 12000)) { toast("🚨 Incoming attack! Grab your frying pans!"); sfx("alarm"); quake(); }
     beppoSay("threat");
   }
   prevIncoming = threats;
