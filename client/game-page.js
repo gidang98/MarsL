@@ -15,6 +15,15 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <title>MarsL</title>
+<meta name="description" content="Build a colony on Mars, train troops, clear monster camps and raid your neighbours. Free in your browser.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MarsL">
+<meta property="og:title" content="MarsL: build your colony on Mars">
+<meta property="og:description" content="Build a colony, train troops, clear monster camps and raid your neighbours. Free in your browser.">
+<meta property="og:image" content="__ORIGIN__/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link href="/fonts.css" rel="stylesheet">
 <style>
   :root {
@@ -2570,6 +2579,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .wk-facts { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
   .wk-facts span { font-size: 12px; padding: 3px 8px; border-radius: 8px; background: var(--surface-2); }
   .wk-cost { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; margin: 4px 0; }
+  .wk-banner { display: block; width: 100%; aspect-ratio: 10 / 3; object-fit: cover; border-radius: var(--radius-md); margin: 2px 0 8px; box-shadow: 0 2px 0 rgba(60, 40, 30, .12); }
   .wk-tribes, .wk-sort { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 8px; align-items: center; }
   .wk-sort small { font-size: 12px; color: var(--muted); margin-right: 2px; }
   .wk-units { display: grid; gap: 3px; }
@@ -4234,16 +4244,18 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   html[data-sky="night"] body:not(.landing) .sky { background-image: url("/art/backdrop-night.webp?v=__ARTV__"); }
   html[data-sky="night"] body.in .sun { display: none; }
   body.landing .sky { background: #1b1330 url("/art/bg-login.webp?v=__ARTV__") center bottom / cover no-repeat; }
-  body.landing .sky::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,10,40,.82) 0%, rgba(20,10,40,.7) 48%, rgba(20,10,40,.25) 100%); pointer-events: none; }
+  body.landing .sky::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,10,40,.82) 0%, rgba(20,10,40,.72) 48%, rgba(20,10,40,.55) 100%); pointer-events: none; }
   body.landing #app h2, body.landing #app p, body.landing #app .lp-sub { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
   /* paragraphs inside the light cards keep the card's own text colour; only the text sitting on the dark sky is white */
   body.landing #app .lp-band p, body.landing #app .lp-steps p, body.landing #app .lp-tribe p, body.landing #app .lp-step-t p, body.landing #app .lp-srv p, body.landing #app .lp-road p { color: inherit; opacity: .85; text-shadow: none; }
   body.landing .sky .hill, body.landing .sky .crater, body.landing .sky .rover, body.landing .sky .ufo, body.landing .sky .rocket-bg, body.landing .sky .hopper, body.landing .sky .sun, body.landing .sky .moon { display: none; }
   @media (max-width: 700px) {
     body.landing .sky { background-image: url("/art/bg-login-m.webp?v=__ARTV__"); }
-    .boot { background-image: url("/art/bg-loading-m.webp?v=__ARTV__"); }
+    .boot { background-image: linear-gradient(180deg, rgba(20, 10, 40, 0) 55%, rgba(20, 10, 40, .72) 100%), url("/art/bg-loading-m.webp?v=__ARTV__"); }
   }
-  .boot { position: fixed; inset: 0; z-index: 50; background: #1b1330 url("/art/bg-loading.webp?v=__ARTV__") center / cover no-repeat; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14vh; color: #fff; font-weight: 800; text-shadow: 0 2px 6px #000; }
+  .boot.fail { align-items: center; padding: 16px; }
+  .boot.fail .panel { max-width: 360px; text-align: center; color: var(--ink); text-shadow: none; }
+  .boot { position: fixed; inset: 0; z-index: 50; background: linear-gradient(180deg, rgba(20, 10, 40, 0) 55%, rgba(20, 10, 40, .72) 100%), #1b1330 url("/art/bg-loading.webp?v=__ARTV__") center / cover no-repeat; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14vh; color: #fff; font-weight: 800; text-shadow: 0 2px 6px #000; }
   body:not(.landing) .sky .hill, body:not(.landing) .sky .crater, body:not(.landing) .sky .rover, body:not(.landing) .sky .ufo, body:not(.landing) .sky .rocket-bg, body:not(.landing) .sky .hopper { display: none; }
   @media (max-aspect-ratio: 1/1) {
     body:not(.landing) .sky { background-image: url("/art/backdrop-day-m.webp?v=__ARTV__"); }
@@ -17302,6 +17314,11 @@ function wkList(items) {
 function wkP(text) {
   return '<p class="wk-p">' + trStr(text) + "</p>";
 }
+// a strip of the big start-page artwork: one for each tribe, and "alien" also stands for the monsters
+function heroBanner(key) {
+  var k = "hero-banner-" + key;
+  return FX_ART.t[k] ? '<img class="wk-banner" src="/art/' + k + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : "";
+}
 function wkNote(text) {
   return '<p class="wk-note">' + trStr(text) + "</p>";
 }
@@ -18043,6 +18060,7 @@ function wikiBuildings(W) {
   // every tribe builds a little differently
   var tr = wkTribe(W, wiki.tribe);
   var h = '<div class="wk-tribes">' + W.tribes.map(function (x) { return '<button class="' + (x.key === tr.key ? "on" : "") + '" data-wiki-tribe="' + x.key + '">' + x.icon + " " + x.name + "</button>"; }).join("") + "</div>";
+  h += heroBanner(tr.key);
   // every building as a chip: one tap shows its table
   h += '<div class="wk-pick">' + W.buildings.map(function (x) {
     var n = wkTribe(W, wiki.tribe).names[x.key];
@@ -18108,6 +18126,7 @@ var WK_VIEWS = [["stats", "📊 Stats"], ["costs", "💰 Costs"], ["value", "⚖
 function wikiTroops(W) {
   var t = wkTribe(W, wiki.tribe);
   var h = '<div class="wk-tribes">' + W.tribes.map(function (x) { return '<button class="' + (x.key === t.key ? "on" : "") + '" data-wiki-tribe="' + x.key + '">' + x.icon + " " + x.name + "</button>"; }).join("") + "</div>";
+  h += heroBanner(t.key);
   h += '<div class="wk-tribes wk-views">' + WK_VIEWS.map(function (v) { return '<button class="' + (wiki.view === v[0] ? "on" : "") + '" data-wiki-view="' + v[0] + '">' + v[1] + "</button>"; }).join("") + "</div>";
   var per = function (u, v) { return Math.round((v / Math.max(1, wkSum(u.cost))) * 1000); };
   var cols;
@@ -18616,7 +18635,7 @@ function codexSheet() {
   var C = codex.data, h = "";
   var cm = C.cmds.filter(function (x) { return x.met; }).length, cc = C.camps.filter(function (x) { return x.met; }).length;
   var tabs = [["monsters", "Monsters"], ["camps", "Camps"], ["cmds", "Commanders"]];
-  h += '<div class="sheet-head"><span class="hi">📖</span><div><h3>Codex</h3><b>' + C.met + "/" + C.total + " monsters · " + cc + "/" + C.camps.length + " camps · " + cm + "/" + C.cmds.length + ' commanders</b></div></div>';
+  h += '<div class="sheet-head"><span class="hi">📖</span><div><h3>Codex</h3><b>' + C.met + "/" + C.total + " monsters · " + cc + "/" + C.camps.length + " camps · " + cm + "/" + C.cmds.length + ' commanders</b></div></div>' + heroBanner("alien");
   h += '<div class="auc-tabs">' + tabs.map(function (t) { return '<button class="btn small ' + (codex.tab === t[0] ? "" : "ghost") + '" data-codex-tab="' + t[0] + '">' + t[1] + "</button>"; }).join("") + "</div>";
   if (codex.tab === "camps") {
     C.camps.forEach(function (k) { h += codexRow(k, k.wins === 1 ? "win" : "wins", " · tier " + k.tier); });
@@ -21779,7 +21798,10 @@ function showStartupError(err, retry) {
   button.textContent = "Retry";
   button.addEventListener("click", function () { button.disabled = true; retry(); });
   panel.append(message, button);
-  app.replaceChildren(panel);
+  var scene = document.createElement("div");
+  scene.className = "boot fail";
+  scene.appendChild(panel);
+  app.replaceChildren(scene);
   app._html = null;
   app._layout = null;
 }
