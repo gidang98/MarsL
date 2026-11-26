@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.548";
+const GAME_VERSION = "1.0.549";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17915,6 +17915,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.549",date:"2026-11-26",title:"Music that flows",groups:[["🎵 Music",["The casino music now plays in all casino games: slots, roulette and blackjack.","The music only follows you to a new place after a moment, so a quick window or redraw no longer makes the song flicker.","Songs crossfade with steady loudness instead of dipping in the middle.","A song that repeats on its own fades out at its end and in at its start, so there is no hard cut.","Coming back to the game from another app, the music eases in instead of jumping to full volume.","Fixed a rare stall where the music could stop fading if several songs were switching quickly."]]]},
   {v:"1.0.548",date:"2026-11-26",title:"Volume bars for everything",groups:[["🔊 Sound",["Settings now has three volume bars: master volume for everything, game sounds (taps, arrivals, voices) and the music. Each is remembered on your device.","The game sounds bar starts at the level they always had; moving it up makes them up to twice as strong for noisy places."]]]},
   {v:"1.0.547",date:"2026-11-26",title:"Map arrows back in place on phones",groups:[["🗺️ Map",["The four arrows around the map are back at the top, bottom, left and right edges on phones. A recent touch-area change had pulled them out of place and stacked them together."]]]},
   {v:"1.0.546",date:"2026-11-26",title:"Music volume slider, fuller islands on phones",groups:[["🎵 Music",["A volume slider in Settings sets the music from 0 to 100%. It changes the sound as you drag and is remembered on your device."]],["🏝️ Islands",["On phones the resource and colony islands now run edge to edge, so much less of the base is cut off at the sides while the island stays almost as big. The zoom buttons on the colony still show the whole island."]],["⚙️ Settings",["The quick buttons at the top of Settings fit three to a row on phones, so their labels are no longer cut off."]]]},

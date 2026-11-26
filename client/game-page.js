@@ -13485,7 +13485,7 @@ function toggleSound() {
 // 🎵 Background music: tracks are files the server owner drops into the "music" folder, named after the place they play in
 // (title, colony, map, casino, battle). A place without its own track plays "colony". Starts after the first tap, fades between
 // places, ducks under speech, pauses when the tab is hidden, and follows the Sound switch.
-var MUSIC = { tracks: {}, list: [], on: true, vol: 0.05, lvl: 64, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false, pos: {}, idx: {}, scene: "" };
+var MUSIC = { tracks: {}, list: [], on: true, vol: 0.05, lvl: 64, live: {}, duckUntil: 0, dk: 1, unlocked: false, hid: false, pos: {}, idx: {}, scene: "", cand: "", stable: "", since: 0 };
 // The game's own sounds are quiet chip beeps (about -30 dB), so the music sits well under them: Medium is roughly 20 dB below the files' full level.
 // The game's own sounds are quiet chip beeps (about -30 dB), so even the top of the slider stays gentle: the gain follows a curve of the 0-100 setting.
 function musicGain(l) { return l <= 0 ? 0 : 0.12 * Math.pow(l / 100, 2); }
@@ -13520,7 +13520,7 @@ function musicLoad() {
 function musicScene() {
   if (!loggedIn) return "title";
   if (document.querySelector("#scene[data-battle]")) return "battle";
-  if (document.getElementById("cz-stage")) return "casino";
+  if (sheet && sheet.kind === "casino") return "casino"; // slots, roulette and blackjack all share the casino music
   if (view === "map") return "map";
   return "colony";
 }
@@ -13540,12 +13540,16 @@ function musicStep() {
   if (!MUSIC.list.length && !ids.length) return;
   if (MUSIC.hid) { ids.forEach(function (k) { if (!MUSIC.live[k].el.paused) MUSIC.live[k].el.pause(); }); return; }
   var ctx = MUSIC.unlocked && MUSIC.pool ? audio() : null;
-  var w = MUSIC.on && sound.on && ctx ? musicWant(musicScene()) : null, want = w ? w.key : "";
+  // a place must hold for a moment before the music follows, so a sheet that flashes open or a redraw never makes the song flicker
+  var nowT = Date.now(), cs = musicScene();
+  if (cs !== MUSIC.cand) { MUSIC.cand = cs; MUSIC.since = nowT; }
+  if (!MUSIC.stable || (MUSIC.cand !== MUSIC.stable && nowT - MUSIC.since >= 700)) MUSIC.stable = MUSIC.cand;
+  var w = MUSIC.on && sound.on && ctx ? musicWant(MUSIC.stable) : null, want = w ? w.key : "";
   if (w && !MUSIC.live[want] && MUSIC.pool) {
     // a free player from the pool (each was started inside a tap, which is what iPhones require)
     var slot = null;
     MUSIC.pool.forEach(function (sl) { if (!slot && !sl.busy) slot = sl; });
-    if (!slot) return;
+    if (slot) {
     slot.busy = true; slot.g.gain.value = 0;
     var el = slot.el;
     el.loop = MUSIC.tracks[w.sc].length < 2;
@@ -13554,6 +13558,7 @@ function musicStep() {
     var at = MUSIC.pos[want] || 0;
     if (at > 1) el.addEventListener("loadedmetadata", function () { try { if (at < el.duration - 5) el.currentTime = at; } catch (e) {} }, { once: true });
     MUSIC.live[want] = { slot: slot, el: el, g: slot.g, lvl: 0, trim: MUSIC_TRIM[w.sc] || 1 };
+    }
   }
   MUSIC.dk += Math.max(-0.06, Math.min(0.06, (Date.now() < MUSIC.duckUntil ? 0.35 : 1) - MUSIC.dk));
   Object.keys(MUSIC.live).forEach(function (k) {
@@ -13563,7 +13568,9 @@ function musicStep() {
     if (t.el.currentTime > 0) MUSIC.pos[k] = t.el.currentTime;
     if (t.lvl <= 0 && !tgt) { t.el.pause(); t.g.gain.value = 0; t.slot.busy = false; delete MUSIC.live[k]; if (k === "battle") MUSIC.pos[k] = 0; return; }
     if (t.el.paused) { var pr = t.el.play(); if (pr && pr.catch) pr.catch(function () {}); }
-    var e = t.lvl * t.lvl * (3 - 2 * t.lvl); // smooth in and out, so the crossfade has no bump
+    var e = Math.sin(t.lvl * Math.PI / 2); // equal-power crossfade: the two songs together keep one steady loudness
+    // a song that loops on its own (one track in that place) fades out at its end and in again at its start, so the restart is never a hard cut
+    if (t.el.loop && t.el.duration > 12) { var ct = t.el.currentTime; if (t.lastCt !== undefined && ct < t.lastCt - 1) t.looped = true; t.lastCt = ct; e *= Math.max(0, Math.min(t.looped ? ct / 2.5 : 1, (t.el.duration - ct) / 2.5, 1)); }
     t.g.gain.value = MUSIC.vol * t.trim * e * MUSIC.dk;
   });
 }
@@ -13611,7 +13618,7 @@ document.addEventListener("input", function (e) {
     if (ctx.state === "running") evs.forEach(function (e) { document.removeEventListener(e, unlock, true); });
   }
   evs.forEach(function (e) { document.addEventListener(e, unlock, true); });
-  document.addEventListener("visibilitychange", function () { MUSIC.hid = document.hidden; });
+  document.addEventListener("visibilitychange", function () { MUSIC.hid = document.hidden; if (!document.hidden) MUSIC.dk = 0; }); // coming back to the tab, the music eases in
   setInterval(musicStep, 100);
   musicLoad();
 })();
