@@ -543,7 +543,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.553";
+const GAME_VERSION = "1.0.554";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17927,6 +17927,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.554",date:"2026-11-26",title:"A tidier clinic",groups:[["🏥 Feather Clinic",["The clinic no longer shows a Beppo remark above the wounded troops. Beppo still introduces the clinic once, the first time you open it."]]]},
   {v:"1.0.553",date:"2026-11-26",title:"A tour that stays out of the way",groups:[["🧭 Tour",["Beppo's bubble now sits where it does not cover the place he is pointing at. If the text is long on a small screen, it scrolls inside the bubble.","The expand step opens the side panel on phones and tablets and lights up your terra there, then closes it again.","Steps are numbered in order: Team up is step 5, Expand is now a bonus tip."]]]},
   {v:"1.0.552",date:"2026-11-26",title:"Beppo says it once, or says it differently",groups:[["🗣️ Speech bubbles",["Remarks that can come back (empty build queue, empty barracks, welcome back, a pile of unread reports, a day streak and more) now have several versions each and never repeat the one you just heard.","Bubbles that explain something (storages, buildings, the Codex, the auction and so on) appear once per account. Hearing one on your phone also silences it on your computer."]]]},
   {v:"1.0.551",date:"2026-11-26",title:"Calm when the waves roll in",groups:[["✨ Feedback",["When many waves come home or many reports arrive at once, you hear one sound and see one note instead of one per wave. The Inbox badge and the green numbers still count everything.","The Army button hops once for a whole stream of returning troops.","A train of incoming attack waves rings the alarm and shakes the screen once; the incoming counter keeps counting.","Several trainings that finish together play one sound."]]]},

@@ -3887,11 +3887,6 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .say b { display: block; margin-bottom: 2px; color: #ffd36b; font-size: 13px; }
   .say p { margin: 0; min-height: 2.7em; font-size: 16px; line-height: 1.35; }
   .say i { position: absolute; right: 12px; bottom: 5px; font-size: 11px; font-style: normal; opacity: .65; }
-  .bubble { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 10px; padding: 8px 10px; border: 2px dashed var(--line); border-radius: var(--radius-sm); background: rgba(255,255,255,.35); }
-  .bubble .bi { flex: none; font-size: 26px; line-height: 1.1; }
-  .bubble .bi img { display: block; width: 52px; height: 52px; }
-  .bubble b { display: block; font-size: 12px; opacity: .75; }
-  .bubble p { margin: 0; font-size: 14px; }
   .uic { display: inline-block; width: 1.3em; height: 1.3em; vertical-align: -0.3em; object-fit: contain; flex: none; pointer-events: none; }
   /* 1.0.245: the clay hero picture with one real screenshot in front */
   .lp-art { position: relative; min-width: 0; padding: 0 0 40px 0; }
@@ -10223,24 +10218,6 @@ var CAST = {
   croupier: { name: "Croupier", icon: "🎩", pitch: 420, wave: "triangle" },
   void: { name: "Void Sovereign", icon: "🌌", pitch: 120, wave: "pulse12", art: "hero-voidsovereign" }
 };
-var BEPPO_LINES = {
-  neutral: ["Everything is under control. Mostly.", "I sniffed around. Nothing suspicious. Except the cat.", "Good day for a colony. Good day for a snack.", "Don't mind me, I'm just supervising."],
-  happy: ["Ten camps cleared! Good colony! Best colony!", "Did someone say walkies? No? Still a great day."],
-  worried: ["Ouch. I brought bandages. And my sad eyes."],
-  surprised: ["Did you hear that? Probably nothing. Probably."]
-};
-// a mood picks the picture and the lines; without one Beppo is relaxed (or happy after many cleared camps)
-function castLine(mood) {
-  var m = (data && data.mood) || {}, tick = Math.floor(Date.now() / 600000);
-  if (!mood) mood = m.camps >= 10 && tick % 3 === 0 ? "happy" : "neutral";
-  var pool = BEPPO_LINES[mood] || BEPPO_LINES.neutral;
-  return { mood: mood, text: pool[tick % pool.length] };
-}
-function bubble(mood) {
-  var c = CAST.beppo, L = castLine(mood), key = "beppo-" + L.mood;
-  var face = FX_ART.t[key] ? '<img src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : c.icon;
-  return '<div class="bubble"><span class="bi">' + face + "</span><div><b>" + esc(c.name) + "</b><p>" + esc(L.text) + "</p></div></div>";
-}
 // a short beep for every letter, a little different for every speaker
 function blip(pitch, soft, wave) {
   if (!sound.on) return;
@@ -15247,7 +15224,7 @@ function hospitalPanel(d) {
   var hp = d.hospital;
   var colony = d.colonyId === undefined ? d.colony + "|" + d.x + "|" + d.y : d.colonyId;
   if (healColony !== colony) { healSelection = {}; healColony = colony; }
-  var h = bubble(hp.wounded.length ? "worried" : "") + '<h4 class="sidesub">🛏️ Wounded troops <span class="count">' + hp.wounded.reduce(function(n,u){return n+u.count},0) + ' / ' + hp.beds + '</span></h4>';
+  var h = '<h4 class="sidesub">🛏️ Wounded troops <span class="count">' + hp.wounded.reduce(function(n,u){return n+u.count},0) + ' / ' + hp.beds + '</span></h4>';
   if (hp.job) h += jobPanel(hp.job, "heal");
   if (!hp.wounded.length) return h + '<p class="empty">No wounded troops.</p>';
   var cost={wood:0,stone:0,metal:0,food:0},ms=0,total=0;
