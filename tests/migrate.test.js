@@ -12,13 +12,6 @@ try {
   console.warn('Skipping migration tests: node:sqlite not available (requires Node.js 22+)');
 }
 
-const TEST_DB = path.join(__dirname, '../test-migrate.sqlite');
-
-function cleanDb() {
-  if (fs.existsSync(TEST_DB)) fs.unlinkSync(TEST_DB);
-  return new DatabaseSync(TEST_DB);
-}
-
 function loadMigrate() {
   // Clear require cache to get fresh state
   delete require.cache[require.resolve('../lib/migrate')];
@@ -27,7 +20,7 @@ function loadMigrate() {
 
 describe('Migration runner', { skip: !DatabaseSync }, () => {
   test('creates __migrations table on first run', () => {
-    const db = cleanDb();
+    const db = new DatabaseSync(':memory:');
     const { migrate } = loadMigrate();
     migrate(db, path.join(__dirname, '../migrations'));
     const row = db.prepare(
@@ -38,7 +31,7 @@ describe('Migration runner', { skip: !DatabaseSync }, () => {
   });
 
   test('applies migrations in order', () => {
-    const db = cleanDb();
+    const db = new DatabaseSync(':memory:');
     const { migrate } = loadMigrate();
     const count = migrate(db, path.join(__dirname, '../migrations'));
     assert.ok(count >= 1, 'should apply at least one migration');
@@ -53,7 +46,7 @@ describe('Migration runner', { skip: !DatabaseSync }, () => {
   });
 
   test('does not re-apply already applied migrations', () => {
-    const db = cleanDb();
+    const db = new DatabaseSync(':memory:');
     const { migrate } = loadMigrate();
     migrate(db, path.join(__dirname, '../migrations'));
     const before = db.prepare("SELECT COUNT(*) as n FROM __migrations").get().n;
@@ -65,7 +58,7 @@ describe('Migration runner', { skip: !DatabaseSync }, () => {
   });
 
   test('status returns correct info', () => {
-    const db = cleanDb();
+    const db = new DatabaseSync(':memory:');
     const { migrate, status } = loadMigrate();
     migrate(db, path.join(__dirname, '../migrations'));
     const s = status(db);
@@ -76,7 +69,7 @@ describe('Migration runner', { skip: !DatabaseSync }, () => {
   });
 
   test('rollback removes last migration', () => {
-    const db = cleanDb();
+    const db = new DatabaseSync(':memory:');
     const { migrate, rollback } = loadMigrate();
     migrate(db, path.join(__dirname, '../migrations'));
     const before = db.prepare("SELECT COUNT(*) as n FROM __migrations").get().n;
@@ -89,7 +82,7 @@ describe('Migration runner', { skip: !DatabaseSync }, () => {
   });
 
   test('initial schema migration creates tables', () => {
-    const db = cleanDb();
+    const db = new DatabaseSync(':memory:');
     const { migrate } = loadMigrate();
     migrate(db, path.join(__dirname, '../migrations'));
     const tables = db.prepare(

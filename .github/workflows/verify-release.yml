@@ -4,13 +4,19 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      rollback_run_id:
+        description: Optional successful deployment run to rehearse against isolated data
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -23,4 +29,26 @@ jobs:
       - run: node --check server.js
       - run: node scripts/build-release.js
       - run: node --check dist/server.js
+      - run: npm install --prefix "$RUNNER_TEMP/marsl-browser" --no-save --package-lock=false playwright@1.56.1
+      - run: |
+          "$RUNNER_TEMP/marsl-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
       - run: node scripts/smoke-release.js
+        env:
+          BROWSER_SMOKE: "1"
+          NODE_PATH: ${{ runner.temp }}/marsl-browser/node_modules
+
+      - name: Rehearse verified rollback on temporary worlds
+        if: ${{ github.event.pull_request.number == 107 || (github.event_name == 'workflow_dispatch' && inputs.rollback_run_id != '') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROLLBACK_RUN_ID: ${{ inputs.rollback_run_id || '46073128208' }}
+        run: |
+          set -euo pipefail
+          [[ "$ROLLBACK_RUN_ID" =~ ^[0-9]+$ ]]
+          archive="$RUNNER_TEMP/marsl-rollback-rehearsal"
+          mkdir -p "$archive"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ROLLBACK_RUN_ID" > "$archive/run.json"
+          gh run download "$ROLLBACK_RUN_ID" --name "verified-release-$ROLLBACK_RUN_ID" --dir "$archive"
+          node --check "$archive/server.js"
+          node --check scripts/rehearse-rollback.js
+          node scripts/rehearse-rollback.js "$archive" "$archive/run.json"

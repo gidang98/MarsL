@@ -22,6 +22,7 @@ env:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: alwaysdata-deploy
@@ -243,6 +244,70 @@ jobs:
           echo ""
           echo "🚀 All servers verified successfully with version ${EXPECTED_VERSION}!"
 
+      - name: Verify live public boot assets and optional Spore Flak artwork
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        env:
+          TARGET: ${{ env.DEPLOY_TARGET }}
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const {createHash} = require('node:crypto');
+          const worlds = [['opentest','open-test','https://marsl-game.com'], ['classic','classic','https://classic.marsl-game.com'], ['speed','speed-test','https://speed.marsl-game.com']];
+          const lines = [];
+          async function get(url) { return fetch(url, {redirect:'error', signal:AbortSignal.timeout(20000), headers:{'Cache-Control':'no-cache'}}); }
+          (async () => {
+            let failed = false;
+            for (const [target,id,base] of worlds) {
+              if (process.env.TARGET !== 'all' && process.env.TARGET !== target) continue;
+              try {
+                const cfg = await get(base+'/api/config'); assert.ok(cfg.ok, 'config HTTP '+cfg.status);
+                const c = await cfg.json(); assert.equal(c.server,id); assert.equal(c.version,process.env.EXPECTED_VERSION); assert.equal(c.commit,process.env.GITHUB_SHA);
+                const shell = await get(base+'/'); assert.ok(shell.ok, 'shell HTTP '+shell.status); assert.match(shell.headers.get('cache-control')||'',/no-store/);
+                const html = await shell.text();
+                const assets = [...html.matchAll(/(?:src|href)="(\/game-assets\/([a-f0-9]{64})\.(css|js))"/g)];
+                assert.deepEqual(assets.map(a=>a[3]),['css','js']);
+                for (const [,url,hash,ext] of assets) {
+                  const a = await get(base+url); assert.ok(a.ok, ext+' HTTP '+a.status);
+                  assert.match(a.headers.get('content-type')||'',ext==='js'?/javascript/:/text\/css/);
+                  assert.equal(createHash('sha256').update(Buffer.from(await a.arrayBuffer())).digest('hex'),hash);
+                }
+                const stale = await get(base+'/game-assets/'+'0'.repeat(64)+'.js');
+                assert.ok(stale.ok); assert.match(stale.headers.get('cache-control')||'',/no-store/); assert.match(await stale.text(),/location.replace/);
+                lines.push('- '+id+': exact version/commit, correct server ID, shell, CSS/JS checksums and stale-script recovery passed.');
+              } catch (e) { failed=true; lines.push('- '+id+': public startup checks FAILED.'); console.error(id,e.message); }
+              try {
+                const art = await get(base+'/art/unit-alien-spitter.webp');
+                const bytes = Buffer.from(await art.arrayBuffer());
+                const ok=art.ok && bytes.subarray(0,4).toString()==='RIFF' && bytes.subarray(8,12).toString()==='WEBP';
+                lines.push('- '+id+': Spore Flak WebP '+(ok?'present.':'missing or invalid; manual upload may be needed.'));
+              } catch { lines.push('- '+id+': Spore Flak WebP could not be verified.'); }
+            }
+            const report = lines.join('\n')+'\n'; console.log(report); fs.writeFileSync('live-verification.md',report); fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,report);
+            if(failed) process.exitCode=1;
+          })().catch(e=>{console.error(e.message);process.exitCode=1;});
+          NODE
+
+      - name: Read provider WAF configuration without modifying it
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        continue-on-error: true
+        env:
+          AD_API_TOKEN: ${{ secrets.AD_API_TOKEN }}
+          TARGET: ${{ env.DEPLOY_TARGET }}
+        run: |
+          set -euo pipefail
+          for entry in opentest:1094171 classic:1098921 speed:1098812; do
+            world="${entry%:*}"; site="${entry#*:}"
+            if [[ "$TARGET" != all && "$TARGET" != "$world" ]]; then continue; fi
+            if response=$(curl --fail --silent --show-error --max-time 20 --user "${AD_API_TOKEN} account=marsl:" "https://api.alwaysdata.com/v1/site/${site}/"); then
+              status=$(SITE_JSON="$response" node -e 'try { const s=JSON.parse(process.env.SITE_JSON); const v=s.waf_profile; console.log(!Object.hasOwn(s,"waf_profile") ? "unknown" : v == null || v === "" || v === false ? "not configured" : "configured"); } catch { console.log("unknown"); }')
+            else
+              status=unavailable
+            fi
+            printf -- '- %s: provider WAF profile %s (read-only check).\n' "$world" "$status" | tee -a live-verification.md "$GITHUB_STEP_SUMMARY"
+          done
+
       - name: Record verified release manifest
         if: ${{ env.DEPLOY_TARGET != 'verify' }}
         env:
@@ -292,3 +357,18 @@ jobs:
               "https://api.alwaysdata.com/v1/site/${site_id}/"
             echo "Verified SFTP and API read access for site ${site_id}"
           done
+
+      - name: Record deployment outcome in active task ledger
+        if: ${{ always() && env.DEPLOY_TARGET != 'verify' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ job.status }}
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            printf 'Deployment %s — version %s, commit `%s`, target %s.\n\n' "$RESULT" "$EXPECTED_VERSION" "$GITHUB_SHA" "$DEPLOY_TARGET"
+            printf '[Actions run](https://github.com/%s/actions/runs/%s)\n\n' "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            if test -f live-verification.md; then cat live-verification.md; fi
+          } > ledger-deploy.md
+          gh issue comment 108 --repo "$GITHUB_REPOSITORY" --body-file ledger-deploy.md
