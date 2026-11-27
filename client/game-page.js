@@ -11101,7 +11101,8 @@ function trainPanel(d, which) {
     var pct = t.active ? Math.round((1 - t.nextMs / t.eachMs) * 100) : 0;
     upTo += t.totalMs;
     t.readyAt = serverNow() + upTo;
-    h += '<div class="qitem"><span class="big">' + t.icon + "</span>";
+    var queuedUnit = d.units.find(function (u) { return u.name === t.name && u.building === which; });
+    h += '<div class="qitem"><span class="big" style="flex:0 0 48px;width:48px;height:48px;display:flex;align-items:center;justify-content:center">' + (queuedUnit ? unitPic(queuedUnit) : t.icon) + "</span>";
     h += '<div class="qbody"><b>' + t.remaining + "× " + t.name + "</b>";
     h += '<div class="meter green"><i style="width:' + pct + '%"></i></div>';
     h += "<small>" + (t.active ? "Next in " + fmt(t.nextMs) + " · this order done in " + fmt(t.totalMs) : "💤 Waiting · takes " + fmt(t.totalMs)) + " · ready at " + clockText(t.readyAt) + "</small></div>";
