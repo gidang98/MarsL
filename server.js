@@ -1916,6 +1916,34 @@ function columnsOf(table) {
 function addColumn(table, column, definition) {
   if (!columnsOf(table).includes(column)) db.exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
 }
+function reportListKeys(d) {
+  d = d || {};
+  const fight = (d.mission === "attack" || d.mission === "raid") && d.attack !== undefined;
+  if (d.mission === "reinforce" && d.side === "receiver") return ["defense", "support"];
+  if (!fight) return [d.mission === "scout" || d.mission === "counterspy" ? "spy" : "other", ""];
+  const own = d.side === "helper" ? (d.ownUnits || null) : d.side === "attacker" ? d.attacker && d.attacker.units : d.defender && d.defender.units;
+  const lost = (Array.isArray(own) ? own : []).reduce((n, u) => n + (u.lost || 0), 0);
+  const none = own !== null && !lost;
+  if (d.side === "attacker") return ["attack", !d.attackerWins ? "aLost" : none ? "aWon0" : "aWon"];
+  return ["defense", !d.attackerWins ? (none ? "dWon0" : "dWon") : (none ? "dLost0" : "dLost")];
+}
+addColumn("reports", "filter_kind", "TEXT NOT NULL DEFAULT ''");
+addColumn("reports", "filter_sub", "TEXT NOT NULL DEFAULT ''");
+{
+  const pending = db.prepare("SELECT id, data FROM reports WHERE filter_kind = ''").all();
+  if (pending.length) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const update = db.prepare("UPDATE reports SET filter_kind = ?, filter_sub = ? WHERE id = ?");
+      for (const row of pending) {
+        let keys;
+        try { keys = reportListKeys(JSON.parse(row.data)); } catch (e) { keys = ["other", ""]; }
+        update.run(...keys, row.id);
+      }
+      db.exec("COMMIT");
+    } catch (e) { db.exec("ROLLBACK"); throw e; }
+  }
+}
 // Before multiple colonies, a colony was identified by its player.
 // Old colonies keep their number: colony id = old player id.
 if (!columnsOf("colonies").includes("id")) {
@@ -3898,12 +3926,8 @@ function addReport(userId, time, icon, title, data) {
     data = Object.assign({}, data || {}, { tpl: { k: key, a: args } });
     title = key.replace(/\{(\d)\}/g, function (x, i) { return args[+i] !== undefined ? args[+i] : ""; });
   }
-  const ins = db.prepare("INSERT INTO reports (user_id, created_at, title, icon, data) VALUES (?, ?, ?, ?, ?)").run(
-    userId,
-    time,
-    title,
-    icon,
-    JSON.stringify(data)
+  const ins = db.prepare("INSERT INTO reports (user_id, created_at, title, icon, data, filter_kind, filter_sub) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    userId, time, title, icon, JSON.stringify(data), ...reportListKeys(data)
   );
   db.prepare(
     `DELETE FROM reports WHERE user_id = ? AND id NOT IN
@@ -8658,8 +8682,35 @@ app.get('/api/player/summary', requireLogin, (req, res) => {
   });
 });
 
+function reportListPage(req, res) {
+  const me = req.user.id, filter = String(req.query.filter || "all"), sub = String(req.query.sub || "");
+  const before = req.query.before === undefined ? Number.MAX_SAFE_INTEGER : Number(req.query.before);
+  const subKeys = { attack: ["aWon0", "aWon", "aLost"], defense: ["dWon0", "dWon", "dLost", "dLost0", "support"] };
+  if (!Number.isSafeInteger(before) || before <= 0 || !["all", "unread", "attack", "defense", "spy", "other"].includes(filter) || (sub && !(subKeys[filter] || []).includes(sub))) return res.status(400).json({ error: "Invalid report page" });
+  const fp = db.prepare("SELECT COUNT(*) AS n, MAX(id) AS mx, GROUP_CONCAT(CASE WHEN seen = 0 THEN id END) AS unseen FROM reports WHERE user_id = ?").get(me);
+  const fq = db.prepare("SELECT farm_quiet, farm_hidden FROM users WHERE id = ?").get(me) || {};
+  const v = crypto.createHash("sha256").update(JSON.stringify([fp, fq, filter, sub, before])).digest("hex").slice(0, 24);
+  res.setHeader("Cache-Control", "private, no-store");
+  if (req.query.v === v) return res.json({ same: true, v });
+  let where = "user_id = ? AND id < ?", args = [me, before];
+  if (filter === "unread") where += " AND seen = 0";
+  else if (filter !== "all") { where += " AND filter_kind = ?"; args.push(filter); }
+  if (sub) { where += " AND filter_sub = ?"; args.push(sub); }
+  const page = db.prepare("SELECT id, created_at, title, icon, data, seen FROM reports WHERE " + where + " ORDER BY id DESC LIMIT 21").all(...args);
+  const counts = { all: 0, unread: 0, attack: 0, defense: 0, spy: 0, other: 0 }, subs = {};
+  for (const r of db.prepare("SELECT filter_kind AS kind, filter_sub AS sub, COUNT(*) AS n, SUM(CASE WHEN seen = 0 THEN 1 ELSE 0 END) AS unread FROM reports WHERE user_id = ? GROUP BY filter_kind, filter_sub").all(me)) {
+    counts.all += r.n; counts.unread += r.unread;
+    counts[r.kind || "other"] = (counts[r.kind || "other"] || 0) + r.n;
+    if (r.sub) subs[r.sub] = (subs[r.sub] || 0) + r.n;
+  }
+  const rows = page.slice(0, 20);
+  return res.json({ v, now: Date.now(), filter, sub, counts, subs, farmQuiet: !!fq.farm_quiet, farmHidden: fq.farm_hidden || 0,
+    next: page.length > 20 ? rows[19].id : null,
+    reports: rows.map((r) => ({ id: r.id, at: r.created_at, title: r.title, icon: r.icon, seen: !!r.seen, data: JSON.parse(r.data) })) });
+}
 app.get("/api/reports", requireLogin, (req, res) => {
   processMovements(Date.now());
+  if (req.query.paged === "1") return reportListPage(req, res);
   // a cheap fingerprint: the page asks every few seconds, and most of the time nothing changed
   const fp = db.prepare("SELECT COUNT(*) AS n, MAX(id) AS mx, SUM(seen) AS s FROM reports WHERE user_id = ?").get(req.user.id);
   const fq0 = db.prepare("SELECT farm_quiet, farm_hidden FROM users WHERE id = ?").get(req.user.id) || {};
@@ -8750,9 +8801,18 @@ function sharedRanking(now) {
 }
 app.get("/api/ranking", requireLogin, (req, res) => {
   const now = Date.now();
-  const players = sharedRanking(now).map((p) => ({ ...p, me: p.id === req.user.id }));
+  const source = sharedRanking(now);
+  const mark = (p) => ({ ...p, me: p.id === req.user.id });
   res.setHeader("Cache-Control", "private, no-store");
-  res.json({ players, weekly: weeklyRanking(req.user.id, now), league: leagueView(req.user.id, now) });
+  const weekly = weeklyRanking(req.user.id, now), league = leagueView(req.user.id, now);
+  if (req.query.paged !== "1") return res.json({ players: source.map(mark), weekly, league });
+  const sort = String(req.query.sort || "points"), page = Number(req.query.page || 1);
+  if (!["points", "atk", "def", "npc", "loot", "crown"].includes(sort) || !Number.isSafeInteger(page) || page < 1) return res.status(400).json({ error: "Invalid ranking page" });
+  if (!rankingShared.sorted) rankingShared.sorted = new Map();
+  if (!rankingShared.sorted.has(sort)) rankingShared.sorted.set(sort, source.slice().sort((a, b) => b[sort] - a[sort] || b.points - a.points || a.player.localeCompare(b.player) || a.id - b.id));
+  const sorted = rankingShared.sorted.get(sort), offset = (page - 1) * 50;
+  const myIndex = sorted.findIndex((p) => p.id === req.user.id);
+  return res.json({ players: sorted.slice(offset, offset + 50).map(mark), sort, page, total: sorted.length, myRank: myIndex + 1, me: myIndex >= 0 ? mark(sorted[myIndex]) : null, weekly, league });
 });
 
 // The best players of this week (and the winners of last week)
@@ -9782,9 +9842,12 @@ function leagueContest(weekFrom) {
   return LEAGUE_CONTESTS[Math.floor(weekFrom / (7 * 86400000)) % LEAGUE_CONTESTS.length];
 }
 function leagueTable() {
-  const rows = db.prepare("SELECT DISTINCT users.id, users.username FROM users JOIN colonies ON colonies.user_id = users.id WHERE users.bot = 0").all()
-    .map((u) => ({ id: u.id, name: u.username, points: playerPoints(u.id) }))
-    .sort((a, b) => a.points - b.points || a.id - b.id);
+  const totals = new Map();
+  for (const r of db.prepare("SELECT users.id, users.username, colonies.state FROM users JOIN colonies ON colonies.user_id = users.id WHERE users.bot = 0").all()) {
+    if (!totals.has(r.id)) totals.set(r.id, { id: r.id, name: r.username, points: 0 });
+    totals.get(r.id).points += colonyPoints(JSON.parse(r.state));
+  }
+  const rows = Array.from(totals.values()).sort((a, b) => a.points - b.points || a.id - b.id);
   const n = rows.length;
   rows.forEach((r, i) => { r.league = n ? Math.min(3, Math.floor((i * 4) / n)) : 0; });
   return rows;
@@ -19892,8 +19955,7 @@ function offerSweep(now) {
 setInterval(() => { try { offerSweep(Date.now()); } catch (e) { console.error(e); } }, 60000);
 
 function offerRow(o, colony, userId, now) {
-  const c = db.prepare("SELECT colonies.name, colonies.x, colonies.y, users.username FROM colonies JOIN users ON users.id = colonies.user_id WHERE colonies.id = ?").get(o.colony_id);
-  if (!c) return null;
+  const c = { name: o.seller_colony, x: o.seller_x, y: o.seller_y, username: o.seller_name };
   const dist = distance(colony.x, colony.y, c.x, c.y);
   return {
     id: o.id, mine: o.user_id === userId, give: o.give_res, giveAmt: o.give_amt, want: o.want_res, wantAmt: o.want_amt,
@@ -19904,10 +19966,15 @@ function offerRow(o, colony, userId, now) {
 
 function offersView(colony, userId, now) {
   const ally = allianceOf(userId);
-  const mine = db.prepare("SELECT * FROM market_offers WHERE user_id = ? ORDER BY id").all(userId).map((o) => offerRow(o, colony, userId, now)).filter(Boolean);
-  const open = db.prepare("SELECT * FROM market_offers WHERE user_id != ? AND expires_at > ?").all(userId, now)
-    .filter((o) => !o.ally_only || (ally && areAllies(userId, o.user_id)))
-    .filter((o) => !accountsLinked(userId, o.user_id))
+  const joined = "SELECT o.*, c.name AS seller_colony, c.x AS seller_x, c.y AS seller_y, u.username AS seller_name FROM market_offers o JOIN colonies c ON c.id = o.colony_id JOIN users u ON u.id = c.user_id";
+  const mine = db.prepare(joined + " WHERE o.user_id = ? ORDER BY o.id").all(userId).map((o) => offerRow(o, colony, userId, now)).filter(Boolean);
+  const open = db.prepare(joined + ` LEFT JOIN users seller ON seller.id = o.user_id
+    LEFT JOIN alliance_members am ON am.user_id = o.user_id
+    WHERE o.user_id != ? AND o.expires_at > ?
+    AND (o.ally_only = 0 OR am.alliance_id = ?)
+    AND (COALESCE(seller.multi_ok, 0) = 1 OR EXISTS (SELECT 1 FROM users WHERE id = ? AND multi_ok = 1)
+      OR NOT EXISTS (SELECT 1 FROM device_links x JOIN device_links y ON x.device = y.device WHERE x.user_id = ? AND y.user_id = o.user_id))
+    ORDER BY o.id`).all(userId, now, ally ? ally.id : null, userId, userId)
     .map((o) => offerRow(o, colony, userId, now)).filter(Boolean)
     .sort((a, b) => a.dist - b.dist).slice(0, OFFER_LIST);
   return { mine, open, max: OFFER_MAX, min: OFFER_MIN, ratioMin: OFFER_RATIO_MIN, ratioMax: OFFER_RATIO_MAX, lastsMs: offerMs() };
@@ -24421,6 +24488,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS perf_sessions_user ON sessions(user_id);
   CREATE INDEX IF NOT EXISTS perf_users_online ON users(bot, last_seen);
   CREATE INDEX IF NOT EXISTS perf_reports_unread ON reports(user_id, seen);
+  CREATE INDEX IF NOT EXISTS perf_reports_kind ON reports(user_id, filter_kind, id);
+  CREATE INDEX IF NOT EXISTS perf_reports_sub ON reports(user_id, filter_kind, filter_sub, id);
   CREATE INDEX IF NOT EXISTS perf_messages_inbox ON messages(to_id, del_to, id);
   CREATE INDEX IF NOT EXISTS perf_messages_sent ON messages(from_id, del_from, id);
   CREATE INDEX IF NOT EXISTS perf_messages_unread ON messages(to_id, seen, del_to);
