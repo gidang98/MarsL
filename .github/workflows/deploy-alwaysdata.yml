@@ -289,6 +289,25 @@ jobs:
           })().catch(e=>{console.error(e.message);process.exitCode=1;});
           NODE
 
+      - name: Read provider WAF configuration without modifying it
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        continue-on-error: true
+        env:
+          AD_API_TOKEN: ${{ secrets.AD_API_TOKEN }}
+          TARGET: ${{ env.DEPLOY_TARGET }}
+        run: |
+          set -euo pipefail
+          for entry in opentest:1094171 classic:1098921 speed:1098812; do
+            world="${entry%:*}"; site="${entry#*:}"
+            if [[ "$TARGET" != all && "$TARGET" != "$world" ]]; then continue; fi
+            if response=$(curl --fail --silent --show-error --max-time 20 --user "${AD_API_TOKEN} account=marsl:" "https://api.alwaysdata.com/v1/site/${site}/"); then
+              status=$(SITE_JSON="$response" node -e 'try { const s=JSON.parse(process.env.SITE_JSON); const v=s.waf_profile; console.log(!Object.hasOwn(s,"waf_profile") ? "unknown" : v == null || v === "" || v === false ? "not configured" : "configured"); } catch { console.log("unknown"); }')
+            else
+              status=unavailable
+            fi
+            printf -- '- %s: provider WAF profile %s (read-only check).\n' "$world" "$status" | tee -a live-verification.md "$GITHUB_STEP_SUMMARY"
+          done
+
       - name: Record verified release manifest
         if: ${{ env.DEPLOY_TARGET != 'verify' }}
         env:
