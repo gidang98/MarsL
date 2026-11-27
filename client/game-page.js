@@ -12189,8 +12189,8 @@ function battleCargo(d) {
     }).join('') + '</div>' + (capacity ? '<label>🎒 ' + total.toLocaleString() + ' / ' + capacity.toLocaleString() + '<progress max="' + capacity + '" value="' + Math.min(total, capacity) + '"></progress></label>' : '') + '</section>';
   }
   if (d.loot) h += cargo(d.side === 'attacker' ? 'Loot travelling home' : 'Resources stolen from the defended colony', d.loot, d.side === 'attacker' ? d.carry : 0);
-  if (d.hero && d.hero.stash) h += cargo('Commander bounty · collect in inventory', d.hero.stash, 0);
-  else if (d.bounty) h += cargo('Bounty travelling home · separate from loot', d.bounty, 0);
+  if (d.hero && d.hero.stash) h += cargo('🏆 Monster bounty · added to your commander inventory', d.hero.stash, 0);
+  else if (d.bounty) h += cargo('🏆 Monster bounty · extra, on top of the loot', d.bounty, 0);
   return h;
 }
 function reportOverview(d) {
