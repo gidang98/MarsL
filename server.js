@@ -547,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.568";
+const GAME_VERSION = "1.0.569";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -14586,6 +14586,7 @@ app.post("/api/admin/pending-clear", requireOwner, (req, res) => {
 db.exec("CREATE TABLE IF NOT EXISTS translations (id INTEGER PRIMARY KEY AUTOINCREMENT, lang TEXT NOT NULL, key TEXT NOT NULL, text TEXT NOT NULL, author TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL, decided_at INTEGER, decided_by TEXT)");
 db.exec("CREATE INDEX IF NOT EXISTS idx_translations_lang ON translations (lang, status)");
 db.exec("CREATE TABLE IF NOT EXISTS i18n_seen (key TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 1, last_at INTEGER NOT NULL)");
+db.exec("CREATE TABLE IF NOT EXISTS i18n_seen_by (key TEXT NOT NULL, username TEXT NOT NULL, seen_at INTEGER NOT NULL, PRIMARY KEY(key,username))");
 db.exec("CREATE TABLE IF NOT EXISTS i18n_skips (username TEXT NOT NULL, key TEXT NOT NULL, skipped_at INTEGER NOT NULL, PRIMARY KEY(username,key))");
 const TR_LANG_ORDER = ["de", "it", "fr", "tr", "es", "ru", "vi", "pt", "id", "pl", "cs", "sk"]; // same order as the arrays in the page
 function trLangs() { return Object.keys(MAIL_LANGS).filter((l) => l !== "en"); }
@@ -14597,6 +14598,18 @@ function builtInStrings() {
   try { BUILTIN_STRINGS = JSON.parse("{" + PAGE.slice(a, b).trim().replace(/,\s*$/, "") + "}"); } catch (e) { return {}; }
   return BUILTIN_STRINGS;
 }
+// the longer page texts (start page and the like) live in a second table, one block per language
+let PAGE_TEXT_KEYS = null;
+function pageTextKeys() {
+  if (PAGE_TEXT_KEYS) return PAGE_TEXT_KEYS;
+  PAGE_TEXT_KEYS = new Set();
+  try {
+    const a = PAGE.indexOf("var I18N = ") + 11, b = PAGE.indexOf("\n};", a) + 2;
+    const o = JSON.parse(PAGE.slice(a, b));
+    Object.values(o).forEach((m) => Object.keys(m).forEach((k) => { if (k.indexOf("<") < 0) PAGE_TEXT_KEYS.add(k); }));
+  } catch (e) { /* the built-in phrases still work without it */ }
+  return PAGE_TEXT_KEYS;
+}
 function translationProblem(key, text) {
   if (typeof key !== "string" || typeof text !== "string") return "Missing text";
   text = text.trim();
@@ -14605,21 +14618,36 @@ function translationProblem(key, text) {
   if (!/[A-Za-z]{2}/.test(key)) return "That phrase can’t be translated";
   if (/[<>]/.test(text)) return "Plain text only, no < or >";
   if ((key.match(/#/g) || []).length !== (text.match(/#/g) || []).length) return "Keep every # in the text: it stands for a number";
+  if ((key.match(/[{][0-9][}]/g) || []).sort().join() !== (text.match(/[{][0-9][}]/g) || []).sort().join()) return "Keep every {0} and {1} in the text: a name goes there";
   return "";
 }
 // Names are account data, not game copy. Keep player handles out of both the
 // translator suggestions and the shared list of phrases players have seen.
-let translationNamesCache = [], translationNamesCachedAt = 0;
+let translationNamesCache = { one: new Set(), multi: [] }, translationNamesCachedAt = 0, gameWords = null;
+// a player called "Attack" must not hide every phrase with that word: words the game itself uses are never treated as names
+function gameWordSet() {
+  if (!gameWords) { gameWords = new Set(); Object.keys(builtInStrings()).forEach((k) => k.toLowerCase().split(/[^a-z0-9_]+/).forEach((w) => w && gameWords.add(w))); }
+  return gameWords;
+}
 function translationSourceHasPlayerName(source) {
   const text = String(source || "");
   if (Date.now() - translationNamesCachedAt > 15000) {
-    translationNamesCache = db.prepare("SELECT username FROM users").all().map((row) => String(row.username || "").trim()).filter((name) => name.length >= 2);
+    const one = new Set(), multi = [];
+    db.prepare("SELECT username AS n FROM users UNION SELECT name AS n FROM colonies").all().forEach((row) => {
+      const name = String(row.n || "").trim().toLowerCase();
+      if (name.length < 3 || Object.prototype.hasOwnProperty.call(builtInStrings(), String(row.n || "").trim())) return;
+      if (/^[a-z0-9_]+$/.test(name)) { if (!gameWordSet().has(name)) one.add(name); } else multi.push(name);
+    });
+    translationNamesCache = { one, multi };
     translationNamesCachedAt = Date.now();
   }
-  return translationNamesCache.some((name) => {
-    if (name.length < 2) return false;
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp("(^|[^A-Za-z0-9_])" + escaped + "($|[^A-Za-z0-9_])", "i").test(text);
+  const low = text.toLowerCase();
+  if (low.split(/[^a-z0-9_]+/).some((w) => w && translationNamesCache.one.has(w))) return true;
+  return translationNamesCache.multi.some((name) => {
+    const at = low.indexOf(name);
+    if (at < 0) return false;
+    const before = low.charAt(at - 1), after = low.charAt(at + name.length);
+    return !/[a-z0-9_]/.test(before) && !/[a-z0-9_]/.test(after);
   });
 }
 // Approved translations survive rounds and synchronize via the account hub.
@@ -14689,7 +14717,12 @@ app.post("/api/i18n/suggest", requireLogin, (req, res) => {
   if (!trLangs().includes(lang)) return res.status(400).json({ error: "Unknown language" });
   const bad = translationProblem(b.key, b.text);
   if (bad) return res.status(400).json({ error: bad });
-  if (!Object.prototype.hasOwnProperty.call(builtInStrings(), b.key)) return res.status(400).json({ error: "Choose a phrase from the game text catalog." });
+  if (!i18nCatalogKey(b.key)) {
+    // a phrase tapped on screen that nobody reported yet: it joins the list once it passes the same checks
+    if (!i18nSeenOk(b.key)) return res.status(400).json({ error: "That text can’t be translated here." });
+    db.prepare("INSERT OR IGNORE INTO i18n_seen_by (key, username, seen_at) VALUES (?, ?, ?)").run(b.key, req.user.username, Date.now());
+    db.prepare("INSERT INTO i18n_seen (key, n, last_at) VALUES (?, 1, ?) ON CONFLICT(key) DO NOTHING").run(b.key, Date.now());
+  }
   const text = b.text.trim();
   const now = Date.now();
   if (db.prepare("SELECT COUNT(*) AS n FROM translations WHERE author = ? AND created_at > ?").get(req.user.username, now - 86400000).n >= 150) return res.status(429).json({ error: "That’s plenty for today. Thank you! Come back tomorrow." });
@@ -14698,7 +14731,46 @@ app.post("/api/i18n/suggest", requireLogin, (req, res) => {
   res.json({ ok: true });
 });
 // phrases players met that are not translated yet: they become the source list for translators
-app.post("/api/i18n/seen", requireLogin, (req, res) => res.json({ ok: true }));
+// every phrase a player meets is counted once per player: new texts become translatable, and the most-seen ones come first
+const I18N_SEEN_CAP = 30000;
+function i18nCatalogKey(key) {
+  if (typeof key !== "string") return false;
+  if (Object.prototype.hasOwnProperty.call(builtInStrings(), key) || pageTextKeys().has(key)) return true;
+  return !!db.prepare("SELECT 1 FROM i18n_seen WHERE key = ?").get(key);
+}
+function i18nSeenOk(key) {
+  return typeof key === "string" && key.length >= 3 && key.length <= 400 && /[A-Za-z]{3}/.test(key) && !/[<>]/.test(key) && !translationSourceHasPlayerName(key);
+}
+app.post("/api/i18n/seen", requireLogin, (req, res) => {
+  const keys = Array.isArray((req.body || {}).keys) ? req.body.keys.slice(0, 150) : [];
+  const now = Date.now(), who = req.user.username;
+  const today = db.prepare("SELECT COUNT(*) AS n FROM i18n_seen_by WHERE username = ? AND seen_at > ?").get(who, now - 86400000).n;
+  if (today > 4000) return res.json({ ok: true });
+  const full = db.prepare("SELECT COUNT(*) AS n FROM i18n_seen").get().n >= I18N_SEEN_CAP;
+  const mark = db.prepare("INSERT OR IGNORE INTO i18n_seen_by (key, username, seen_at) VALUES (?, ?, ?)");
+  const bump = db.prepare("INSERT INTO i18n_seen (key, n, last_at) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET n = n + 1, last_at = excluded.last_at");
+  db.exec("BEGIN");
+  try {
+    for (const k of keys) {
+      if (!i18nSeenOk(k)) continue;
+      if (full && !Object.prototype.hasOwnProperty.call(builtInStrings(), k) && !db.prepare("SELECT 1 FROM i18n_seen WHERE key = ?").get(k)) continue;
+      if (mark.run(k, who, now).changes) bump.run(k, now);
+    }
+    db.exec("COMMIT");
+  } catch (e) { db.exec("ROLLBACK"); }
+  res.json({ ok: true });
+});
+// what translators work on: how often each phrase was seen, and approved texts whose English phrase is gone (they need a new home)
+app.get("/api/i18n/catalog", requireLogin, (req, res) => {
+  const lang = String(req.query.lang || "");
+  if (!trLangs().includes(lang)) return res.status(400).json({ error: "Unknown language" });
+  const built = builtInStrings();
+  const seen = {};
+  db.prepare("SELECT key, n FROM i18n_seen ORDER BY n DESC LIMIT 8000").all().forEach((r) => { if (!translationSourceHasPlayerName(r.key)) seen[r.key] = r.n; });
+  const orphans = db.prepare("SELECT key, text FROM translations WHERE lang = ? AND status = 'approved' ORDER BY decided_at DESC").all(lang)
+    .filter((r) => !Object.prototype.hasOwnProperty.call(built, r.key) && !Object.prototype.hasOwnProperty.call(seen, r.key) && !pageTextKeys().has(r.key)).slice(0, 300);
+  res.json({ seen, orphans });
+});
 app.post("/api/i18n/filter-suggestions", requireLogin, (req, res) => {
   const keys = Array.isArray((req.body || {}).keys) ? req.body.keys.slice(0, 250) : [];
   const blocked = keys.filter((key) => typeof key !== "string" || key.length > 800 || translationSourceHasPlayerName(key));
@@ -14710,7 +14782,7 @@ app.get("/api/i18n/skipped", requireLogin, (req, res) => {
 });
 app.post("/api/i18n/skip", requireLogin, (req, res) => {
   const key = (req.body || {}).key;
-  if (typeof key !== "string" || !Object.prototype.hasOwnProperty.call(builtInStrings(), key)) return res.status(400).json({ error: "That phrase can’t be skipped." });
+  if (!i18nCatalogKey(key)) return res.status(400).json({ error: "That phrase can’t be skipped." });
   db.prepare("INSERT INTO i18n_skips(username,key,skipped_at) VALUES(?,?,?) ON CONFLICT(username,key) DO UPDATE SET skipped_at=excluded.skipped_at").run(req.user.username, key, Date.now());
   res.json({ ok: true });
 });
@@ -17932,6 +18004,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.569",date:"2026-11-27",title:"Translating made easy",groups:[["✏️ Help translate",["Help translate shows work again: every text players actually meet in the game can now be found and translated, also new texts, and the phrases seen most often come first. A progress bar shows how much of your language is done.","👆 Translate on screen: switch it on, tap any text in the game and fix it right there, where you can see what it means and how much room it has.","🔁 When the English text of a phrase changes, its translation is not lost: it is shown again for a check, next to what the English said before.","👁 While you type you see your text with real numbers in place of #, and a warning if it is much longer than the English and may not fit."]]]},
   {v:"1.0.568",date:"2026-11-27",title:"A tidier start page",groups:[["🏠 Start page",["The start page now runs in the order a newcomer asks: what the game looks like, how you get started, which tribe to pick, the extras, the server speeds, the round and quick answers. The language list folds into one button, the army is described in plain words and repeated text is gone. \"Your first ten minutes\" became \"How you get started\", because building times depend on the server speed."]]]},
   {v:"1.0.567",date:"2026-11-27",title:"The start page says what MarsL is",groups:[["🏠 Start page",["The top of the start page now says plainly that MarsL is a multiplayer strategy game in your browser, explains in one sentence what you do, and shows the game in four steps: build, train, raid, ally. Quick answers start with \"What kind of game is MarsL?\", and search results and shared links describe the game the same way."]]]},
   {v:"1.0.566",date:"2026-11-27",title:"A start page that explains the game",groups:[["🏠 Start page",["New \"Your first ten minutes\" strip, a \"Quick answers\" section and a live player count tell new players what to expect before they sign up. The weather forecast line now says what the weather does.","🌤️ Weather: the last places that still said \"Sol\", including every translation, now say weather."]]]},

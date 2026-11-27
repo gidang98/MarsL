@@ -4062,6 +4062,18 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 .trbar button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13.5px; font-weight: 700; background: #f1e8de; color: #4a3a2a; cursor: pointer; }
 .trbar button.on { background: #ffd23f; color: #3a2400; }
 .trbar input { flex: 1 1 140px; min-width: 0; border: 1px solid rgba(120,90,60,.25); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 14px; }
+.tr-prog { display: grid; gap: 4px; margin: 0 0 10px; }
+.tr-prog .hbar i { background: linear-gradient(90deg, #3fae4f, #8ad16b); }
+.tr-prog small { font-size: 12px; opacity: .8; }
+.tr-mode { width: 100%; margin: 0 0 8px; }
+.tr-note { font-size: 12px; color: #9a5a1a; margin: 0 0 4px; word-break: break-word; }
+.tr-prev { font-size: 12.5px; margin: 4px 0 0; color: #5a4a3a; word-break: break-word; }
+.tr-prev:empty { display: none; }
+.tr-prev-t::before { content: "👁 "; }
+.tr-prev em { display: block; font-style: normal; color: #b0422c; margin-top: 2px; }
+body.trmode #app, body.trmode #side { cursor: text; }
+#trfloat { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px; background: #2a1630; color: #fff1e0; font-weight: 700; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.35); white-space: nowrap; }
+#trfloat .btn { margin: 0; width: auto; }
 .trrow { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--card); box-shadow: inset 0 0 0 1px rgba(120,90,60,.08); }
 .trrow .tr-en { font-size: 13.5px; color: #6a5a4a; margin: 0 0 6px; word-break: break-word; }
 .trrow textarea { width: 100%; box-sizing: border-box; min-height: 52px; border: 1px solid rgba(120,90,60,.25); border-radius: var(--radius-sm); padding: 8px 10px; font: inherit; font-size: 14.5px; resize: vertical; }
@@ -6036,7 +6048,7 @@ function setLang(l) {
 function trHtml(h) {
   var d = I18N[curLang()];
   if (!d) return h;
-  Object.keys(d).sort(function (a, b) { return b.length - a.length; }).forEach(function (k) { h = h.split(k).join(d[k]); });
+  Object.keys(d).sort(function (a, b) { return b.length - a.length; }).forEach(function (k) { h = h.split(k).join(approvedI18n[k] || d[k]); }); // a community fix wins
   return h;
 }
 // ---------- 🌍 whole-game translator: every screen passes through here ----------
@@ -8218,6 +8230,26 @@ var GTR = {
 var translationCatalog = Object.keys(GTR);
 var LANG_IDX = { de: 0, it: 1, fr: 2, tr: 3, es: 4, ru: 5, vi: 6, pt: 7, id: 8, pl: 9, cs: 10, sk: 11 };
 var trMiss = {}; // phrases the player met that have no translation yet
+// English texts that were reworded after they were translated: their translations are shown to translators for a check (new English: old English)
+var GTR_REVIEW = {
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders."
+};
+// every phrase a player meets is reported once, so new texts can be translated and the most-seen ones come first
+var trSeenQ = Object.create(null), trSeenSent = Object.create(null), trSeenN = 0;
+var trMode = false, trRev = Object.create(null), trRevN = 0;
+function trSeenNote(k) {
+  if (!k || trSeenSent[k] || trSeenQ[k] || k.length > 400 || !/[A-Za-z]{3}/.test(k) || trSeenN > 3000) return;
+  trSeenQ[k] = 1;
+  trSeenN++;
+}
+function trSeenFlush() {
+  if (!loggedIn) return;
+  var keys = Object.keys(trSeenQ).slice(0, 150);
+  if (!keys.length) return;
+  keys.forEach(function (k) { delete trSeenQ[k]; trSeenSent[k] = 1; });
+  fetch("/api/i18n/seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keys: keys }) }).catch(function () {});
+}
+setInterval(function () { if (!document.hidden) trSeenFlush(); }, 60000);
 var TPL = null; // keys with {0} / {1}: a name sits inside a fixed sentence
 function trTpl(key) {
   if (!TPL) {
@@ -8231,7 +8263,7 @@ function trTpl(key) {
   if (key.length > 240) return null;
   for (var i = 0; i < TPL.length; i++) {
     var m = TPL[i][0].exec(key);
-    if (m) return { e: GTR[TPL[i][1]], caps: m.slice(1) };
+    if (m) return { e: GTR[TPL[i][1]], caps: m.slice(1), k: TPL[i][1] };
   }
   return null;
 }
@@ -8249,12 +8281,14 @@ function trStr(s) {
   var key = core.replace(/&#\\d+;|(?:(?<=[(|])-)?\\d+(?:[.,]\\d+)*/g, function (x) { if (x.charAt(0) === "&") return x; nums.push(x); return "#"; });
   var cleanKey = trCleanKey(key);
   if (key.indexOf("New Colony") === 0 && l !== undefined && GTR["New Colony"] && GTR["New Colony"][l] && !GTR[key]) return m[1] + GTR["New Colony"][l] + core.slice(10) + m[3];
-  var e = GTR[key], pre = "";
-  if (!e && cleanKey !== key && GTR[cleanKey]) { e = GTR[cleanKey]; pre = (/^[^A-Za-z#]+/.exec(key) || [""])[0]; }
-  if (!e) { var pm = /^([^A-Za-z#]+)([A-Za-z#][\\s\\S]*)$/.exec(key); if (pm && GTR[pm[2]]) { pre = pm[1]; e = GTR[pm[2]]; } } // 🧭 + known text
+  var e = GTR[key], pre = "", used = key;
+  if (!e && cleanKey !== key && GTR[cleanKey]) { e = GTR[cleanKey]; used = cleanKey; pre = (/^[^A-Za-z#]+/.exec(key) || [""])[0]; }
+  if (!e) { var pm = /^([^A-Za-z#]+)([A-Za-z#][\\s\\S]*)$/.exec(key); if (pm && GTR[pm[2]]) { pre = pm[1]; e = GTR[pm[2]]; used = pm[2]; } } // 🧭 + known text
   var caps = null;
-  if (!e) { var tp = trTpl(key) || (cleanKey !== key ? trTpl(cleanKey) : null); if (tp) { e = tp.e; caps = tp.caps; } }
-  if (!e && pm) { var tp2 = trTpl(pm[2]); if (tp2) { pre = pm[1]; e = tp2.e; caps = tp2.caps; } } // 💥 + a sentence with names in it
+  if (!e) { var tp = trTpl(key) || (cleanKey !== key ? trTpl(cleanKey) : null); if (tp) { e = tp.e; caps = tp.caps; used = tp.k; } }
+  if (!e && pm) { var tp2 = trTpl(pm[2]); if (tp2) { pre = pm[1]; e = tp2.e; caps = tp2.caps; used = tp2.k; } } // 💥 + a sentence with names in it
+  if (!e) used = cleanKey;
+  trSeenNote(used);
   if (!e || l === undefined || !e[l]) {
     if (trMiss && (l !== undefined || window.__trCol) && !e && /[A-Za-z]{3}/.test(cleanKey)) trMiss[cleanKey] = 1;
     return s;
@@ -8262,7 +8296,9 @@ function trStr(s) {
   var i = 0;
   var out = e[l];
   if (caps) out = out.replace(/\\{(\\d)\\}/g, function (x, n) { return trStr(caps[+n] || ""); });
-  return m[1] + pre + out.replace(/#/g, function () { return i < nums.length ? nums[i++] : "#"; }) + m[3];
+  var shown = pre + out.replace(/#/g, function () { return i < nums.length ? nums[i++] : "#"; });
+  trRemember(shown, used); // what is on screen, back to its English phrase (for translating on screen)
+  return m[1] + shown + m[3];
 }
 var TR_ATTR = ["placeholder", "title", "aria-label", "alt"];
 function trWalk(root) {
@@ -15843,40 +15879,147 @@ function updateSendInfo() {
 }
 
 // ---------- ✏️ help translate: suggest better texts, a moderator checks each one ----------
-var trl = { q: "", draft: {}, pending: {}, skipped: Object.create(null), skipLoaded: false, skipLoadFailed: false, list: [] };
-function translateSheet() {
-  var lg = curLang(), l = LANG_IDX[lg];
-  var q = trl.q.trim().toLowerCase();
-  var localized = Object.create(null);
-  function phraseKey(k) {
-    return trCleanKey(k).replace(/^[^A-Za-z#{]+/, "").trim().toLowerCase();
-  }
-  function remember(k, text, approved) {
-    var key = phraseKey(k);
-    if (key && typeof text === "string" && text.trim() && (approved || phraseKey(text) !== key)) localized[key] = text;
-  }
-  Object.keys(I18N[lg] || {}).forEach(function (k) { remember(k, I18N[lg][k]); });
-  translationCatalog.forEach(function (k) { remember(k, (GTR[k] || [])[l]); });
-  Object.keys(approvedI18n).forEach(function (k) { remember(k, approvedI18n[k], true); });
-  function currentText(k) {
-    return approvedI18n[k] || localized[phraseKey(k)] || (GTR[k] || [])[l] || "";
-  }
-  var keys = translationCatalog.filter(function (k) {
-    if (q) return k.toLowerCase().includes(q) || currentText(k).toLowerCase().includes(q);
-    return trl.skipLoaded && !trl.skipped[k] && trl.pending[k] === undefined &&
-      !Object.prototype.hasOwnProperty.call(approvedI18n, k) && !localized[phraseKey(k)] && !((GTR[k] || [])[l] || "").trim();
+var trl = { q: "", draft: {}, pending: {}, skipped: Object.create(null), skipLoaded: false, skipLoadFailed: false, list: [], notes: {}, cat: null, moves: null };
+// words of a phrase, for finding the new English text of a translation whose old English text is gone
+function trWords(k) {
+  var o = Object.create(null);
+  String(k).toLowerCase().split(/[^a-z#]+/).forEach(function (w) { if (w.length > 2) o[w] = 1; });
+  return o;
+}
+function trSimilar(a, b) {
+  var n = 0, all = 0, k;
+  for (k in a) { all++; if (b[k]) n++; }
+  for (k in b) if (!a[k]) all++;
+  return all ? n / all : 0;
+}
+function trAllKeys() {
+  var seen = (trl.cat && trl.cat.seen) || {};
+  var out = Object.keys(GTR).filter(function (k) { return /[A-Za-z]{2}/.test(k); });
+  var has = Object.create(null);
+  out.forEach(function (k) { has[k] = 1; });
+  Object.keys(seen).concat(Object.keys(I18N[curLang()] || {})).forEach(function (k) { if (!has[k] && k.indexOf("<") < 0) { has[k] = 1; out.push(k); } });
+  return out;
+}
+function trCurrent(k) {
+  var l = LANG_IDX[curLang()];
+  return approvedI18n[k] || (GTR[k] || [])[l] || (I18N[curLang()] || {})[k] || "";
+}
+// approved texts whose English phrase changed: matched once to the closest phrase that has no text yet
+function trFindMoves(keys) {
+  var out = [];
+  var orphans = (trl.cat && trl.cat.orphans) || [];
+  if (!orphans.length) return out;
+  var open = keys.filter(function (k) { return !trCurrent(k); }).map(function (k) { return [k, trWords(k)]; });
+  var taken = Object.create(null);
+  orphans.forEach(function (o) {
+    var ow = trWords(o.key), best = null, score = 0.5;
+    open.forEach(function (c) { if (taken[c[0]]) return; var v = trSimilar(ow, c[1]); if (v > score) { score = v; best = c[0]; } });
+    if (best) { taken[best] = 1; out.push({ k: best, old: o.key, text: o.text }); }
   });
-  trl.list = keys.slice(0, 25);
-  var h = '<div class="sheet-head"><span class="hi">✏️</span><div><h3>Help translate</h3><b>' + LANG_NAMES[lg] + "</b></div></div>";
-  h += '<p class="hint left">Translate the words only. Emoji, icons, and player names are excluded. Skip any phrase you don’t want to work on. Keep # for numbers.</p>';
-  h += '<div class="trbar"><input id="trq" type="search" placeholder="Search game text" value="' + esc(trl.q) + '"></div>';
-  if (!trl.list.length) h += '<p class="hint left">' + (q ? "Nothing found" : trl.skipLoadFailed ? "Could not load skipped phrases. Reopen this window to retry." : !trl.skipLoaded ? "Loading suggestions…" : "No untranslated phrases are available right now. Search to find a specific phrase.") + "</p>";
-  trl.list.forEach(function (k, i) {
-    var cur = trl.draft[k] !== undefined ? trl.draft[k] : trl.pending[k] !== undefined ? trl.pending[k] : currentText(k);
-    h += '<div class="trrow"><div class="tr-en" data-notr="1">' + esc(trCleanKey(k)) + '</div><textarea rows="2" data-trkey="' + i + '" placeholder="Your translation" lang="' + lg + '">' + esc(cur) + '</textarea><div class="tr-act"><span>' + (trl.pending[k] !== undefined && trl.draft[k] === undefined ? "⏳ Waiting for review" : "") + '</span><button class="btn small" data-trskip="' + i + '" title="Skip this phrase">Skip</button><button class="btn small" data-trsend="' + i + '">Send</button></div></div>';
-  });
+  return out;
+}
+var TR_SAMPLE = ["3", "12", "250", "1,500", "7"];
+function trPreview(k, text) {
+  if (!text) return "";
+  var i = 0, out = text.replace(/#/g, function () { return TR_SAMPLE[i++ % TR_SAMPLE.length]; });
+  var warn = [];
+  if ((k.match(/#/g) || []).length !== (text.match(/#/g) || []).length) warn.push("⚠️ Keep every # from the English text: it stands for a number.");
+  if ((k.match(/[{][0-9][}]/g) || []).sort().join() !== (text.match(/[{][0-9][}]/g) || []).sort().join()) warn.push("⚠️ Keep every {0} and {1}: a name goes there.");
+  var en = trCleanKey(k).length;
+  if (en <= 60 && text.length > Math.max(14, en * 1.6)) warn.push("⚠️ Much longer than the English, so it may not fit on a button or a small screen.");
+  return '<span class="tr-prev-t">' + esc(out) + "</span>" + warn.map(function (w) { return "<em>" + w + "</em>"; }).join("");
+}
+function trRow(k, i, lg) {
+  var note = trl.notes[k];
+  var cur = trl.draft[k] !== undefined ? trl.draft[k] : trl.pending[k] !== undefined ? trl.pending[k] : (note && note.text) || trCurrent(k);
+  var h = '<div class="trrow">';
+  if (note) h += '<div class="tr-note" data-notr="1">' + esc(note.label) + "</div>";
+  h += '<div class="tr-en" data-notr="1">' + esc(trCleanKey(k)) + '</div><textarea rows="2" data-trkey="' + i + '" placeholder="Your translation" lang="' + lg + '">' + esc(cur) + "</textarea>";
+  h += '<div class="tr-prev" data-notr="1" data-trprev="' + i + '">' + trPreview(k, cur) + "</div>";
+  h += '<div class="tr-act"><span>' + (trl.pending[k] !== undefined && trl.draft[k] === undefined ? "⏳ Waiting for review" : "") + '</span><button class="btn small" data-trskip="' + i + '" title="Skip this phrase">Skip</button><button class="btn small" data-trsend="' + i + '">Send</button></div></div>';
   return h;
 }
+function translateSheet() {
+  var lg = curLang();
+  var q = trl.q.trim().toLowerCase();
+  var seen = (trl.cat && trl.cat.seen) || {};
+  var keys = trAllKeys();
+  if (trl.cat && !trl.moves) trl.moves = trFindMoves(keys);
+  var done = keys.filter(function (k) { return trCurrent(k); }).length;
+  var pct = keys.length ? Math.floor((done / keys.length) * 100) : 0;
+  var byUse = function (a, b) { return (seen[b] || 0) - (seen[a] || 0); };
+  var open = function (k) { return !trl.skipped[k] && trl.pending[k] === undefined; };
+  trl.notes = {};
+  var list = [];
+  if (q) {
+    list = keys.filter(function (k) { return k.toLowerCase().indexOf(q) >= 0 || trCurrent(k).toLowerCase().indexOf(q) >= 0; }).sort(byUse);
+  } else if (trl.skipLoaded && trl.cat) {
+    Object.keys(GTR_REVIEW).forEach(function (k) {
+      if (open(k) && !Object.prototype.hasOwnProperty.call(approvedI18n, k) && trCurrent(k)) { trl.notes[k] = { label: "🔁 The English text changed. Before: " + GTR_REVIEW[k] }; list.push(k); }
+    });
+    (trl.moves || []).forEach(function (m) {
+      if (open(m.k) && !trCurrent(m.k)) { trl.notes[m.k] = { label: "🔁 Similar to an older text: " + trCleanKey(m.old), text: m.text }; list.push(m.k); }
+    });
+    list = list.concat(keys.filter(function (k) { return open(k) && !trCurrent(k) && !trl.notes[k]; }).sort(byUse));
+  }
+  trl.list = list.slice(0, 25);
+  var h = '<div class="sheet-head"><span class="hi">✏️</span><div><h3>Help translate</h3><b>' + LANG_NAMES[lg] + "</b></div></div>";
+  if (trl.cat) h += '<div class="tr-prog"><div class="hbar"><i style="width:' + pct + '%"></i></div><small>' + pct + "% translated · " + (keys.length - done).toLocaleString("en-US") + (keys.length - done === 1 ? " phrase left" : " phrases left") + "</small></div>";
+  h += '<button class="btn ghost tr-mode" data-trmode="1">👆 Translate on screen: tap any text in the game</button>';
+  h += '<p class="hint left">Translate the words only. Emoji, icons and player names are left out. Keep every # (it stands for a number). The most-seen phrases come first.</p>';
+  h += '<div class="trbar"><input id="trq" type="search" placeholder="Search English or your language" value="' + esc(trl.q) + '"></div>';
+  if (!trl.list.length) h += '<p class="hint left">' + (q ? "Nothing found" : trl.skipLoadFailed ? "Could not load skipped phrases. Reopen this window to retry." : !trl.skipLoaded || !trl.cat ? "Loading phrases…" : "Everything is translated. Thank you! Search to improve an existing text.") + "</p>";
+  trl.list.forEach(function (k, i) { h += trRow(k, i, lg); });
+  return h;
+}
+// translating straight on the screen: tap a text, fix it, carry on
+function trRemember(shown, key) {
+  shown = String(shown || "").trim();
+  if (!shown || shown === key) return;
+  if (trRevN > 8000) { trRev = Object.create(null); trRevN = 0; }
+  if (!trRev[shown]) trRevN++;
+  trRev[shown] = key;
+}
+function trKeyOf(text) {
+  var t = String(text || "").replace(/\\s+/g, " ").trim();
+  if (trRev[t]) return trRev[t];
+  var k = t.replace(/&#\\d+;|(?:(?<=[(|])-)?\\d+(?:[.,]\\d+)*/g, "#");
+  if (trRev[k]) return trRev[k];
+  var c = trCleanKey(k);
+  return /[A-Za-z]{2}/.test(c) ? c : null;
+}
+function trModeSet(on) {
+  trMode = on;
+  document.body.classList.toggle("trmode", on);
+  var bar = document.getElementById("trfloat");
+  if (on && !bar) {
+    bar = document.createElement("div");
+    bar.id = "trfloat";
+    bar.setAttribute("data-notr", "1");
+    bar.innerHTML = '<span>👆 Tap any text to translate it</span><button class="btn small" data-trdone="1">Done</button>';
+    document.body.appendChild(bar);
+  } else if (!on && bar) bar.remove();
+}
+function trTextAt(x, y) {
+  var node = null;
+  if (document.caretPositionFromPoint) { var p = document.caretPositionFromPoint(x, y); node = p && p.offsetNode; }
+  else if (document.caretRangeFromPoint) { var r = document.caretRangeFromPoint(x, y); node = r && r.startContainer; }
+  if (!node || node.nodeType !== 3 || !node.nodeValue.trim()) return null;
+  if (node.parentNode && node.parentNode.closest && node.parentNode.closest("[data-notr]")) return null;
+  return node.nodeValue;
+}
+document.addEventListener("click", function (e) {
+  if (!trMode) return;
+  if (e.target.closest && e.target.closest("#trfloat,#sheet")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var text = trTextAt(e.clientX, e.clientY) || (e.target.getAttribute && (e.target.getAttribute("aria-label") || e.target.getAttribute("title")));
+  var k = text && trKeyOf(text);
+  if (!k) { toast("No text here. Tap right on a word."); return; }
+  trl.list = [k];
+  trl.notes = {};
+  openSheet("trone", null);
+}, true);
 function trlSend(i) {
   var k = trl.list[i], lg = curLang();
   if (k === undefined) return;
@@ -15891,7 +16034,7 @@ function trlSend(i) {
       trl.pending[k] = text;
       delete trl.draft[k];
       toast("Thank you! A moderator will review it.", true);
-      renderSheet();
+      if (sheet && sheet.kind === "trone") closeSheet(); else renderSheet();
     })
     .catch(function () { toast("The server does not answer"); });
 }
@@ -15903,13 +16046,20 @@ function trlSkip(i) {
     .then(function (x) {
       if (!x.ok) { toast(x.d.error || "Could not skip this phrase"); return; }
       trl.skipped[k] = 1;
-      renderSheet();
+      if (sheet && sheet.kind === "trone") closeSheet(); else renderSheet();
     }).catch(function () { toast("The server does not answer"); });
 }
 document.addEventListener("input", function (e) {
   var t = e.target;
   if (t.id === "trq") { trl.q = t.value; renderSheet(); }
-  else if (t.hasAttribute && t.hasAttribute("data-trkey")) { var k = trl.list[Number(t.getAttribute("data-trkey"))]; if (k !== undefined) trl.draft[k] = t.value; }
+  else if (t.hasAttribute && t.hasAttribute("data-trkey")) {
+    var ti = t.getAttribute("data-trkey"), k = trl.list[Number(ti)];
+    if (k !== undefined) {
+      trl.draft[k] = t.value;
+      var pv = document.querySelector('[data-trprev="' + ti + '"]');
+      if (pv) pv.innerHTML = trPreview(k, t.value);
+    }
+  }
 });
 
 function stashTransferSheet(d) {
@@ -15989,6 +16139,10 @@ function renderSheet() {
     h += '<div class="sheet-head"><div><h3>Progress</h3><small>Your journey, rewards and world goals</small></div></div>'+retentionPanel(d);
   } else if (sheet.kind === "translate") {
     h += translateSheet();
+  } else if (sheet.kind === "trone") {
+    var k1 = trl.list[0];
+    h += '<div class="sheet-head"><span class="hi">✏️</span><div><h3>Translate</h3><b>' + LANG_NAMES[curLang()] + "</b></div></div>";
+    if (k1 !== undefined) h += trRow(k1, 0, curLang());
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
     h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (function (r) { return r("🔊 Master volume", "master", sound.mv) + r("🎮 Game sounds", "sfx", sound.sv); })(function (lab, k, v) { return '<label class="msl"><span>' + lab + '</span><input type="range" min="0" max="100" step="1" value="' + v + '" data-vol="' + k + '" aria-label="' + lab + '"><b class="msl-v">' + v + "%</b></label>"; }) + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🎵 Music</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
@@ -20134,7 +20288,7 @@ document.addEventListener("submit", function (e) {
 
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
-    "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
+    "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trmode],[data-trdone],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
     "[data-music],[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
@@ -20447,7 +20601,9 @@ document.addEventListener("click", function (e) {
     langMoreOpen = true;
     if (data && !landing) renderSheet(); else renderAuth();
   } else if (has("data-trl-open")) {
-    trl.q = ""; trl.draft = {}; trl.skipLoaded = false; trl.skipLoadFailed = false;
+    trl.q = ""; trl.draft = {}; trl.skipLoaded = false; trl.skipLoadFailed = false; trl.cat = null; trl.moves = null;
+    trSeenFlush();
+    fetch("/api/i18n/catalog?lang=" + curLang(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (c) { trl.cat = { seen: c.seen || {}, orphans: c.orphans || [] }; if (sheet && sheet.kind === "translate") renderSheet(); }).catch(function () { trl.cat = { seen: {}, orphans: [] }; if (sheet && sheet.kind === "translate") renderSheet(); });
     fetch("/api/i18n/mine?lang=" + curLang()).then(function (r) { return r.json(); }).then(function (m) { trl.pending = m.pending || {}; if (sheet && sheet.kind === "translate") renderSheet(); }).catch(function () {});
     fetch("/api/i18n/skipped", { cache: "no-store" }).then(function (r) {
       if (!r.ok) throw new Error("Could not load skipped phrases");
@@ -20462,6 +20618,11 @@ document.addEventListener("click", function (e) {
       if (sheet && sheet.kind === "translate") renderSheet();
     });
     openSheet("translate", null);
+  } else if (has("data-trmode")) {
+    closeSheet();
+    trModeSet(true);
+  } else if (has("data-trdone")) {
+    trModeSet(false);
   } else if (has("data-trsend")) {
     trlSend(Number(attr("data-trsend")));
   } else if (has("data-trskip")) {
