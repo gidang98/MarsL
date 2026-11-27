@@ -8409,11 +8409,11 @@ function renderLanding() {
   });
   h += "</div></section>";
 
-  h += '<section class="lp-band lp-ten"><h3>Your first ten minutes</h3><ol class="lp-min">';
-  h += "<li><b>0:00</b><span><i>Crash-land</i> Pick a name and a tribe. Your colony and its twelve fields are ready at once.</span></li>";
-  h += "<li><b>1:00</b><span><i>Build</i> Beppo the dog shows you what to tap. Upgrades finish by themselves, so you can close the game.</span></li>";
-  h += "<li><b>5:00</b><span><i>Train troops</i> Beginner protection keeps raiders away while you learn how armies work.</span></li>";
-  h += "<li><b>10:00</b><span><i>Reach out</i> Raid a monster camp, claim a rich site and look for an alliance to join.</span></li>";
+  h += '<section class="lp-band lp-ten"><h3>How you get started</h3><ol class="lp-min">';
+  h += "<li><b>1</b><span><i>Crash-land</i> Pick a name and a tribe. Your colony and its twelve fields are ready at once.</span></li>";
+  h += "<li><b>2</b><span><i>Build</i> Beppo the dog and the Mission Board show you what to do next. Upgrades keep running while you are away.</span></li>";
+  h += "<li><b>3</b><span><i>Train troops</i> A few headquarters levels open the barracks. Beginner protection keeps other players away for your first days.</span></li>";
+  h += "<li><b>4</b><span><i>Reach out</i> Raid monster camps for loot, claim rich sites and join an alliance before your protection ends.</span></li>";
   h += "</ol></section>";
 
   h += '<section class="lp-band"><h3>Pick the tribe that fits your day</h3><div class="lp-tribes">';
