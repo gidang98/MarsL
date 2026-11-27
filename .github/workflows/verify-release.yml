@@ -1,0 +1,26 @@
+name: Verify release candidate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node .github/scripts/validate-deps.js
+      - run: npm ci
+      - run: npm test
+      - run: node --check server.js
+      - run: node scripts/build-release.js
+      - run: node --check dist/server.js
+      - run: node scripts/smoke-release.js

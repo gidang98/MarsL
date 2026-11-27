@@ -6,6 +6,7 @@ const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const { Script } = require('node:vm');
+const { DatabaseSync } = require('node:sqlite');
 const { setTimeout: delay } = require('node:timers/promises');
 
 async function freePort() {
@@ -80,7 +81,45 @@ async function smoke(serverId) {
     const { timing } = await dashboard.json();
     assert.ok(timing.colony.count >= 1 && timing.colony.p95Ms >= 0);
     assert.ok(timing.movements.count >= 1 && timing.movements.p95Ms >= 0);
-    console.log(serverId + ' ' + config.version + ' boot, asset cache, authenticated colony and owner timings passed');
+    // Real paginated HTTP routes on an isolated database, never live player data.
+    const db = new DatabaseSync(path.join(dataDir, 'marsl.db'));
+    try {
+      db.exec('PRAGMA busy_timeout=4000');
+      const u = db.prepare("SELECT id FROM users WHERE username = ?").get('SmokeTester');
+      assert.ok(u);
+      const msg = db.prepare("INSERT INTO messages(from_id,to_id,subject,body,created_at,seen) VALUES(?,?,?,?,?,0)");
+      const report = db.prepare("INSERT INTO reports(user_id,created_at,title,icon,data,seen,filter_kind,filter_sub) VALUES(?,?,?,?,?,0,'spy','')");
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        for(let i=0;i<25;i++){
+          msg.run(u.id,u.id,'Smoke message '+i,'Fixture',Date.now());
+          report.run(u.id,Date.now(),'Smoke report '+i,'',JSON.stringify({mission:'scout'}));
+        }
+        db.exec('COMMIT');
+      } catch(e){db.exec('ROLLBACK');throw e;}
+      const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index'").all().map(r=>r.name);
+      for(const name of ['perf_messages_inbox','perf_reports_kind','perf_accounts_email','perf_stats_weekly']) assert.ok(indexes.includes(name),name);
+    } finally {db.close();}
+    const headers = { Cookie: colony.cookies };
+    async function get(route) {
+      const r=await fetch(base+route,{headers});assert.ok(r.ok,route+' '+r.status);return r.json();
+    }
+    const mail=await get('/api/messages?box=inbox');
+    assert.equal(mail.inbox.length,20);assert.equal(mail.sent.length,0);assert.ok(mail.unread>=25);assert.ok(mail.next);
+    const older=await get('/api/messages?box=inbox&before='+mail.next);
+    assert.ok(older.inbox.length>=5);assert.ok(older.inbox.every(m=>m.id<mail.next));
+    const reports=await get('/api/reports?paged=1&filter=spy');
+    assert.equal(reports.reports.length,20);assert.ok(reports.counts.unread>=25);assert.ok(reports.next);
+    const nextReports=await get('/api/reports?paged=1&filter=spy&before='+reports.next);
+    assert.ok(nextReports.reports.length>=5);assert.ok(nextReports.reports.every(r=>r.id<reports.next));
+    const ranks=await get('/api/ranking?paged=1&sort=points&page=1');
+    assert.ok(ranks.players.length<=50);assert.ok(ranks.me&&ranks.me.me);assert.ok(ranks.myRank>0);
+    const offers=await get('/api/market/offers');assert.ok(Array.isArray(offers.open));
+    assert.equal((await fetch(base+'/api/reports?paged=1')).status,401);
+    await post('/api/reports/seen',{},colony.cookies);
+    const unread=await get('/api/reports?paged=1&filter=unread');
+    assert.equal(unread.counts.unread,0);
+    console.log(serverId + ' ' + config.version + ' boot, assets, authenticated pages, indexes, unread bulk action and owner timings passed');
   } catch (error) {
     console.error(output.replace(/Owner code:.*$/gm, 'Owner code: [redacted]'));
     throw error;

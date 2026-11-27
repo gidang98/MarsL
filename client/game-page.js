@@ -11215,6 +11215,7 @@ function weaponryPanel(d) {
 // =====================================================================
 var ranking = null;
 var rankSort = "points";
+var rankPage = 1, rankRequest = 0;
 var RANK_SORTS = [
   ["points", "🏛️", "Builders", "points"],
   ["atk", "⚔️", "Attackers", "enemies defeated"],
@@ -11225,10 +11226,12 @@ var RANK_SORTS = [
 ];
 
 function loadRanking() {
-  fetch("/api/ranking").then(function (r) {
+  var request = ++rankRequest, sort = rankSort, page = rankPage;
+  fetch("/api/ranking?paged=1&sort=" + sort + "&page=" + page).then(function (r) {
     if (handle401(r)) return;
     if (!r.ok) throw new Error("Request failed");
     return r.json().then(function (d) {
+      if (request !== rankRequest) return;
       ranking = d;
       if (view === "ranking" && data) renderColony(data);
     });
@@ -11280,14 +11283,13 @@ function renderRanking() {
   var h = "";
   if (!ranking) return h + '<section class="panel"><p class="empty">Counting everybody...</p></section>';
   var key = rankSort;
-  var list = ranking.players.slice().sort(function (a, b) { return b[key] - a[key] || b.points - a.points || a.player.localeCompare(b.player); });
-  var meIndex = -1;
-  list.forEach(function (p, i) { if (p.me) meIndex = i; });
-  var me = list[meIndex];
+  var list = ranking.players;
+  var meIndex = ranking.myRank - 1;
+  var me = ranking.me;
 
   // My own card
   if (me) {
-    h += '<section class="panel mystats"><div class="rank-me"><span class="rank-big">#' + (meIndex + 1) + '</span><div><b>' + esc(me.player) + "</b><small>" + me.tribeIcon + " " + esc(trStr(me.colony)) + " · " + trf("of {0} players", list.length) + "</small></div></div>";
+    h += '<section class="panel mystats"><div class="rank-me"><span class="rank-big">#' + (meIndex + 1) + '</span><div><b>' + esc(me.player) + "</b><small>" + me.tribeIcon + " " + esc(trStr(me.colony)) + " · " + trf("of {0} players", ranking.total) + "</small></div></div>";
     h += '<div class="statgrid">';
     h += "<div><b>" + me.points + "</b><small>🏛️ points</small></div>";
     h += "<div><b>" + me.atk + "</b><small>⚔️ defeated</small></div>";
@@ -11308,13 +11310,15 @@ function renderRanking() {
   h += "</div>";
   var label = RANK_SORTS.filter(function (s) { return s[0] === key; })[0][3];
   h += '<table class="rank"><tr><th>#</th><th>Player</th><th class="n">' + label + "</th></tr>";
-  list.slice(0, 50).forEach(function (p, i) {
+  list.forEach(function (p, i) {
+    i += (ranking.page - 1) * 50;
     var medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1;
     h += '<tr class="' + (p.me ? "me" : "") + '"><td class="pos">' + medal + "</td>";
     h += "<td><b>" + p.tribeIcon + " " + playerLink(p.player, p.tag) + (p.king ? " 👑" : "") + "</b><small>" + esc(p.colony) + " (" + p.x + "|" + p.y + ")</small></td>";
     h += '<td class="n">' + p[key] + (p.me ? "" : ' <button class="mini" data-write="' + esc(p.player) + '" title="Send a message">✉️</button>') + "</td></tr>";
   });
   h += "</table>";
+  h += '<div class="btnrow">' + (ranking.page > 1 ? '<button class="btn small ghost" data-rank-page="prev">‹ Previous</button>' : "") + '<span>Page ' + ranking.page + " / " + Math.max(1, Math.ceil(ranking.total / 50)) + "</span>" + (ranking.page * 50 < ranking.total ? '<button class="btn small ghost" data-rank-page="next">Next ›</button>' : "") + "</div>";
   if (meIndex >= 50) h += '<p class="empty">You are #' + (meIndex + 1) + ". Keep going!</p>";
   return h + "</section>";
 }
@@ -12656,7 +12660,7 @@ function inboxTabs() {
 
 var repFilter = "all";
 var repSub = "";
-var repLimit = 15;
+var repCursors = [null];
 // List view of a battle report: how did MY troops do? ok = nobody died, hurt = some died, dead = all died
 function repStatus(r) {
   var d = r.data;
@@ -12748,7 +12752,7 @@ function rTitle(r) {
 function renderReports() {
   var h = inboxTabs();
   if (!reports) return h + '<section class="panel"><p class="empty">Loading reports...</p></section>';
-  if (!reports.reports.length) {
+  if (!reports.reports.length && (!reports.counts || !reports.counts.all) && repCursors.length === 1) {
     return h + '<section class="panel" style="text-align:center"><div class="big" style="font-size:56px">🕊️</div><h2>All quiet on Mars</h2><p>No battles yet. Suspiciously peaceful...</p><button class="btn" data-view="map">🗺️ Change that</button></section>';
   }
   // filter chips: find the report you want quickly
@@ -12765,7 +12769,7 @@ function renderReports() {
     defense: [["dWon0", "Held, no losses"], ["dWon", "Held, with losses"], ["dLost", "Lost, with losses"], ["dLost0", "Lost, no losses"], ["support", "Support arrived"]]
   };
   h += '<div class="fl-sort repfilter">';
-  for (var kf in kinds) h += '<button class="' + (repFilter === kf ? "on" : "") + '" data-rep-filter="' + kf + '">' + kinds[kf][0] + " (" + reports.reports.filter(function (r) { return !kinds[kf][1] || kinds[kf][1](r); }).length + ")</button>";
+  for (var kf in kinds) h += '<button class="' + (repFilter === kf ? "on" : "") + '" data-rep-filter="' + kf + '">' + kinds[kf][0] + " (" + (reports.counts ? reports.counts[kf] || 0 : reports.reports.filter(function (r) { return !kinds[kf][1] || kinds[kf][1](r); }).length) + ")</button>";
   h += "</div>";
   if (!kinds[repFilter]) repFilter = "all";
   var test = kinds[repFilter][1];
@@ -12774,12 +12778,12 @@ function renderReports() {
     var subList = SUBS[repFilter];
     if (repSub && !subList.some(function (x) { return x[0] === repSub; })) repSub = "";
     h += '<div class="fl-sort repfilter repsub">';
-    subList.forEach(function (x) { h += '<button class="' + (repSub === x[0] ? "on" : "") + '" data-rep-sub="' + x[0] + '">' + giSvg(REP_FIGHT_ICON[x[0]]) + " " + x[1] + " (" + shown.filter(function (r) { return repFightKey(r) === x[0]; }).length + ")</button>"; });
+    subList.forEach(function (x) { h += '<button class="' + (repSub === x[0] ? "on" : "") + '" data-rep-sub="' + x[0] + '">' + giSvg(REP_FIGHT_ICON[x[0]]) + " " + x[1] + " (" + (reports.subs ? reports.subs[x[0]] || 0 : shown.filter(function (r) { return repFightKey(r) === x[0]; }).length) + ")</button>"; });
     h += "</div>";
     if (repSub) shown = shown.filter(function (r) { return repFightKey(r) === repSub; });
   } else repSub = "";
   var nOpen = Object.keys(openReports).filter(function (k) { return openReports[k]; }).length;
-  var nNew = reports.reports.filter(function (r) { return !r.seen; }).length;
+  var nNew = reports.counts ? reports.counts.unread : reports.reports.filter(function (r) { return !r.seen; }).length;
   if (nOpen || nNew) {
     h += '<div class="repbar">';
     if (nNew) h += '<button class="btn small ghost" data-rep-allread="1">' + '✓' + ' Mark all as read (' + nNew + ")</button>";
@@ -12787,7 +12791,7 @@ function renderReports() {
     h += "</div>";
   }
   if (!shown.length) h += '<section class="panel slim"><span>Nothing here.</span></section>';
-  shown.slice(0, repLimit).forEach(function (r) {
+  shown.forEach(function (r) {
     var open = openReports[r.id];
     var st = repStatus(r);
     // goods were lost because the storage was full: its own icon + pill
@@ -12816,7 +12820,7 @@ function renderReports() {
     }
     h += "</div>";
   });
-  if (shown.length > repLimit) h += '<button class="btn ghost morebtn" data-rep-more="1">Show older (' + (shown.length - repLimit) + ")</button>";
+  h += '<div class="btnrow">' + (repCursors.length > 1 ? '<button class="btn small ghost" data-rep-page="prev">‹ Newer</button>' : "") + (reports.next ? '<button class="btn small ghost" data-rep-page="next">Older ›</button>' : "") + "</div>";
   h += '<button class="btn small ghost" data-clear-reports="1">🗑️ Delete all reports</button>';
   return h;
 }
@@ -13921,11 +13925,15 @@ var msgBox = "inbox"; // inbox | sent | write
 var msgOpen = null; // id of the opened message
 var compose = { to: "", subject: "", body: "" };
 
+var msgCursors = [null], msgRequest = 0;
 function loadMessages() {
-  fetch("/api/messages").then(function (r) {
+  if (msgBox === "write") return;
+  var box = msgBox, request = ++msgRequest, before = msgCursors[msgCursors.length - 1];
+  fetch("/api/messages?box=" + box + (before ? "&before=" + before : "")).then(function (r) {
     if (handle401(r)) return;
     if (!r.ok) throw new Error("Request failed");
     return r.json().then(function (d) {
+      if (request !== msgRequest || box !== msgBox) return;
       msgs = d;
       if (data && view === "messages") renderColony(data);
     });
@@ -13942,7 +13950,7 @@ function writeTo(name, subject) {
 
 function renderMessages() {
   var h = inboxTabs();
-  var unread = msgs ? msgs.inbox.filter(function (m) { return !m.seen; }).length : 0;
+  var unread = msgs ? (msgs.unread === undefined ? msgs.inbox.filter(function (m) { return !m.seen; }).length : msgs.unread) : 0;
   h += '<div class="subtabs mini">';
   [["inbox", "📥", "Inbox", unread ? unread + " new" : ""], ["sent", "📤", "Sent", ""], ["write", "✏️", "Write", ""]].forEach(function (t) {
     h += '<button data-msgbox="' + t[0] + '" class="' + (msgBox === t[0] ? "on" : "") + '"><span>' + t[1] + "</span>" + t[2] + "<small>" + (t[3] || "&nbsp;") + "</small></button>";
@@ -13958,9 +13966,9 @@ function renderMessages() {
     h += '<button class="btn" type="submit">' + '🚀' + ' Send message</button></form></section>';
     return h;
   }
-  if (!msgs) return h + '<section class="panel"><p class="empty">' + trStr("Checking the mailbox...") + '</p></section>';
+  if (!msgs || (msgs.box && msgs.box !== msgBox)) return h + '<section class="panel"><p class="empty">' + trStr("Checking the mailbox...") + '</p></section>';
   var list = msgBox === "inbox" ? msgs.inbox : msgs.sent;
-  if (!list.length) {
+  if (!list.length && msgCursors.length === 1) {
     return h + '<section class="panel" style="text-align:center"><div class="big" style="font-size:56px">📭</div><p>' + trStr(msgBox === "inbox" ? "No messages yet. Even the aliens are quiet." : "You haven't written anything yet.") + "</p>" +
       '<button class="btn" data-msgbox="write">✏️ Write a message</button></section>';
   }
@@ -13977,6 +13985,7 @@ function renderMessages() {
     }
     h += "</div>";
   });
+  h += '<div class="btnrow">' + (msgCursors.length > 1 ? '<button class="btn small ghost" data-msg-page="prev">‹ Newer</button>' : "") + (msgs.next ? '<button class="btn small ghost" data-msg-page="next">Older ›</button>' : "") + "</div>";
   return h;
 }
 
@@ -19887,8 +19896,12 @@ var reportsRequest = 0;
 function loadReports(markSeen) {
   var request = ++reportsRequest, epoch = actionEpoch;
   // send what we have: the server answers "same" when nothing changed, so the list is not rebuilt every few seconds
-  var known = reports && reports.v ? "?v=" + encodeURIComponent(reports.v) : "";
-  return fetch("/api/reports" + known).then(function (r) {
+  if (reportFocus && Number.isSafeInteger(Number(reportFocus)) && Number(reportFocus) > 0) {
+    repFilter = "all"; repSub = ""; repCursors = [null, Number(reportFocus) + 1];
+  }
+  var before = repCursors[repCursors.length - 1];
+  var known = reports && reports.v ? "&v=" + encodeURIComponent(reports.v) : "";
+  return fetch("/api/reports?paged=1&filter=" + repFilter + "&sub=" + repSub + (before ? "&before=" + before : "") + known).then(function (r) {
     if (request !== reportsRequest) return;
     if (handle401(r)) return;
     if (!r.ok) throw new Error("Reports unavailable");
@@ -20342,6 +20355,8 @@ document.addEventListener("submit", function (e) {
       toast("✉️ Message sent!", true);
       compose = { to: "", subject: "", body: "" };
       msgBox = "sent";
+      msgCursors = [null];
+      msgRequest++;
       loadMessages();
     });
     return;
@@ -20441,10 +20456,10 @@ document.addEventListener("click", function (e) {
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
     "[data-mission],[data-send-all],[data-send-go],[data-report],[data-clear-reports]," +
     "[data-ally-pcredit],[data-rush-research],[data-trap-release],[data-trap-starve],[data-trap-build],[data-spot],[data-pace-spot],[data-wv-open],[data-wv-mis],[data-wv-hero],[data-wv-del],[data-wv-copy],[data-wv-add],[data-wv-rest],[data-wv-go],[data-hero-open],[data-hero-consume],[data-hero-tab],[data-bag-open],[data-bag-filter],[data-cons-pick],[data-adv-go],[data-trap-free],[data-adv-cancel],[data-hero-open-crate],[data-stash-q],[data-stash-add],[data-hero-respec],[data-hero-skill],[data-hero-equip],[data-hero-off],[data-hero-upgrade],[data-hero-scrap],[data-hero-move],[data-hero-move-to],[data-hero-revive],[data-hero-edit],[data-hero-rename],[data-send-hero],[data-send-power],[data-tpower-pick],[data-fd-go],[data-fd-hide],[data-fd-path],[data-diplo],[data-diplo-pact],[data-diplo-war],[data-report-open],[data-report-send],[data-appeal-send],[data-appeal-blocked],[data-appeal-open],[data-calendar],[data-cal-move],[data-cal-day],[data-server],[data-forgot],[data-resend],[data-authback],[data-traffic],[data-mvgroup],[data-mvsort],[data-move-open],[data-moves-open],[data-groups-open],[data-gadd],[data-gdel],[data-gcolor],[data-gassign],[data-gmove],[data-gsave],[data-recall],[data-side-toggle],[data-side-close]," +
-    "[data-casino],[data-bj],[data-casino-tab],[data-casino-step],[data-casino-max],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
+    "[data-casino],[data-bj],[data-casino-tab],[data-casino-step],[data-casino-max],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-rank-page],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
-    "[data-progress-tab],[data-ally-emblem],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
+    "[data-progress-tab],[data-ally-emblem],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-msg-page],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-page],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
     "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-alerts-retry],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
@@ -20860,14 +20875,25 @@ document.addEventListener("click", function (e) {
   } else if (has("data-msgbox")) {
     msgBox = attr("data-msgbox");
     msgOpen = null;
+    msgCursors = [null];
+    msgRequest++;
     if (view !== "messages") switchView("messages");
-    else renderColony(data);
+    else { if (msgBox !== "write") loadMessages(); renderColony(data); }
+  } else if (has("data-msg-page")) {
+    if (attr("data-msg-page") === "prev" && msgCursors.length > 1) msgCursors.pop();
+    else if (attr("data-msg-page") === "next" && msgs && msgs.next) msgCursors.push(msgs.next);
+    else return;
+    msgOpen = null;
+    msgs = null;
+    loadMessages();
+    renderColony(data);
   } else if (has("data-msg-open")) {
     var mid = parseInt(attr("data-msg-open"), 10);
     msgOpen = msgOpen === mid ? null : mid;
     var mm = msgs && msgs.inbox.filter(function (x) { return x.id === mid; })[0];
     if (mm && !mm.seen && msgBox === "inbox") {
       mm.seen = true;
+      if (msgs.unread !== undefined) msgs.unread = Math.max(0, msgs.unread - 1);
       post("/api/messages/read", { id: mid });
     }
     renderColony(data);
@@ -21179,17 +21205,18 @@ document.addEventListener("click", function (e) {
     post("/api/terraform", { project: attr("data-terraform") }, function () { toast("🌱 Terraforming started!", true); });
   } else if (has("data-rep-filter")) {
     repFilter = attr("data-rep-filter");
-    repSub = "";
-    repLimit = 15;
-    if (data) renderColony(data);
+    repSub = ""; reportFocus = null; repCursors = [null]; reports = null;
+    loadReports(false); if (data) renderColony(data);
   } else if (has("data-rep-sub")) {
     var rs = attr("data-rep-sub");
     repSub = repSub === rs ? "" : rs;
-    repLimit = 15;
-    if (data) renderColony(data);
-  } else if (has("data-rep-more")) {
-    repLimit += 30;
-    if (data) renderColony(data);
+    reportFocus = null; repCursors = [null]; reports = null;
+    loadReports(false); if (data) renderColony(data);
+  } else if (has("data-rep-page")) {
+    if (attr("data-rep-page") === "prev" && repCursors.length > 1) repCursors.pop();
+    else if (attr("data-rep-page") === "next" && reports && reports.next) repCursors.push(reports.next);
+    else return;
+    reportFocus = null; reports = null; loadReports(false); if (data) renderColony(data);
   } else if (has("data-journey-next")) {
     var next=data&&data.retention&&data.retention.next;if(next){
       if(next.target)switchView("map",{x:next.target.x,y:next.target.y});
@@ -21868,8 +21895,13 @@ document.addEventListener("click", function (e) {
     var target = document.getElementById(attr("data-jump"));
     if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
   } else if (has("data-rank-sort")) {
-    rankSort = attr("data-rank-sort");
-    if (data) renderColony(data);
+    rankSort = attr("data-rank-sort"); rankPage = 1;
+    ranking = null; loadRanking(); if (data) renderColony(data);
+  } else if (has("data-rank-page")) {
+    if (attr("data-rank-page") === "prev" && rankPage > 1) rankPage--;
+    else if (attr("data-rank-page") === "next" && ranking && rankPage * 50 < ranking.total) rankPage++;
+    else return;
+    ranking = null; loadRanking(); if (data) renderColony(data);
   } else if (has("data-cancel")) {
     justCancelled = true;
     post("/api/cancel", {}, function (r) { toast(r && r.cancelPct < 100 ? "Cancelled · " + r.cancelPct + "% refunded" : "Cancelled · fully refunded"); });
@@ -21974,7 +22006,7 @@ document.addEventListener("click", function (e) {
     fetch("/api/reports/seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: Number(urid), unread: true }) }).then(function () { loadColony(false); });
     toast("✉️ Marked as unread", true);
   } else if (has("data-rep-allread")) {
-    if (reports) reports.reports.forEach(function (r) { r.seen = true; });
+    if (reports) { reports.reports.forEach(function (r) { r.seen = true; }); if (reports.counts) reports.counts.unread = 0; }
     if (data) renderColony(data);
     fetch("/api/reports/seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then(function () { loadColony(false); });
   } else if (has("data-report")) {
@@ -22061,7 +22093,7 @@ document.addEventListener("click", function (e) {
     });
   } else if (has("data-clear-reports")) {
     if (confirm("Delete all reports? They are gone forever. Like socks.")) {
-      fetch("/api/reports/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then(function () { loadReports(false); });
+      fetch("/api/reports/clear", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).then(function () { repCursors = [null]; reports = null; loadReports(false); });
     }
   }
 });

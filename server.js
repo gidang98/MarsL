@@ -127,21 +127,44 @@ app.get("/fonts/:file", (req, res) => {
 // than a real player ever needs, but stops scripts that hammer the server.
 const REQUEST_LIMIT = 150;
 const requestCounts = new Map(); // ip -> { n, reset }
-app.use((req, res, next) => {
+const accountRequestCounts = new Map(); // logged-in account -> bounded action burst
+function limitRequest(req, res, next) {
   const now = Date.now();
   let c = requestCounts.get(req.ip);
   if (!c || c.reset < now) {
+    // A rotating-IP flood must not allocate an unbounded number of counters.
+    if (!c && requestCounts.size >= 50000) {
+      res.setHeader("Retry-After", "10");
+      return res.status(503).json({ error: "Server busy. Try again shortly." });
+    }
     c = { n: 0, reset: now + 10000 };
     requestCounts.set(req.ip, c);
   }
   c.n += 1;
-  if (c.n > REQUEST_LIMIT) return res.status(429).json({ error: "Whoa, slow down! Too many requests." });
+  if (c.n > REQUEST_LIMIT) {
+    res.setHeader("Retry-After", String(Math.max(1, Math.ceil((c.reset - now) / 1000))));
+    return res.status(429).json({ error: "Whoa, slow down! Too many requests." });
+  }
   next();
-});
+}
+function limitAccountActions(id, req, res) {
+  if (req.method !== "POST") return true;
+  const now = Date.now();
+  let c = accountRequestCounts.get(id);
+  if (!c || c.reset < now) {
+    if (!c && accountRequestCounts.size >= 50000) {
+      res.setHeader("Retry-After", "10"); res.status(503).json({ error: "Server busy. Try again shortly." }); return false;
+    }
+    c = { n: 0, reset: now + 10000 }; accountRequestCounts.set(id, c);
+  }
+  if (++c.n <= 120) return true;
+  res.setHeader("Retry-After", String(Math.max(1, Math.ceil((c.reset - now) / 1000))));
+  res.status(429).json({ error: "Too many actions. Try again shortly." }); return false;
+}
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, c] of requestCounts) if (c.reset < now) requestCounts.delete(ip);
-}, 60000);
+  for (const counts of [requestCounts, accountRequestCounts]) for (const [key, c] of counts) if (c.reset < now) counts.delete(key);
+}, 10000).unref();
 
 // ---------- only our own page may change things ----------
 // Every change is a POST with JSON from our page. A strange website that
@@ -547,7 +570,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.577";
+const GAME_VERSION = "1.0.578";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -1908,6 +1931,34 @@ function columnsOf(table) {
 function addColumn(table, column, definition) {
   if (!columnsOf(table).includes(column)) db.exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
 }
+function reportListKeys(d) {
+  d = d || {};
+  const fight = (d.mission === "attack" || d.mission === "raid") && d.attack !== undefined;
+  if (d.mission === "reinforce" && d.side === "receiver") return ["defense", "support"];
+  if (!fight) return [d.mission === "scout" || d.mission === "counterspy" ? "spy" : "other", ""];
+  const own = d.side === "helper" ? (d.ownUnits || null) : d.side === "attacker" ? d.attacker && d.attacker.units : d.defender && d.defender.units;
+  const lost = (Array.isArray(own) ? own : []).reduce((n, u) => n + (u.lost || 0), 0);
+  const none = own !== null && !lost;
+  if (d.side === "attacker") return ["attack", !d.attackerWins ? "aLost" : none ? "aWon0" : "aWon"];
+  return ["defense", !d.attackerWins ? (none ? "dWon0" : "dWon") : (none ? "dLost0" : "dLost")];
+}
+addColumn("reports", "filter_kind", "TEXT NOT NULL DEFAULT ''");
+addColumn("reports", "filter_sub", "TEXT NOT NULL DEFAULT ''");
+{
+  const pending = db.prepare("SELECT id, data FROM reports WHERE filter_kind = ''").all();
+  if (pending.length) {
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const update = db.prepare("UPDATE reports SET filter_kind = ?, filter_sub = ? WHERE id = ?");
+      for (const row of pending) {
+        let keys;
+        try { keys = reportListKeys(JSON.parse(row.data)); } catch (e) { keys = ["other", ""]; }
+        update.run(...keys, row.id);
+      }
+      db.exec("COMMIT");
+    } catch (e) { db.exec("ROLLBACK"); throw e; }
+  }
+}
 // Before multiple colonies, a colony was identified by its player.
 // Old colonies keep their number: colony id = old player id.
 if (!columnsOf("colonies").includes("id")) {
@@ -2512,6 +2563,7 @@ function requireLogin(req, res, next) {
   if (!row || Date.now() - row.created_at > SESSION_DAYS * 86400000 || Date.now() - (row.last_used || row.created_at) > SESSION_IDLE_DAYS * 86400000 || row.banned) {
     return res.status(401).json({ error: row && row.banned ? "This account is blocked" : "Please log in" });
   }
+  if (!limitAccountActions(row.id, req, res)) return;
   if (Date.now() - (row.last_used || 0) > 600000) db.prepare("UPDATE sessions SET last_used = ? WHERE token = ?").run(Date.now(), token);
   if (maintenanceOn() && !isOwner({ username: row.username })) return res.status(503).json({ error: "🛠️ MarsL is being repaired right now. " + settingOf("maintenance_note", "Back soon!") });
   if(!sitTarget(row)) retentionReturn(row.id,row.last_seen,Date.now());
@@ -3890,12 +3942,8 @@ function addReport(userId, time, icon, title, data) {
     data = Object.assign({}, data || {}, { tpl: { k: key, a: args } });
     title = key.replace(/\{(\d)\}/g, function (x, i) { return args[+i] !== undefined ? args[+i] : ""; });
   }
-  const ins = db.prepare("INSERT INTO reports (user_id, created_at, title, icon, data) VALUES (?, ?, ?, ?, ?)").run(
-    userId,
-    time,
-    title,
-    icon,
-    JSON.stringify(data)
+  const ins = db.prepare("INSERT INTO reports (user_id, created_at, title, icon, data, filter_kind, filter_sub) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    userId, time, title, icon, JSON.stringify(data), ...reportListKeys(data)
   );
   db.prepare(
     `DELETE FROM reports WHERE user_id = ? AND id NOT IN
@@ -7367,6 +7415,18 @@ function unreadMessages(userId) {
 
 app.get("/api/messages", requireLogin, (req, res) => {
   const me = req.user.id;
+  if (req.query.box === "inbox" || req.query.box === "sent") {
+    const box = req.query.box;
+    const before = req.query.before === undefined ? Number.MAX_SAFE_INTEGER : Number(req.query.before);
+    if (!Number.isSafeInteger(before) || before <= 0) return res.status(400).json({ error: "Invalid page cursor" });
+    const where = box === "inbox" ? "messages.to_id = ? AND del_to = 0" : "messages.from_id = ? AND del_from = 0";
+    const page = db.prepare(`SELECT messages.id, messages.subject, messages.body, messages.created_at, messages.seen,
+      a.username AS from_name, b.username AS to_name FROM messages JOIN users a ON a.id = messages.from_id
+      JOIN users b ON b.id = messages.to_id WHERE ${where} AND messages.id < ? ORDER BY messages.id DESC LIMIT 21`).all(me, before);
+    const items = page.slice(0, 20).map((m) => ({ id: m.id, subject: m.subject, body: m.body, at: m.created_at, seen: !!m.seen, from: m.from_name, to: m.to_name }));
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.json({ now: Date.now(), box, inbox: box === "inbox" ? items : [], sent: box === "sent" ? items : [], unread: unreadMessages(me), next: page.length > 20 ? items[19].id : null });
+  }
   const rows = (sql) =>
     db
       .prepare(
@@ -7906,8 +7966,10 @@ app.post("/api/trade", requireLogin, (req, res) => {
 });
 
 // How long merchants need one way: 🪶 Low Gravity and the 🐪 Caravans project make them faster
-function merchantTrip(colony, x, y, now) {
-  const boost = (eventActive("gravity", now) ? GRAVITY_BONUS : 0) + allyBoost(colony.userId, "caravan") + (forecastNow(now).trip || 0);
+function merchantTripBoost(colony, now) {
+  return (eventActive("gravity", now) ? GRAVITY_BONUS : 0) + allyBoost(colony.userId, "caravan") + (forecastNow(now).trip || 0);
+}
+function merchantTrip(colony, x, y, now, boost = merchantTripBoost(colony, now)) {
   return Math.round(travelMs(distance(colony.x, colony.y, x, y), MERCHANT_SPEED) / (1 + boost));
 }
 
@@ -8638,8 +8700,35 @@ app.get('/api/player/summary', requireLogin, (req, res) => {
   });
 });
 
+function reportListPage(req, res) {
+  const me = req.user.id, filter = String(req.query.filter || "all"), sub = String(req.query.sub || "");
+  const before = req.query.before === undefined ? Number.MAX_SAFE_INTEGER : Number(req.query.before);
+  const subKeys = { attack: ["aWon0", "aWon", "aLost"], defense: ["dWon0", "dWon", "dLost", "dLost0", "support"] };
+  if (!Number.isSafeInteger(before) || before <= 0 || !["all", "unread", "attack", "defense", "spy", "other"].includes(filter) || (sub && !(subKeys[filter] || []).includes(sub))) return res.status(400).json({ error: "Invalid report page" });
+  const fp = db.prepare("SELECT COUNT(*) AS n, MAX(id) AS mx, GROUP_CONCAT(CASE WHEN seen = 0 THEN id END) AS unseen FROM reports WHERE user_id = ?").get(me);
+  const fq = db.prepare("SELECT farm_quiet, farm_hidden FROM users WHERE id = ?").get(me) || {};
+  const v = crypto.createHash("sha256").update(JSON.stringify([fp, fq, filter, sub, before])).digest("hex").slice(0, 24);
+  res.setHeader("Cache-Control", "private, no-store");
+  if (req.query.v === v) return res.json({ same: true, v });
+  let where = "user_id = ? AND id < ?", args = [me, before];
+  if (filter === "unread") where += " AND seen = 0";
+  else if (filter !== "all") { where += " AND filter_kind = ?"; args.push(filter); }
+  if (sub) { where += " AND filter_sub = ?"; args.push(sub); }
+  const page = db.prepare("SELECT id, created_at, title, icon, data, seen FROM reports WHERE " + where + " ORDER BY id DESC LIMIT 21").all(...args);
+  const counts = { all: 0, unread: 0, attack: 0, defense: 0, spy: 0, other: 0 }, subs = {};
+  for (const r of db.prepare("SELECT filter_kind AS kind, filter_sub AS sub, COUNT(*) AS n, SUM(CASE WHEN seen = 0 THEN 1 ELSE 0 END) AS unread FROM reports WHERE user_id = ? GROUP BY filter_kind, filter_sub").all(me)) {
+    counts.all += r.n; counts.unread += r.unread;
+    counts[r.kind || "other"] = (counts[r.kind || "other"] || 0) + r.n;
+    if (r.sub) subs[r.sub] = (subs[r.sub] || 0) + r.n;
+  }
+  const rows = page.slice(0, 20);
+  return res.json({ v, now: Date.now(), filter, sub, counts, subs, farmQuiet: !!fq.farm_quiet, farmHidden: fq.farm_hidden || 0,
+    next: page.length > 20 ? rows[19].id : null,
+    reports: rows.map((r) => ({ id: r.id, at: r.created_at, title: r.title, icon: r.icon, seen: !!r.seen, data: JSON.parse(r.data) })) });
+}
 app.get("/api/reports", requireLogin, (req, res) => {
   processMovements(Date.now());
+  if (req.query.paged === "1") return reportListPage(req, res);
   // a cheap fingerprint: the page asks every few seconds, and most of the time nothing changed
   const fp = db.prepare("SELECT COUNT(*) AS n, MAX(id) AS mx, SUM(seen) AS s FROM reports WHERE user_id = ?").get(req.user.id);
   const fq0 = db.prepare("SELECT farm_quiet, farm_hidden FROM users WHERE id = ?").get(req.user.id) || {};
@@ -8676,20 +8765,28 @@ app.post("/api/reports/clear", requireLogin, (req, res) => {
 // =====================================================================
 //  API: RANKING (per player: all their colonies together)
 // =====================================================================
-app.get("/api/ranking", requireLogin, (req, res) => {
+let rankingShared = null;
+function sharedRanking(now) {
+  if (rankingShared && now < rankingShared.until) return rankingShared.players;
   const z = zoneRow();
   const kingUser = zoneHolderUser(z);
-  const now = Date.now();
   const users = db
     .prepare(
       `SELECT users.id, users.username, stats.atk_kills, stats.def_kills, stats.npc_kills, stats.lost, stats.loot,
-              stats.wins, stats.battles, stats.crown_ms
-       FROM users LEFT JOIN stats ON stats.user_id = users.id`
+              stats.wins, stats.battles, stats.crown_ms, alliances.tag AS alliance_tag
+       FROM users LEFT JOIN stats ON stats.user_id = users.id
+       LEFT JOIN alliance_members ON alliance_members.user_id = users.id
+       LEFT JOIN alliances ON alliances.id = alliance_members.alliance_id`
     )
     .all();
+  const coloniesByUser = new Map();
+  for (const row of db.prepare("SELECT * FROM colonies ORDER BY id").all()) {
+    if (!coloniesByUser.has(row.user_id)) coloniesByUser.set(row.user_id, []);
+    coloniesByUser.get(row.user_id).push(loadColonyRow(row));
+  }
   const players = [];
   for (const u of users) {
-    const cols = coloniesOf(u.id);
+    const cols = coloniesByUser.get(u.id) || [];
     if (!cols.length) continue;
     let crownMs = u.crown_ms || 0;
     if (kingUser === u.id) crownMs += now - z.since;
@@ -8714,16 +8811,35 @@ app.get("/api/ranking", requireLogin, (req, res) => {
       battles: u.battles || 0,
       crown: Math.floor(crownMs / 60000), // minutes as ruler
       king: kingUser === u.id,
-      me: u.id === req.user.id,
-      tag: (allianceOf(u.id) || {}).tag || null,
+      tag: u.alliance_tag || null,
     });
   }
-  res.json({ players, weekly: weeklyRanking(req.user.id, now), league: leagueView(req.user.id, now) });
+  rankingShared = { until: now + 10000, players };
+  return players;
+}
+app.get("/api/ranking", requireLogin, (req, res) => {
+  const now = Date.now();
+  const source = sharedRanking(now);
+  const mark = (p) => ({ ...p, me: p.id === req.user.id });
+  res.setHeader("Cache-Control", "private, no-store");
+  const weekly = weeklyRanking(req.user.id, now), league = leagueView(req.user.id, now);
+  if (req.query.paged !== "1") return res.json({ players: source.map(mark), weekly, league });
+  const sort = String(req.query.sort || "points"), page = Number(req.query.page || 1);
+  if (!["points", "atk", "def", "npc", "loot", "crown"].includes(sort) || !Number.isSafeInteger(page) || page < 1) return res.status(400).json({ error: "Invalid ranking page" });
+  if (!rankingShared.sorted) rankingShared.sorted = new Map();
+  if (!rankingShared.sorted.has(sort)) rankingShared.sorted.set(sort, source.slice().sort((a, b) => b[sort] - a[sort] || b.points - a.points || a.player.localeCompare(b.player) || a.id - b.id));
+  const sorted = rankingShared.sorted.get(sort), offset = (page - 1) * 50;
+  const myIndex = sorted.findIndex((p) => p.id === req.user.id);
+  return res.json({ players: sorted.slice(offset, offset + 50).map(mark), sort, page, total: sorted.length, myRank: myIndex + 1, me: myIndex >= 0 ? mark(sorted[myIndex]) : null, weekly, league });
 });
 
 // The best players of this week (and the winners of last week)
+let weeklyShared = null;
 function weeklyRanking(myId, now) {
   const start = weekStart(now);
+  const mark = (p) => p ? { player: p.player, value: p.value, me: p.id === myId } : null;
+  const decorate = (entry) => ({ since: entry.since, ends: entry.ends, lists: Object.fromEntries(Object.entries(entry.lists).map(([k, rows]) => [k, rows.map(mark)])), last: Object.fromEntries(Object.entries(entry.last).map(([k, row]) => [k, mark(row)])) });
+  if (weeklyShared && weeklyShared.since === start && now < weeklyShared.until) return decorate(weeklyShared);
   const lastStart = weekStart(start - 1);
   const top = (key, from, to, limit) =>
     db
@@ -8734,7 +8850,7 @@ function weeklyRanking(myId, now) {
          GROUP BY users.id ORDER BY total DESC, users.username LIMIT ?`
       )
       .all(key, from, to, limit)
-      .map((r) => ({ player: r.username, value: r.total, me: r.id === myId }));
+      .map((r) => ({ id: r.id, player: r.username, value: r.total }));
   const lists = {};
   const lastWinners = {};
   for (const key of WEEKLY_KEYS) {
@@ -8742,7 +8858,8 @@ function weeklyRanking(myId, now) {
     const w = top(key, lastStart, start, 1)[0];
     lastWinners[key] = w || null;
   }
-  return { since: start, ends: start + 7 * 86400000, lists, last: lastWinners };
+  weeklyShared = { since: start, ends: start + 7 * 86400000, lists, last: lastWinners, until: now + 10000 };
+  return decorate(weeklyShared);
 }
 
 // =====================================================================
@@ -9398,14 +9515,19 @@ function playerPoints(userId) {
 
 addColumn("alliances", "emblem", "INTEGER NOT NULL DEFAULT 0");
 function allianceRanking() {
-  return db
-    .prepare("SELECT id, name, tag, emblem FROM alliances")
-    .all()
-    .map((a) => {
-      const members = allianceMembers(a.id);
-      return { id: a.id, name: a.name, tag: a.tag, emblem: a.emblem || 0, members: members.length, points: members.reduce((n, m) => n + playerPoints(m.id), 0) };
-    })
-    .sort((a, b) => b.points - a.points);
+  const totals = new Map();
+  for (const row of db.prepare(`SELECT am.alliance_id, u.id AS user_id, c.state
+    FROM alliance_members am JOIN users u ON u.id = am.user_id
+    LEFT JOIN colonies c ON c.user_id = u.id`).all()) {
+    if (!totals.has(row.alliance_id)) totals.set(row.alliance_id, { members: new Set(), points: 0 });
+    const t = totals.get(row.alliance_id);
+    t.members.add(row.user_id);
+    if (row.state !== null) t.points += colonyPoints(JSON.parse(row.state));
+  }
+  return db.prepare("SELECT id, name, tag, emblem FROM alliances").all().map(a => {
+    const t = totals.get(a.id);
+    return { id: a.id, name: a.name, tag: a.tag, emblem: a.emblem || 0, members: t ? t.members.size : 0, points: t ? t.points : 0 };
+  }).sort((a, b) => b.points - a.points);
 }
 
 app.get("/api/alliance", requireLogin, (req, res) => {
@@ -9748,9 +9870,12 @@ function leagueContest(weekFrom) {
   return LEAGUE_CONTESTS[Math.floor(weekFrom / (7 * 86400000)) % LEAGUE_CONTESTS.length];
 }
 function leagueTable() {
-  const rows = db.prepare("SELECT DISTINCT users.id, users.username FROM users JOIN colonies ON colonies.user_id = users.id WHERE users.bot = 0").all()
-    .map((u) => ({ id: u.id, name: u.username, points: playerPoints(u.id) }))
-    .sort((a, b) => a.points - b.points || a.id - b.id);
+  const totals = new Map();
+  for (const r of db.prepare("SELECT users.id, users.username, colonies.state FROM users JOIN colonies ON colonies.user_id = users.id WHERE users.bot = 0").all()) {
+    if (!totals.has(r.id)) totals.set(r.id, { id: r.id, name: r.username, points: 0 });
+    totals.get(r.id).points += colonyPoints(JSON.parse(r.state));
+  }
+  const rows = Array.from(totals.values()).sort((a, b) => a.points - b.points || a.id - b.id);
   const n = rows.length;
   rows.forEach((r, i) => { r.league = n ? Math.min(3, Math.floor((i * 4) / n)) : 0; });
   return rows;
@@ -9771,11 +9896,16 @@ function awardLeagues(now) {
   }
   setSetting("league_week", String(lastStart));
 }
+let leagueViewShared = null;
 function leagueView(myId, now) {
   const start = weekStart(now), C = leagueContest(start);
-  const table = leagueTable(), me = table.find((r) => r.id === myId);
+  // Only presentation is cached. The weekly award still reads fresh data.
+  if (!leagueViewShared || leagueViewShared.start !== start || now >= leagueViewShared.until) {
+    leagueViewShared = { start, until: now + 10000, table: leagueTable(), sc: leagueScores(C.key, start, now + 1) };
+  }
+  const { table, sc } = leagueViewShared;
+  const me = table.find((r) => r.id === myId);
   if (!me) return null;
-  const sc = leagueScores(C.key, start, now + 1);
   const mates = table.filter((r) => r.league === me.league).map((r) => ({ player: r.name, value: sc.get(r.id) || 0, me: r.id === myId })).sort((a, b) => b.value - a.value || a.player.localeCompare(b.player));
   const lo = mates.length ? Math.min.apply(null, table.filter((r) => r.league === me.league).map((r) => r.points)) : 0;
   return { league: me.league, icon: LEAGUES[me.league].icon, name: LEAGUES[me.league].name, contest: C, size: mates.length, rank: mates.findIndex((m) => m.me) + 1, top: mates.slice(0, 5), mine: sc.get(myId) || 0, ends: start + 7 * 86400000, from: lo, next: LEAGUE_CONTESTS[(LEAGUE_CONTESTS.indexOf(C) + 1) % LEAGUE_CONTESTS.length] };
@@ -10319,16 +10449,16 @@ app.get("/api/farm", requireLogin, (req, res) => {
 //  - monster camps: their treasure grows at a known speed
 //  - colonies: how fast they refilled between the last two raids
 // null = no idea yet (counts as ready)
-function farmReadyAt(x, y, last, now) {
+function farmReadyAt(x, y, last, now, occupied) {
   if (!last || !last.at) return null;
   const want = last.carry || 0;
   if (!want) return null;
-  const isCamp = terrainAt(x, y) === "n" && !db.prepare("SELECT 1 FROM colonies WHERE x = ? AND y = ?").get(x, y);
+  const isCamp = terrainAt(x, y) === "n" && !occupied;
   if (isCamp) {
     // Only what the raider knows: their own last raid + the camp's public regrowth.
     // The camp's current stash stays hidden (scout it with spies to know for sure).
-    const info = campInfo(x, y, now);
-    const perHour = RESOURCES.reduce((n, r) => n + info.income[r], 0);
+    const income = campIncome(x, y);
+    const perHour = RESOURCES.reduce((n, r) => n + income[r], 0);
     const cap = RESOURCES.reduce((n, r) => n + freshCamp(x, y).treasure[r], 0);
     const need = Math.min(want, cap);
     if (last.loot >= want * 0.98) return last.at; // bags were full: there was more
@@ -10342,27 +10472,39 @@ function farmReadyAt(x, y, last, now) {
 }
 
 // What the farm lists achieved: { "x|y": { raids, total, last, readyAt } }
+// Fetch known target colonies and owners in one indexed lookup, not once per target.
+function farmTargetRows(coords) {
+  if (!coords.length) return new Map();
+  const rows = db.prepare(`SELECT c.x, c.y, c.user_id, c.state, u.username
+    FROM json_each(?) j JOIN colonies c
+      ON c.x = json_extract(j.value, '$[0]') AND c.y = json_extract(j.value, '$[1]')
+    LEFT JOIN users u ON u.id = c.user_id`).all(JSON.stringify(coords));
+  return new Map(rows.map(r => [r.x + "|" + r.y, r]));
+}
 app.get("/api/farm/stats", requireLogin, (req, res) => {
-  const out = {};
-  for (const r of db.prepare("SELECT x, y, raids, total, last FROM farm_stats WHERE user_id = ?").all(req.user.id)) {
-    let last = {};
-    try { last = JSON.parse(r.last); } catch (e) {}
-    out[r.x + "|" + r.y] = { raids: r.raids, total: r.total, last, readyAt: farmReadyAt(r.x, r.y, last, Date.now()) };
-  }
-  // who lives at each target of the saved lists, and how many points the colony has
-  const info = {};
+  const out = {}, info = {}, now = Date.now();
+  const stats = db.prepare("SELECT x, y, raids, total, last FROM farm_stats WHERE user_id = ?").all(req.user.id);
+  let entries = [];
   try {
     const saved = JSON.parse((db.prepare("SELECT farm FROM users WHERE id = ?").get(req.user.id) || {}).farm || "{}");
-    for (const l of saved.lists || []) for (const e of l.entries || []) {
-      const key = e.x + "|" + e.y;
-      if (info[key]) continue;
-      const tc = db.prepare("SELECT user_id, state FROM colonies WHERE x = ? AND y = ?").get(e.x, e.y);
-      if (!tc) continue;
-      let pts = 0;
-      try { pts = colonyPoints(JSON.parse(tc.state)); } catch (err) {}
-      info[key] = { owner: BOT_IDS.has(tc.user_id) ? "inactive" : usernameOf(tc.user_id), points: pts };
-    }
+    entries = (saved.lists || []).flatMap(l => l.entries || []);
   } catch (err) {}
+  const coords = new Map();
+  for (const e of [...stats, ...entries]) coords.set(e.x + "|" + e.y, [e.x, e.y]);
+  const targets = farmTargetRows(Array.from(coords.values()));
+  for (const r of stats) {
+    let last = {};
+    try { last = JSON.parse(r.last); } catch (e) {}
+    const key = r.x + "|" + r.y;
+    out[key] = { raids: r.raids, total: r.total, last, readyAt: farmReadyAt(r.x, r.y, last, now, targets.has(key)) };
+  }
+  for (const e of entries) {
+    const key = e.x + "|" + e.y, tc = targets.get(key);
+    if (!tc || info[key]) continue;
+    let pts = 0;
+    try { pts = colonyPoints(JSON.parse(tc.state)); } catch (err) {}
+    info[key] = { owner: BOT_IDS.has(tc.user_id) ? "inactive" : (tc.username || "???"), points: pts };
+  }
   const q = db.prepare("SELECT farm_quiet FROM users WHERE id = ?").get(req.user.id) || {};
   const outgoing = {};
   for (const m of db.prepare("SELECT m.attacker_id, m.target_x, m.target_y, COUNT(*) AS n FROM movements m JOIN colonies c ON c.id = m.attacker_id WHERE c.user_id = ? AND m.phase = 'out' AND m.mission IN ('raid', 'attack') AND m.arrive_at > ? GROUP BY m.attacker_id, m.target_x, m.target_y").all(req.user.id, Date.now())) {
@@ -14079,19 +14221,90 @@ async function sendMail(to, subject, lines, label, link) {
     return;
   }
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
+    method: "POST", signal: AbortSignal.timeout(10000),
     headers: { "api-key": MAIL_KEY, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ sender: { name: MAIL_FROM_NAME, email: MAIL_FROM }, to: [{ email: to }], subject, htmlContent: mailHtml(subject, lines, label, link), textContent: text }),
   });
   if (!r.ok) {
     // the mail service says why (e.g. the sender address is not verified yet); keep it short
     const why = (await r.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 160);
-    throw new Error("mail service said " + r.status + (why ? ": " + why : ""));
+    const error = new Error("mail service said " + r.status + (why ? ": " + why : ""));
+    error.mailStatus = r.status;
+    throw error;
   }
 }
-function mailTry(to, subject, lines, label, link) {
-  sendMail(to, subject, lines, label, link).catch((e) => console.error("Mail to " + to + " failed:", e.message));
+// One asynchronous mail worker per world. SQLite claims survive restarts.
+// Delivery is at-least-once: a process crash after provider acceptance may
+// resend the same short-lived link, never a game action or resource change.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS background_mail (
+    id TEXT PRIMARY KEY, payload TEXT NOT NULL, next_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+    lease_until INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS background_mail_due ON background_mail(next_at);
+  CREATE INDEX IF NOT EXISTS background_mail_expiry ON background_mail(expires_at);
+`);
+const MAIL_QUEUE_KEY = MAIL_KEY ? crypto.createHash("sha256").update("MarsL mail queue v1\0" + MAIL_KEY).digest() : null;
+function sealMail(args) {
+  const nonce = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", MAIL_QUEUE_KEY, nonce);
+  const data = Buffer.concat([cipher.update(JSON.stringify(args), "utf8"), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), data]).toString("base64");
 }
+function openMail(payload) {
+  const bytes = Buffer.from(payload, "base64");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", MAIL_QUEUE_KEY, bytes.subarray(0, 12));
+  decipher.setAuthTag(bytes.subarray(12, 28));
+  return JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString("utf8"));
+}
+let mailWorkerBusy = false;
+function mailTry(to, subject, lines, label, link) {
+  if (MAIL_DEV) { sendMail(to, subject, lines, label, link).catch(() => console.warn("Development mail failed")); return; }
+  if (!MAIL_QUEUE_KEY || !mailReady()) return;
+  const now = Date.now(), id = crypto.createHash("sha256").update(JSON.stringify([to, subject, link])).digest("hex");
+  try {
+    db.prepare("DELETE FROM background_mail WHERE expires_at <= ?").run(now);
+    if (db.prepare("SELECT COUNT(*) AS n FROM background_mail").get().n >= 1000) {
+      mailProblem = "Mail queue is full; try again shortly.";
+      return;
+    }
+    db.prepare("INSERT OR IGNORE INTO background_mail(id,payload,next_at,expires_at) VALUES (?,?,?,?)").run(id, sealMail([to, subject, lines, label, link]), now, now + 600000);
+  } catch (e) { mailProblem = "Could not queue mail"; console.warn(mailProblem); }
+}
+async function runMailQueue() {
+  if (mailWorkerBusy || !MAIL_QUEUE_KEY || !mailReady() || MAIL_DEV) return;
+  mailWorkerBusy = true;
+  try {
+    const now = Date.now();
+    const due = db.prepare("SELECT id FROM background_mail WHERE next_at <= ? AND lease_until <= ? ORDER BY next_at, id LIMIT 1").get(now, now);
+    if (!due) return;
+    const job = db.prepare("UPDATE background_mail SET lease_until = ?, attempts = attempts + 1 WHERE id = ? AND lease_until <= ? RETURNING *").get(now + 60000, due.id, now);
+    if (!job) return;
+    if (job.expires_at <= now || job.attempts > 3) { db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id); return; }
+    let args;
+    try { args = openMail(job.payload); } catch (e) {
+      db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id);
+      mailProblem = "Queued mail could not be decrypted (provider key may have changed)";
+      return;
+    }
+    try {
+      await sendMail(...args);
+      db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id);
+    } catch (e) {
+      const retry = !e.mailStatus || e.mailStatus === 429 || e.mailStatus >= 500;
+      if (retry && job.attempts < 3) {
+        db.prepare("UPDATE background_mail SET lease_until = 0, next_at = ? WHERE id = ?").run(Date.now() + 15000 * 2 ** (job.attempts - 1), job.id);
+      } else {
+        db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id);
+        mailProblem = "Queued mail failed" + (e.mailStatus ? " (HTTP " + e.mailStatus + ")" : "");
+        console.warn(mailProblem);
+      }
+    }
+  } catch (e) { console.warn("Mail worker failed"); }
+  finally { mailWorkerBusy = false; }
+}
+setInterval(() => { void runMailQueue(); }, 2000).unref();
 if (MAIL_DEV) app.get("/api/dev/mail", (req, res) => res.json(mailOutbox));
 
 // ---------- addresses ----------
@@ -14566,7 +14779,7 @@ app.get("/api/admin/accounts", requireOwner, (req, res) => {
     return out;
   };
   res.json({
-    mail: { ready: mailReady(), dev: MAIL_DEV, from: MAIL_FROM || null, problem: mailProblem },
+    mail: { ready: mailReady(), dev: MAIL_DEV, from: MAIL_FROM || null, problem: mailProblem, queued: db.prepare("SELECT COUNT(*) AS n FROM background_mail").get().n },
     emailRequired: emailRequired(),
     deviceCap: deviceCap(),
     verified: db.prepare("SELECT COUNT(*) AS n FROM users WHERE email_verified = 1").get().n,
@@ -18007,6 +18220,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.578",date:"2026-11-27",title:"Server efficiency",groups:[["Performance",["Mail, battle reports and rankings load in smaller pages, ranking and market lookups are batched and shared data is reused briefly.","Improved request flood protection, added indexes for common database lookups and queued retryable mail delivery."]]]},
   {v:"1.0.576",date:"2026-11-27",title:"Release recovery",groups:[["Deployment",["Restored all changes through 1.0.575, registered the Spore Flak portrait and added safeguards against stale deployments."]]]},
   {v:"1.0.575",date:"2026-11-27",title:"Alert status you can trust",groups:[["🔔 Attack alerts",["The line under the alert switch now says what is true on this device: off, on only while MarsL is open, on also when MarsL is closed, or a warning if this device could not be set up for closed-app alerts (with a Try again button).","It also lists what is covered. Closed or not: incoming attacks and raids. Finished construction only while you are away. Nothing else (training, research, trade and reports do not send alerts).","On an iPhone in a Safari tab it tells you to add MarsL to your home screen for closed-app alerts."]]]},
   {v:"1.0.574",date:"2026-11-27",title:"Easier with keyboard and screen reader",groups:[["♿ Accessibility",["Popups are now real dialogs for screen readers: they have a name, the page behind them is switched off while they are open, Tab stays inside and focus goes back to the button you used when you close them.","The tab bar is a navigation with the current page marked. The drawn fields, lots and the colony dome can be opened with Enter or Space.","The troop traffic panel is skipped by Tab while it is slid out of sight, and its buttons say whether it is open.","Buttons that only show a picture now have a name (their tooltip). Messages that pop up are read out."]]]},
@@ -19856,24 +20070,28 @@ function offerSweep(now) {
 }
 setInterval(() => { try { offerSweep(Date.now()); } catch (e) { console.error(e); } }, 60000);
 
-function offerRow(o, colony, userId, now) {
-  const c = db.prepare("SELECT colonies.name, colonies.x, colonies.y, users.username FROM colonies JOIN users ON users.id = colonies.user_id WHERE colonies.id = ?").get(o.colony_id);
-  if (!c) return null;
+function offerRow(o, colony, userId, now, boost) {
+  const c = { name: o.seller_colony, x: o.seller_x, y: o.seller_y, username: o.seller_name };
   const dist = distance(colony.x, colony.y, c.x, c.y);
   return {
     id: o.id, mine: o.user_id === userId, give: o.give_res, giveAmt: o.give_amt, want: o.want_res, wantAmt: o.want_amt,
     allyOnly: !!o.ally_only, owner: c.username, colony: c.name, x: c.x, y: c.y,
-    dist: Math.round(dist * 10) / 10, tripMs: merchantTrip(colony, c.x, c.y, now), endsAt: o.expires_at,
+    dist: Math.round(dist * 10) / 10, tripMs: merchantTrip(colony, c.x, c.y, now, boost), endsAt: o.expires_at,
   };
 }
 
 function offersView(colony, userId, now) {
-  const ally = allianceOf(userId);
-  const mine = db.prepare("SELECT * FROM market_offers WHERE user_id = ? ORDER BY id").all(userId).map((o) => offerRow(o, colony, userId, now)).filter(Boolean);
-  const open = db.prepare("SELECT * FROM market_offers WHERE user_id != ? AND expires_at > ?").all(userId, now)
-    .filter((o) => !o.ally_only || (ally && areAllies(userId, o.user_id)))
-    .filter((o) => !accountsLinked(userId, o.user_id))
-    .map((o) => offerRow(o, colony, userId, now)).filter(Boolean)
+  const ally = allianceOf(userId), boost = merchantTripBoost(colony, now);
+  const joined = "SELECT o.*, c.name AS seller_colony, c.x AS seller_x, c.y AS seller_y, u.username AS seller_name FROM market_offers o JOIN colonies c ON c.id = o.colony_id JOIN users u ON u.id = c.user_id";
+  const mine = db.prepare(joined + " WHERE o.user_id = ? ORDER BY o.id").all(userId).map((o) => offerRow(o, colony, userId, now, boost)).filter(Boolean);
+  const open = db.prepare(joined + ` LEFT JOIN users seller ON seller.id = o.user_id
+    LEFT JOIN alliance_members am ON am.user_id = o.user_id
+    WHERE o.user_id != ? AND o.expires_at > ?
+    AND (o.ally_only = 0 OR am.alliance_id = ?)
+    AND (COALESCE(seller.multi_ok, 0) = 1 OR EXISTS (SELECT 1 FROM users WHERE id = ? AND multi_ok = 1)
+      OR NOT EXISTS (SELECT 1 FROM device_links x JOIN device_links y ON x.device = y.device WHERE x.user_id = ? AND y.user_id = o.user_id))
+    ORDER BY o.id`).all(userId, now, ally ? ally.id : null, userId, userId)
+    .map((o) => offerRow(o, colony, userId, now, boost)).filter(Boolean)
     .sort((a, b) => a.dist - b.dist).slice(0, OFFER_LIST);
   return { mine, open, max: OFFER_MAX, min: OFFER_MIN, ratioMin: OFFER_RATIO_MIN, ratioMax: OFFER_RATIO_MAX, lastsMs: offerMs() };
 }
@@ -21259,11 +21477,13 @@ const GATEWAY_ON = process.env.GATEWAY === "1" && !HUB_URL && HOP_SHARED;
 gatewayEarly = (req, res, next) => {
   const ip = GATEWAY.trustedIp(req);
   if (ip) Object.defineProperty(req, "ip", { value: ip, configurable: true });
-  if (GATEWAY_ON && !req.path.startsWith("/api/gw/")) {
-    const target = GATEWAY.pick(req);
-    if (target) return GATEWAY.proxy(req, res, target);
-  }
-  next();
+  return limitRequest(req, res, () => {
+    if (GATEWAY_ON && !req.path.startsWith("/api/gw/")) {
+      const target = GATEWAY.pick(req);
+      if (target) return GATEWAY.proxy(req, res, target);
+    }
+    next();
+  });
 };
 // the player picks the server this browser talks to (an empty name: the main server)
 app.post("/api/gw/select", (req, res) => {
@@ -24022,10 +24242,19 @@ app.get("/game-assets/:filename", (req, res) => {
   res.type(asset.extension).send(asset.body);
 });
 
+const publicPageCache = new Map();
 app.get("/", (req, res) => {
+  // A gateway can select a world by cookie; keep HTTP revalidation and cache
+  // only the public HTML inside this particular world process.
   res.setHeader("Cache-Control", "no-cache");
   const host = String(req.get("host") || ""), origin = /^[a-z0-9.:-]{1,100}$/i.test(host) ? req.protocol + "://" + host : "";
-  res.send(renderGamePage().html.split("__ORIGIN__").join(origin).split("__APPNAME__").join(appName()));
+  let html = publicPageCache.get(origin);
+  if (!html) {
+    html = renderGamePage().html.split("__ORIGIN__").join(origin).split("__APPNAME__").join(appName());
+    if (publicPageCache.size >= 8) publicPageCache.delete(publicPageCache.keys().next().value);
+    publicPageCache.set(origin, html);
+  }
+  res.send(html);
 });
 // the picture shown when the game's link is shared (chat apps, forums): 1200x630, kept in the art folder
 app.get("/og.jpg", (req, res) => {
@@ -24379,6 +24608,27 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-
 main{max-width:360px;text-align:center;padding:22px 24px;border-radius:22px;background:rgba(27,19,48,.78);box-shadow:0 10px 40px rgba(0,0,0,.45)}
 h1{margin:0 0 6px;font-size:26px}p{margin:0 0 16px;opacity:.9;line-height:1.4}a{display:inline-block;padding:11px 22px;border-radius:999px;background:#f2784b;color:#fff;font-weight:800;text-decoration:none}</style></head>
 <body><main><h1>Lost on Mars</h1><p>There is nothing at this address. The colony is back this way.</p><a href="/">Back to MarsL</a></main></body></html>`;
+// Hot query indexes; additive, safe on existing worlds and older code.
+db.exec(`
+  CREATE INDEX IF NOT EXISTS perf_sessions_user ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS perf_users_online ON users(bot, last_seen);
+  CREATE INDEX IF NOT EXISTS perf_reports_unread ON reports(user_id, seen);
+  CREATE INDEX IF NOT EXISTS perf_reports_kind ON reports(user_id, filter_kind, id);
+  CREATE INDEX IF NOT EXISTS perf_reports_sub ON reports(user_id, filter_kind, filter_sub, id);
+  CREATE INDEX IF NOT EXISTS perf_messages_inbox ON messages(to_id, del_to, id);
+  CREATE INDEX IF NOT EXISTS perf_messages_sent ON messages(from_id, del_from, id);
+  CREATE INDEX IF NOT EXISTS perf_messages_unread ON messages(to_id, seen, del_to);
+  CREATE INDEX IF NOT EXISTS perf_stats_weekly ON stats_log(key, at, user_id);
+  CREATE INDEX IF NOT EXISTS perf_alliance_members ON alliance_members(alliance_id);
+  CREATE INDEX IF NOT EXISTS perf_alliance_invites ON alliance_invites(user_id);
+  CREATE INDEX IF NOT EXISTS perf_market_owner ON market_offers(user_id);
+  CREATE INDEX IF NOT EXISTS perf_market_expiry ON market_offers(expires_at);
+  CREATE INDEX IF NOT EXISTS perf_accounts_email ON accounts(norm_email, email_verified);
+  CREATE INDEX IF NOT EXISTS perf_pending_email ON pending_signups(norm_email, created_at);
+  CREATE INDEX IF NOT EXISTS perf_acct_sessions_owner ON acct_sessions(account_id);
+  CREATE INDEX IF NOT EXISTS perf_camp_respawn ON camps(respawn_at);
+`);
+try { db.exec("PRAGMA optimize"); } catch (e) { console.warn("SQLite optimize:", e.message); }
 const httpServer = app.listen(PORT, HOST, () => {
   console.log("MarsL is running!");
   console.log("  On this computer:   http://localhost:" + PORT);
