@@ -13921,11 +13921,15 @@ var msgBox = "inbox"; // inbox | sent | write
 var msgOpen = null; // id of the opened message
 var compose = { to: "", subject: "", body: "" };
 
+var msgCursors = [null], msgRequest = 0;
 function loadMessages() {
-  fetch("/api/messages").then(function (r) {
+  if (msgBox === "write") return;
+  var box = msgBox, request = ++msgRequest, before = msgCursors[msgCursors.length - 1];
+  fetch("/api/messages?box=" + box + (before ? "&before=" + before : "")).then(function (r) {
     if (handle401(r)) return;
     if (!r.ok) throw new Error("Request failed");
     return r.json().then(function (d) {
+      if (request !== msgRequest || box !== msgBox) return;
       msgs = d;
       if (data && view === "messages") renderColony(data);
     });
@@ -13942,7 +13946,7 @@ function writeTo(name, subject) {
 
 function renderMessages() {
   var h = inboxTabs();
-  var unread = msgs ? msgs.inbox.filter(function (m) { return !m.seen; }).length : 0;
+  var unread = msgs ? (msgs.unread === undefined ? msgs.inbox.filter(function (m) { return !m.seen; }).length : msgs.unread) : 0;
   h += '<div class="subtabs mini">';
   [["inbox", "📥", "Inbox", unread ? unread + " new" : ""], ["sent", "📤", "Sent", ""], ["write", "✏️", "Write", ""]].forEach(function (t) {
     h += '<button data-msgbox="' + t[0] + '" class="' + (msgBox === t[0] ? "on" : "") + '"><span>' + t[1] + "</span>" + t[2] + "<small>" + (t[3] || "&nbsp;") + "</small></button>";
@@ -13958,9 +13962,9 @@ function renderMessages() {
     h += '<button class="btn" type="submit">' + '🚀' + ' Send message</button></form></section>';
     return h;
   }
-  if (!msgs) return h + '<section class="panel"><p class="empty">' + trStr("Checking the mailbox...") + '</p></section>';
+  if (!msgs || (msgs.box && msgs.box !== msgBox)) return h + '<section class="panel"><p class="empty">' + trStr("Checking the mailbox...") + '</p></section>';
   var list = msgBox === "inbox" ? msgs.inbox : msgs.sent;
-  if (!list.length) {
+  if (!list.length && msgCursors.length === 1) {
     return h + '<section class="panel" style="text-align:center"><div class="big" style="font-size:56px">📭</div><p>' + trStr(msgBox === "inbox" ? "No messages yet. Even the aliens are quiet." : "You haven't written anything yet.") + "</p>" +
       '<button class="btn" data-msgbox="write">✏️ Write a message</button></section>';
   }
@@ -13977,6 +13981,7 @@ function renderMessages() {
     }
     h += "</div>";
   });
+  h += '<div class="btnrow">' + (msgCursors.length > 1 ? '<button class="btn small ghost" data-msg-page="prev">‹ Newer</button>' : "") + (msgs.next ? '<button class="btn small ghost" data-msg-page="next">Older ›</button>' : "") + "</div>";
   return h;
 }
 
@@ -20342,6 +20347,8 @@ document.addEventListener("submit", function (e) {
       toast("✉️ Message sent!", true);
       compose = { to: "", subject: "", body: "" };
       msgBox = "sent";
+      msgCursors = [null];
+      msgRequest++;
       loadMessages();
     });
     return;
@@ -20444,7 +20451,7 @@ document.addEventListener("click", function (e) {
     "[data-casino],[data-bj],[data-casino-tab],[data-casino-step],[data-casino-max],[data-casino-kind],[data-casino-spin],[data-relics],[data-auction],[data-auc-tab],[data-auc-bid],[data-auc-list],[data-auc-lot],[data-auc-cons],[data-auc-cancel],[data-auc-claim],[data-rename],[data-subtab],[data-army],[data-research],[data-upgrade-unit],[data-cancel-job],[data-rank-sort],[data-jump]," +
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
-    "[data-progress-tab],[data-ally-emblem],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
+    "[data-progress-tab],[data-ally-emblem],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-msg-page],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
     "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-alerts-retry],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
@@ -20860,14 +20867,25 @@ document.addEventListener("click", function (e) {
   } else if (has("data-msgbox")) {
     msgBox = attr("data-msgbox");
     msgOpen = null;
+    msgCursors = [null];
+    msgRequest++;
     if (view !== "messages") switchView("messages");
-    else renderColony(data);
+    else { if (msgBox !== "write") loadMessages(); renderColony(data); }
+  } else if (has("data-msg-page")) {
+    if (attr("data-msg-page") === "prev" && msgCursors.length > 1) msgCursors.pop();
+    else if (attr("data-msg-page") === "next" && msgs && msgs.next) msgCursors.push(msgs.next);
+    else return;
+    msgOpen = null;
+    msgs = null;
+    loadMessages();
+    renderColony(data);
   } else if (has("data-msg-open")) {
     var mid = parseInt(attr("data-msg-open"), 10);
     msgOpen = msgOpen === mid ? null : mid;
     var mm = msgs && msgs.inbox.filter(function (x) { return x.id === mid; })[0];
     if (mm && !mm.seen && msgBox === "inbox") {
       mm.seen = true;
+      if (msgs.unread !== undefined) msgs.unread = Math.max(0, msgs.unread - 1);
       post("/api/messages/read", { id: mid });
     }
     renderColony(data);

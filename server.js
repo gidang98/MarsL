@@ -127,21 +127,29 @@ app.get("/fonts/:file", (req, res) => {
 // than a real player ever needs, but stops scripts that hammer the server.
 const REQUEST_LIMIT = 150;
 const requestCounts = new Map(); // ip -> { n, reset }
-app.use((req, res, next) => {
+function limitRequest(req, res, next) {
   const now = Date.now();
   let c = requestCounts.get(req.ip);
   if (!c || c.reset < now) {
+    // A rotating-IP flood must not allocate an unbounded number of counters.
+    if (!c && requestCounts.size >= 50000) {
+      res.setHeader("Retry-After", "10");
+      return res.status(503).json({ error: "Server busy. Try again shortly." });
+    }
     c = { n: 0, reset: now + 10000 };
     requestCounts.set(req.ip, c);
   }
   c.n += 1;
-  if (c.n > REQUEST_LIMIT) return res.status(429).json({ error: "Whoa, slow down! Too many requests." });
+  if (c.n > REQUEST_LIMIT) {
+    res.setHeader("Retry-After", String(Math.max(1, Math.ceil((c.reset - now) / 1000))));
+    return res.status(429).json({ error: "Whoa, slow down! Too many requests." });
+  }
   next();
-});
+}
 setInterval(() => {
   const now = Date.now();
   for (const [ip, c] of requestCounts) if (c.reset < now) requestCounts.delete(ip);
-}, 60000);
+}, 10000).unref();
 
 // ---------- only our own page may change things ----------
 // Every change is a POST with JSON from our page. A strange website that
@@ -547,7 +555,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.577";
+const GAME_VERSION = "1.0.578";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -7367,6 +7375,18 @@ function unreadMessages(userId) {
 
 app.get("/api/messages", requireLogin, (req, res) => {
   const me = req.user.id;
+  if (req.query.box === "inbox" || req.query.box === "sent") {
+    const box = req.query.box;
+    const before = req.query.before === undefined ? Number.MAX_SAFE_INTEGER : Number(req.query.before);
+    if (!Number.isSafeInteger(before) || before <= 0) return res.status(400).json({ error: "Invalid page cursor" });
+    const where = box === "inbox" ? "messages.to_id = ? AND del_to = 0" : "messages.from_id = ? AND del_from = 0";
+    const page = db.prepare(`SELECT messages.id, messages.subject, messages.body, messages.created_at, messages.seen,
+      a.username AS from_name, b.username AS to_name FROM messages JOIN users a ON a.id = messages.from_id
+      JOIN users b ON b.id = messages.to_id WHERE ${where} AND messages.id < ? ORDER BY messages.id DESC LIMIT 21`).all(me, before);
+    const items = page.slice(0, 20).map((m) => ({ id: m.id, subject: m.subject, body: m.body, at: m.created_at, seen: !!m.seen, from: m.from_name, to: m.to_name }));
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.json({ now: Date.now(), box, inbox: box === "inbox" ? items : [], sent: box === "sent" ? items : [], unread: unreadMessages(me), next: page.length > 20 ? items[19].id : null });
+  }
   const rows = (sql) =>
     db
       .prepare(
@@ -8676,20 +8696,28 @@ app.post("/api/reports/clear", requireLogin, (req, res) => {
 // =====================================================================
 //  API: RANKING (per player: all their colonies together)
 // =====================================================================
-app.get("/api/ranking", requireLogin, (req, res) => {
+let rankingShared = null;
+function sharedRanking(now) {
+  if (rankingShared && now < rankingShared.until) return rankingShared.players;
   const z = zoneRow();
   const kingUser = zoneHolderUser(z);
-  const now = Date.now();
   const users = db
     .prepare(
       `SELECT users.id, users.username, stats.atk_kills, stats.def_kills, stats.npc_kills, stats.lost, stats.loot,
-              stats.wins, stats.battles, stats.crown_ms
-       FROM users LEFT JOIN stats ON stats.user_id = users.id`
+              stats.wins, stats.battles, stats.crown_ms, alliances.tag AS alliance_tag
+       FROM users LEFT JOIN stats ON stats.user_id = users.id
+       LEFT JOIN alliance_members ON alliance_members.user_id = users.id
+       LEFT JOIN alliances ON alliances.id = alliance_members.alliance_id`
     )
     .all();
+  const coloniesByUser = new Map();
+  for (const row of db.prepare("SELECT * FROM colonies ORDER BY id").all()) {
+    if (!coloniesByUser.has(row.user_id)) coloniesByUser.set(row.user_id, []);
+    coloniesByUser.get(row.user_id).push(loadColonyRow(row));
+  }
   const players = [];
   for (const u of users) {
-    const cols = coloniesOf(u.id);
+    const cols = coloniesByUser.get(u.id) || [];
     if (!cols.length) continue;
     let crownMs = u.crown_ms || 0;
     if (kingUser === u.id) crownMs += now - z.since;
@@ -8714,10 +8742,16 @@ app.get("/api/ranking", requireLogin, (req, res) => {
       battles: u.battles || 0,
       crown: Math.floor(crownMs / 60000), // minutes as ruler
       king: kingUser === u.id,
-      me: u.id === req.user.id,
-      tag: (allianceOf(u.id) || {}).tag || null,
+      tag: u.alliance_tag || null,
     });
   }
+  rankingShared = { until: now + 10000, players };
+  return players;
+}
+app.get("/api/ranking", requireLogin, (req, res) => {
+  const now = Date.now();
+  const players = sharedRanking(now).map((p) => ({ ...p, me: p.id === req.user.id }));
+  res.setHeader("Cache-Control", "private, no-store");
   res.json({ players, weekly: weeklyRanking(req.user.id, now), league: leagueView(req.user.id, now) });
 });
 
@@ -18007,6 +18041,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.578",date:"2026-11-27",title:"Server efficiency",groups:[["Performance",["Mail loads in smaller pages, ranking lookups are batched and shared data is reused briefly.","Improved request flood protection and added indexes for common database lookups."]]]},
   {v:"1.0.576",date:"2026-11-27",title:"Release recovery",groups:[["Deployment",["Restored all changes through 1.0.575, registered the Spore Flak portrait and added safeguards against stale deployments."]]]},
   {v:"1.0.575",date:"2026-11-27",title:"Alert status you can trust",groups:[["🔔 Attack alerts",["The line under the alert switch now says what is true on this device: off, on only while MarsL is open, on also when MarsL is closed, or a warning if this device could not be set up for closed-app alerts (with a Try again button).","It also lists what is covered. Closed or not: incoming attacks and raids. Finished construction only while you are away. Nothing else (training, research, trade and reports do not send alerts).","On an iPhone in a Safari tab it tells you to add MarsL to your home screen for closed-app alerts."]]]},
   {v:"1.0.574",date:"2026-11-27",title:"Easier with keyboard and screen reader",groups:[["♿ Accessibility",["Popups are now real dialogs for screen readers: they have a name, the page behind them is switched off while they are open, Tab stays inside and focus goes back to the button you used when you close them.","The tab bar is a navigation with the current page marked. The drawn fields, lots and the colony dome can be opened with Enter or Space.","The troop traffic panel is skipped by Tab while it is slid out of sight, and its buttons say whether it is open.","Buttons that only show a picture now have a name (their tooltip). Messages that pop up are read out."]]]},
@@ -21259,11 +21294,13 @@ const GATEWAY_ON = process.env.GATEWAY === "1" && !HUB_URL && HOP_SHARED;
 gatewayEarly = (req, res, next) => {
   const ip = GATEWAY.trustedIp(req);
   if (ip) Object.defineProperty(req, "ip", { value: ip, configurable: true });
-  if (GATEWAY_ON && !req.path.startsWith("/api/gw/")) {
-    const target = GATEWAY.pick(req);
-    if (target) return GATEWAY.proxy(req, res, target);
-  }
-  next();
+  return limitRequest(req, res, () => {
+    if (GATEWAY_ON && !req.path.startsWith("/api/gw/")) {
+      const target = GATEWAY.pick(req);
+      if (target) return GATEWAY.proxy(req, res, target);
+    }
+    next();
+  });
 };
 // the player picks the server this browser talks to (an empty name: the main server)
 app.post("/api/gw/select", (req, res) => {
@@ -24379,6 +24416,25 @@ const NOT_FOUND_PAGE = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-
 main{max-width:360px;text-align:center;padding:22px 24px;border-radius:22px;background:rgba(27,19,48,.78);box-shadow:0 10px 40px rgba(0,0,0,.45)}
 h1{margin:0 0 6px;font-size:26px}p{margin:0 0 16px;opacity:.9;line-height:1.4}a{display:inline-block;padding:11px 22px;border-radius:999px;background:#f2784b;color:#fff;font-weight:800;text-decoration:none}</style></head>
 <body><main><h1>Lost on Mars</h1><p>There is nothing at this address. The colony is back this way.</p><a href="/">Back to MarsL</a></main></body></html>`;
+// Hot query indexes; additive, safe on existing worlds and older code.
+db.exec(`
+  CREATE INDEX IF NOT EXISTS perf_sessions_user ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS perf_users_online ON users(bot, last_seen);
+  CREATE INDEX IF NOT EXISTS perf_reports_unread ON reports(user_id, seen);
+  CREATE INDEX IF NOT EXISTS perf_messages_inbox ON messages(to_id, del_to, id);
+  CREATE INDEX IF NOT EXISTS perf_messages_sent ON messages(from_id, del_from, id);
+  CREATE INDEX IF NOT EXISTS perf_messages_unread ON messages(to_id, seen, del_to);
+  CREATE INDEX IF NOT EXISTS perf_stats_weekly ON stats_log(key, at, user_id);
+  CREATE INDEX IF NOT EXISTS perf_alliance_members ON alliance_members(alliance_id);
+  CREATE INDEX IF NOT EXISTS perf_alliance_invites ON alliance_invites(user_id);
+  CREATE INDEX IF NOT EXISTS perf_market_owner ON market_offers(user_id);
+  CREATE INDEX IF NOT EXISTS perf_market_expiry ON market_offers(expires_at);
+  CREATE INDEX IF NOT EXISTS perf_accounts_email ON accounts(norm_email, email_verified);
+  CREATE INDEX IF NOT EXISTS perf_pending_email ON pending_signups(norm_email, created_at);
+  CREATE INDEX IF NOT EXISTS perf_acct_sessions_owner ON acct_sessions(account_id);
+  CREATE INDEX IF NOT EXISTS perf_camp_respawn ON camps(respawn_at);
+`);
+try { db.exec("PRAGMA optimize"); } catch (e) { console.warn("SQLite optimize:", e.message); }
 const httpServer = app.listen(PORT, HOST, () => {
   console.log("MarsL is running!");
   console.log("  On this computer:   http://localhost:" + PORT);
