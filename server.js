@@ -4204,7 +4204,8 @@ function resolveCamp(m) {
     const bountyAll = countUnits(survivors) > 0 || (hero && f.attackerWins) ? bountyOf(campLost) : null; // a commander alone carries the trophies in its inventory
     // 🎖️ a commander keeps the bounty in its inventory
     const heroNote = hero ? heroAfterFight(att.userId, hero, { xp: (f.D * f.defFrac) / heroXpDiv(), dmg: heroDmg(f.atkFrac, HERO_DMG_LEAD), beaten: (countUnits(survivors) === 0 && countUnits(troops) > 0) || (!f.attackerWins && f.atkFrac >= HERO_FALL_FRAC), won: f.attackerWins, campTier: campTier(m.target_x, m.target_y), bounty: bountyAll, at: T, bonus: heroBonus(hero).atk }) : null;
-    const bounty = heroNote && heroNote.stash ? null : bountyAll;
+    const stashBounty = heroNote && heroNote.stash ? heroNote.stash : bountyAll && lootTotal(bountyAll) && questInventoryReward(att.userId, bountyAll, T) ? bountyAll : null;
+    const bounty = stashBounty ? null : bountyAll;
     haul = loot || bounty ? { wood: 0, stone: 0, metal: 0, food: 0 } : null;
     if (haul) for (const r of RESOURCES) haul[r] = (loot ? loot[r] : 0) + (bounty ? bounty[r] : 0);
     const titanHere = titanAt(m.target_x, m.target_y);
@@ -4239,6 +4240,7 @@ function resolveCamp(m) {
         wall: 0,
         loot,
         bounty: bounty && lootTotal(bounty) ? bounty : null,
+        bountyStash: stashBounty,
         carry,
         attacker: Object.assign({}, attacker, { units: unitList(troops, tribe, atkLost) }),
         defender: Object.assign({}, where, { owner: "Wild monsters", tribeIcon: tier.icon, units: monsterList(campBefore, campLost) }),
@@ -6574,8 +6576,8 @@ function colonyQuests(colony) {
   }
   return colony.id === retention.questStarterColony ? QUESTS : EXPANSION_QUESTS;
 }
-function questInventoryReward(userId, resources) {
-  const hero = heroOf(userId);
+function questInventoryReward(userId, resources, now) {
+  const hero = heroOf(userId, now);
   if (!hero) return false;
   let crate = heroCrate(hero);
   if (!crate) {
