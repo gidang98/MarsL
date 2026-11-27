@@ -1,6 +1,8 @@
 name: Deploy MarsL to AlwaysData
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       target:
@@ -15,6 +17,9 @@ on:
           - speed
         default: verify
 
+env:
+  DEPLOY_TARGET: ${{ github.event_name == 'push' && 'all' || inputs.target }}
+
 permissions:
   contents: read
 
@@ -24,7 +29,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy ${{ inputs.target }}
+    name: Deploy ${{ github.event_name == 'push' && 'all' || inputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -73,9 +78,9 @@ jobs:
           test -s "$HOME/.ssh/known_hosts"
 
       - name: Deploy selected servers
-        if: ${{ inputs.target != 'verify' }}
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
         env:
-          TARGET: ${{ inputs.target }}
+          TARGET: ${{ env.DEPLOY_TARGET }}
           AD_SSH_HOST: ssh-marsl.alwaysdata.net
           AD_SFTP_USER_OPENTEST: marsl_deploy_opentest
           AD_SFTP_USER_CLASSIC: marsl_deply_classic
@@ -131,9 +136,9 @@ jobs:
           esac
 
       - name: Verify deployment
-        if: ${{ inputs.target != 'verify' }}
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
         env:
-          TARGET: ${{ inputs.target }}
+          TARGET: ${{ env.DEPLOY_TARGET }}
           EXPECTED_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
@@ -193,7 +198,7 @@ jobs:
           echo "🚀 All servers verified successfully with version ${EXPECTED_VERSION}!"
 
       - name: Verify access only (no deploy)
-        if: ${{ inputs.target == 'verify' }}
+        if: ${{ env.DEPLOY_TARGET == 'verify' }}
         env:
           AD_API_TOKEN: ${{ secrets.AD_API_TOKEN }}
           AD_SSH_HOST: ssh-marsl.alwaysdata.net
