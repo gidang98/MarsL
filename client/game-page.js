@@ -4982,11 +4982,38 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
 <div id="sheet"></div>
 <div id="toast" role="status" aria-live="polite"><span class="toast-bar"></span></div>
 <div id="tut"></div>
-<script>function marslLoad(el){var src=(el&&el.getAttribute&&el.getAttribute("src")||marslLoad.src||"").split("?")[0];if(!src||window.__marslUp||marslLoad.t)return;marslLoad.src=src;var n=marslLoad.n=(marslLoad.n||0)+1;if(n>3){var a=document.getElementById("app");if(a)a.innerHTML='<div class="boot"><span>The game could not load. Check your connection.</span><br><button type="button" onclick="location.reload()">Try again</button></div>';return}marslLoad.t=setTimeout(function(){marslLoad.t=0;var s=document.createElement("script");s.src=src+"?r="+n;s.onerror=function(){marslLoad(s)};document.body.appendChild(s)},n*1500)}
-addEventListener("error",function(e){if(!window.__marslUp&&(e.filename||"").indexOf("game-assets")>0)marslLoad()});
-addEventListener("online",function(){if(!window.__marslUp&&marslLoad.n>3){marslLoad.n=0;marslLoad()}})</script>
+<script>(function(){
+var recovering=false, timer;
+function fresh(force){
+  var u=new URL(location.href);
+  if(!force&&u.searchParams.has("_marsl_reload"))return false;
+  u.searchParams.set("_marsl_reload",Date.now().toString(36));
+  location.replace(u.href);return true;
+}
+function showFailure(){
+  var a=document.getElementById("app");if(!a)return;
+  var scene=document.createElement("div");scene.className="boot fail";
+  var panel=document.createElement("div");panel.className="panel auth";
+  var msg=document.createElement("p");msg.textContent="The game files could not load. Please retry.";
+  var b=document.createElement("button");b.type="button";b.className="btn";b.textContent="Try again";
+  b.onclick=function(){fresh(true)};panel.appendChild(msg);panel.appendChild(b);scene.appendChild(panel);
+  a.replaceChildren(scene);
+}
+window.marslLoad=function(){
+  if(window.__marslUp||recovering)return;
+  recovering=true;clearTimeout(timer);
+  if(!fresh(false))showFailure();
+};
+window.marslScriptLoaded=function(){
+  if(!window.__marslUp){window.marslLoad();return;}
+  clearTimeout(timer);
+  var u=new URL(location.href);if(u.searchParams.has("_marsl_reload")){u.searchParams.delete("_marsl_reload");history.replaceState(null,"",u.href);}
+};
+addEventListener("error",function(e){if(!window.__marslUp&&(e.filename||"").indexOf("/game-assets/")>=0)window.marslLoad()});
+addEventListener("online",function(){if(!window.__marslUp)fresh(true)});
+timer=setTimeout(function(){if(!window.__marslUp)window.marslLoad()},30000);
+})()</script>
 <script>
-window.__marslUp = 1;
 var RES = ["wood", "stone", "metal", "food"];
 var RES_ICON = { wood: "🪵", stone: "🪨", metal: "🔩", food: "🥔" };
 // 🏺 clay icons (sprite in the page); text keeps its emoji
@@ -22202,12 +22229,14 @@ function startupFetch(url, attempts) {
       }
       var e = new Error("HTTP " + r.status);
       e.status = r.status;
+      var retryAfter = Number(r.headers.get("Retry-After"));
+      if (retryAfter > 0) e.retryAfter = Math.min(15000, retryAfter * 1000);
       throw e;
     }).catch(function (err) {
       if (timer) clearTimeout(timer);
       var retryable = !err.status || err.status === 408 || err.status === 429 || err.status >= 500;
       if (!retryable || n >= attempts) throw err;
-      return new Promise(function (resolve) { setTimeout(resolve, delays[Math.min(n, delays.length - 1)]); }).then(function () { return attempt(n + 1); });
+      return new Promise(function (resolve) { setTimeout(resolve, Math.max(err.retryAfter || 0, delays[Math.min(n, delays.length - 1)])); }).then(function () { return attempt(n + 1); });
     });
   }
   return attempt(0);
@@ -22258,6 +22287,7 @@ function startGame() {
   }).catch(function (err) { showStartupError(err, startGame); });
 }
 gtrLoad(curLang(), startGame);
+window.__marslUp = 1;
 </script>
 </body>
 </html>`;

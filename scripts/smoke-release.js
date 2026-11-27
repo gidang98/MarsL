@@ -17,6 +17,34 @@ async function freePort() {
   return port;
 }
 
+async function browserSmoke(base) {
+  const { chromium, webkit, devices } = require('playwright');
+  for (const [engine, device] of [[chromium,'Pixel 7'],[webkit,'iPhone 13']]) {
+    const browser=await engine.launch({headless:true});
+    try {
+      const context=await browser.newContext({...devices[device]});
+      const page=await context.newPage();
+      const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+      // Simulate an old cached shell referencing a retired main-script hash.
+      let first=true;
+      await page.route(base+'/**',async route=>{
+        if(first && route.request().isNavigationRequest() && new URL(route.request().url()).pathname==='/'){
+          first=false;
+          const response=await route.fetch();
+          const html=(await response.text()).replace(/\/game-assets\/[a-f0-9]{64}\.js/, '/game-assets/'+'0'.repeat(64)+'.js');
+          return route.fulfill({response,body:html});
+        }
+        return route.continue();
+      });
+      await page.goto(base+'/',{waitUntil:'domcontentloaded'});
+      await page.waitForFunction(()=>window.__marslUp===1 && !!document.querySelector('#app .lp, #app .panel.auth:not(.boot .auth)'),{},{timeout:45000});
+      assert.equal(errors.length,0,device+': '+errors.join('; '));
+      assert.ok(!new URL(page.url()).searchParams.has('_marsl_reload'));
+      await context.close();
+      console.log(device+' browser stale-shell recovery passed');
+    } finally {await browser.close();}
+  }
+}
 async function smoke(serverId) {
   const dataDir = mkdtempSync(path.join(os.tmpdir(), 'marsl-release-'));
   const port = await freePort();
@@ -41,7 +69,13 @@ async function smoke(serverId) {
     assert.equal(config.server, serverId);
     const response = await fetch(base + '/');
     assert.ok(response.ok);
+    assert.match(response.headers.get("cache-control"), /no-store/);
     const html = await response.text();
+    const stale = await fetch(base + "/game-assets/" + "0".repeat(64) + ".js");
+    assert.ok(stale.ok); assert.match(stale.headers.get("cache-control"), /no-store/);
+    assert.match(stale.headers.get("content-type"), /javascript/);
+    const recovery = await stale.text(); new Script(recovery); assert.match(recovery, /location.replace/);
+    assert.equal((await fetch(base + "/game-assets/gtr-de-missing.js")).status, 404);
     const files = [...html.matchAll(/(?:src|href)="(\/game-assets\/([a-f0-9]{64})\.(css|js))"/g)];
     assert.deepEqual(files.map(file => file[3]), ['css', 'js']);
     for (const [, url, hash, extension] of files) {
@@ -51,7 +85,7 @@ async function smoke(serverId) {
       assert.match(asset.headers.get('cache-control'), /immutable/);
       const body = await asset.text();
       assert.equal(createHash('sha256').update(body).digest('hex'), hash);
-      if (extension === 'js') new Script(body);
+      if (extension === 'js') { new Script(body); assert.ok(body.lastIndexOf('window.__marslUp = 1;') > body.lastIndexOf('gtrLoad(curLang(), startGame);')); }
       const cached = await fetch(base + url, { headers: { 'If-None-Match': asset.headers.get('etag'), 'Cache-Control': 'max-age=0' } });
       assert.equal(cached.status, 304);
     }
@@ -119,6 +153,7 @@ async function smoke(serverId) {
     await post('/api/reports/seen',{},colony.cookies);
     const unread=await get('/api/reports?paged=1&filter=unread');
     assert.equal(unread.counts.unread,0);
+    if (process.env.BROWSER_SMOKE === '1') await browserSmoke(base);
     console.log(serverId + ' ' + config.version + ' boot, assets, authenticated pages, indexes, unread bulk action and owner timings passed');
   } catch (error) {
     console.error(output.replace(/Owner code:.*$/gm, 'Owner code: [redacted]'));

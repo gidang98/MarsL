@@ -135,3 +135,17 @@ test('league view shares reads between players without sharing personal rank', (
   assert.equal(a.top[0].me,false);assert.equal(b.top[0].me,true);
   view(1,12000);assert.equal(reads,4);
 });
+
+test('cold asset bursts cannot exhaust boot or gameplay budgets, and POST cannot use asset exemption', () => {
+  const code=section('const REQUEST_LIMIT = 150;', 'setInterval(() => {\n  const now = Date.now();\n  for (const counts of');
+  const limit=new Function(code+';return limitRequest')();
+  const req=(path,method='GET')=>({ip:'mobile',path,method});
+  for(let i=0;i<1200;i++)limit(req('/art/picture.webp'),response(),()=>{});
+  const media=response();limit(req('/art/picture.webp'),media,()=>assert.fail('unbounded media'));assert.equal(media.code,429);
+  for(const path of ['/','/game-assets/abc.js','/api/config','/api/colony']) {
+    let ok=false;limit(req(path),response(),()=>{ok=true});assert.ok(ok,path);
+  }
+  for(let i=0;i<149;i++)limit(req('/api/colony'),response(),()=>{});
+  const action=response();limit(req('/art/picture.webp','POST'),action,()=>assert.fail('POST bypass'));assert.equal(action.code,429);
+  let boot=false;limit(req('/game-assets/abc.js'),response(),()=>{boot=true});assert.ok(boot);
+});

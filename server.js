@@ -127,21 +127,29 @@ app.get("/fonts/:file", (req, res) => {
 // than a real player ever needs, but stops scripts that hammer the server.
 const REQUEST_LIMIT = 150;
 const requestCounts = new Map(); // ip -> { n, reset }
+const bootRequestCounts = new Map(); // independent budget for the app shell and critical code
+const mediaRequestCounts = new Map(); // independent budget for cacheable artwork and audio
 const accountRequestCounts = new Map(); // logged-in account -> bounded action burst
 function limitRequest(req, res, next) {
   const now = Date.now();
-  let c = requestCounts.get(req.ip);
+  const path = req.path || "";
+  const read = req.method === "GET" || req.method === "HEAD";
+  const boot = read && (path === "/" || path === "/api/config" || /^\/game-assets\//.test(path));
+  const media = read && (/^\/(art|fonts|music|shots)\//.test(path) || /^\/(?:icon(?:-\d+)?\.(?:png|svg)|og\.jpg|silence\.wav|favicon\.ico)$/.test(path));
+  const counts = boot ? bootRequestCounts : media ? mediaRequestCounts : requestCounts;
+  const limit = boot ? 300 : media ? 1200 : REQUEST_LIMIT;
+  let c = counts.get(req.ip);
   if (!c || c.reset < now) {
     // A rotating-IP flood must not allocate an unbounded number of counters.
-    if (!c && requestCounts.size >= 50000) {
+    if (!c && counts.size >= 50000) {
       res.setHeader("Retry-After", "10");
       return res.status(503).json({ error: "Server busy. Try again shortly." });
     }
     c = { n: 0, reset: now + 10000 };
-    requestCounts.set(req.ip, c);
+    counts.set(req.ip, c);
   }
   c.n += 1;
-  if (c.n > REQUEST_LIMIT) {
+  if (c.n > limit) {
     res.setHeader("Retry-After", String(Math.max(1, Math.ceil((c.reset - now) / 1000))));
     return res.status(429).json({ error: "Whoa, slow down! Too many requests." });
   }
@@ -163,7 +171,7 @@ function limitAccountActions(id, req, res) {
 }
 setInterval(() => {
   const now = Date.now();
-  for (const counts of [requestCounts, accountRequestCounts]) for (const [key, c] of counts) if (c.reset < now) counts.delete(key);
+  for (const counts of [requestCounts, bootRequestCounts, mediaRequestCounts, accountRequestCounts]) for (const [key, c] of counts) if (c.reset < now) counts.delete(key);
 }, 10000).unref();
 
 // ---------- only our own page may change things ----------
@@ -570,7 +578,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.578";
+const GAME_VERSION = "1.0.579";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -18220,6 +18228,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.579",date:"2026-11-27",title:"Reliable game startup",groups:[["Fixes",["Game startup automatically recovers from outdated release files, including on mobile.","Artwork and script requests no longer consume the same flood-protection budget as gameplay actions."]]]},
   {v:"1.0.578",date:"2026-11-27",title:"Server efficiency",groups:[["Performance",["Mail, battle reports and rankings load in smaller pages, ranking and market lookups are batched and shared data is reused briefly.","Improved request flood protection, added indexes for common database lookups and queued retryable mail delivery."]]]},
   {v:"1.0.576",date:"2026-11-27",title:"Release recovery",groups:[["Deployment",["Restored all changes through 1.0.575, registered the Spore Flak portrait and added safeguards against stale deployments."]]]},
   {v:"1.0.575",date:"2026-11-27",title:"Alert status you can trust",groups:[["🔔 Attack alerts",["The line under the alert switch now says what is true on this device: off, on only while MarsL is open, on also when MarsL is closed, or a warning if this device could not be set up for closed-app alerts (with a Try again button).","It also lists what is covered. Closed or not: incoming attacks and raids. Finished construction only while you are away. Nothing else (training, research, trade and reports do not send alerts).","On an iPhone in a Safari tab it tells you to add MarsL to your home screen for closed-app alerts."]]]},
@@ -24199,7 +24208,7 @@ function renderGamePage() {
       const filename = hash + "." + extension;
       assets.set(filename, { body, extension, etag: 'W/"' + hash + '"' });
       const url = "/game-assets/" + filename;
-      return tag === "style" ? '<link rel="stylesheet" href="' + url + '">' : '<script src="' + url + '" onerror="marslLoad(this)"></script>';
+      return tag === "style" ? '<link rel="stylesheet" href="' + url + '">' : '<script src="' + url + '" onerror="marslLoad(this)" onload="marslScriptLoaded()"></script>';
     });
 
   gamePage = { html, assets };
@@ -24236,7 +24245,15 @@ app.get("/icons.js", (req, res) => {
 
 app.get("/game-assets/:filename", (req, res) => {
   const asset = renderGamePage().assets.get(req.params.filename);
-  if (!asset) return res.sendStatus(404);
+  if (!asset) {
+    // Older HTML may survive a deployment in a browser/proxy. A tiny, non-cacheable
+    // recovery script reloads the document, never substitutes a new app at an old hash.
+    res.setHeader("Cache-Control", "no-store");
+    if (/^[a-f0-9]{64}\.js$/.test(req.params.filename)) {
+      return res.type("js").send('(function(){var u=new URL(location.href);if(u.searchParams.has("_marsl_reload")){if(typeof marslLoad==="function")marslLoad();return;}u.searchParams.set("_marsl_reload",Date.now().toString(36));location.replace(u.href);})();');
+    }
+    return res.sendStatus(404);
+  }
   res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   res.setHeader("ETag", asset.etag);
   res.type(asset.extension).send(asset.body);
@@ -24246,7 +24263,7 @@ const publicPageCache = new Map();
 app.get("/", (req, res) => {
   // A gateway can select a world by cookie; keep HTTP revalidation and cache
   // only the public HTML inside this particular world process.
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
   const host = String(req.get("host") || ""), origin = /^[a-z0-9.:-]{1,100}$/i.test(host) ? req.protocol + "://" + host : "";
   let html = publicPageCache.get(origin);
   if (!html) {

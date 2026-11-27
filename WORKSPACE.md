@@ -1,5 +1,9 @@
 # MarsL working handoff
 
+## 1.0.579 startup recovery candidate
+
+After the owner reported a mobile script load failure on 1.0.578, isolate boot and media rate budgets from API actions; use a no-store HTML shell, keep immutable current asset hashes, and serve a non-cacheable one-shot navigation recovery script for retired main-script URLs. The loader refreshes the shell once and avoids replaying partially executed code, with a styled manual retry fallback and watchdog. Startup respects Retry-After. Add HTTP and mobile Chromium/WebKit stale-shell browser checks. Direct production browser reproduction is unavailable in this session; the screenshot identifies the script failure state, not the exact HTTP status. Verify candidate CI and live deployment before claiming recovery.
+
 ## 1.0.578 optimization candidate — ChatGPT-opt-20261127
 
 Resume audit: batch farmlist target and owner lookup with indexed coordinate join, batch alliance ranking membership and colony points, cache league UI projection for ten seconds without caching award calculations. SQLite is in-process; no network connection pool required, and existing disk detection selects WAL only for local filesystems. Existing bounded map chunks, auction lists, administration logs and full-state farmlist editing remain bounded by their own semantics; game-state ticks stay transactional in the same process, not in external workers. No configured SMS or player upload service was found; do not introduce new infrastructure without a use case. Provider-level edge DDoS controls and fresh production disk confirmation remain external checks. New tests require fresh CI. Prior 1.0.577 deployment run 46068856820 succeeded on all servers.

@@ -23,4 +23,8 @@ jobs:
       - run: node --check server.js
       - run: node scripts/build-release.js
       - run: node --check dist/server.js
+      - run: npm install --no-save --package-lock=false playwright@1.56.1
+      - run: npx playwright install --with-deps chromium webkit
       - run: node scripts/smoke-release.js
+        env:
+          BROWSER_SMOKE: "1"
