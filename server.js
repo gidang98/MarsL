@@ -547,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.570";
+const GAME_VERSION = "1.0.571";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -4167,7 +4167,7 @@ function resolveCamp(m) {
   const where = { name: tier.name, x: m.target_x, y: m.target_y };
   const attacker = colonyInfo(att);
   let loot = null;
-  let haul = null; // loot + bounty
+  let haul = null; // loot (the bounty goes to the commander inventory)
 
   if (m.mission === "scout") {
     colonyStat(att, "spied", 1);
@@ -4204,9 +4204,9 @@ function resolveCamp(m) {
     const bountyAll = countUnits(survivors) > 0 || (hero && f.attackerWins) ? bountyOf(campLost) : null; // a commander alone carries the trophies in its inventory
     // 🎖️ a commander keeps the bounty in its inventory
     const heroNote = hero ? heroAfterFight(att.userId, hero, { xp: (f.D * f.defFrac) / heroXpDiv(), dmg: heroDmg(f.atkFrac, HERO_DMG_LEAD), beaten: (countUnits(survivors) === 0 && countUnits(troops) > 0) || (!f.attackerWins && f.atkFrac >= HERO_FALL_FRAC), won: f.attackerWins, campTier: campTier(m.target_x, m.target_y), bounty: bountyAll, at: T, bonus: heroBonus(hero).atk }) : null;
-    const bounty = heroNote && heroNote.stash ? null : bountyAll;
-    haul = loot || bounty ? { wood: 0, stone: 0, metal: 0, food: 0 } : null;
-    if (haul) for (const r of RESOURCES) haul[r] = (loot ? loot[r] : 0) + (bounty ? bounty[r] : 0);
+    // 📦 every bounty goes into the commander inventory, with or without the commander
+    const bounty = heroNote && heroNote.stash ? null : bountyAll && lootTotal(bountyAll) > 0 && questInventoryReward(att.userId, bountyAll) ? bountyAll : null;
+    haul = loot ? Object.assign({}, loot) : null;
     const titanHere = titanAt(m.target_x, m.target_y);
     saveCamp(m.target_x, m.target_y, camp, T);
     if (titanHere) titanHit(titanHere, att.userId, campLost.titan || 0);
@@ -4239,6 +4239,7 @@ function resolveCamp(m) {
         wall: 0,
         loot,
         bounty: bounty && lootTotal(bounty) ? bounty : null,
+        bountyStash: !!bounty,
         carry,
         attacker: Object.assign({}, attacker, { units: unitList(troops, tribe, atkLost) }),
         defender: Object.assign({}, where, { owner: "Wild monsters", tribeIcon: tier.icon, units: monsterList(campBefore, campLost) }),
@@ -18004,6 +18005,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.571",date:"2026-11-27",title:"Every bounty goes to the commander",groups:[["📦 Bounty stash",["The bounty for monsters you beat at a camp now always goes into your commander inventory, even when the commander stays home. Before, it travelled home with the troops into the colony.","Collect it into any of your colonies, or use the 📦 cost chips when a build is short.","Troops still have to survive the fight to bring a bounty. Commander bounty bonuses (gear and Monster Hunter) still only count when the commander leads the attack."]]]},
   {v:"1.0.570",date:"2026-11-27",title:"Clearer monster bounty in reports",groups:[["📜 Reports",["The bounty for beaten monsters is now called Monster bounty in battle reports. Without a commander it says it comes on top of the loot (it does not use your carrying space). With a commander it says it was added to the commander inventory."]]]},
   {v:"1.0.569",date:"2026-11-27",title:"Translating made easy",groups:[["✏️ Help translate",["Help translate shows work again: every text players actually meet in the game can now be found and translated, also new texts, and the phrases seen most often come first. A progress bar shows how much of your language is done.","👆 Translate on screen: switch it on, tap any text in the game and fix it right there, where you can see what it means and how much room it has.","🔁 When the English text of a phrase changes, its translation is not lost: it is shown again for a check, next to what the English said before.","👁 While you type you see your text with real numbers in place of #, and a warning if it is much longer than the English and may not fit."]]]},
   {v:"1.0.568",date:"2026-11-27",title:"A tidier start page",groups:[["🏠 Start page",["The start page now runs in the order a newcomer asks: what the game looks like, how you get started, which tribe to pick, the extras, the server speeds, the round and quick answers. The language list folds into one button, the army is described in plain words and repeated text is gone. \"Your first ten minutes\" became \"How you get started\", because building times depend on the server speed."]]]},
