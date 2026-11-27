@@ -3560,6 +3560,17 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .lp-step:nth-child(even) .lp-shot .lp-phone { transform: rotate(3deg); }
   .lp-shot::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 60px; background: linear-gradient(transparent, rgba(242,120,75,.9)); }
   .lp-win { background: #2a1630; color: #fff1e0; }
+  .lp-live { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 13px; font-weight: 700; opacity: .92; }
+  .lp-live i { width: 9px; height: 9px; border-radius: 50%; background: #54d66a; box-shadow: 0 0 0 3px rgba(84,214,106,.25); flex: none; }
+  .lp-min { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .lp-min li { display: grid; gap: 6px; align-content: start; background: rgba(62,34,38,.06); border: 2px solid var(--ink); border-radius: var(--radius-md); padding: 12px 14px; font-size: 15px; line-height: 1.35; }
+  .lp-min b { font-family: "Chakra Petch", "Barlow", sans-serif; font-size: 22px; color: var(--accent); }
+  .lp-min i { display: block; font-style: normal; font-weight: 800; }
+  .lp-faq dl { margin: 12px 0 0; display: grid; gap: 4px; }
+  .lp-faq dt { font-weight: 800; margin-top: 10px; color: var(--accent); }
+  .lp-faq dd { margin: 0; line-height: 1.45; opacity: .9; }
+  @media (max-width: 720px) { .lp-min { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 420px) { .lp-min { grid-template-columns: 1fr; } }
   .lp-road { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; counter-reset: road; }
   .lp-road li { position: relative; background: rgba(255,241,224,.08); border: 2px solid rgba(255,241,224,.25); border-radius: var(--radius-md); padding: 16px; display: grid; gap: 6px; align-content: start; }
   .lp-road li + li::before { content: ""; position: absolute; left: -16px; top: 40px; width: 18px; border-top: 3px dotted var(--accent); }
@@ -5448,7 +5459,7 @@ var I18N = {
   "Two minutes are enough": "Zwei Minuten reichen",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Missionstafel</b> Jeweils eine Bau-, eine Armee- und eine Welt-Mission, jede mit einer Belohnung.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Ein Kommandant mit Charakter</b> Schlachtbefehle, ein Archetyp, eine verrückte Macke und Abenteuer mit Entscheidungen.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Sol-Vorhersage</b> Staubstürme und Passatwinde, einen Tag im Voraus bekannt.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Wettervorhersage</b> Staubstürme und Passatwinde, einen Tag im Voraus bekannt.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Wöchentliche Ligen</b> Vier Ligen nach Größe, damit auch kleine Kolonien gewinnen.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Warnungen</b> Dein Handy klingelt, wenn ein Angriff kommt, auch wenn das Spiel geschlossen ist.",
   "A round in six acts": "Eine Runde in sechs Akten",
@@ -5495,7 +5506,7 @@ var I18N = {
   "Two minutes are enough": "Due minuti bastano",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Tabellone missioni</b> Una missione di costruzione, una di esercito e una sul mondo alla volta, ognuna con una ricompensa.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Un comandante con carattere</b> Ordini di battaglia, un archetipo, una stranezza buffa e avventure con scelte.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Previsioni del Sol</b> Tempeste di polvere e venti commerciali, previste con un giorno d'anticipo.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Previsioni del tempo</b> Tempeste di polvere e venti commerciali, previste con un giorno d'anticipo.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Leghe settimanali</b> Quattro leghe per dimensione, così vincono anche le colonie piccole.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Avvisi</b> Il telefono suona quando arriva un attacco, anche con il gioco chiuso.",
   "A round in six acts": "Un round in sei atti",
@@ -5542,7 +5553,7 @@ var I18N = {
   "Two minutes are enough": "Deux minutes suffisent",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Tableau des missions</b> Une mission de construction, une d'armée et une sur le monde à la fois, chacune avec une récompense.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Un commandant avec du caractère</b> Ordres de bataille, un archétype, une manie farfelue et des aventures à choix.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prévisions du Sol</b> Tempêtes de poussière et vents alizés, connus un jour à l'avance.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prévisions météo</b> Tempêtes de poussière et vents alizés, connus un jour à l'avance.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Ligues hebdomadaires</b> Quatre ligues selon la taille, pour que les petites colonies gagnent aussi.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Alertes</b> Votre téléphone sonne quand une attaque arrive, même jeu fermé.",
   "A round in six acts": "Une partie en six actes",
@@ -5589,7 +5600,7 @@ var I18N = {
   "Two minutes are enough": "İki dakika yeter",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Görev Panosu</b> Her seferinde bir inşa, bir ordu ve bir dünya görevi, her biri bir ödülle.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Karakterli bir komutan</b> Savaş emirleri, bir arketip, komik bir huy ve seçimli maceralar.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Sol tahmini</b> Toz fırtınaları ve ticaret rüzgârları, bir gün önceden bilinir.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Hava tahmini</b> Toz fırtınaları ve ticaret rüzgârları, bir gün önceden bilinir.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Haftalık ligler</b> Büyüklüğe göre dört lig, böylece küçük koloniler de kazanır.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Uyarılar</b> Bir saldırı geldiğinde, oyun kapalıyken bile telefonun çalar.",
   "A round in six acts": "Altı perdelik bir tur",
@@ -5636,7 +5647,7 @@ var I18N = {
   "Two minutes are enough": "Dos minutos bastan",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Tablero de misiones</b> Una misión de construcción, una de ejército y una de mundo a la vez, cada una con una recompensa.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Un comandante con carácter</b> Órdenes de batalla, un arquetipo, una manía graciosa y aventuras con decisiones.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Pronóstico del Sol</b> Tormentas de polvo y vientos alisios, que se conocen con un día de antelación.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Pronóstico del tiempo</b> Tormentas de polvo y vientos alisios, que se conocen con un día de antelación.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Ligas semanales</b> Cuatro ligas por tamaño, para que también ganen las colonias pequeñas.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Avisos</b> Tu móvil suena cuando llega un ataque, aunque el juego esté cerrado.",
   "A round in six acts": "Una partida en seis actos",
@@ -5683,7 +5694,7 @@ var I18N = {
   "Two minutes are enough": "Двух минут достаточно",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Доска заданий</b> Одно задание на стройку, одно на армию и одно на мир одновременно, у каждого своя награда.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Командир с характером</b> Боевые приказы, архетип, забавная причуда и приключения с выбором.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Прогноз Сола</b> Пылевые бури и пассаты — известны за день.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Прогноз погоды</b> Пылевые бури и пассаты — известны за день.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Еженедельные лиги</b> Четыре лиги по размеру, так что побеждают и маленькие колонии.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Оповещения</b> Телефон зазвонит, когда приближается атака, даже если игра закрыта.",
   "A round in six acts": "Раунд в шести актах",
@@ -5730,7 +5741,7 @@ var I18N = {
   "Two minutes are enough": "Hai phút là đủ",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Bảng nhiệm vụ</b> Mỗi lúc một nhiệm vụ xây dựng, một quân đội và một thế giới, mỗi cái có phần thưởng.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Chỉ huy có cá tính</b> Lệnh chiến đấu, một kiểu mẫu, một tật hài hước và những cuộc phiêu lưu có lựa chọn.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Dự báo Sol</b> Bão bụi và gió mậu dịch, biết trước một ngày.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Dự báo thời tiết</b> Bão bụi và gió mậu dịch, biết trước một ngày.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Giải đấu hằng tuần</b> Bốn giải theo quy mô, để thuộc địa nhỏ cũng chiến thắng.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Cảnh báo</b> Điện thoại reo khi có cuộc tấn công, kể cả khi đã đóng trò chơi.",
   "A round in six acts": "Một vòng chơi, sáu màn",
@@ -5777,7 +5788,7 @@ var I18N = {
   "Two minutes are enough": "Dois minutos bastam",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Quadro de missões</b> Uma missão de construção, uma de exército e uma de mundo por vez, cada uma com recompensa.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Um comandante com personalidade</b> Ordens de batalha, um arquétipo, uma mania boba e aventuras com escolhas.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Previsão do Sol</b> Tempestades de poeira e ventos alísios, conhecidos com um dia de antecedência.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Previsão do tempo</b> Tempestades de poeira e ventos alísios, conhecidos com um dia de antecedência.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Ligas semanais</b> Quatro ligas por tamanho, para que colônias pequenas também ganhem.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Alertas</b> Seu celular toca quando um ataque está chegando, mesmo com o jogo fechado.",
   "A round in six acts": "Uma partida em seis atos",
@@ -5824,7 +5835,7 @@ var I18N = {
   "Two minutes are enough": "Dua menit cukup",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Papan misi</b> Satu misi bangunan, satu misi pasukan, dan satu misi dunia sekaligus, masing-masing dengan hadiah.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Komandan berkarakter</b> Perintah tempur, sebuah arketipe, kebiasaan lucu, dan petualangan dengan pilihan.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prakiraan Sol</b> Badai debu dan angin pasat, diketahui sehari sebelumnya.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prakiraan cuaca</b> Badai debu dan angin pasat, diketahui sehari sebelumnya.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Liga mingguan</b> Empat liga berdasarkan ukuran, jadi koloni kecil juga bisa menang.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Peringatan</b> Ponselmu berdering saat serangan datang, bahkan saat game ditutup.",
   "A round in six acts": "Satu ronde dalam enam babak",
@@ -5871,7 +5882,7 @@ var I18N = {
   "Two minutes are enough": "Dwie minuty wystarczą",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Tablica misji</b> Jedna misja budowy, jedna armii i jedna światowa naraz, każda z nagrodą.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Dowódca z charakterem</b> Rozkazy bojowe, archetyp, zabawna dziwactwo i przygody z wyborami.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prognoza Sola</b> Burze pyłowe i wiatry pasatowe, znane dzień wcześniej.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Prognoza pogody</b> Burze pyłowe i wiatry pasatowe, znane dzień wcześniej.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Tygodniowe ligi</b> Cztery ligi według wielkości, więc małe kolonie też wygrywają.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Alerty</b> Telefon zadzwoni, gdy nadchodzi atak, nawet przy zamkniętej grze.",
   "A round in six acts": "Runda w sześciu aktach",
@@ -5918,7 +5929,7 @@ var I18N = {
   "Two minutes are enough": "Dvě minuty stačí",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Nástěnka úkolů</b> Jeden úkol stavby, jeden armády a jeden světový naráz, každý s odměnou.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Velitel s charakterem</b> Bojové rozkazy, archetyp, směšná úchylka a dobrodružství s volbami.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Předpověď Sola</b> Prachové bouře a pasáty, známé den předem.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Předpověď počasí</b> Prachové bouře a pasáty, známé den předem.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Týdenní ligy</b> Čtyři ligy podle velikosti, takže vyhrávají i malé kolonie.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Upozornění</b> Telefon zazvoní, když se blíží útok, i se zavřenou hrou.",
   "A round in six acts": "Kolo v šesti aktech",
@@ -5965,7 +5976,7 @@ var I18N = {
   "Two minutes are enough": "Dve minúty stačia",
   "<b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.": "<b>📋 Nástenka úloh</b> Jedna úloha stavby, jedna armády a jedna svetová naraz, každá s odmenou.",
   "<b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.": "<b>🎖️ Veliteľ s charakterom</b> Bojové rozkazy, archetyp, smiešna úchylka a dobrodružstvá s voľbami.",
-  "<b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Predpoveď Sola</b> Prachové búrky a pasáty, známe deň vopred.",
+  "<b>☁️ Weather forecast</b> Dust storms and trade winds, known a day ahead.": "<b>☁️ Predpoveď počasia</b> Prachové búrky a pasáty, známe deň vopred.",
   "<b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.": "<b>🥔 Týždenné ligy</b> Štyri ligy podľa veľkosti, takže vyhrávajú aj malé kolónie.",
   "<b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.": "<b>📲 Upozornenia</b> Telefón zazvoní, keď sa blíži útok, aj so zatvorenou hrou.",
   "A round in six acts": "Kolo v šiestich aktoch",
@@ -6113,13 +6124,13 @@ var GTR = {
 "# Metal fields, average level #": ["# Metallfelder, Ø Stufe #", "# campi di metallo, livello medio #", "# champs de métal, niveau moyen #", "# metal tarlası, ort. seviye #", "# campos de metal, nivel medio #", "# полей металла, средний уровень #", "# cánh đồng kim loại, cấp trung bình #", "# campos de metal, nível médio #", "# ladang logam, level rata-rata #", "# pól metalu, średni poziom #", "# polí kovu, průměrná úroveň #", "# polí kovu, priemerná úroveň #"],
 "# Food fields, average level #": ["# Nahrungsfelder, Ø Stufe #", "# campi di cibo, livello medio #", "# champs de nourriture, niveau moyen #", "# yiyecek tarlası, ort. seviye #", "# campos de comida, nivel medio #", "# полей еды, средний уровень #", "# cánh đồng lương thực, cấp trung bình #", "# campos de comida, nível médio #", "# ladang makanan, level rata-rata #", "# pól jedzenia, średni poziom #", "# polí jídla, průměrná úroveň #", "# polí jedla, priemerná úroveň #"],
 "Act #/#": ["Akt #/#", "Atto #/#", "Acte #/#", "Perde #/#", "Acto #/#", "Акт #/#", "Màn #/#", "Ato #/#", "Babak #/#", "Akt #/#", "Akt #/#", "Akt #/#"],
-"🌤️ Calm Weather": ["🌤️ Ruhiger Sol", "🌤️ Sol tranquillo", "🌤️ Sol calme", "🌤️ Sakin sol", "🌤️ Sol tranquilo", "🌤️ Спокойный сол", "🌤️ Sol yên bình", "🌤️ Sol calmo", "🌤️ Sol tenang", "🌤️ Spokojone słońce", "🌤️ Klidné slunce", "🌤️ Pokojné slnko"],
+"🌤️ Calm Weather": ["🌤️ Ruhiges Wetter", "🌤️ Tempo tranquillo", "🌤️ Temps calme", "🌤️ Sakin hava", "🌤️ Tiempo tranquilo", "🌤️ Спокойная погода", "🌤️ Thời tiết yên bình", "🌤️ Tempo calmo", "🌤️ Cuaca tenang", "🌤️ Spokojone słońce", "🌤️ Klidné slunce", "🌤️ Pokojné slnko"],
 "Lockdown": ["Abriegelung", "Blocco totale", "Confinement", "Kilitleme", "Cierre total", "Блокировка", "Phong tỏa", "Bloqueio", "Penguncian", "Blokada", "Uzamčení", "Uzamknutie"],
 "Expansion in #d #h · Colony specialisations can be chosen.": ["Expansion in #d #h · Kolonie-Spezialisierungen sind wählbar.", "Espansione tra #d #h · si possono scegliere le specializzazioni delle colonie.", "Expansion dans #d #h · les spécialisations de colonie sont disponibles.", "Genişlemeye #d #h · Koloni uzmanlıkları seçilebilir.", "Expansión en #d #h · se pueden elegir las especializaciones de colonia.", "Расширение через #д #ч · можно выбрать специализацию колоний.", "Mở rộng sau #n #g · có thể chọn chuyên môn cho thuộc địa.", "Expansão em #d #h · é possível escolher especializações de colônia.", "Ekspansi dalam #h #j · spesialisasi koloni bisa dipilih.", "Ekspansja za #d #h · Można wybrać specjalizacje kolonii.", "Expanze za #d #h · Lze vybrat specializace kolonií.", "Expanzia za #d #h · Možno vybrať špecializácie kolónií."],
 "Nothing special. A good day to build.": ["Nichts Besonderes. Ein guter Tag zum Bauen.", "Niente di speciale. Un buon giorno per costruire.", "Rien de spécial. Un bon jour pour construire.", "Özel bir şey yok. İnşaat için iyi bir gün.", "Nada especial. Un buen día para construir.", "Ничего особенного. Хороший день для строительства.", "Không có gì đặc biệt. Một ngày tốt để xây dựng.", "Nada de especial. Um bom dia para construir.", "Tidak ada yang istimewa. Hari yang baik untuk membangun.", "Nic szczególnego. Dobry dzień na budowę.", "Nic zvláštního. Dobrý den na stavbu.", "Nič zvláštne. Dobrý deň na stavbu."],
-"Today: Calm Weather": ["Heute: Ruhiger Sol", "Oggi: Sol tranquillo", "Aujourd’hui : Sol calme", "Bugün: Sakin sol", "Hoy: Sol tranquilo", "Сегодня: спокойный сол", "Hôm nay: Sol yên bình", "Hoje: Sol calmo", "Hari ini: Sol tenang", "Dziś: spokojne słońce", "Dnes: klidné slunce", "Dnes: pokojné slnko"],
-"Nothing special. A good day to build. · tomorrow 🌤️ Calm Weather (Nothing special. A good day to build.)": ["Nichts Besonderes. Ein guter Tag zum Bauen. · morgen 🌤️ Ruhiger Sol (Nichts Besonderes. Ein guter Tag zum Bauen.)", "Niente di speciale. Un buon giorno per costruire. · domani 🌤️ Sol tranquillo (Niente di speciale. Un buon giorno per costruire.)", "Rien de spécial. Un bon jour pour construire. · demain 🌤️ Sol calme (Rien de spécial. Un bon jour pour construire.)", "Özel bir şey yok. İnşaat için iyi bir gün. · yarın 🌤️ Sakin sol (Özel bir şey yok. İnşaat için iyi bir gün.)", "Nada especial. Un buen día para construir. · mañana 🌤️ Sol tranquilo (Nada especial. Un buen día para construir.)", "Ничего особенного. Хороший день для строительства. · завтра 🌤️ спокойный сол (Ничего особенного. Хороший день для строительства.)", "Không có gì đặc biệt. Một ngày tốt để xây dựng. · ngày mai 🌤️ Sol yên bình (Không có gì đặc biệt. Một ngày tốt để xây dựng.)", "Nada de especial. Um bom dia para construir. · amanhã 🌤️ Sol calmo (Nada de especial. Um bom dia para construir.)", "Tidak ada yang istimewa. Hari yang baik untuk membangun. · besok 🌤️ Sol tenang (Tidak ada yang istimewa. Hari yang baik untuk membangun.)", "Nic szczególnego. Dobry dzień na budowę. · jutro 🌤️ Spokojone słońce (Nic szczególnego. Dobry dzień na budowę.)", "Nic zvláštního. Dobrý den na stavbu. · zítra 🌤️ Klidné slunce (Nic zvláštního. Dobrý den na stavbu.)", "Nič zvláštne. Dobrý deň na stavbu. · zajtra 🌤️ Pokojné slnko (Nič zvláštne. Dobrý deň na stavbu.)"],
-"About the sol forecast": ["Über die Sol-Vorhersage", "Sulla previsione del Sol", "À propos des prévisions du Sol", "Sol tahmini hakkında", "Sobre el pronóstico del Sol", "О прогнозе сола", "Về dự báo sol", "Sobre a previsão do sol", "Tentang prakiraan sol", "O prognozie słońca", "O předpovědi slunce", "O predpovedi slnka"],
+"Today: Calm Weather": ["Heute: Ruhiges Wetter", "Oggi: Tempo tranquillo", "Aujourd’hui : Temps calme", "Bugün: Sakin hava", "Hoy: Tiempo tranquilo", "Сегодня: спокойная погода", "Hôm nay: Thời tiết yên bình", "Hoje: Tempo calmo", "Hari ini: Cuaca tenang", "Dziś: spokojne słońce", "Dnes: klidné slunce", "Dnes: pokojné slnko"],
+"Nothing special. A good day to build. · tomorrow 🌤️ Calm Weather (Nothing special. A good day to build.)": ["Nichts Besonderes. Ein guter Tag zum Bauen. · morgen 🌤️ Ruhiges Wetter (Nichts Besonderes. Ein guter Tag zum Bauen.)", "Niente di speciale. Un buon giorno per costruire. · domani 🌤️ Tempo tranquillo (Niente di speciale. Un buon giorno per costruire.)", "Rien de spécial. Un bon jour pour construire. · demain 🌤️ Temps calme (Rien de spécial. Un bon jour pour construire.)", "Özel bir şey yok. İnşaat için iyi bir gün. · yarın 🌤️ Sakin hava (Özel bir şey yok. İnşaat için iyi bir gün.)", "Nada especial. Un buen día para construir. · mañana 🌤️ Tiempo tranquilo (Nada especial. Un buen día para construir.)", "Ничего особенного. Хороший день для строительства. · завтра 🌤️ спокойная погода (Ничего особенного. Хороший день для строительства.)", "Không có gì đặc biệt. Một ngày tốt để xây dựng. · ngày mai 🌤️ Thời tiết yên bình (Không có gì đặc biệt. Một ngày tốt để xây dựng.)", "Nada de especial. Um bom dia para construir. · amanhã 🌤️ Tempo calmo (Nada de especial. Um bom dia para construir.)", "Tidak ada yang istimewa. Hari yang baik untuk membangun. · besok 🌤️ Cuaca tenang (Tidak ada yang istimewa. Hari yang baik untuk membangun.)", "Nic szczególnego. Dobry dzień na budowę. · jutro 🌤️ Spokojone słońce (Nic szczególnego. Dobry dzień na budowę.)", "Nic zvláštního. Dobrý den na stavbu. · zítra 🌤️ Klidné slunce (Nic zvláštního. Dobrý den na stavbu.)", "Nič zvláštne. Dobrý deň na stavbu. · zajtra 🌤️ Pokojné slnko (Nič zvláštne. Dobrý deň na stavbu.)"],
+"About the weather forecast": ["Über die Wettervorhersage", "Sulle previsioni del tempo", "À propos des prévisions météo", "Hava tahmini hakkında", "Sobre el pronóstico del tiempo", "О прогнозе погоды", "Về dự báo thời tiết", "Sobre a previsão do tempo", "Tentang prakiraan cuaca", "O prognozie słońca", "O předpovědi slunce", "O predpovedi slnka"],
 "For # hours this colony either fights back harder (+#% defense) or locks the stores (bunkers hide #% more). Pick one.": ["# Stunden lang wehrt sich diese Kolonie entweder härter (+#% Verteidigung) oder verriegelt die Lager (Bunker verstecken #% mehr). Wähle eines.", "Per # ore questa colonia o reagisce più duramente (+#% difesa) o blocca i magazzini (i bunker nascondono il #% in più). Scegline uno.", "Pendant # heures, cette colonie riposte plus fort (+#% de défense) ou verrouille les stocks (les bunkers cachent #% de plus). Choisis-en un.", "# saat boyunca bu koloni ya daha sert karşılık verir (+%# savunma) ya da depoları kilitler (sığınaklar %# daha fazla saklar). Birini seç.", "Durante # horas esta colonia se defiende con más fuerza (+#% de defensa) o bloquea los almacenes (los búnkeres ocultan un #% más). Elige uno.", "В течение # ч эта колония либо отбивается сильнее (+#% защиты), либо запирает склады (бункеры прячут на #% больше). Выбери одно.", "Trong # giờ, thuộc địa này hoặc chống trả mạnh hơn (+#% phòng thủ) hoặc khóa kho (hầm trú ẩn giấu thêm #%). Chọn một.", "Por # horas esta colônia ou reage com mais força (+#% de defesa) ou tranca os estoques (bunkers escondem #% a mais). Escolha um.", "Selama # jam koloni ini bisa melawan lebih keras (+#% pertahanan) atau mengunci gudang (bunker menyembunyikan #% lebih banyak). Pilih salah satu.", "Przez # godz. ta kolonia albo mocniej się broni (+#% obrony), albo blokuje magazyny (bunkry ukrywają o #% więcej). Wybierz jedno.", "Po dobu # hod. se tato kolonie buď brání silněji (+#% obrany), nebo zamkne sklady (bunkry skryjí o #% víc). Vyber jedno.", "Počas # hod. sa táto kolónia buď bráni silnejšie (+#% obrany), alebo zamkne sklady (bunkre skryjú o #% viac). Vyber jedno."],
 "Home power · pick what it works on": ["Heimkraft · wähle, wofür sie wirkt", "Potere di casa · scegli su cosa agisce", "Pouvoir du foyer · choisis sur quoi il agit", "Ev gücü · neyde işe yarayacağını seç", "Poder del hogar · elige en qué actúa", "Сила дома · выбери, на что она действует", "Sức mạnh nhà · chọn thứ nó tác động", "Poder do lar · escolha em que ele atua", "Kekuatan rumah · pilih apa yang dipengaruhi", "Moc domu · wybierz, na co działa", "Síla domova · vyber, na co působí", "Sila domova · vyber, na čo pôsobí"],
 "Resource Fields": ["Rohstofffelder", "Campi di risorse", "Champs de ressources", "Kaynak tarlaları", "Campos de recursos", "Поля ресурсов", "Cánh đồng tài nguyên", "Campos de recursos", "Ladang sumber daya", "Pola surowców", "Surovinová pole", "Surovinové polia"],
@@ -6912,7 +6923,7 @@ var GTR = {
 "troops here eat #% less": ["Truppen hier verbrauchen #% weniger", "le truppe qui consumano il #% in meno", "les troupes ici mangent #% de moins", "buradaki birlikler %# daha az yer", "las tropas aquí comen un #% menos", "войска здесь едят на #% меньше", "quân ở đây ăn ít hơn #%", "as tropas aqui comem #% a menos", "pasukan di sini makan #% lebih sedikit", "wojska tutaj jedzą o #% mniej", "jednotky tady jí o #% méně", "jednotky tu jedia o #% menej"],
 "+#% wood, stone and metal": ["+#% Holz, Stein und Metall", "+#% legno, pietra e metallo", "+#% bois, pierre et métal", "+%# odun, taş ve metal", "+#% madera, piedra y metal", "+#% дерево, камень и металл", "+#% gỗ, đá và kim loại", "+#% madeira, pedra e metal", "+#% kayu, batu, dan logam", "+#% drewno, kamień i metal", "+#% dřevo, kámen a kov", "+#% drevo, kameň a kov"],
 "+#% defense": ["+#% Verteidigung", "+#% difesa", "+#% défense", "+%# savunma", "+#% defensa", "+#% защита", "+#% phòng thủ", "+#% defesa", "+#% pertahanan", "+#% obrona", "+#% obrana", "+#% obrana"],
-"Sol forecast": ["Sol-Prognose", "Previsione del Sol", "Prévision du Sol", "Sol tahmini", "Pronóstico de Sol", "Прогноз Сол", "Dự báo Sol", "Previsão do Sol", "Prakiraan Sol", "Prognoza Sol", "Předpověď Sol", "Predpoveď Sol"],
+"Weather forecast": ["Wetterprognose", "Previsioni del tempo", "Prévisions météo", "Hava tahmini", "Pronóstico del tiempo", "Прогноз погоды", "Dự báo thời tiết", "Previsão do tempo", "Prakiraan cuaca", "Prognoza pogody", "Předpověď počasí", "Predpoveď počasia"],
 "How often": ["Wie oft", "Con quale frequenza", "À quelle fréquence", "Ne sıklıkla", "Con qué frecuencia", "Как часто", "Bao lâu một lần", "Com que frequência", "Seberapa sering", "Jak często", "Jak často", "Ako často"],
 "Terra for new colonies": ["Terra für neue Kolonien", "Terra per le nuove colonie", "Terra pour les nouvelles colonies", "Yeni koloniler için terra", "Terra para nuevas colonias", "Терра для новых колоний", "Terra cho thuộc địa mới", "Terra para novas colônias", "Terra untuk koloni baru", "Terra na nowe kolonie", "Terra pro nové kolonie", "Terra pre nové kolónie"],
 "Σ so far": ["Σ bisher", "Σ finora", "Σ jusqu'ici", "Şimdiye kadar Σ", "Σ hasta ahora", "Σ пока", "Σ hiện tại", "Σ até agora", "Σ sejauh ini", "Σ dotąd", "Σ zatím", "Σ zatiaľ"],
@@ -8136,8 +8147,8 @@ var GTR = {
 "A new round starts on {0}! Welcome back to Mars.": ["Auf {0} startet eine neue Runde! Willkommen zurück auf dem Mars.", "Su {0} inizia un nuovo round! Bentornato su Marte.", "Une nouvelle manche commence sur {0} ! Bon retour sur Mars.", "{0} sunucusunda yeni bir tur başlıyor! Mars’a tekrar hoş geldin.", "¡Empieza una nueva ronda en {0}! Bienvenido de vuelta a Marte.", "На {0} начинается новый раунд! С возвращением на Марс.", "Một ván mới bắt đầu trên {0}! Chào mừng trở lại Sao Hỏa.", "Uma nova rodada começa em {0}! Bem-vindo de volta a Marte.", "Ronde baru dimulai di {0}! Selamat datang kembali di Mars.", "Na {0} zaczyna się nowa runda! Witaj z powrotem na Marsie.", "Na {0} začíná nové kolo! Vítej zpět na Marsu.", "Na {0} začína nové kolo! Vitaj späť na Marse."],
 "{0} took over {1} from {2}!": ["{0} hat {1} von {2} übernommen!", "{0} ha rilevato {1} da {2}!", "{0} a repris {1} à {2} !", "{0}, {1} kolonisini {2} oyuncusundan devraldı!", "¡{0} se ha hecho con {1} de {2}!", "{0} забрал {1} у {2}!", "{0} đã tiếp quản {1} từ {2}!", "{0} assumiu {1} de {2}!", "{0} mengambil alih {1} dari {2}!", "{0} przejął {1} od {2}!", "{0} převzal {1} od {2}!", "{0} prevzal {1} od {2}!"],
 "The game speed was changed. Production ×#, building ×#, travel ×#.": ["Die Spielgeschwindigkeit wurde geändert. Produktion ×#, Bau ×#, Reise ×#.", "La velocità di gioco è cambiata. Produzione ×#, costruzione ×#, viaggio ×#.", "La vitesse du jeu a changé. Production ×#, construction ×#, trajet ×#.", "Oyun hızı değiştirildi. Üretim ×#, inşaat ×#, yolculuk ×#.", "Se cambió la velocidad del juego. Producción ×#, construcción ×#, viaje ×#.", "Скорость игры изменена. Добыча ×#, строительство ×#, путь ×#.", "Tốc độ trò chơi đã thay đổi. Sản xuất ×#, xây dựng ×#, di chuyển ×#.", "A velocidade do jogo mudou. Produção ×#, construção ×#, viagem ×#.", "Kecepatan game diubah. Produksi ×#, pembangunan ×#, perjalanan ×#.", "Zmieniono prędkość gry. Produkcja ×#, budowa ×#, podróż ×#.", "Rychlost hry byla změněna. Produkce ×#, stavba ×#, cestování ×#.", "Rýchlosť hry bola zmenená. Produkcia ×#, stavba ×#, cestovanie ×#."],
-"Calm Weather": ["Ruhiger Sol", "Sol tranquillo", "Sol calme", "Sakin sol", "Sol tranquilo", "Спокойный соль", "Sol yên tĩnh", "Sol tranquilo", "Sol tenang", "Spokojny sol", "Klidný sol", "Pokojný sol"],
-"calm sol": ["ruhiger Sol", "sol tranquillo", "sol calme", "sakin sol", "sol tranquilo", "спокойный соль", "sol yên tĩnh", "sol tranquilo", "sol tenang", "spokojny sol", "klidný sol", "pokojný sol"],
+"Calm Weather": ["Ruhiges Wetter", "Tempo tranquillo", "Temps calme", "Sakin hava", "Tiempo tranquilo", "Спокойная погода", "Thời tiết yên tĩnh", "Tiempo tranquilo", "Cuaca tenang", "Spokojna pogoda", "Klidné počasí", "Pokojné počasie"],
+"calm weather": ["ruhiges Wetter", "tempo tranquillo", "temps calme", "sakin hava", "tiempo tranquilo", "спокойная погода", "thời tiết yên tĩnh", "tiempo tranquilo", "cuaca tenang", "spokojna pogoda", "klidné počasí", "pokojné počasie"],
 "Dust storm": ["Staubsturm", "Tempesta di polvere", "Tempête de poussière", "Toz fırtınası", "Tormenta de polvo", "Пылевая буря", "Bão bụi", "Tempestade de poeira", "Badai debu", "Burza pyłowa", "Prachová bouře", "Prachová búrka"],
 "dust storm": ["Staubsturm", "tempesta di polvere", "tempête de poussière", "toz fırtınası", "tormenta de polvo", "пылевая буря", "bão bụi", "tempestade de poeira", "badai debu", "burza pyłowa", "prachová bouře", "prachová búrka"],
 "Ice fog": ["Eisnebel", "Nebbia di ghiaccio", "Brouillard glacé", "Buz sisi", "Niebla de hielo", "Ледяной туман", "Sương băng", "Névoa de gelo", "Kabut es", "Lodowa mgła", "Ledová mlha", "Ľadová hmla"],
@@ -8364,11 +8375,22 @@ function renderLanding() {
   var h = '<div class="lp">';
   h += '<section class="lp-hero"><div class="lp-copy">';
   h += "<h2>Build a colony.<br>Raise an army.<br>Win Mars together.</h2>";
-  h += "<p>A free strategy game in your browser. Farm space potatoes, train Turkey Tanks, raid monster camps and team up with an alliance to light the Aurora over Mars.</p>";
+  h += "<p>A free strategy game in your browser. Your colony keeps growing while you sleep: farm space potatoes, train Turkey Tanks, raid monster camps and team up with an alliance to light the Aurora over Mars.</p>";
   h += '<div class="lp-cta"><button class="btn" data-landing="register">' + "🚀" + ' Play for free</button><button class="btn ghost" data-landing="login">Log in</button></div>';
   h += '<ol class="lp-go"><li><b>1</b>Pick a name</li><li><b>2</b>Choose a tribe</li><li><b>3</b>Crash-land</li></ol>';
-  h += '<ul class="lp-facts"><li>Free to play</li><li>No download</li><li>Beginner protection</li></ul>' + langPicker();
+  h += '<ul class="lp-facts"><li>Free to play</li><li>No download</li><li>Beginner protection</li></ul>';
+  var lpOn = 0, lpAll = 0;
+  (config.servers || []).forEach(function (s) { lpOn += s.online || 0; lpAll += s.players || 0; });
+  if (lpAll >= 50) h += '<p class="lp-live"><i></i>' + (lpOn >= 5 ? lpOn.toLocaleString("en-US") + " colonists online now · " : "") + lpAll.toLocaleString("en-US") + " colonists have landed</p>";
+  h += langPicker();
   h += '</div><div class="lp-art"><img class="lp-hero-img" src="/art/' + (FX_ART.t["bg-login"] ? "bg-login" : "hero") + '.webp?v=' + FX_ART.v + '" width="1531" height="1027" alt="Chickens, humans and aliens clash across the red sands of Mars">' + lpPhone("fields", "The Fields tab in the game", "lp-front") + "</div></section>";
+
+  h += '<section class="lp-band lp-ten"><h3>Your first ten minutes</h3><ol class="lp-min">';
+  h += "<li><b>0:00</b><span><i>Crash-land</i> Pick a name and a tribe. Your colony and its twelve fields are ready at once.</span></li>";
+  h += "<li><b>1:00</b><span><i>Build</i> Beppo the dog shows you what to tap. Upgrades finish by themselves, so you can close the game.</span></li>";
+  h += "<li><b>5:00</b><span><i>Train troops</i> Beginner protection keeps raiders away while you learn how armies work.</span></li>";
+  h += "<li><b>10:00</b><span><i>Reach out</i> Raid a monster camp, claim a rich site and look for an alliance to join.</span></li>";
+  h += "</ol></section>";
 
   h += '<section class="lp-band"><h3>Pick the tribe that fits your day</h3><div class="lp-tribes">';
   LP_TRIBES.forEach(function (t) {
@@ -8399,7 +8421,7 @@ function renderLanding() {
   h += "<li><b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.</li>";
   h += "<li><b>🪤 Traps and prisoners</b> Build traps to catch raiders, then keep them fed or let them go.</li>";
   h += "<li><b>🎰 Casino</b> Spin the slots or bet on the roulette wheel with your spare Space-Cash.</li>";
-  h += "<li><b>☁️ Sol forecast</b> Dust storms and trade winds, known a day ahead.</li>";
+  h += "<li><b>☁️ Weather forecast</b> Dust storms and trade winds change your production. Tomorrow's weather is shown a day ahead, so you can plan around it.</li>";
   h += "<li><b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.</li>";
   h += "<li><b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.</li>";
   h += '</ul></div><div class="lp-shot">' + lpPhone("board", "The Mission Board") + "</div></section>";
@@ -8412,6 +8434,15 @@ function renderLanding() {
   h += "<li><span>🏆</span><b>Relic Hunt</b><p>Hold several landmarks at once to win a relic for your team.</p></li>";
   h += "<li><span>🌌</span><b>Aurora</b><p>Alliances charge four pylons and race to light the sky. The first one wins the round.</p></li>";
   h += "</ol></details>";
+
+  h += '<details class="lp-band lp-win lp-faq"><summary><h3>Quick answers</h3></summary><dl>';
+  h += "<dt>Is it really free?</dt><dd>Yes. MarsL is free to play and runs in your browser, with nothing to download.</dd>";
+  h += "<dt>Do I have to stay online?</dt><dd>No. Your fields produce around the clock and queued builds finish on their own. If an attack is coming, your phone rings, even with the game closed.</dd>";
+  h += "<dt>What if someone attacks me early?</dt><dd>New colonies are under beginner protection, so you can learn the game in peace.</dd>";
+  h += "<dt>Which tribe should I pick?</dt><dd>Take the one marked Best first pick. Every tribe shows how hard it is to play and how much time it needs.</dd>";
+  h += "<dt>How does a round end?</dt><dd>Alliances charge four pylons and race to light the Aurora. The first alliance to light it wins the round.</dd>";
+  h += "<dt>Can I play on my phone?</dt><dd>Yes. MarsL is built for phones first. Add it to your Home Screen to play fullscreen.</dd>";
+  h += "</dl></details>";
 
   var srv = (config.servers || []).filter(function (s) { return s.speed; });
   var minSpeed = Math.min.apply(null, srv.map(function (x) { return x.speed; }));
@@ -10119,7 +10150,7 @@ function todayParts(d) {
   if (Fc) chips.push("<span>" + Fc.today.icon + " " + esc(Fc.today.name) + "</span>");
   if (P && !P.used) chips.push("<span>" + P.icon + " " + esc(P.name) + "</span>");
   if (P && P.used && P.active) { chips.push("<span>" + P.icon + " active</span>"); parts.push('<div class="today-btn forecast" data-tpower="1"><span class="tb-i">' + P.icon + "</span><span><b>" + esc(P.name) + "</b><small>" + powerActive(P) + "</small></span></div>"); }
-  if (Fc) parts.push('<div class="today-btn forecast" title="' + esc(Fc.today.text) + '"><span class="tb-i">' + Fc.today.icon + "</span><span><b>Today: " + esc(Fc.today.name) + "</b><small>" + esc(Fc.today.text) + "</small><small>Tomorrow: " + Fc.tomorrow.icon + " " + esc(Fc.tomorrow.name) + "</small></span>" + helpBtn("economy:forecast", "About the sol forecast") + "</div>");
+  if (Fc) parts.push('<div class="today-btn forecast" title="' + esc(Fc.today.text) + '"><span class="tb-i">' + Fc.today.icon + "</span><span><b>Today: " + esc(Fc.today.name) + "</b><small>" + esc(Fc.today.text) + "</small><small>Tomorrow: " + Fc.tomorrow.icon + " " + esc(Fc.tomorrow.name) + "</small></span>" + helpBtn("economy:forecast", "About the weather forecast") + "</div>");
   if (P && !P.used) parts.push('<button class="today-btn' + (P.why ? " off" : "") + '" data-tpower="1"' + ' title="' + esc(P.why || P.text) + '"' + '><span class="tb-i">' + P.icon + "</span><span><b>" + esc(P.name) + "</b><small>" + (P.why ? esc(P.why) : "Home power · pick what it works on") + "</small></span></button>");
   return parts.length ? { parts: parts, chips: chips } : null;
 }
@@ -17512,7 +17543,7 @@ function wikiChapter(W, tab) {
     var Ec = W.extra && W.extra.econ;
     if (Ec) {
       cards.push(wkCard("specs", "🏷️", "Colony specialisations", wkP(trf("When a colony's {0} reaches level {1}, pick one specialisation for it (🏗️ Colony → Specialisation). They open with Act 2 (Expansion). Each opens a building of its own (10 levels). The choice is permanent, so pick the job this colony will keep.", wkBName(W, "hq"), Ec.specHq)) + kt({ head: ["Specialisation", "Effect", "Its building, per level"], left: 3, rows: Object.keys(Ec.specs).map(function (k) { var c = Ec.specs[k]; return [c.icon + " " + c.name, c.text, wkBName(W, c.building) + ": " + (k === "breadbasket" ? "troops here eat 1% less" : k === "industrial" ? "+1% wood, stone and metal" : "+1% defense")]; }) }) + wkNote("Several colonies, different jobs: a Breadbasket feeds big armies, an Industrial Town builds, a Garrison holds the front. Merchants and trade routes move the goods between them.")));
-      cards.push(wkCard("forecast", "☁️", "Sol forecast", wkP("The weather changes every " + dayLenText() + " and is known one step ahead. The bar at the top of your colony shows today and tomorrow. Production changes count from the start of each period.") + kt({ head: ["Weather", "Effect", "How often"], left: 2, rows: Ec.forecasts.map(function (f) { var tot = Ec.forecasts.reduce(function (n, x) { return n + x.w; }, 0); return [f.icon + " " + f.name, f.text, Math.round(f.w / tot * 100) + "%"]; }) }) + wkNote("Plan around it: stockpile before a bad day, sell when swaps are cheap, send merchants on windy days.")));
+      cards.push(wkCard("forecast", "☁️", "Weather forecast", wkP("The weather changes every " + dayLenText() + " and is known one step ahead. The bar at the top of your colony shows today and tomorrow. Production changes count from the start of each period.") + kt({ head: ["Weather", "Effect", "How often"], left: 2, rows: Ec.forecasts.map(function (f) { var tot = Ec.forecasts.reduce(function (n, x) { return n + x.w; }, 0); return [f.icon + " " + f.name, f.text, Math.round(f.w / tot * 100) + "%"]; }) }) + wkNote("Plan around it: stockpile before a bad day, sell when swaps are cheap, send merchants on windy days.")));
     }
     cards.push(wkCard("terra", "🌱", "Terra for new colonies", kt({ head: ["", "Terra", "Σ so far"], rows: tr }) + wkNote(trf("Plus {0} settlers (hub level {1}). Every colony earns terra by itself. There is no colony limit: the table shows the first 15, each one needs more terra than the last.", T.settlers, T.hubLevel))));
     cards.push(wkCard("organize", "🗂️", "Organizing your colonies", wkList([

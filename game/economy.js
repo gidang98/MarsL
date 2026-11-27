@@ -297,7 +297,7 @@ function production(s) {
   const p = { wood: 0, stone: 0, metal: 0, food: 0 };
   for (const f of s.fields) p[f.type] += fieldProduction(f.level);
   for (const r of RESOURCES) p[r] = Math.round(p[r] * (1 + boostOf(s, r)));
-  // 🏷️ specialisation, ✨ rich site and the ☁️ sol forecast
+  // 🏷️ specialisation, ✨ rich site and the ☁️ weather forecast
   for (const r of RESOURCES) p[r] = Math.round(p[r] * econMult(s, r));
   if (s.crown) for (const r of RESOURCES) p[r] = Math.round(p[r] * (1 + ZONE_PROD_BONUS));
   if (s.relic) for (const r of RESOURCES) p[r] = Math.round(p[r] * (1 + relicBonus(s, "res", r)));
