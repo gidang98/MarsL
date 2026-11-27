@@ -8368,7 +8368,7 @@ function renderLanding() {
   h += '<div class="lp-cta"><button class="btn" data-landing="register">' + "🚀" + ' Play for free</button><button class="btn ghost" data-landing="login">Log in</button></div>';
   h += '<ol class="lp-go"><li><b>1</b>Pick a name</li><li><b>2</b>Choose a tribe</li><li><b>3</b>Crash-land</li></ol>';
   h += '<ul class="lp-facts"><li>Free to play</li><li>No download</li><li>Beginner protection</li></ul>' + langPicker();
-  h += '</div><div class="lp-art"><img class="lp-hero-img" src="/art/hero.webp?v=' + FX_ART.v + '" width="1600" height="1074" alt="A clay Mars colony with fields, quarry, mine and farms around a dome">' + lpPhone("fields", "The Fields tab in the game", "lp-front") + "</div></section>";
+  h += '</div><div class="lp-art"><img class="lp-hero-img" src="/art/' + (FX_ART.t["bg-login"] ? "bg-login" : "hero") + '.webp?v=' + FX_ART.v + '" width="1531" height="1027" alt="Chickens, humans and aliens clash across the red sands of Mars">' + lpPhone("fields", "The Fields tab in the game", "lp-front") + "</div></section>";
 
   h += '<section class="lp-band"><h3>Pick the tribe that fits your day</h3><div class="lp-tribes">';
   LP_TRIBES.forEach(function (t) {

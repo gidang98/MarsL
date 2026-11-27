@@ -547,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.564";
+const GAME_VERSION = "1.0.565";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17932,6 +17932,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.565",date:"2026-11-27",title:"The clash of Mars on the start page",groups:[["🏠 Start page",["The picture on the start page is now the big clash between chickens, humans and aliens, in place of the clay colony."]]]},
   {v:"1.0.564",date:"2026-11-26",title:"Switching servers on the single address",groups:[["🌍 Servers",["Fixed: with the single address turned on, opening the Speed or Classic server showed an old-link error instead of the game."]]]},
   {v:"1.0.563",date:"2026-11-26",title:"One address for every server",groups:[["🌍 Servers",["All servers can now be played under one address, so a single Home Screen app works with every server and switching servers no longer opens a window. The direct addresses of the Speed and Classic servers keep working."]]]},
   {v:"1.0.562",date:"2026-11-26",title:"One app per server on the Home Screen",groups:[["📱 Home Screen",["Each server now installs as its own app, called MarsL, MarsL Speed or MarsL Classic, so the icons can be told apart. Add every server you play to the Home Screen from its own address. Switching servers from inside an app still opens the other server in a small window, because iPhone only keeps one address per app."]]]},
