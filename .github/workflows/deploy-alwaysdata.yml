@@ -35,6 +35,16 @@ jobs:
     steps:
       - name: Check out release
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reject stale or divergent source
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          git merge-base --is-ancestor ec4e1bd9272720214f9b09364c9ff27ef1bde935 HEAD
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -53,6 +63,12 @@ jobs:
       - name: Build and verify the release
         run: |
           node scripts/build-release.js
+          node <<'NODE'
+          const fs = require('fs'), p = 'dist/server.js';
+          const s = fs.readFileSync(p, 'utf8'), old = 'const RELEASE_COMMIT = "local";';
+          if (s.split(old).length !== 2) throw Error('missing release commit marker');
+          fs.writeFileSync(p, s.replace(old, 'const RELEASE_COMMIT = ' + JSON.stringify(process.env.GITHUB_SHA) + ';'));
+          NODE
           node --check dist/server.js
           node scripts/smoke-release.js
 
@@ -62,6 +78,35 @@ jobs:
           VERSION=$(grep -oP 'const GAME_VERSION = "\K[^"]+' dist/server.js)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Deploying version: $VERSION"
+
+      - name: Reject version downgrades before any upload
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          for url in https://marsl-game.com/api/config https://classic.marsl-game.com/api/config https://speed.marsl-game.com/api/config; do
+            response=$(curl --fail --silent --show-error --retry 2 --max-time 20 "$url")
+            CONFIG="$response" node <<'NODE'
+          const c = JSON.parse(process.env.CONFIG);
+          const next = process.env.EXPECTED_VERSION;
+          const parse = v => {
+            if (typeof v !== 'string' || !/^\d+\.\d+\.\d+$/.test(v)) throw Error('Invalid version: ' + v);
+            return v.split('.').map(Number);
+          };
+          const a = parse(next), b = parse(c.version), i = a.findIndex((v,j) => v !== b[j]);
+          if (i < 0 ? c.commit !== process.env.GITHUB_SHA : a[i] < b[i]) throw Error('Refusing downgrade or reused version: ' + c.version + ' -> ' + next);
+          if (a[0] !== 1 || a[1] !== 0 || a[2] < 576) throw Error('Below recovery floor');
+          console.log('Version guard passed: ' + c.version + ' -> ' + next);
+          NODE
+            live_commit=$(printf '%s' "$response" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).commit || ""')
+            if [[ -n "$live_commit" ]]; then
+              [[ "$live_commit" =~ ^[0-9a-f]{40}$ ]]
+              git merge-base --is-ancestor "$live_commit" HEAD
+            fi
+          done
 
       - name: Configure pinned SSH access
         env:
@@ -152,7 +197,8 @@ jobs:
               if response=$(curl --fail --silent --max-time 15 "$url" 2>/dev/null); then
                 version=$(echo "$response" | grep -oP '"version":"\K[^"]+' | head -n1 || echo "unknown")
                 id=$(echo "$response" | grep -oP '"(id|server)":"\K[^"]+' | head -n1 || echo "unknown")
-                if [[ "$version" == "$EXPECTED_VERSION" ]]; then
+                commit=$(echo "$response" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).commit || ""')
+                if [[ "$version" == "$EXPECTED_VERSION" && "$commit" == "$GITHUB_SHA" ]]; then
                   echo "  ✅ ${label}: version=${version}, id=${id}"
                   return 0
                 else

@@ -6596,7 +6596,7 @@ function battleCargo(d) {
     }).join('') + '</div>' + (capacity ? '<label>🎒 ' + total.toLocaleString() + ' / ' + capacity.toLocaleString() + '<progress max="' + capacity + '" value="' + Math.min(total, capacity) + '"></progress></label>' : '') + '</section>';
   }
   if (d.loot) h += cargo(d.side === 'attacker' ? 'Loot travelling home' : 'Resources stolen from the defended colony', d.loot, d.side === 'attacker' ? d.carry : 0);
-  if (d.bountyStash || (d.hero && d.hero.stash)) h += cargo('Bounty added to Commander inventory', d.bountyStash || d.hero.stash, 0);
+  if (d.hero && d.hero.stash) h += cargo('Commander bounty · collect in inventory', d.hero.stash, 0);
   else if (d.bounty) h += cargo('Bounty travelling home · separate from loot', d.bounty, 0);
   return h;
 }
@@ -6629,9 +6629,9 @@ function battleTable(d) {
   rows.push(["💀", "Your casualty value", mineUnits === null ? null : mine || zero, "neg"]);
   rows.push(["☠️", "Enemy casualty value", enemyUnits === null ? null : enemy || zero, "neutral"]);
   if (d.loot) rows.push(["💰", meFirst ? "You looted" : d.side === "helper" ? "Stolen from defended colony" : "Stolen from you", d.loot, meFirst ? "pos" : "neg"]);
-  var stashed = d.bountyStash || (!d.bounty && d.hero && d.hero.stash);
+  var stashed = !d.bounty && d.hero && d.hero.stash;
   if (d.bounty) rows.push(["🏅", "Bounty", d.bounty, "pos"]);
-  else if (stashed) rows.push(["🏅", "Bounty (commander's stash)", stashed, "pos"]);
+  else if (stashed) rows.push(["🏅", "Bounty (commander's stash)", d.hero.stash, "pos"]);
   var h = '<div class="report-scroll"><table class="rtab"><thead><tr><th></th>';
   RES.forEach(function (k) { h += '<th title="' + RES_NAME[k] + '">' + RES_ICON[k] + "</th>"; });
   h += "<th>Σ</th></tr></thead><tbody>";
@@ -6797,7 +6797,7 @@ function renderReportBody(r) {
     var mine = reportOwnUnits(d);
     var myLoss = unitValue(mine);
     var lootSum = d.loot ? sumRes(d.loot) : 0;
-    var bountySum = d.bountyStash ? sumRes(d.bountyStash) : d.bounty ? sumRes(d.bounty) : d.hero && d.hero.stash ? sumRes(d.hero.stash) : 0;
+    var bountySum = d.bounty ? sumRes(d.bounty) : d.hero && d.hero.stash ? sumRes(d.hero.stash) : 0;
     var iWon = d.side === "attacker" ? d.attackerWins : !d.attackerWins;
     h += '<div class="rbanner ' + (iWon ? "win" : "loss") + '"><b>' + (iWon ? "🏆 Victory" : "💀 Defeat") + "</b>";
     h += "<small>" + (d.side === "attacker" ? trf("Your attack {0} · enemy defense {1}", d.attack.toLocaleString(), d.defense.toLocaleString()) : trf("Enemy attack {0} · your defense {1}", d.attack.toLocaleString(), d.defense.toLocaleString())) + "</small></div>";
@@ -6816,7 +6816,7 @@ function renderReportBody(r) {
     var out = [];
     if (d.side === "attacker" && d.carry) out.push("<span>🎒 " + lootSum + " / " + d.carry + "</span>");
     if (d.side === "attacker") {
-      if (bountySum) out.push('<span class="win">Bounty: +' + bountySum.toLocaleString() + (d.bountyStash || (d.hero && d.hero.stash) ? ' added to Commander inventory' : ' travelling home') + '</span>');
+      if (bountySum) out.push('<span class="win">Bounty: +' + bountySum.toLocaleString() + (d.hero && d.hero.stash ? ' in commander stash' : ' travelling home') + '</span>');
     }
     if (d.conquered) out.push(d.side === "attacker" ? '<span class="win">👑 Captured!</span>' : '<span class="loss">💔 Taken from you</span>');
     if (d.cleared) out.push('<span class="win">🧹 Camp cleared</span>');

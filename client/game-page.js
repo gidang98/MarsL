@@ -4062,6 +4062,18 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 .trbar button { border: 0; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13.5px; font-weight: 700; background: #f1e8de; color: #4a3a2a; cursor: pointer; }
 .trbar button.on { background: #ffd23f; color: #3a2400; }
 .trbar input { flex: 1 1 140px; min-width: 0; border: 1px solid rgba(120,90,60,.25); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 14px; }
+.tr-prog { display: grid; gap: 4px; margin: 0 0 10px; }
+.tr-prog .hbar i { background: linear-gradient(90deg, #3fae4f, #8ad16b); }
+.tr-prog small { font-size: 12px; opacity: .8; }
+.tr-mode { width: 100%; margin: 0 0 8px; }
+.tr-note { font-size: 12px; color: #9a5a1a; margin: 0 0 4px; word-break: break-word; }
+.tr-prev { font-size: 12.5px; margin: 4px 0 0; color: #5a4a3a; word-break: break-word; }
+.tr-prev:empty { display: none; }
+.tr-prev-t::before { content: "👁 "; }
+.tr-prev em { display: block; font-style: normal; color: #b0422c; margin-top: 2px; }
+body.trmode #app, body.trmode #side { cursor: text; }
+#trfloat { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 999px; background: #2a1630; color: #fff1e0; font-weight: 700; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.35); white-space: nowrap; }
+#trfloat .btn { margin: 0; width: auto; }
 .trrow { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--card); box-shadow: inset 0 0 0 1px rgba(120,90,60,.08); }
 .trrow .tr-en { font-size: 13.5px; color: #6a5a4a; margin: 0 0 6px; word-break: break-word; }
 .trrow textarea { width: 100%; box-sizing: border-box; min-height: 52px; border: 1px solid rgba(120,90,60,.25); border-radius: var(--radius-sm); padding: 8px 10px; font: inherit; font-size: 14.5px; resize: vertical; }
@@ -4960,17 +4972,21 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   <div class="layout">
     <aside class="questbar" id="quests"></aside>
     <main id="app"><div class="boot"><span>Warming up the rockets...</span></div></main>
-    <div class="side-back" data-side-close="1"></div>
-    <aside class="sidebar" id="side"></aside>
+    <div class="side-back" data-side-close="1" aria-hidden="true"></div>
+    <aside class="sidebar" id="side" aria-label="Troop traffic"></aside>
   </div>
   <footer class="verfoot">MarsL · __SRV__ · <span>Open Beta</span> · <a href="/patch-notes" target="_blank" title="Patch notes">__VER__</a> · <a href="/server" target="_blank">Server info</a> · <a href="/legal" target="_blank">Legal</a></footer>
 </div>
 <button class="herobtn" id="herobtn" data-hero-open="1" title="Commander">🎖️<i></i></button>
 <button class="sidebtn" id="sidebtn" data-side-toggle="1" title="Troop Traffic">🧭<i id="sidecount"></i></button>
 <div id="sheet"></div>
-<div id="toast"><span class="toast-bar"></span></div>
+<div id="toast" role="status" aria-live="polite"><span class="toast-bar"></span></div>
 <div id="tut"></div>
+<script>function marslLoad(el){var src=(el&&el.getAttribute&&el.getAttribute("src")||marslLoad.src||"").split("?")[0];if(!src||window.__marslUp||marslLoad.t)return;marslLoad.src=src;var n=marslLoad.n=(marslLoad.n||0)+1;if(n>3){var a=document.getElementById("app");if(a)a.innerHTML='<div class="boot"><span>The game could not load. Check your connection.</span><br><button type="button" onclick="location.reload()">Try again</button></div>';return}marslLoad.t=setTimeout(function(){marslLoad.t=0;var s=document.createElement("script");s.src=src+"?r="+n;s.onerror=function(){marslLoad(s)};document.body.appendChild(s)},n*1500)}
+addEventListener("error",function(e){if(!window.__marslUp&&(e.filename||"").indexOf("game-assets")>0)marslLoad()});
+addEventListener("online",function(){if(!window.__marslUp&&marslLoad.n>3){marslLoad.n=0;marslLoad()}})</script>
 <script>
+window.__marslUp = 1;
 var RES = ["wood", "stone", "metal", "food"];
 var RES_ICON = { wood: "🪵", stone: "🪨", metal: "🔩", food: "🥔" };
 // 🏺 clay icons (sprite in the page); text keeps its emoji
@@ -6029,14 +6045,13 @@ function setLang(l) {
   trMiss = Object.create(null);
   approvedI18n = Object.create(null);
   TPL = null;
-  i18nBoot();
-  redrawLanguage();
+  gtrLoad(l, function () { if (curLang() !== l) return; TPL = null; i18nBoot(); redrawLanguage(); });
 }
 // swaps every known English text in a finished piece of HTML (longest first)
 function trHtml(h) {
   var d = I18N[curLang()];
   if (!d) return h;
-  Object.keys(d).sort(function (a, b) { return b.length - a.length; }).forEach(function (k) { h = h.split(k).join(d[k]); });
+  Object.keys(d).sort(function (a, b) { return b.length - a.length; }).forEach(function (k) { h = h.split(k).join(approvedI18n[k] || d[k]); }); // a community fix wins
   return h;
 }
 // ---------- 🌍 whole-game translator: every screen passes through here ----------
@@ -6854,7 +6869,7 @@ var GTR = {
 "A started crew job finishes even if the commander leaves. Cancelling refunds everything.": ["Ein begonnener Mannschaftsauftrag wird auch dann fertig, wenn der Kommandant geht. Ein Abbruch erstattet alles.", "Un lavoro di squadra iniziato termina anche se il comandante se ne va. Annullando si rimborsa tutto.", "Un travail d'équipage commencé se termine même si le commandant part. Annuler rembourse tout.", "Başlatılmış bir mürettebat işi, komutan ayrılsa bile biter. İptal etmek her şeyi iade eder.", "Un trabajo de tripulación ya iniciado termina aunque el comandante se vaya. Cancelar devuelve todo.", "Начатая работа команды завершается, даже если командир уходит. Отмена возвращает всё.", "Việc đội đã bắt đầu vẫn hoàn thành dù chỉ huy rời đi. Huỷ sẽ hoàn lại mọi thứ.", "Trabalho de equipe iniciado termina mesmo se o comandante sair. Cancelar devolve tudo.", "Pekerjaan kru yang sudah dimulai tetap selesai meski komandan pergi. Membatalkan mengembalikan semuanya.", "Rozpoczęte zadanie załogi kończy się, nawet gdy dowódca odejdzie. Anulowanie zwraca wszystko.", "Začatý úkol osádky se dokončí, i když velitel odejde. Zrušení vrátí všechno.", "Začatá úloha posádky sa dokončí, aj keď veliteľ odíde. Zrušenie vráti všetko."],
 "📦 <b>Bounty stash</b>: slide or type how much of each resource to take, or tap 📦 What fits, ½ Half or # None. Short of a resource for a build in any of your colonies? Tap the red cost chip with 📦 on it and the missing amount comes straight from the stash.": ["📦 <b>Beutelager</b>: schiebe oder tippe, wie viel von jedem Rohstoff du nimmst, oder tippe auf 📦 Was passt, ½ Hälfte oder # Keine. Fehlt dir in einer deiner Kolonien ein Rohstoff für einen Bau? Tippe auf den roten Kostenchip mit 📦 darauf, und der fehlende Betrag kommt direkt aus dem Lager.", "📦 <b>Deposito del bottino</b>: fai scorrere o digita quanto di ogni risorsa prendere, oppure tocca 📦 Quanto entra, ½ Metà o # Nessuno. Ti manca una risorsa per una costruzione in una delle tue colonie? Tocca il chip rosso del costo con 📦 sopra e la quantità mancante arriva direttamente dal deposito.", "📦 <b>Réserve de butin</b> : fais glisser ou tape combien de chaque ressource prendre, ou touche 📦 Ce qui rentre, ½ Moitié ou # Aucun. Il te manque une ressource pour une construction dans l'une de tes colonies ? Touche la puce de coût rouge avec 📦 dessus et le montant manquant vient directement de la réserve.", "📦 <b>Ganimet deposu</b>: her kaynaktan ne kadar alacağını kaydırarak ya da yazarak belirle, ya da 📦 Sığanı, ½ Yarısı ya da # Hiçbiri'ne dokun. Kolonilerinden birinde bir inşaat için kaynak mı eksik? Üzerinde 📦 bulunan kırmızı maliyet çipine dokun, eksik miktar doğrudan depodan gelir.", "📦 <b>Alijo de botín</b>: desliza o escribe cuánto de cada recurso tomar, o toca 📦 Lo que cabe, ½ Mitad o # Nada. ¿Te falta un recurso para una construcción en alguna de tus colonias? Toca la etiqueta roja de coste con 📦 y la cantidad que falta sale directamente del alijo.", "📦 <b>Запас добычи</b>: сдвиньте или введите, сколько каждого ресурса взять, или нажмите 📦 Сколько влезет, ½ Половина или # Ничего. Не хватает ресурса на постройку в одной из ваших колоний? Нажмите красную метку стоимости с 📦, и недостающее придёт прямо из запаса.", "📦 <b>Kho thưởng săn</b>: kéo hoặc nhập số lượng mỗi tài nguyên muốn lấy, hoặc chạm 📦 Vừa đủ, ½ Một nửa hoặc # Không. Thiếu một tài nguyên để xây ở một trong các thuộc địa? Chạm vào thẻ chi phí đỏ có 📦 và phần còn thiếu sẽ lấy thẳng từ kho.", "📦 <b>Reserva de recompensas</b>: deslize ou digite quanto de cada recurso pegar, ou toque em 📦 O que cabe, ½ Metade ou # Nenhum. Falta um recurso para uma construção em alguma das suas colônias? Toque na etiqueta vermelha de custo com 📦 e a quantidade faltante vem direto da reserva.", "📦 <b>Penyimpanan hadiah</b>: geser atau ketik berapa banyak tiap sumber daya yang diambil, atau ketuk 📦 Yang muat, ½ Setengah, atau # Tidak ada. Kurang sumber daya untuk bangunan di salah satu kolonimu? Ketuk chip biaya merah dengan 📦 dan jumlah yang kurang langsung diambil dari penyimpanan.", "📦 <b>Skarbiec nagród</b>: przesuń lub wpisz, ile każdego surowca wziąć, albo dotknij 📦 Ile się zmieści, ½ Połowa lub # Nic. Brakuje surowca na budowę w którejś z twoich kolonii? Dotknij czerwonego znacznika kosztu z 📦, a brakująca ilość przyjdzie prosto ze skarbca.", "📦 <b>Zásobník odměn</b>: posuň nebo napiš, kolik každé suroviny vzít, nebo klepni na 📦 Co se vejde, ½ Polovina nebo # Nic. Chybí ti surovina na stavbu v některé z tvých kolonií? Klepni na červený štítek nákladů s 📦 a chybějící množství přijde přímo ze zásobníku.", "📦 <b>Zásobník odmien</b>: posuň alebo napíš, koľko každej suroviny vziať, alebo klepni na 📦 Čo sa zmestí, ½ Polovica alebo # Nič. Chýba ti surovina na stavbu v niektorej z tvojich kolónií? Klepni na červený štítok nákladov s 📦 a chýbajúce množstvo príde priamo zo zásobníka."],
 "🗿 <b>Landmarks</b>: the commander can lead the army that claims a landmark. If they win and the troops stay as guards, the commander walks home by itself.": ["🗿 <b>Wahrzeichen</b>: Der Kommandant kann das Heer anführen, das ein Wahrzeichen beansprucht. Gewinnt er und bleiben die Truppen als Wachen, geht der Kommandant von selbst nach Hause.", "🗿 <b>Punti di riferimento</b>: il comandante può guidare l'esercito che rivendica un punto di riferimento. Se vincono e le truppe restano come guardie, il comandante torna a casa da solo.", "🗿 <b>Monuments</b> : le commandant peut mener l'armée qui revendique un monument. S'ils gagnent et que les troupes restent en gardes, le commandant rentre seul à la maison.", "🗿 <b>Simgesel yerler</b>: komutan bir simgesel yeri talep eden orduya önderlik edebilir. Kazanırlarsa ve birlikler nöbetçi olarak kalırsa, komutan kendi başına eve yürür.", "🗿 <b>Hitos</b>: el comandante puede liderar el ejército que reclama un hito. Si ganan y las tropas se quedan como guardias, el comandante vuelve a casa por sí solo.", "🗿 <b>Достопримечательности</b>: командир может возглавить армию, которая захватывает достопримечательность. Если они побеждают и войска остаются стражей, командир сам возвращается домой.", "🗿 <b>Cột mốc</b>: chỉ huy có thể dẫn đội quân chiếm một cột mốc. Nếu họ thắng và quân ở lại làm lính canh, chỉ huy tự đi bộ về nhà.", "🗿 <b>Marcos</b>: o comandante pode liderar o exército que reivindica um marco. Se vencerem e as tropas ficarem como guardas, o comandante volta para casa sozinho.", "🗿 <b>Landmark</b>: komandan dapat memimpin pasukan yang mengklaim landmark. Jika mereka menang dan pasukan tetap sebagai penjaga, komandan berjalan pulang sendiri.", "🗿 <b>Punkty orientacyjne</b>: dowódca może prowadzić armię, która zajmuje punkt orientacyjny. Jeśli wygrają, a wojska zostaną jako strażnicy, dowódca wraca do domu sam.", "🗿 <b>Orientační body</b>: velitel může vést armádu, která si orientační bod nárokuje. Pokud vyhrají a jednotky zůstanou jako stráže, velitel se vrátí domů sám.", "🗿 <b>Orientačné body</b>: veliteľ môže viesť armádu, ktorá si orientačný bod nárokuje. Ak vyhrajú a jednotky zostanú ako strážcovia, veliteľ sa vráti domov sám."],
-"💰 <b>Bounty stash</b>: when it leads troops against a monster camp, the camp’s bounty goes into its stash. Collect any amount into whichever of your colonies you are looking at.": ["💰 <b>Beutelager</b>: Führt er Truppen gegen ein Monsterlager, geht die Belohnung des Lagers in sein Lager. Sammle beliebige Mengen in die Kolonie, die du gerade ansiehst.", "💰 <b>Deposito del bottino</b>: quando guida truppe contro un campo di mostri, la ricompensa del campo finisce nel suo deposito. Raccogli qualsiasi quantità nella colonia che stai guardando.", "💰 <b>Réserve de butin</b> : quand il mène des troupes contre un camp de monstres, la prime du camp va dans sa réserve. Récupère n'importe quel montant dans la colonie que tu regardes.", "💰 <b>Ganimet deposu</b>: birlikleri bir canavar kampına karşı yönettiğinde, kampın ödülü deposuna gider. Baktığın koloniye istediğin miktarı topla.", "💰 <b>Alijo de botín</b>: cuando lidera tropas contra un campamento de monstruos, la recompensa del campamento va a su alijo. Recoge cualquier cantidad en la colonia que estés mirando.", "💰 <b>Запас добычи</b>: когда командир ведёт войска против лагеря монстров, награда за лагерь попадает в его запас. Заберите любое количество в ту колонию, которую вы смотрите.", "💰 <b>Kho thưởng săn</b>: khi chỉ huy dẫn quân đánh trại quái, phần thưởng của trại được đưa vào kho của chỉ huy. Thu bất kỳ số lượng nào vào thuộc địa bạn đang xem.", "💰 <b>Reserva de recompensas</b>: quando lidera tropas contra um acampamento de monstros, a recompensa do acampamento vai para a reserva dele. Recolha qualquer quantia na colônia que você está vendo.", "💰 <b>Penyimpanan hadiah</b>: saat memimpin pasukan melawan kamp monster, hadiah kamp masuk ke penyimpanannya. Ambil jumlah berapa pun ke koloni yang sedang kamu lihat.", "💰 <b>Skarbiec nagród</b>: gdy prowadzi wojska przeciw obozowi potworów, nagroda za obóz trafia do jego skarbca. Zbierz dowolną ilość do tej kolonii, na którą patrzysz.", "💰 <b>Zásobník odměn</b>: když vede jednotky proti táboru příšer, odměna za tábor jde do jeho zásobníku. Vyber libovolné množství do té kolonie, na kterou se díváš.", "💰 <b>Zásobník odmien</b>: keď vedie jednotky proti táboru príšer, odmena za tábor ide do jeho zásobníka. Vyber ľubovoľné množstvo do tej kolónie, na ktorú sa pozeráš."],
+"💰 <b>Bounty stash</b>: the bounty of every monster your attacks and raids beat goes into its stash, even when the commander stays home. Collect any amount into whichever of your colonies you are looking at.": ["💰 <b>Beutelager</b>: Die Belohnung jedes Monsters, das deine Angriffe und Überfälle besiegen, geht in sein Lager, auch wenn der Kommandant zu Hause bleibt. Sammle beliebige Mengen in die Kolonie, die du gerade ansiehst.", "💰 <b>Deposito del bottino</b>: la ricompensa di ogni mostro sconfitto dai tuoi attacchi e dalle tue razzie finisce nel suo deposito, anche quando il comandante resta a casa. Raccogli qualsiasi quantità nella colonia che stai guardando.", "💰 <b>Réserve de butin</b> : la prime de chaque monstre vaincu par tes attaques et tes raids va dans sa réserve, même quand le commandant reste à la maison. Récupère n'importe quel montant dans la colonie que tu regardes.", "💰 <b>Ganimet deposu</b>: saldırılarının ve akınlarının yendiği her canavarın ödülü, komutan evde kalsa bile deposuna gider. Baktığın koloniye istediğin miktarı topla.", "💰 <b>Alijo de botín</b>: la recompensa de cada monstruo que vencen tus ataques e incursiones va a su alijo, aunque el comandante se quede en casa. Recoge cualquier cantidad en la colonia que estés mirando.", "💰 <b>Запас добычи</b>: награда за каждого монстра, побеждённого вашими атаками и налётами, попадает в его запас, даже если командир остаётся дома. Заберите любое количество в ту колонию, которую вы смотрите.", "💰 <b>Kho thưởng săn</b>: phần thưởng của mọi quái vật bị các đợt tấn công và cướp của bạn đánh bại đều vào kho của chỉ huy, kể cả khi chỉ huy ở nhà. Thu bất kỳ số lượng nào vào thuộc địa bạn đang xem.", "💰 <b>Reserva de recompensas</b>: a recompensa de cada monstro vencido pelos seus ataques e incursões vai para a reserva dele, mesmo quando o comandante fica em casa. Recolha qualquer quantia na colônia que você está vendo.", "💰 <b>Penyimpanan hadiah</b>: hadiah setiap monster yang dikalahkan serangan dan penyerbuanmu masuk ke penyimpanannya, bahkan saat komandan tetap di rumah. Ambil jumlah berapa pun ke koloni yang sedang kamu lihat.", "💰 <b>Skarbiec nagród</b>: nagroda za każdego potwora pokonanego w twoich atakach i najazdach trafia do jego skarbca, nawet gdy dowódca zostaje w domu. Zbierz dowolną ilość do tej kolonii, na którą patrzysz.", "💰 <b>Zásobník odměn</b>: odměna za každou příšeru, kterou tvé útoky a nájezdy porazí, jde do jeho zásobníku, i když velitel zůstane doma. Vyber libovolné množství do té kolonie, na kterou se díváš.", "💰 <b>Zásobník odmien</b>: odmena za každú príšeru, ktorú tvoje útoky a nájazdy porazia, ide do jeho zásobníka, aj keď veliteľ zostane doma. Vyber ľubovoľné množstvo do tej kolónie, na ktorú sa pozeráš."],
 "⚔️ It joins one wave or attack at a time: tick 🎖️ in the send window (with or without troops).": ["⚔️ Er schließt sich jeweils einer Welle oder einem Angriff an: Hake 🎖️ im Sendefenster an (mit oder ohne Truppen).", "⚔️ Si unisce a un'ondata o un attacco alla volta: spunta 🎖️ nella finestra di invio (con o senza truppe).", "⚔️ Il rejoint une vague ou une attaque à la fois : coche 🎖️ dans la fenêtre d'envoi (avec ou sans troupes).", "⚔️ Aynı anda yalnızca bir dalgaya ya da saldırıya katılır: gönderme penceresinde 🎖️'yi işaretle (birliklerle ya da birliksiz).", "⚔️ Se une a una oleada o ataque a la vez: marca 🎖️ en la ventana de envío (con o sin tropas).", "⚔️ Он присоединяется к одной волне или атаке за раз: отметьте 🎖️ в окне отправки (с войсками или без).", "⚔️ Mỗi lần chỉ tham gia một đợt hoặc một đòn tấn công: tích 🎖️ trong cửa sổ gửi quân (có hoặc không có quân).", "⚔️ Ele se junta a uma onda ou ataque por vez: marque 🎖️ na janela de envio (com ou sem tropas).", "⚔️ Ia bergabung dengan satu gelombang atau serangan dalam satu waktu: centang 🎖️ di jendela kirim (dengan atau tanpa pasukan).", "⚔️ Dołącza do jednej fali lub ataku naraz: zaznacz 🎖️ w oknie wysyłki (z wojskami lub bez).", "⚔️ Připojí se vždy k jedné vlně nebo útoku: zaškrtni 🎖️ v okně odeslání (s jednotkami nebo bez).", "⚔️ Pripojí sa vždy k jednej vlne alebo útoku: zaškrtni 🎖️ v okne odoslania (s jednotkami alebo bez)."],
 "📈 <b>Leveling</b>: level # → # needs # xp, then the need rises smoothly (#, #, # …). One fight gives at most one level.": ["📈 <b>Stufenaufstieg</b>: Stufe # → # braucht # EP, danach steigt der Bedarf gleichmäßig (#, #, # …). Ein Kampf bringt höchstens eine Stufe.", "📈 <b>Livellamento</b>: livello # → # richiede # xp, poi il fabbisogno cresce gradualmente (#, #, # …). Uno scontro dà al massimo un livello.", "📈 <b>Montée de niveau</b> : niveau # → # demande # xp, puis le besoin augmente doucement (#, #, # …). Un combat ne donne qu'un niveau au maximum.", "📈 <b>Seviye atlama</b>: seviye # → # için # xp gerekir, sonra gereksinim yumuşakça artar (#, #, # …). Tek bir savaş en fazla bir seviye verir.", "📈 <b>Subir de nivel</b>: el nivel # → # necesita # xp, luego la necesidad sube suavemente (#, #, # …). Una batalla da como máximo un nivel.", "📈 <b>Повышение уровня</b>: с уровня # до # нужно # опыта, затем требование плавно растёт (#, #, # …). Один бой даёт не более одного уровня.", "📈 <b>Lên cấp</b>: cấp # → # cần # xp, sau đó nhu cầu tăng dần (#, #, # …). Một trận đánh cho tối đa một cấp.", "📈 <b>Subir de nível</b>: nível # → # precisa de # xp, depois a necessidade sobe suavemente (#, #, # …). Uma batalha dá no máximo um nível.", "📈 <b>Naik level</b>: level # → # butuh # xp, lalu kebutuhan naik dengan halus (#, #, # …). Satu pertarungan memberi paling banyak satu level.", "📈 <b>Awans</b>: poziom # → # wymaga # xp, potem wymóg rośnie płynnie (#, #, # …). Jedna walka daje co najwyżej jeden poziom.", "📈 <b>Levelování</b>: úroveň # → # potřebuje # xp, pak potřeba plynule roste (#, #, # …). Jeden boj dá nejvýš jednu úroveň.", "📈 <b>Levelovanie</b>: úroveň # → # potrebuje # xp, potom potreba plynulo rastie (#, #, # …). Jeden boj dá najviac jednu úroveň."],
 "📯 <b>Orders</b>: when the commander goes along on an attack or raid, pick one order in the send window (or none). It counts against colonies and monster camps.": ["📯 <b>Befehle</b>: Begleitet der Kommandant einen Angriff oder Überfall, wähle im Sendefenster einen Befehl (oder keinen). Er wirkt gegen Kolonien und Monsterlager.", "📯 <b>Ordini</b>: quando il comandante accompagna un attacco o un assalto, scegli un ordine nella finestra di invio (o nessuno). Conta contro colonie e campi di mostri.", "📯 <b>Ordres</b> : quand le commandant accompagne une attaque ou un raid, choisis un ordre dans la fenêtre d'envoi (ou aucun). Il compte contre les colonies et les camps de monstres.", "📯 <b>Emirler</b>: komutan bir saldırı ya da baskına eşlik ettiğinde, gönderme penceresinde bir emir seç (ya da hiçbiri). Koloniler ve canavar kampları karşısında geçerlidir.", "📯 <b>Órdenes</b>: cuando el comandante acompaña un ataque o incursión, elige una orden en la ventana de envío (o ninguna). Cuenta contra colonias y campamentos de monstruos.", "📯 <b>Приказы</b>: когда командир идёт с атакой или набегом, выберите один приказ в окне отправки (или ни одного). Он действует против колоний и лагерей монстров.", "📯 <b>Mệnh lệnh</b>: khi chỉ huy đi cùng một đòn tấn công hay đột kích, chọn một mệnh lệnh trong cửa sổ gửi quân (hoặc không). Nó có tác dụng với thuộc địa và trại quái.", "📯 <b>Ordens</b>: quando o comandante acompanha um ataque ou incursão, escolha uma ordem na janela de envio (ou nenhuma). Conta contra colônias e acampamentos de monstros.", "📯 <b>Perintah</b>: saat komandan ikut serangan atau raid, pilih satu perintah di jendela kirim (atau tidak sama sekali). Berlaku melawan koloni dan kamp monster.", "📯 <b>Rozkazy</b>: gdy dowódca idzie z atakiem lub najazdem, wybierz jeden rozkaz w oknie wysyłki (albo żaden). Liczy się przeciw koloniom i obozom potworów.", "📯 <b>Rozkazy</b>: když velitel jde s útokem nebo nájezdem, vyber jeden rozkaz v okně odeslání (nebo žádný). Platí proti koloniím a táborům příšer.", "📯 <b>Rozkazy</b>: keď veliteľ ide s útokom alebo nájazdom, vyber jeden rozkaz v okne odoslania (alebo žiadny). Platí proti kolóniám a táborom príšer."],
@@ -8215,9 +8230,49 @@ var GTR = {
 "Could not load reports. Try again.": ["Berichte konnten nicht geladen werden. Versuch es erneut.", "Impossibile caricare i rapporti. Riprova.", "Impossible de charger les rapports. Réessaie.", "Raporlar yüklenemedi. Tekrar dene.", "No se pudieron cargar los informes. Inténtalo de nuevo.", "Не удалось загрузить отчёты. Попробуй ещё раз.", "Không tải được báo cáo. Hãy thử lại.", "Não foi possível carregar os relatórios. Tente de novo.", "Laporan gagal dimuat. Coba lagi.", "Nie udało się wczytać raportów. Spróbuj ponownie.", "Hlášení se nepodařilo načíst. Zkus to znovu.", "Hlásenia sa nepodarilo načítať. Skús to znova."],
 /*GTR_END*/
 };
+var GTR_FILES = /*GTRFILES*/{}; // language code -> the file with that language's translations
+var gtrDone = {};
+function GTR_LOAD(l, map) { for (var k in map) (GTR[k] = GTR[k] || [])[l] = map[k]; }
+// loads one language (once); the callback runs when it is there, or when it could not be had (the game stays English)
+function gtrLoad(code, done) {
+  var src = GTR_FILES[code];
+  if (!src || gtrDone[code] === 1) return done();
+  var fresh = !gtrDone[code];
+  if (fresh) gtrDone[code] = [];
+  gtrDone[code].push(done);
+  if (!fresh) return;
+  var tries = 0;
+  (function go() {
+    var s = document.createElement("script");
+    s.src = tries ? src + "?r=" + tries : src;
+    s.onload = function () { var q = gtrDone[code]; gtrDone[code] = 1; q.forEach(function (f) { f(); }); };
+    s.onerror = function () { if (++tries < 3) return setTimeout(go, tries * 1200); var q = gtrDone[code]; gtrDone[code] = 0; q.forEach(function (f) { f(); }); };
+    document.head.appendChild(s);
+  })();
+}
 var translationCatalog = Object.keys(GTR);
 var LANG_IDX = { de: 0, it: 1, fr: 2, tr: 3, es: 4, ru: 5, vi: 6, pt: 7, id: 8, pl: 9, cs: 10, sk: 11 };
 var trMiss = {}; // phrases the player met that have no translation yet
+// English texts that were reworded after they were translated: their translations are shown to translators for a check (new English: old English)
+var GTR_REVIEW = {
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders."
+};
+// every phrase a player meets is reported once, so new texts can be translated and the most-seen ones come first
+var trSeenQ = Object.create(null), trSeenSent = Object.create(null), trSeenN = 0;
+var trMode = false, trRev = Object.create(null), trRevN = 0;
+function trSeenNote(k) {
+  if (!k || trSeenSent[k] || trSeenQ[k] || k.length > 400 || !/[A-Za-z]{3}/.test(k) || trSeenN > 3000) return;
+  trSeenQ[k] = 1;
+  trSeenN++;
+}
+function trSeenFlush() {
+  if (!loggedIn) return;
+  var keys = Object.keys(trSeenQ).slice(0, 150);
+  if (!keys.length) return;
+  keys.forEach(function (k) { delete trSeenQ[k]; trSeenSent[k] = 1; });
+  fetch("/api/i18n/seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keys: keys }) }).catch(function () {});
+}
+setInterval(function () { if (!document.hidden) trSeenFlush(); }, 60000);
 var TPL = null; // keys with {0} / {1}: a name sits inside a fixed sentence
 function trTpl(key) {
   if (!TPL) {
@@ -8231,7 +8286,7 @@ function trTpl(key) {
   if (key.length > 240) return null;
   for (var i = 0; i < TPL.length; i++) {
     var m = TPL[i][0].exec(key);
-    if (m) return { e: GTR[TPL[i][1]], caps: m.slice(1) };
+    if (m) return { e: GTR[TPL[i][1]], caps: m.slice(1), k: TPL[i][1] };
   }
   return null;
 }
@@ -8249,12 +8304,14 @@ function trStr(s) {
   var key = core.replace(/&#\\d+;|(?:(?<=[(|])-)?\\d+(?:[.,]\\d+)*/g, function (x) { if (x.charAt(0) === "&") return x; nums.push(x); return "#"; });
   var cleanKey = trCleanKey(key);
   if (key.indexOf("New Colony") === 0 && l !== undefined && GTR["New Colony"] && GTR["New Colony"][l] && !GTR[key]) return m[1] + GTR["New Colony"][l] + core.slice(10) + m[3];
-  var e = GTR[key], pre = "";
-  if (!e && cleanKey !== key && GTR[cleanKey]) { e = GTR[cleanKey]; pre = (/^[^A-Za-z#]+/.exec(key) || [""])[0]; }
-  if (!e) { var pm = /^([^A-Za-z#]+)([A-Za-z#][\\s\\S]*)$/.exec(key); if (pm && GTR[pm[2]]) { pre = pm[1]; e = GTR[pm[2]]; } } // 🧭 + known text
+  var e = GTR[key], pre = "", used = key;
+  if (!e && cleanKey !== key && GTR[cleanKey]) { e = GTR[cleanKey]; used = cleanKey; pre = (/^[^A-Za-z#]+/.exec(key) || [""])[0]; }
+  if (!e) { var pm = /^([^A-Za-z#]+)([A-Za-z#][\\s\\S]*)$/.exec(key); if (pm && GTR[pm[2]]) { pre = pm[1]; e = GTR[pm[2]]; used = pm[2]; } } // 🧭 + known text
   var caps = null;
-  if (!e) { var tp = trTpl(key) || (cleanKey !== key ? trTpl(cleanKey) : null); if (tp) { e = tp.e; caps = tp.caps; } }
-  if (!e && pm) { var tp2 = trTpl(pm[2]); if (tp2) { pre = pm[1]; e = tp2.e; caps = tp2.caps; } } // 💥 + a sentence with names in it
+  if (!e) { var tp = trTpl(key) || (cleanKey !== key ? trTpl(cleanKey) : null); if (tp) { e = tp.e; caps = tp.caps; used = tp.k; } }
+  if (!e && pm) { var tp2 = trTpl(pm[2]); if (tp2) { pre = pm[1]; e = tp2.e; caps = tp2.caps; used = tp2.k; } } // 💥 + a sentence with names in it
+  if (!e) used = cleanKey;
+  trSeenNote(used);
   if (!e || l === undefined || !e[l]) {
     if (trMiss && (l !== undefined || window.__trCol) && !e && /[A-Za-z]{3}/.test(cleanKey)) trMiss[cleanKey] = 1;
     return s;
@@ -8262,7 +8319,9 @@ function trStr(s) {
   var i = 0;
   var out = e[l];
   if (caps) out = out.replace(/\\{(\\d)\\}/g, function (x, n) { return trStr(caps[+n] || ""); });
-  return m[1] + pre + out.replace(/#/g, function () { return i < nums.length ? nums[i++] : "#"; }) + m[3];
+  var shown = pre + out.replace(/#/g, function () { return i < nums.length ? nums[i++] : "#"; });
+  trRemember(shown, used); // what is on screen, back to its English phrase (for translating on screen)
+  return m[1] + shown + m[3];
 }
 var TR_ATTR = ["placeholder", "title", "aria-label", "alt"];
 function trWalk(root) {
@@ -8941,16 +9000,16 @@ function renderTop(d) {
   h += '<button class="btn small ghost" data-auction="1" title="Auction · ' + esc(String(d.cash || 0)) + ' Space-Cash">' + "🏛️" + '</button>';
   h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + "📖" + '</button><button class="btn small ghost" data-account="1" title="Settings">' + "⚙️" + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + "🚪" + '</button></div></div>';
   var tabs = [["resources", "🌾", "Fields", "fields"], ["buildings", "🏗️", "Colony", "colony"], ["troops", "⚔️", "Army", "army"], ["map", "🗺️", "Map", "map"], ["ranking", "🏆", "Players", "players"], ["reports", "📬", "Inbox", "inbox"]];
-  h += '<div class="nav">';
+  h += '<nav class="nav" aria-label="Main">';
   tabs.forEach(function (t) {
     var isOn = view === t[0] || (t[0] === "reports" && view === "messages");
-    h += '<button data-view="' + t[0] + '" class="' + (isOn ? "on" : "") + '"><span>' + (t[3] ? ico(t[3]) : t[1]) + "</span>" + t[2];
+    h += '<button type="button" data-view="' + t[0] + '" class="' + (isOn ? "on" : "") + '"' + (isOn ? ' aria-current="page"' : "") + '><span>' + (t[3] ? ico(t[3]) : t[1]) + "</span>" + t[2];
     var inboxN = d.unread + d.unreadMessages;
     if (t[0] === "reports" && inboxN > 0) h += '<i class="dot">' + inboxN + "</i>";
     if (t[0] === "ranking" && d.allianceInvites + (d.allyAsks || 0) > 0) h += '<i class="dot">' + (d.allianceInvites + (d.allyAsks || 0)) + "</i>";
     h += "</button>";
   });
-  return h + "</div>";
+  return h + "</nav>";
 }
 
 // Short times for small spaces: 40m, 3h 12m, 2d 5h
@@ -8972,9 +9031,96 @@ document.addEventListener("click", function(e) {
   resourceStripOpen = !resourceStripOpen;
   document.querySelectorAll(".resource-strip").forEach(function(el) { el.classList.toggle("expanded", resourceStripOpen); el.setAttribute("aria-expanded", String(resourceStripOpen)); });
 });
-document.addEventListener("keydown", function(e) {
-  if (e.target.matches(".resource-strip") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.target.click(); }
+// ---------- ♿ keyboard and screen readers ----------
+// anything that looks like a button but is not one (the drawn fields and lots, the resource strip) works with Enter and Space
+document.addEventListener("keydown", function (e) {
+  var t = e.target;
+  if ((e.key === "Enter" || e.key === " ") && t && t.getAttribute && t.getAttribute("role") === "button" && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/i.test(t.tagName)) {
+    e.preventDefault();
+    t.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  }
 });
+// a popup is a dialog: it has a name, the page behind it is switched off, focus moves in, stays in and goes back on close
+var sheetReturn = null, sheetFocused = false;
+function a11yBehind(on) {
+  Array.prototype.forEach.call(document.body.children, function (el) {
+    if (el.id === "sheet" || el.id === "toast" || el.id === "tut" || /^(SCRIPT|STYLE|LINK|SVG)$/i.test(el.tagName)) return;
+    if (on) el.setAttribute("inert", ""); else el.removeAttribute("inert");
+  });
+}
+function a11ySheet() {
+  var panel = document.querySelector("#sheet .sheet");
+  if (!panel) return;
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  var head = panel.querySelector("h1, h2, h3");
+  if (head) { head.id = "sheet-title"; panel.setAttribute("aria-labelledby", "sheet-title"); panel.removeAttribute("aria-label"); }
+  else if (!panel.hasAttribute("aria-label")) panel.setAttribute("aria-label", trStr("Window"));
+  if (!sheetFocused) {
+    sheetFocused = true;
+    var from = document.activeElement;
+    sheetReturn = from && from !== document.body && !panel.contains(from) ? from : sheetReturn;
+    a11yBehind(true);
+    if (!panel.contains(document.activeElement)) { panel.tabIndex = -1; try { panel.focus({ preventScroll: true }); } catch (e) {} }
+  }
+}
+function a11yClose() {
+  if (!sheetFocused) return;
+  sheetFocused = false;
+  a11yBehind(false);
+  var back = sheetReturn; sheetReturn = null;
+  if (back && document.contains(back)) { try { back.focus({ preventScroll: true }); } catch (e) {} }
+}
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Tab" || !sheet) return;
+  var panel = document.querySelector("#sheet .sheet");
+  if (!panel) return;
+  var all = panel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])');
+  var list = Array.prototype.filter.call(all, function (el) { return el.getClientRects().length > 0; });
+  if (!list.length) { e.preventDefault(); panel.focus(); return; }
+  var first = list[0], last = list[list.length - 1], a = document.activeElement;
+  if (e.shiftKey && (a === first || a === panel || !panel.contains(a))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (a === last || !panel.contains(a))) { e.preventDefault(); first.focus(); }
+});
+// the sidebar slides in from the side on phones and tablets: while it is out of sight it can not be reached with Tab
+function a11ySide() {
+  var open = document.body.classList.contains("side-open"), side = document.getElementById("side");
+  var narrow = window.matchMedia && matchMedia("(max-width: 979px)").matches;
+  if (side) { if (narrow && !open) side.setAttribute("inert", ""); else side.removeAttribute("inert"); }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-side-toggle]"), function (el) {
+    if (el.getAttribute("aria-expanded") !== String(open)) el.setAttribute("aria-expanded", String(open));
+    if (el.getAttribute("aria-controls") !== "side") el.setAttribute("aria-controls", "side");
+  });
+}
+window.addEventListener("resize", a11ySide);
+// buttons that show only a picture get their tooltip as their name (and keep it when the screen is redrawn or translated)
+function a11yLabel(root) {
+  if (!root || root.nodeType !== 1) return;
+  var list = root.matches && root.matches("button[title], [role=button][title]") ? [root] : [];
+  Array.prototype.push.apply(list, root.querySelectorAll("button[title], [role=button][title]"));
+  list.forEach(function (b) {
+    if (b.hasAttribute("aria-label") && !b.hasAttribute("data-al")) return;
+    var t = b.getAttribute("title");
+    if (!t || /[0-9A-Za-z\u00C0-\u024F\u0400-\u04FF]/.test(b.textContent)) return;
+    if (b.getAttribute("aria-label") !== t) b.setAttribute("aria-label", t);
+    if (!b.hasAttribute("data-al")) b.setAttribute("data-al", "1");
+  });
+}
+var a11yQueue = [], a11yTimer = 0;
+new MutationObserver(function (list) {
+  list.forEach(function (m) {
+    if (m.type === "attributes") a11yQueue.push(m.target);
+    else Array.prototype.forEach.call(m.addedNodes, function (n) { a11yQueue.push(n); });
+  });
+  if (!a11yTimer) a11yTimer = requestAnimationFrame(function () {
+    a11yTimer = 0;
+    var q = a11yQueue; a11yQueue = [];
+    q.forEach(a11yLabel);
+    a11ySide();
+  });
+}).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["title", "aria-label", "data-al"] });
+a11ySide();
+a11yLabel(document.body);
 function renderResbar(d) {
   var detail = view === "resources";
   var storageFocus = null;
@@ -10115,8 +10261,20 @@ function renderSide(d) {
   btn.classList.toggle("danger", danger);
 }
 
+var sideReturn = null;
 function toggleSide(open) {
+  var was = document.body.classList.contains("side-open");
   document.body.classList.toggle("side-open", open);
+  a11ySide();
+  var side = document.getElementById("side");
+  if (open && !was && side) {
+    sideReturn = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    side.tabIndex = -1;
+    setTimeout(function () { var x = side.querySelector(".side-x") || side; try { x.focus({ preventScroll: true }); } catch (e) {} }, 30);
+  } else if (!open && was && sideReturn) {
+    var back = sideReturn; sideReturn = null;
+    if (document.contains(back)) { try { back.focus({ preventScroll: true }); } catch (e) {} }
+  }
 }
 
 function renderAlarm(d) {
@@ -11340,17 +11498,27 @@ function pushKey(b) {
   for (var i = 0; i < raw.length; i++) a[i] = raw.charCodeAt(i);
   return a;
 }
+// what the alert switch really does on this device: "unknown" (not checked yet) · "checking" · "closed" (the server has this device's
+// push address, so alerts arrive even when MarsL is closed) · "failed" (the browser or the server refused it)
+var pushState = "unknown";
 function pushSubscribe() {
-  if (!pushOk()) return;
-  navigator.serviceWorker.register("/sw.js").then(function (reg) {
+  if (!pushOk()) return Promise.resolve(false);
+  pushState = "checking";
+  return navigator.serviceWorker.register("/sw.js").then(function (reg) {
     return fetch("/api/push/key").then(function (r) { return r.json(); }).then(function (k) {
       return reg.pushManager.getSubscription().then(function (old) { return old || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushKey(k.key) }); });
     });
   }).then(function (sub) {
-    if (sub) return fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub.toJSON()) });
-  }).catch(function () {});
+    if (!sub) throw new Error("no subscription");
+    return fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub.toJSON()) });
+  }).then(function (r) { if (!r.ok) throw new Error("refused"); return true; }).catch(function () { return false; }).then(function (ok) {
+    pushState = ok ? "closed" : "failed";
+    if (sheet && sheet.kind === "account") renderSheet();
+    return ok;
+  });
 }
 function pushUnsubscribe() {
+  pushState = "unknown";
   if (!pushOk()) return;
   navigator.serviceWorker.getRegistration().then(function (reg) {
     if (!reg) return;
@@ -11360,6 +11528,18 @@ function pushUnsubscribe() {
       return sub.unsubscribe();
     });
   }).catch(function () {});
+}
+// one line that says exactly where the alerts reach you and what they cover (this device only)
+function alertStatus() {
+  var cover = "incoming attacks and raids, and finished construction while you are away", coverOpen = "incoming attacks";
+  var on = alertsOn && typeof Notification !== "undefined" && Notification.permission === "granted";
+  var t, retry = "";
+  if (!on) t = "Turn on to be alerted on this device about " + (pushOk() ? cover : coverOpen) + ".";
+  else if (!pushOk()) t = "✅ On this device while MarsL is open (a tab or the app). Covers " + coverOpen + "." + (iosSafariTab() ? " To be alerted when it is closed, add MarsL to your home screen." : " This browser can’t alert you when MarsL is closed.");
+  else if (pushState === "closed") t = "✅ On this device, also when MarsL is closed. Covers " + cover + ".";
+  else if (pushState === "failed") { t = "⚠️ On this device while MarsL is open. Covers " + coverOpen + ". Alerts when MarsL is closed could not be set up."; retry = '<button class="btn small ghost" data-alerts-retry="1">Try again</button>'; }
+  else { t = "⏳ Checking this device…"; if (pushState === "unknown") setTimeout(pushSubscribe, 0); }
+  return '<p class="hint left" role="status">' + t + "</p>" + retry;
 }
 function openProfile(name) {
   fetch("/api/profile?name=" + encodeURIComponent(name)).then(function (r) {
@@ -12153,8 +12333,8 @@ function battleCargo(d) {
     }).join('') + '</div>' + (capacity ? '<label>🎒 ' + total.toLocaleString() + ' / ' + capacity.toLocaleString() + '<progress max="' + capacity + '" value="' + Math.min(total, capacity) + '"></progress></label>' : '') + '</section>';
   }
   if (d.loot) h += cargo(d.side === 'attacker' ? 'Loot travelling home' : 'Resources stolen from the defended colony', d.loot, d.side === 'attacker' ? d.carry : 0);
-  if (d.bountyStash || (d.hero && d.hero.stash)) h += cargo('Bounty added to Commander inventory', d.bountyStash || d.hero.stash, 0);
-  else if (d.bounty) h += cargo('Bounty travelling home · separate from loot', d.bounty, 0);
+  if (d.hero && d.hero.stash) h += cargo('🏆 Monster bounty · added to your commander inventory', d.hero.stash, 0);
+  else if (d.bounty) h += cargo(d.bountyStash ? '🏆 Monster bounty · added to your commander inventory' : '🏆 Monster bounty · extra, on top of the loot', d.bounty, 0);
   return h;
 }
 function reportOverview(d) {
@@ -12186,9 +12366,9 @@ function battleTable(d) {
   rows.push(["💀", "Your casualty value", mineUnits === null ? null : mine || zero, "neg"]);
   rows.push(["☠️", "Enemy casualty value", enemyUnits === null ? null : enemy || zero, "neutral"]);
   if (d.loot) rows.push(["💰", meFirst ? "You looted" : d.side === "helper" ? "Stolen from defended colony" : "Stolen from you", d.loot, meFirst ? "pos" : "neg"]);
-  var stashed = d.bountyStash || (!d.bounty && d.hero && d.hero.stash);
-  if (d.bounty) rows.push(["🏅", "Bounty", d.bounty, "pos"]);
-  else if (stashed) rows.push(["🏅", "Bounty (commander's stash)", stashed, "pos"]);
+  var stashed = !d.bounty && d.hero && d.hero.stash;
+  if (d.bounty) rows.push(["🏅", d.bountyStash ? "Bounty (commander's stash)" : "Bounty", d.bounty, "pos"]);
+  else if (stashed) rows.push(["🏅", "Bounty (commander's stash)", d.hero.stash, "pos"]);
   var h = '<div class="report-scroll"><table class="rtab"><thead><tr><th></th>';
   RES.forEach(function (k) { h += '<th title="' + RES_NAME[k] + '">' + RES_ICON[k] + "</th>"; });
   h += "<th>Σ</th></tr></thead><tbody>";
@@ -12366,7 +12546,7 @@ function renderReportBody(r) {
     var mine = reportOwnUnits(d);
     var myLoss = unitValue(mine);
     var lootSum = d.loot ? sumRes(d.loot) : 0;
-    var bountySum = d.bountyStash ? sumRes(d.bountyStash) : d.bounty ? sumRes(d.bounty) : d.hero && d.hero.stash ? sumRes(d.hero.stash) : 0;
+    var bountySum = d.bounty ? sumRes(d.bounty) : d.hero && d.hero.stash ? sumRes(d.hero.stash) : 0;
     var iWon = d.side === "attacker" ? d.attackerWins : !d.attackerWins;
     h += '<div class="rbanner ' + (iWon ? "win" : "loss") + '"><b>' + (iWon ? "🏆 Victory" : "💀 Defeat") + "</b>";
     h += "</div>";
@@ -12385,7 +12565,7 @@ function renderReportBody(r) {
     var out = [];
     if (d.side === "attacker" && d.carry) out.push("<span>🎒 " + lootSum + " / " + d.carry + "</span>");
     if (d.side === "attacker") {
-      if (bountySum) out.push('<span class="win">Bounty: +' + bountySum.toLocaleString() + (d.bountyStash || (d.hero && d.hero.stash) ? ' added to Commander inventory' : ' travelling home') + '</span>');
+      if (bountySum) out.push('<span class="win">Bounty: +' + bountySum.toLocaleString() + (d.bountyStash || (d.hero && d.hero.stash) ? ' in commander stash' : ' travelling home') + '</span>');
     }
     if (d.conquered) out.push(d.side === "attacker" ? '<span class="win">👑 Captured!</span>' : '<span class="loss">💔 Taken from you</span>');
     if (d.cleared) out.push('<span class="win">🧹 Camp cleared</span>');
@@ -12695,6 +12875,7 @@ function sheetWipe() {
 }
 function closeSheet() {
   sheet = null;
+  a11yClose();
   document.body.classList.remove("noscroll");
   var box = document.getElementById("sheet"), ov = box.querySelector(".overlay");
   if (sheetClosing) return;
@@ -14897,7 +15078,7 @@ function heroSheet(d) {
       h += "</div>";
     });
     if (gear.length || (H.cosmetics || []).length || H.starMetal) h += '<p class="hint left bagnote">Upgrades: +8% base stats per rank, up to +5. Cosmetic finds: ' + esc((H.cosmetics||[]).join(', ')||'none') + ' · Star Metal: ' + (H.starMetal||0) + "</p>";
-    if (!H.bag.length) h += '<p class="empty">Empty. Lead an attack on a monster camp: its bounty and gear end up here.</p>';
+    if (!H.bag.length) h += '<p class="empty">Empty. Beat monsters in a camp: their bounty ends up here, and gear when the commander leads the attack.</p>';
     else if (H.level < 4) h += '<p class="hint left">Collect puts the bounty into ' + esc(H.stashTo || H.home) + ", the colony you are looking at. Whatever doesn’t fit stays here.</p>";
   }
   return h;
@@ -15843,40 +16024,147 @@ function updateSendInfo() {
 }
 
 // ---------- ✏️ help translate: suggest better texts, a moderator checks each one ----------
-var trl = { q: "", draft: {}, pending: {}, skipped: Object.create(null), skipLoaded: false, skipLoadFailed: false, list: [] };
-function translateSheet() {
-  var lg = curLang(), l = LANG_IDX[lg];
-  var q = trl.q.trim().toLowerCase();
-  var localized = Object.create(null);
-  function phraseKey(k) {
-    return trCleanKey(k).replace(/^[^A-Za-z#{]+/, "").trim().toLowerCase();
-  }
-  function remember(k, text, approved) {
-    var key = phraseKey(k);
-    if (key && typeof text === "string" && text.trim() && (approved || phraseKey(text) !== key)) localized[key] = text;
-  }
-  Object.keys(I18N[lg] || {}).forEach(function (k) { remember(k, I18N[lg][k]); });
-  translationCatalog.forEach(function (k) { remember(k, (GTR[k] || [])[l]); });
-  Object.keys(approvedI18n).forEach(function (k) { remember(k, approvedI18n[k], true); });
-  function currentText(k) {
-    return approvedI18n[k] || localized[phraseKey(k)] || (GTR[k] || [])[l] || "";
-  }
-  var keys = translationCatalog.filter(function (k) {
-    if (q) return k.toLowerCase().includes(q) || currentText(k).toLowerCase().includes(q);
-    return trl.skipLoaded && !trl.skipped[k] && trl.pending[k] === undefined &&
-      !Object.prototype.hasOwnProperty.call(approvedI18n, k) && !localized[phraseKey(k)] && !((GTR[k] || [])[l] || "").trim();
+var trl = { q: "", draft: {}, pending: {}, skipped: Object.create(null), skipLoaded: false, skipLoadFailed: false, list: [], notes: {}, cat: null, moves: null };
+// words of a phrase, for finding the new English text of a translation whose old English text is gone
+function trWords(k) {
+  var o = Object.create(null);
+  String(k).toLowerCase().split(/[^a-z#]+/).forEach(function (w) { if (w.length > 2) o[w] = 1; });
+  return o;
+}
+function trSimilar(a, b) {
+  var n = 0, all = 0, k;
+  for (k in a) { all++; if (b[k]) n++; }
+  for (k in b) if (!a[k]) all++;
+  return all ? n / all : 0;
+}
+function trAllKeys() {
+  var seen = (trl.cat && trl.cat.seen) || {};
+  var out = Object.keys(GTR).filter(function (k) { return /[A-Za-z]{2}/.test(k); });
+  var has = Object.create(null);
+  out.forEach(function (k) { has[k] = 1; });
+  Object.keys(seen).concat(Object.keys(I18N[curLang()] || {})).forEach(function (k) { if (!has[k] && k.indexOf("<") < 0) { has[k] = 1; out.push(k); } });
+  return out;
+}
+function trCurrent(k) {
+  var l = LANG_IDX[curLang()];
+  return approvedI18n[k] || (GTR[k] || [])[l] || (I18N[curLang()] || {})[k] || "";
+}
+// approved texts whose English phrase changed: matched once to the closest phrase that has no text yet
+function trFindMoves(keys) {
+  var out = [];
+  var orphans = (trl.cat && trl.cat.orphans) || [];
+  if (!orphans.length) return out;
+  var open = keys.filter(function (k) { return !trCurrent(k); }).map(function (k) { return [k, trWords(k)]; });
+  var taken = Object.create(null);
+  orphans.forEach(function (o) {
+    var ow = trWords(o.key), best = null, score = 0.5;
+    open.forEach(function (c) { if (taken[c[0]]) return; var v = trSimilar(ow, c[1]); if (v > score) { score = v; best = c[0]; } });
+    if (best) { taken[best] = 1; out.push({ k: best, old: o.key, text: o.text }); }
   });
-  trl.list = keys.slice(0, 25);
-  var h = '<div class="sheet-head"><span class="hi">✏️</span><div><h3>Help translate</h3><b>' + LANG_NAMES[lg] + "</b></div></div>";
-  h += '<p class="hint left">Translate the words only. Emoji, icons, and player names are excluded. Skip any phrase you don’t want to work on. Keep # for numbers.</p>';
-  h += '<div class="trbar"><input id="trq" type="search" placeholder="Search game text" value="' + esc(trl.q) + '"></div>';
-  if (!trl.list.length) h += '<p class="hint left">' + (q ? "Nothing found" : trl.skipLoadFailed ? "Could not load skipped phrases. Reopen this window to retry." : !trl.skipLoaded ? "Loading suggestions…" : "No untranslated phrases are available right now. Search to find a specific phrase.") + "</p>";
-  trl.list.forEach(function (k, i) {
-    var cur = trl.draft[k] !== undefined ? trl.draft[k] : trl.pending[k] !== undefined ? trl.pending[k] : currentText(k);
-    h += '<div class="trrow"><div class="tr-en" data-notr="1">' + esc(trCleanKey(k)) + '</div><textarea rows="2" data-trkey="' + i + '" placeholder="Your translation" lang="' + lg + '">' + esc(cur) + '</textarea><div class="tr-act"><span>' + (trl.pending[k] !== undefined && trl.draft[k] === undefined ? "⏳ Waiting for review" : "") + '</span><button class="btn small" data-trskip="' + i + '" title="Skip this phrase">Skip</button><button class="btn small" data-trsend="' + i + '">Send</button></div></div>';
-  });
+  return out;
+}
+var TR_SAMPLE = ["3", "12", "250", "1,500", "7"];
+function trPreview(k, text) {
+  if (!text) return "";
+  var i = 0, out = text.replace(/#/g, function () { return TR_SAMPLE[i++ % TR_SAMPLE.length]; });
+  var warn = [];
+  if ((k.match(/#/g) || []).length !== (text.match(/#/g) || []).length) warn.push("⚠️ Keep every # from the English text: it stands for a number.");
+  if ((k.match(/[{][0-9][}]/g) || []).sort().join() !== (text.match(/[{][0-9][}]/g) || []).sort().join()) warn.push("⚠️ Keep every {0} and {1}: a name goes there.");
+  var en = trCleanKey(k).length;
+  if (en <= 60 && text.length > Math.max(14, en * 1.6)) warn.push("⚠️ Much longer than the English, so it may not fit on a button or a small screen.");
+  return '<span class="tr-prev-t">' + esc(out) + "</span>" + warn.map(function (w) { return "<em>" + w + "</em>"; }).join("");
+}
+function trRow(k, i, lg) {
+  var note = trl.notes[k];
+  var cur = trl.draft[k] !== undefined ? trl.draft[k] : trl.pending[k] !== undefined ? trl.pending[k] : (note && note.text) || trCurrent(k);
+  var h = '<div class="trrow">';
+  if (note) h += '<div class="tr-note" data-notr="1">' + esc(note.label) + "</div>";
+  h += '<div class="tr-en" data-notr="1">' + esc(trCleanKey(k)) + '</div><textarea rows="2" data-trkey="' + i + '" placeholder="Your translation" lang="' + lg + '">' + esc(cur) + "</textarea>";
+  h += '<div class="tr-prev" data-notr="1" data-trprev="' + i + '">' + trPreview(k, cur) + "</div>";
+  h += '<div class="tr-act"><span>' + (trl.pending[k] !== undefined && trl.draft[k] === undefined ? "⏳ Waiting for review" : "") + '</span><button class="btn small" data-trskip="' + i + '" title="Skip this phrase">Skip</button><button class="btn small" data-trsend="' + i + '">Send</button></div></div>';
   return h;
 }
+function translateSheet() {
+  var lg = curLang();
+  var q = trl.q.trim().toLowerCase();
+  var seen = (trl.cat && trl.cat.seen) || {};
+  var keys = trAllKeys();
+  if (trl.cat && !trl.moves) trl.moves = trFindMoves(keys);
+  var done = keys.filter(function (k) { return trCurrent(k); }).length;
+  var pct = keys.length ? Math.floor((done / keys.length) * 100) : 0;
+  var byUse = function (a, b) { return (seen[b] || 0) - (seen[a] || 0); };
+  var open = function (k) { return !trl.skipped[k] && trl.pending[k] === undefined; };
+  trl.notes = {};
+  var list = [];
+  if (q) {
+    list = keys.filter(function (k) { return k.toLowerCase().indexOf(q) >= 0 || trCurrent(k).toLowerCase().indexOf(q) >= 0; }).sort(byUse);
+  } else if (trl.skipLoaded && trl.cat) {
+    Object.keys(GTR_REVIEW).forEach(function (k) {
+      if (open(k) && !Object.prototype.hasOwnProperty.call(approvedI18n, k) && trCurrent(k)) { trl.notes[k] = { label: "🔁 The English text changed. Before: " + GTR_REVIEW[k] }; list.push(k); }
+    });
+    (trl.moves || []).forEach(function (m) {
+      if (open(m.k) && !trCurrent(m.k)) { trl.notes[m.k] = { label: "🔁 Similar to an older text: " + trCleanKey(m.old), text: m.text }; list.push(m.k); }
+    });
+    list = list.concat(keys.filter(function (k) { return open(k) && !trCurrent(k) && !trl.notes[k]; }).sort(byUse));
+  }
+  trl.list = list.slice(0, 25);
+  var h = '<div class="sheet-head"><span class="hi">✏️</span><div><h3>Help translate</h3><b>' + LANG_NAMES[lg] + "</b></div></div>";
+  if (trl.cat) h += '<div class="tr-prog"><div class="hbar"><i style="width:' + pct + '%"></i></div><small>' + pct + "% translated · " + (keys.length - done).toLocaleString("en-US") + (keys.length - done === 1 ? " phrase left" : " phrases left") + "</small></div>";
+  h += '<button class="btn ghost tr-mode" data-trmode="1">👆 Translate on screen: tap any text in the game</button>';
+  h += '<p class="hint left">Translate the words only. Emoji, icons and player names are left out. Keep every # (it stands for a number). The most-seen phrases come first.</p>';
+  h += '<div class="trbar"><input id="trq" type="search" placeholder="Search English or your language" value="' + esc(trl.q) + '"></div>';
+  if (!trl.list.length) h += '<p class="hint left">' + (q ? "Nothing found" : trl.skipLoadFailed ? "Could not load skipped phrases. Reopen this window to retry." : !trl.skipLoaded || !trl.cat ? "Loading phrases…" : "Everything is translated. Thank you! Search to improve an existing text.") + "</p>";
+  trl.list.forEach(function (k, i) { h += trRow(k, i, lg); });
+  return h;
+}
+// translating straight on the screen: tap a text, fix it, carry on
+function trRemember(shown, key) {
+  shown = String(shown || "").trim();
+  if (!shown || shown === key) return;
+  if (trRevN > 8000) { trRev = Object.create(null); trRevN = 0; }
+  if (!trRev[shown]) trRevN++;
+  trRev[shown] = key;
+}
+function trKeyOf(text) {
+  var t = String(text || "").replace(/\\s+/g, " ").trim();
+  if (trRev[t]) return trRev[t];
+  var k = t.replace(/&#\\d+;|(?:(?<=[(|])-)?\\d+(?:[.,]\\d+)*/g, "#");
+  if (trRev[k]) return trRev[k];
+  var c = trCleanKey(k);
+  return /[A-Za-z]{2}/.test(c) ? c : null;
+}
+function trModeSet(on) {
+  trMode = on;
+  document.body.classList.toggle("trmode", on);
+  var bar = document.getElementById("trfloat");
+  if (on && !bar) {
+    bar = document.createElement("div");
+    bar.id = "trfloat";
+    bar.setAttribute("data-notr", "1");
+    bar.innerHTML = '<span>👆 Tap any text to translate it</span><button class="btn small" data-trdone="1">Done</button>';
+    document.body.appendChild(bar);
+  } else if (!on && bar) bar.remove();
+}
+function trTextAt(x, y) {
+  var node = null;
+  if (document.caretPositionFromPoint) { var p = document.caretPositionFromPoint(x, y); node = p && p.offsetNode; }
+  else if (document.caretRangeFromPoint) { var r = document.caretRangeFromPoint(x, y); node = r && r.startContainer; }
+  if (!node || node.nodeType !== 3 || !node.nodeValue.trim()) return null;
+  if (node.parentNode && node.parentNode.closest && node.parentNode.closest("[data-notr]")) return null;
+  return node.nodeValue;
+}
+document.addEventListener("click", function (e) {
+  if (!trMode) return;
+  if (e.target.closest && e.target.closest("#trfloat,#sheet")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var text = trTextAt(e.clientX, e.clientY) || (e.target.getAttribute && (e.target.getAttribute("aria-label") || e.target.getAttribute("title")));
+  var k = text && trKeyOf(text);
+  if (!k) { toast("No text here. Tap right on a word."); return; }
+  trl.list = [k];
+  trl.notes = {};
+  openSheet("trone", null);
+}, true);
 function trlSend(i) {
   var k = trl.list[i], lg = curLang();
   if (k === undefined) return;
@@ -15891,7 +16179,7 @@ function trlSend(i) {
       trl.pending[k] = text;
       delete trl.draft[k];
       toast("Thank you! A moderator will review it.", true);
-      renderSheet();
+      if (sheet && sheet.kind === "trone") closeSheet(); else renderSheet();
     })
     .catch(function () { toast("The server does not answer"); });
 }
@@ -15903,13 +16191,20 @@ function trlSkip(i) {
     .then(function (x) {
       if (!x.ok) { toast(x.d.error || "Could not skip this phrase"); return; }
       trl.skipped[k] = 1;
-      renderSheet();
+      if (sheet && sheet.kind === "trone") closeSheet(); else renderSheet();
     }).catch(function () { toast("The server does not answer"); });
 }
 document.addEventListener("input", function (e) {
   var t = e.target;
   if (t.id === "trq") { trl.q = t.value; renderSheet(); }
-  else if (t.hasAttribute && t.hasAttribute("data-trkey")) { var k = trl.list[Number(t.getAttribute("data-trkey"))]; if (k !== undefined) trl.draft[k] = t.value; }
+  else if (t.hasAttribute && t.hasAttribute("data-trkey")) {
+    var ti = t.getAttribute("data-trkey"), k = trl.list[Number(ti)];
+    if (k !== undefined) {
+      trl.draft[k] = t.value;
+      var pv = document.querySelector('[data-trprev="' + ti + '"]');
+      if (pv) pv.innerHTML = trPreview(k, t.value);
+    }
+  }
 });
 
 function stashTransferSheet(d) {
@@ -15940,8 +16235,8 @@ function renderSheet() {
   var d = data;
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
   sheetAnim = false;
-  if (sheet.kind !== "away") h += '<button class="sheet-close" data-close="1" title="Close">' + "❌" + '</button>';
-  h += '<div class="sheet-drag" title="Swipe down to close"></div>';
+  if (sheet.kind !== "away") h += '<button type="button" class="sheet-close" data-close="1" title="Close" aria-label="Close">' + "❌" + '</button>';
+  h += '<div class="sheet-drag" title="Swipe down to close" aria-hidden="true"></div>';
 
   if (sheet.kind === "stash-transfer") {
     h += stashTransferSheet(d);
@@ -15989,6 +16284,10 @@ function renderSheet() {
     h += '<div class="sheet-head"><div><h3>Progress</h3><small>Your journey, rewards and world goals</small></div></div>'+retentionPanel(d);
   } else if (sheet.kind === "translate") {
     h += translateSheet();
+  } else if (sheet.kind === "trone") {
+    var k1 = trl.list[0];
+    h += '<div class="sheet-head"><span class="hi">✏️</span><div><h3>Translate</h3><b>' + LANG_NAMES[curLang()] + "</b></div></div>";
+    if (k1 !== undefined) h += trRow(k1, 0, curLang());
   } else if (sheet.kind === "account") {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
     h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (function (r) { return r("🔊 Master volume", "master", sound.mv) + r("🎮 Game sounds", "sfx", sound.sv); })(function (lab, k, v) { return '<label class="msl"><span>' + lab + '</span><input type="range" min="0" max="100" step="1" value="' + v + '" data-vol="' + k + '" aria-label="' + lab + '"><b class="msl-v">' + v + "%</b></label>"; }) + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🎵 Music</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
@@ -16000,7 +16299,7 @@ function renderSheet() {
     var nsup = typeof Notification !== "undefined", al;
     if (!nsup) al = '<p class="hint left">This browser can’t show alerts. Tip: add MarsL to your home screen.</p>';
     else if (Notification.permission === "denied") al = '<p class="hint left">Alerts are blocked for this site in your browser settings.</p>';
-    else al = '<div class="setgrid one"><button class="btn ghost" data-alerts="1">' + (alertsOn && Notification.permission === "granted" ? "🔔 On: alert me about attacks" : "🔕 Off: tap to get attack alerts") + '</button></div><p class="hint left">' + (pushOk() ? "Also when MarsL is closed: attacks and finished construction come to this device." : "Works while MarsL is open (also in a background tab).") + "</p>";
+    else al = '<div class="setgrid one"><button class="btn ghost" data-alerts="1">' + (alertsOn && Notification.permission === "granted" ? "🔔 On: alert me about attacks" : "🔕 Off: tap to get attack alerts") + '</button></div>' + alertStatus();
     h += card(ico("bell", "sm") + " Attack alerts", al);
     // 🏖️ vacation and 🪑 sitters
     var away = vacationBox(d) + sitBox(d);
@@ -16164,6 +16463,7 @@ function renderSheet() {
     if (sr) setHTML(sr, simResult());
   }
   updateMarketInfo();
+  a11ySheet();
 }
 
 // =====================================================================
@@ -17197,7 +17497,7 @@ function renderTileInfo() {
     }
     var tsum = RES.reduce(function (n, k) { return n + camp.treasure[k]; }, 0);
     var isum = RES.reduce(function (n, k) { return n + camp.income[k]; }, 0);
-    if(camp.bounty)facts.push(fact('🏅 '+shortNum(RES.reduce(function(n,k){return n+(camp.bounty[k]||0);},0)),'gold','Potential trophies for defeating all current monsters; additional to carried treasure. Requires survivors.'));
+    if(camp.bounty)facts.push(fact('🏅 '+shortNum(RES.reduce(function(n,k){return n+(camp.bounty[k]||0);},0)),'gold','Potential trophies for defeating all current monsters; they go to your commander inventory, on top of the carried treasure. Requires survivors.'));
     if (!camp.titan) facts.push(fact("💎 " + shortNum(tsum), tsum ? "gold" : "", "Treasure: " + RES.map(function (k) { return RES_ICON[k] + " " + camp.treasure[k]; }).join("  ")));
     if (!camp.titan) facts.push(fact("📈 +" + shortNum(isum) + "/h", "", "Treasure grows by " + RES.map(function (k) { return RES_ICON[k] + camp.income[k]; }).join(" ") + " per hour. Kills pay a bounty too."));
     if (camp.titan) facts.push(fact("🎁 loot when it falls", "ok", "Everybody who dealt at least 2% of the damage shares the loot by damage. The top fighters get commander gear, the best a legendary."));
@@ -17936,7 +18236,7 @@ function wikiMore(W, tab, cards) {
       "🗿 <b>Relics</b>: the commander can lead the army that captures a relic and walks home with it.",
       "🗡️ <b>Going alone</b>: with no troops ticked, the commander can go out by itself on an attack or a raid against a monster camp or an inactive colony. It walks " + He.soloSpeed + " tiles/h, fights with its own attack only, brings back no loot (only the camp’s bounty stash) and risks the same fall as always. Not possible in waves.",
       "🎒 <b>Inventory</b> (" + He.bag + " slots): gear from monster camps and adventures (see Commander gear). Scrap spare gear for xp.",
-      "💰 <b>Bounty stash</b>: when it leads troops against a monster camp, the camp’s bounty goes into its stash. Collect any amount into whichever of your colonies you are looking at.",
+      "💰 <b>Bounty stash</b>: the bounty of every monster your attacks and raids beat goes into its stash, even when the commander stays home. Collect any amount into whichever of your colonies you are looking at.",
       "🚶 <b>Moving</b>: it walks " + He.speed + " tiles/h to another of your colonies and settles in for " + wkDur(He.settleMs) + ". No bonus while on the way; it shows up in 🧭 Troop Traffic like any other movement. Move it from its own panel (open it, then 🏅 Skills) or, quicker, from the send window: picking one of your other colonies as the target offers a 🚶 Restation button right there (it asks you to confirm, since it's easy to tap by accident).",
       "💀 <b>Falling</b>: if its health hits 0, if the army it leads is wiped out or loses " + He.fallFrac + "% or more of its troops in a lost fight (a raid it can’t win too), or if its colony loses an attack, or loses " + He.fallFrac + "% or more of its troops in a lost raid, while it defends, it falls, recovers for " + wkDur(He.recoverMs) + ", comes back with " + He.hpBack + " health and loses " + He.fallPct + "% of its progress to the next level. Paying a resource cost (scaling with its level) cuts that down to " + wkDur(He.reviveMs) + " - it's open from the commander panel while it's down.",
       "⚔️ It joins one wave or attack at a time: tick 🎖️ in the send window (with or without troops).",
@@ -20134,7 +20434,7 @@ document.addEventListener("submit", function (e) {
 
 document.addEventListener("click", function (e) {
   var el = e.target.closest ? e.target.closest(
-    "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
+    "[data-mvcat],[data-mvdetail],[data-lp-tribe],[data-tfold],[data-specfold],[data-close],[data-respawn-cancel],[data-hop],[data-hop-land],[data-srv-join],[data-acct-out],[data-acct-fold],[data-mode],[data-lang],[data-langmore],[data-trl-open],[data-trsend],[data-trmode],[data-trdone],[data-trskip],[data-landing],[data-tribe],[data-logout],[data-account],[data-logout-all],[data-logout-dev],[data-view]," +
     "[data-music],[data-help],[data-graduate],[data-legacy-title],[data-spec],[data-send-order],[data-hero-arch],[data-hero-stance],[data-hero-collect],[data-wallet-open],[data-hunt-open],[data-codex-open],[data-codex-tab],[data-codex-claim],[data-hunt-tap],[data-hunt-place],[data-hunt-remove],[data-hunt-view],[data-sel-step],[data-sel-rar],[data-sel-all],[data-sell-go],[data-auto],[data-auc-crea],[data-hunt-index],[data-cmd-open],[data-cmd-tab],[data-cmd-buy],[data-cmd-switch],[data-cmd-merge],[data-auc-cmd],[data-cmd-helper],[data-cmd-fuse],[data-hero-quirk],[data-adv-pick],[data-plan-add],[data-plan-del],[data-sound],[data-dark-mode],[data-tutorial],[data-beppo],[data-tut],[data-onb],[data-onb-kit],[data-msgbox],[data-msg-open],[data-msg-del],[data-write],[data-end-protection],[data-extend-protection],[data-vac-start],[data-vac-end],[data-sit-add],[data-sit-rm],[data-sit-go],[data-sit-stop],[data-field],[data-lot]," +
     "[data-free-job],[data-up-field],[data-up-lot],[data-construct],[data-cancel],[data-cancel-train],[data-up-field-crew],[data-up-lot-crew],[data-construct-crew],[data-boost],[data-boost-do],[data-hands-pick],[data-build-help]," +
     "[data-max],[data-train],[data-zoom],[data-map-home],[data-map-full],[data-pan],[data-send],[data-send-attack],[data-send-spy]," +
@@ -20144,7 +20444,7 @@ document.addEventListener("click", function (e) {
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-ally-emblem],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
-    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
+    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-alerts-retry],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
   if (!el) return;
@@ -20447,7 +20747,9 @@ document.addEventListener("click", function (e) {
     langMoreOpen = true;
     if (data && !landing) renderSheet(); else renderAuth();
   } else if (has("data-trl-open")) {
-    trl.q = ""; trl.draft = {}; trl.skipLoaded = false; trl.skipLoadFailed = false;
+    trl.q = ""; trl.draft = {}; trl.skipLoaded = false; trl.skipLoadFailed = false; trl.cat = null; trl.moves = null;
+    trSeenFlush();
+    fetch("/api/i18n/catalog?lang=" + curLang(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (c) { trl.cat = { seen: c.seen || {}, orphans: c.orphans || [] }; if (sheet && sheet.kind === "translate") renderSheet(); }).catch(function () { trl.cat = { seen: {}, orphans: [] }; if (sheet && sheet.kind === "translate") renderSheet(); });
     fetch("/api/i18n/mine?lang=" + curLang()).then(function (r) { return r.json(); }).then(function (m) { trl.pending = m.pending || {}; if (sheet && sheet.kind === "translate") renderSheet(); }).catch(function () {});
     fetch("/api/i18n/skipped", { cache: "no-store" }).then(function (r) {
       if (!r.ok) throw new Error("Could not load skipped phrases");
@@ -20462,6 +20764,11 @@ document.addEventListener("click", function (e) {
       if (sheet && sheet.kind === "translate") renderSheet();
     });
     openSheet("translate", null);
+  } else if (has("data-trmode")) {
+    closeSheet();
+    trModeSet(true);
+  } else if (has("data-trdone")) {
+    trModeSet(false);
   } else if (has("data-trsend")) {
     trlSend(Number(attr("data-trsend")));
   } else if (has("data-trskip")) {
@@ -21161,6 +21468,9 @@ document.addEventListener("click", function (e) {
     openSheet("market", null);
     sheet.fundReturn = fundReturn;
     toast("💱 Filled in - review the swap and tap Redistribute", true);
+  } else if (has("data-alerts-retry")) {
+    pushSubscribe();
+    renderSheet();
   } else if (has("data-alerts")) {
     if (alertsOn && Notification.permission === "granted") {
       alertsOn = false;
@@ -21914,7 +22224,7 @@ function startGame() {
     return loadColony(false, true);
   }).catch(function (err) { showStartupError(err, startGame); });
 }
-startGame();
+gtrLoad(curLang(), startGame);
 </script>
 </body>
 </html>`;
