@@ -1,0 +1,173 @@
+name: Roll back verified MarsL release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful deployment run ID containing a verified-release artifact
+        required: true
+        type: string
+      target:
+        description: Servers to restore
+        required: true
+        type: choice
+        options:
+          - all
+          - opentest
+          - classic
+          - speed
+        default: all
+      confirm_schema_compatible:
+        description: I verified the selected code is compatible with current player databases and have a recent backup
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: alwaysdata-deploy
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Authorize explicit rollback
+        env:
+          CONFIRMED: ${{ inputs.confirm_schema_compatible }}
+          RUN_ID: ${{ inputs.run_id }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = "${GITHUB_REPOSITORY_OWNER}"
+          test "$CONFIRMED" = true
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          case "$TARGET" in all|opentest|classic|speed) ;; *) exit 1 ;; esac
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Retrieve verified deployment archive
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > run.json
+          WORKFLOW_ID=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy-alwaysdata.yml" --jq .id)
+          export WORKFLOW_ID
+          node <<'NODE'
+          const r = require('./run.json');
+          if (String(r.workflow_id) !== process.env.WORKFLOW_ID || r.conclusion !== 'success' || r.head_branch !== 'main' || r.repository.full_name !== process.env.GITHUB_REPOSITORY)
+            throw Error('Rollback requires a successful deployment workflow on main in this repository');
+          NODE
+          gh run download "$RUN_ID" --name "verified-release-$RUN_ID" --dir rollback
+          node <<'NODE'
+          const fs = require('node:fs'), crypto = require('node:crypto');
+          const m = require('./rollback/release.json'), r = require('./run.json');
+          const bytes = fs.readFileSync('rollback/server.js'), target = process.env.TARGET;
+          if (!/^1\.0\.\d+$/.test(m.version) || Number(m.version.split('.')[2]) < 576 ||
+              !/^[a-f0-9]{40}$/.test(m.commit) || m.commit !== r.head_sha || String(m.run_id) !== process.env.RUN_ID ||
+              !(m.target === 'all' || m.target === target) ||
+              crypto.createHash('sha256').update(bytes).digest('hex') !== m.sha256)
+            throw Error('Invalid release manifest, incompatible target or checksum');
+          const source = bytes.toString('utf8');
+          if (!source.includes('const GAME_VERSION = ' + JSON.stringify(m.version) + ';') ||
+              !source.includes('const RELEASE_COMMIT = ' + JSON.stringify(m.commit) + ';'))
+            throw Error('Artifact version or commit marker mismatch');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + m.version + '\ncommit=' + m.commit + '\n');
+          NODE
+          git fetch origin main
+          git merge-base --is-ancestor "$(node -p "require('./rollback/release.json').commit")" origin/main
+          node --check rollback/server.js
+
+      - name: Check target versions before upload
+        env:
+          TARGET: ${{ inputs.target }}
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          EXPECTED_COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          set -euo pipefail
+          check_one() {
+            local url="$1" response
+            if ! response=$(curl --fail --silent --show-error --max-time 15 "$url"); then
+              echo "Target not responding; explicit recovery from verified archive permitted."
+              return
+            fi
+            CONFIG="$response" node <<'NODE'
+          const c = JSON.parse(process.env.CONFIG);
+          const parts = v => {
+            if (!/^\d+\.\d+\.\d+$/.test(v)) throw Error('Invalid live version');
+            return v.split('.').map(Number);
+          };
+          const a = parts(process.env.EXPECTED_VERSION), b = parts(c.version);
+          const i = a.findIndex((v,j) => v !== b[j]);
+          if (i >= 0 && a[i] > b[i]) throw Error('Selected artifact is newer than live; use normal deployment');
+          if (i < 0 && c.commit !== process.env.EXPECTED_COMMIT) throw Error('Same version has a different commit');
+          console.log('Explicit recovery:', c.version, '->', process.env.EXPECTED_VERSION);
+          NODE
+          }
+          case "$TARGET" in opentest|all) check_one https://marsl-game.com/api/config ;; esac
+          case "$TARGET" in classic|all) check_one https://classic.marsl-game.com/api/config ;; esac
+          case "$TARGET" in speed|all) check_one https://speed.marsl-game.com/api/config ;; esac
+
+      - name: Configure pinned SSH access
+        env:
+          AD_DEPLOY_SSH_KEY: ${{ secrets.AD_DEPLOY_SSH_KEY }}
+          AD_KNOWN_HOSTS: ${{ secrets.AD_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$AD_DEPLOY_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$AD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          test -s "$HOME/.ssh/id_ed25519"
+          test -s "$HOME/.ssh/known_hosts"
+
+      - name: Restore code only, never player databases
+        env:
+          TARGET: ${{ inputs.target }}
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          EXPECTED_COMMIT: ${{ steps.release.outputs.commit }}
+          AD_API_TOKEN: ${{ secrets.AD_API_TOKEN }}
+          AD_SSH_HOST: ssh-marsl.alwaysdata.net
+        run: |
+          set -euo pipefail
+          : "${AD_API_TOKEN:?Missing AD_API_TOKEN}"
+          restore_one() {
+            local user="$1" site="$2" url="$3" response
+            printf '%s\n' 'put rollback/server.js .server.js.rollback-new' 'rename .server.js.rollback-new server.js' 'chmod 644 server.js' |
+              sftp -q -b - -i "$HOME/.ssh/id_ed25519" -o BatchMode=yes -o ConnectTimeout=20 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "${user}@${AD_SSH_HOST}"
+            curl --fail --silent --show-error --connect-timeout 20 --max-time 60 --request POST --user "${AD_API_TOKEN} account=marsl:" "https://api.alwaysdata.com/v1/site/${site}/restart/"
+            for attempt in $(seq 1 20); do
+              if response=$(curl --fail --silent --max-time 15 "$url") &&
+                CONFIG="$response" node -e 'const c=JSON.parse(process.env.CONFIG); process.exit(c.version===process.env.EXPECTED_VERSION && c.commit===process.env.EXPECTED_COMMIT ? 0 : 1)'; then
+                echo "Verified $url: $EXPECTED_VERSION ($EXPECTED_COMMIT)"
+                return 0
+              fi
+              sleep 10
+            done
+            echo "Rollback failed verification on $url; stopping remaining targets."
+            return 1
+          }
+          case "$TARGET" in opentest|all) restore_one marsl_deploy_opentest 1094171 https://marsl-game.com/api/config ;; esac
+          case "$TARGET" in classic|all) restore_one marsl_deply_classic 1098921 https://classic.marsl-game.com/api/config ;; esac
+          case "$TARGET" in speed|all) restore_one marsl_deploy_speed 1098812 https://speed.marsl-game.com/api/config ;; esac
+
+      - name: Record rollback result
+        env:
+          TARGET: ${{ inputs.target }}
+          RUN_ID: ${{ inputs.run_id }}
+          VERSION: ${{ steps.release.outputs.version }}
+          COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          printf 'Restored verified release %s (%s) from run %s to %s. Player databases were not uploaded or replaced.\n' "$VERSION" "$COMMIT" "$RUN_ID" "$TARGET" >> "$GITHUB_STEP_SUMMARY"

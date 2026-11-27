@@ -243,6 +243,33 @@ jobs:
           echo ""
           echo "🚀 All servers verified successfully with version ${EXPECTED_VERSION}!"
 
+      - name: Record verified release manifest
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        env:
+          EXPECTED_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs'), crypto = require('node:crypto');
+          const bytes = fs.readFileSync('dist/server.js');
+          fs.writeFileSync('dist/release.json', JSON.stringify({
+            version: process.env.EXPECTED_VERSION, commit: process.env.GITHUB_SHA,
+            target: process.env.DEPLOY_TARGET, run_id: process.env.GITHUB_RUN_ID,
+            sha256: crypto.createHash('sha256').update(bytes).digest('hex')
+          }, null, 2));
+          NODE
+
+      - name: Archive verified release for rollback
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-release-${{ github.run_id }}
+          path: |
+            dist/server.js
+            dist/release.json
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: true
+
       - name: Verify access only (no deploy)
         if: ${{ env.DEPLOY_TARGET == 'verify' }}
         env:
