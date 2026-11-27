@@ -547,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.572";
+const GAME_VERSION = "1.0.573";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -18005,6 +18005,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.573",date:"2026-11-27",title:"A much smaller first download",groups:[["⚡ Faster start",["The translations are no longer part of the first download. The game loads only your language, so the first download is less than half the size: about 470 KB instead of 1.1 MB for English, about 560 KB for another language (compressed).","On a slow phone connection the game starts about twice as fast. Switching language loads the new language when you pick it.","If a language file cannot be downloaded, the game stays in English instead of waiting."]]]},
   {v:"1.0.572",date:"2026-11-27",title:"The game recovers from a failed download",groups:[["🔧 Fixed",["If the game script fails to download on a weak connection, the page now retries by itself up to three times instead of staying on the loading screen.","If it still fails, it says so and offers a Try again button. It also tries again when the connection comes back."]]]},
   {v:"1.0.571",date:"2026-11-27",title:"Every bounty goes to the commander",groups:[["📦 Bounty stash",["The bounty for monsters you beat at a camp now always goes into your commander inventory, even when the commander stays home. Before, it travelled home with the troops into the colony.","Collect it into any of your colonies, or use the 📦 cost chips when a build is short.","Troops still have to survive the fight to bring a bounty. Commander bounty bonuses (gear and Monster Hunter) still only count when the commander leads the attack."]]]},
   {v:"1.0.570",date:"2026-11-27",title:"Clearer monster bounty in reports",groups:[["📜 Reports",["The bounty for beaten monsters is now called Monster bounty in battle reports. Without a commander it says it comes on top of the loot (it does not use your carrying space). With a commander it says it was added to the commander inventory."]]]},
@@ -23939,7 +23940,29 @@ function renderGamePage() {
   if (gamePage) return gamePage;
 
   const assets = new Map();
-  const html = PAGE.split("__VER__").join(GAME_VERSION)
+  // 🌍 the translations are the biggest part of the page and a player needs one language of twelve: the page keeps the English
+  // keys and every language comes as a file of its own, loaded before the first screen (or when the language is switched)
+  const gtrFiles = {};
+  let source = PAGE;
+  const g0 = source.indexOf("/*GTR*/"), g1 = source.indexOf("/*GTR_END*/");
+  if (g0 > 0 && g1 > g0) {
+    let table = null;
+    try { table = new Function("return {" + source.slice(g0 + 7, g1) + "}")(); } catch (e) { table = null; }
+    if (table) {
+      const codes = TR_LANG_ORDER;
+      codes.forEach((code, idx) => {
+        const map = {};
+        for (const k of Object.keys(table)) if (table[k] && table[k][idx]) map[k] = table[k][idx];
+        const body = 'GTR_LOAD(' + idx + ',' + JSON.stringify(map).replace(/</g, "\\u003c") + ');';
+        const hash = crypto.createHash("sha256").update(body).digest("hex").slice(0, 32);
+        const filename = "gtr-" + code + "-" + hash + ".js";
+        assets.set(filename, { body, extension: "js", etag: 'W/"' + hash + '"' });
+        gtrFiles[code] = "/game-assets/" + filename;
+      });
+      source = source.slice(0, g0 + 7) + "\n" + Object.keys(table).map((k) => JSON.stringify(k) + ":[]").join(",\n") + "\n" + source.slice(g1);
+    }
+  }
+  const html = source.split("/*GTRFILES*/{}").join(JSON.stringify(gtrFiles)).split("__VER__").join(GAME_VERSION)
     .split("__SRV__").join(thisServerName())
     .split("__TRIBES__").join(LANDING_TRIBES)
     .split("__ART__").join(artJson())

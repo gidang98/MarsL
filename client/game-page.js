@@ -6045,8 +6045,7 @@ function setLang(l) {
   trMiss = Object.create(null);
   approvedI18n = Object.create(null);
   TPL = null;
-  i18nBoot();
-  redrawLanguage();
+  gtrLoad(l, function () { if (curLang() !== l) return; TPL = null; i18nBoot(); redrawLanguage(); });
 }
 // swaps every known English text in a finished piece of HTML (longest first)
 function trHtml(h) {
@@ -8231,6 +8230,26 @@ var GTR = {
 "Could not load reports. Try again.": ["Berichte konnten nicht geladen werden. Versuch es erneut.", "Impossibile caricare i rapporti. Riprova.", "Impossible de charger les rapports. Réessaie.", "Raporlar yüklenemedi. Tekrar dene.", "No se pudieron cargar los informes. Inténtalo de nuevo.", "Не удалось загрузить отчёты. Попробуй ещё раз.", "Không tải được báo cáo. Hãy thử lại.", "Não foi possível carregar os relatórios. Tente de novo.", "Laporan gagal dimuat. Coba lagi.", "Nie udało się wczytać raportów. Spróbuj ponownie.", "Hlášení se nepodařilo načíst. Zkus to znovu.", "Hlásenia sa nepodarilo načítať. Skús to znova."],
 /*GTR_END*/
 };
+var GTR_FILES = /*GTRFILES*/{}; // language code -> the file with that language's translations
+var gtrDone = {};
+function GTR_LOAD(l, map) { for (var k in map) (GTR[k] = GTR[k] || [])[l] = map[k]; }
+// loads one language (once); the callback runs when it is there, or when it could not be had (the game stays English)
+function gtrLoad(code, done) {
+  var src = GTR_FILES[code];
+  if (!src || gtrDone[code] === 1) return done();
+  var fresh = !gtrDone[code];
+  if (fresh) gtrDone[code] = [];
+  gtrDone[code].push(done);
+  if (!fresh) return;
+  var tries = 0;
+  (function go() {
+    var s = document.createElement("script");
+    s.src = tries ? src + "?r=" + tries : src;
+    s.onload = function () { var q = gtrDone[code]; gtrDone[code] = 1; q.forEach(function (f) { f(); }); };
+    s.onerror = function () { if (++tries < 3) return setTimeout(go, tries * 1200); var q = gtrDone[code]; gtrDone[code] = 0; q.forEach(function (f) { f(); }); };
+    document.head.appendChild(s);
+  })();
+}
 var translationCatalog = Object.keys(GTR);
 var LANG_IDX = { de: 0, it: 1, fr: 2, tr: 3, es: 4, ru: 5, vi: 6, pt: 7, id: 8, pl: 9, cs: 10, sk: 11 };
 var trMiss = {}; // phrases the player met that have no translation yet
@@ -22079,7 +22098,7 @@ function startGame() {
     return loadColony(false, true);
   }).catch(function (err) { showStartupError(err, startGame); });
 }
-startGame();
+gtrLoad(curLang(), startGame);
 </script>
 </body>
 </html>`;
