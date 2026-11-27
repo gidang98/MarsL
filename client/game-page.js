@@ -4972,15 +4972,15 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   <div class="layout">
     <aside class="questbar" id="quests"></aside>
     <main id="app"><div class="boot"><span>Warming up the rockets...</span></div></main>
-    <div class="side-back" data-side-close="1"></div>
-    <aside class="sidebar" id="side"></aside>
+    <div class="side-back" data-side-close="1" aria-hidden="true"></div>
+    <aside class="sidebar" id="side" aria-label="Troop traffic"></aside>
   </div>
   <footer class="verfoot">MarsL · __SRV__ · <span>Open Beta</span> · <a href="/patch-notes" target="_blank" title="Patch notes">__VER__</a> · <a href="/server" target="_blank">Server info</a> · <a href="/legal" target="_blank">Legal</a></footer>
 </div>
 <button class="herobtn" id="herobtn" data-hero-open="1" title="Commander">🎖️<i></i></button>
 <button class="sidebtn" id="sidebtn" data-side-toggle="1" title="Troop Traffic">🧭<i id="sidecount"></i></button>
 <div id="sheet"></div>
-<div id="toast"><span class="toast-bar"></span></div>
+<div id="toast" role="status" aria-live="polite"><span class="toast-bar"></span></div>
 <div id="tut"></div>
 <script>function marslLoad(el){var src=(el&&el.getAttribute&&el.getAttribute("src")||marslLoad.src||"").split("?")[0];if(!src||window.__marslUp||marslLoad.t)return;marslLoad.src=src;var n=marslLoad.n=(marslLoad.n||0)+1;if(n>3){var a=document.getElementById("app");if(a)a.innerHTML='<div class="boot"><span>The game could not load. Check your connection.</span><br><button type="button" onclick="location.reload()">Try again</button></div>';return}marslLoad.t=setTimeout(function(){marslLoad.t=0;var s=document.createElement("script");s.src=src+"?r="+n;s.onerror=function(){marslLoad(s)};document.body.appendChild(s)},n*1500)}
 addEventListener("error",function(e){if(!window.__marslUp&&(e.filename||"").indexOf("game-assets")>0)marslLoad()});
@@ -9000,16 +9000,16 @@ function renderTop(d) {
   h += '<button class="btn small ghost" data-auction="1" title="Auction · ' + esc(String(d.cash || 0)) + ' Space-Cash">' + "🏛️" + '</button>';
   h += '<button class="btn small ghost" data-wiki="basics" title="Guide: how the game works">' + "📖" + '</button><button class="btn small ghost" data-account="1" title="Settings">' + "⚙️" + '</button><button class="btn small ghost desk-only" data-logout="1" title="Log out">' + "🚪" + '</button></div></div>';
   var tabs = [["resources", "🌾", "Fields", "fields"], ["buildings", "🏗️", "Colony", "colony"], ["troops", "⚔️", "Army", "army"], ["map", "🗺️", "Map", "map"], ["ranking", "🏆", "Players", "players"], ["reports", "📬", "Inbox", "inbox"]];
-  h += '<div class="nav">';
+  h += '<nav class="nav" aria-label="Main">';
   tabs.forEach(function (t) {
     var isOn = view === t[0] || (t[0] === "reports" && view === "messages");
-    h += '<button data-view="' + t[0] + '" class="' + (isOn ? "on" : "") + '"><span>' + (t[3] ? ico(t[3]) : t[1]) + "</span>" + t[2];
+    h += '<button type="button" data-view="' + t[0] + '" class="' + (isOn ? "on" : "") + '"' + (isOn ? ' aria-current="page"' : "") + '><span>' + (t[3] ? ico(t[3]) : t[1]) + "</span>" + t[2];
     var inboxN = d.unread + d.unreadMessages;
     if (t[0] === "reports" && inboxN > 0) h += '<i class="dot">' + inboxN + "</i>";
     if (t[0] === "ranking" && d.allianceInvites + (d.allyAsks || 0) > 0) h += '<i class="dot">' + (d.allianceInvites + (d.allyAsks || 0)) + "</i>";
     h += "</button>";
   });
-  return h + "</div>";
+  return h + "</nav>";
 }
 
 // Short times for small spaces: 40m, 3h 12m, 2d 5h
@@ -9031,9 +9031,96 @@ document.addEventListener("click", function(e) {
   resourceStripOpen = !resourceStripOpen;
   document.querySelectorAll(".resource-strip").forEach(function(el) { el.classList.toggle("expanded", resourceStripOpen); el.setAttribute("aria-expanded", String(resourceStripOpen)); });
 });
-document.addEventListener("keydown", function(e) {
-  if (e.target.matches(".resource-strip") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.target.click(); }
+// ---------- ♿ keyboard and screen readers ----------
+// anything that looks like a button but is not one (the drawn fields and lots, the resource strip) works with Enter and Space
+document.addEventListener("keydown", function (e) {
+  var t = e.target;
+  if ((e.key === "Enter" || e.key === " ") && t && t.getAttribute && t.getAttribute("role") === "button" && !/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/i.test(t.tagName)) {
+    e.preventDefault();
+    t.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  }
 });
+// a popup is a dialog: it has a name, the page behind it is switched off, focus moves in, stays in and goes back on close
+var sheetReturn = null, sheetFocused = false;
+function a11yBehind(on) {
+  Array.prototype.forEach.call(document.body.children, function (el) {
+    if (el.id === "sheet" || el.id === "toast" || el.id === "tut" || /^(SCRIPT|STYLE|LINK|SVG)$/i.test(el.tagName)) return;
+    if (on) el.setAttribute("inert", ""); else el.removeAttribute("inert");
+  });
+}
+function a11ySheet() {
+  var panel = document.querySelector("#sheet .sheet");
+  if (!panel) return;
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  var head = panel.querySelector("h1, h2, h3");
+  if (head) { head.id = "sheet-title"; panel.setAttribute("aria-labelledby", "sheet-title"); panel.removeAttribute("aria-label"); }
+  else if (!panel.hasAttribute("aria-label")) panel.setAttribute("aria-label", trStr("Window"));
+  if (!sheetFocused) {
+    sheetFocused = true;
+    var from = document.activeElement;
+    sheetReturn = from && from !== document.body && !panel.contains(from) ? from : sheetReturn;
+    a11yBehind(true);
+    if (!panel.contains(document.activeElement)) { panel.tabIndex = -1; try { panel.focus({ preventScroll: true }); } catch (e) {} }
+  }
+}
+function a11yClose() {
+  if (!sheetFocused) return;
+  sheetFocused = false;
+  a11yBehind(false);
+  var back = sheetReturn; sheetReturn = null;
+  if (back && document.contains(back)) { try { back.focus({ preventScroll: true }); } catch (e) {} }
+}
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Tab" || !sheet) return;
+  var panel = document.querySelector("#sheet .sheet");
+  if (!panel) return;
+  var all = panel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])');
+  var list = Array.prototype.filter.call(all, function (el) { return el.getClientRects().length > 0; });
+  if (!list.length) { e.preventDefault(); panel.focus(); return; }
+  var first = list[0], last = list[list.length - 1], a = document.activeElement;
+  if (e.shiftKey && (a === first || a === panel || !panel.contains(a))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && (a === last || !panel.contains(a))) { e.preventDefault(); first.focus(); }
+});
+// the sidebar slides in from the side on phones and tablets: while it is out of sight it can not be reached with Tab
+function a11ySide() {
+  var open = document.body.classList.contains("side-open"), side = document.getElementById("side");
+  var narrow = window.matchMedia && matchMedia("(max-width: 979px)").matches;
+  if (side) { if (narrow && !open) side.setAttribute("inert", ""); else side.removeAttribute("inert"); }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-side-toggle]"), function (el) {
+    if (el.getAttribute("aria-expanded") !== String(open)) el.setAttribute("aria-expanded", String(open));
+    if (el.getAttribute("aria-controls") !== "side") el.setAttribute("aria-controls", "side");
+  });
+}
+window.addEventListener("resize", a11ySide);
+// buttons that show only a picture get their tooltip as their name (and keep it when the screen is redrawn or translated)
+function a11yLabel(root) {
+  if (!root || root.nodeType !== 1) return;
+  var list = root.matches && root.matches("button[title], [role=button][title]") ? [root] : [];
+  Array.prototype.push.apply(list, root.querySelectorAll("button[title], [role=button][title]"));
+  list.forEach(function (b) {
+    if (b.hasAttribute("aria-label") && !b.hasAttribute("data-al")) return;
+    var t = b.getAttribute("title");
+    if (!t || /[0-9A-Za-z\u00C0-\u024F\u0400-\u04FF]/.test(b.textContent)) return;
+    if (b.getAttribute("aria-label") !== t) b.setAttribute("aria-label", t);
+    if (!b.hasAttribute("data-al")) b.setAttribute("data-al", "1");
+  });
+}
+var a11yQueue = [], a11yTimer = 0;
+new MutationObserver(function (list) {
+  list.forEach(function (m) {
+    if (m.type === "attributes") a11yQueue.push(m.target);
+    else Array.prototype.forEach.call(m.addedNodes, function (n) { a11yQueue.push(n); });
+  });
+  if (!a11yTimer) a11yTimer = requestAnimationFrame(function () {
+    a11yTimer = 0;
+    var q = a11yQueue; a11yQueue = [];
+    q.forEach(a11yLabel);
+    a11ySide();
+  });
+}).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["title", "aria-label", "data-al"] });
+a11ySide();
+a11yLabel(document.body);
 function renderResbar(d) {
   var detail = view === "resources";
   var storageFocus = null;
@@ -10174,8 +10261,20 @@ function renderSide(d) {
   btn.classList.toggle("danger", danger);
 }
 
+var sideReturn = null;
 function toggleSide(open) {
+  var was = document.body.classList.contains("side-open");
   document.body.classList.toggle("side-open", open);
+  a11ySide();
+  var side = document.getElementById("side");
+  if (open && !was && side) {
+    sideReturn = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    side.tabIndex = -1;
+    setTimeout(function () { var x = side.querySelector(".side-x") || side; try { x.focus({ preventScroll: true }); } catch (e) {} }, 30);
+  } else if (!open && was && sideReturn) {
+    var back = sideReturn; sideReturn = null;
+    if (document.contains(back)) { try { back.focus({ preventScroll: true }); } catch (e) {} }
+  }
 }
 
 function renderAlarm(d) {
@@ -12754,6 +12853,7 @@ function sheetWipe() {
 }
 function closeSheet() {
   sheet = null;
+  a11yClose();
   document.body.classList.remove("noscroll");
   var box = document.getElementById("sheet"), ov = box.querySelector(".overlay");
   if (sheetClosing) return;
@@ -16113,8 +16213,8 @@ function renderSheet() {
   var d = data;
   var h = '<div class="overlay" data-close="1"><div class="sheet' + (sheet.kind === "translate" ? " translate-sheet" : "") + (sheet.kind === "sim" || sheet.kind === "wiki" || sheet.kind === "farm" || sheet.kind === "overview" ? " wide" : "") + (sheet.kind === "away" ? " away-sheet" : "") + (sheetAnim ? " anim" : "") + '">';
   sheetAnim = false;
-  if (sheet.kind !== "away") h += '<button class="sheet-close" data-close="1" title="Close">' + "❌" + '</button>';
-  h += '<div class="sheet-drag" title="Swipe down to close"></div>';
+  if (sheet.kind !== "away") h += '<button type="button" class="sheet-close" data-close="1" title="Close" aria-label="Close">' + "❌" + '</button>';
+  h += '<div class="sheet-drag" title="Swipe down to close" aria-hidden="true"></div>';
 
   if (sheet.kind === "stash-transfer") {
     h += stashTransferSheet(d);
@@ -16341,6 +16441,7 @@ function renderSheet() {
     if (sr) setHTML(sr, simResult());
   }
   updateMarketInfo();
+  a11ySheet();
 }
 
 // =====================================================================
