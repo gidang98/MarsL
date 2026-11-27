@@ -29,12 +29,19 @@ jobs:
       - run: node --check server.js
       - run: node scripts/build-release.js
       - run: node --check dist/server.js
+      - name: Validate and extract managed building art
+        run: |
+          python3 -m venv "$RUNNER_TEMP/marsl-art-venv"
+          "$RUNNER_TEMP/marsl-art-venv/bin/python" -m pip install --quiet Pillow==11.3.0
+          "$RUNNER_TEMP/marsl-art-venv/bin/python" scripts/extract-building-art.py
+
       - run: npm install --prefix "$RUNNER_TEMP/marsl-browser" --no-save --package-lock=false playwright@1.56.1
       - run: |
           "$RUNNER_TEMP/marsl-browser/node_modules/.bin/playwright" install --with-deps chromium webkit
       - run: node scripts/smoke-release.js
         env:
           BROWSER_SMOKE: "1"
+          BUILDING_ART_SMOKE: "1"
           NODE_PATH: ${{ runner.temp }}/marsl-browser/node_modules
 
       - name: Rehearse verified rollback on temporary worlds

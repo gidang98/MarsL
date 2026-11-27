@@ -61,7 +61,15 @@ jobs:
           npm ci
           npm test
 
+      - name: Validate and extract managed building art
+        run: |
+          python3 -m venv "$RUNNER_TEMP/marsl-art-venv"
+          "$RUNNER_TEMP/marsl-art-venv/bin/python" -m pip install --quiet Pillow==11.3.0
+          "$RUNNER_TEMP/marsl-art-venv/bin/python" scripts/extract-building-art.py
+
       - name: Build and verify the release
+        env:
+          BUILDING_ART_SMOKE: "1"
         run: |
           node scripts/build-release.js
           node <<'NODE'
@@ -109,6 +117,26 @@ jobs:
             fi
           done
 
+      - name: Plan changed building artwork and preserve originals
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        run: |
+          set -euo pipefail
+          for entry in opentest:OpenTest classic:Classic speed:Speed; do
+            world="${entry%:*}"
+            label="${entry#*:}"
+            if [[ "$DEPLOY_TARGET" != all && "$DEPLOY_TARGET" != "$world" ]]; then continue; fi
+            node scripts/sync-building-art.js plan "$label"
+          done
+
+      - name: Archive original building artwork before replacing it
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: building-art-backup-${{ github.run_id }}
+          path: dist/building-art-backup/
+          retention-days: 90
+          if-no-files-found: error
+
       - name: Configure pinned SSH access
         env:
           AD_DEPLOY_SSH_KEY: ${{ secrets.AD_DEPLOY_SSH_KEY }}
@@ -150,11 +178,13 @@ jobs:
           deploy_one() {
             local label="$1" user="$2" site_id="$3"
             echo "Deploying server.js to ${label}"
-            printf '%s\n' \
-              'put dist/server.js .server.js.deploy-new' \
-              'rename .server.js.deploy-new server.js' \
-              'chmod 644 server.js' \
-              | sftp -q -b - \
+            {
+              cat "dist/building-art-plans/$label.sftp"
+              printf '%s\n' \
+                'put dist/server.js .server.js.deploy-new' \
+                'rename .server.js.deploy-new server.js' \
+                'chmod 644 server.js'
+            } | sftp -q -b - \
                   -i "$HOME/.ssh/id_ed25519" \
                   -o BatchMode=yes \
                   -o ConnectTimeout=20 \
@@ -288,6 +318,17 @@ jobs:
             if(failed) process.exitCode=1;
           })().catch(e=>{console.error(e.message);process.exitCode=1;});
           NODE
+
+      - name: Verify all live building sprites
+        if: ${{ env.DEPLOY_TARGET != 'verify' }}
+        run: |
+          set -euo pipefail
+          for entry in opentest:OpenTest classic:Classic speed:Speed; do
+            world="${entry%:*}"
+            label="${entry#*:}"
+            if [[ "$DEPLOY_TARGET" != all && "$DEPLOY_TARGET" != "$world" ]]; then continue; fi
+            node scripts/sync-building-art.js verify "$label"
+          done
 
       - name: Read provider WAF configuration without modifying it
         if: ${{ env.DEPLOY_TARGET != 'verify' }}
