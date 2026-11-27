@@ -9515,14 +9515,19 @@ function playerPoints(userId) {
 
 addColumn("alliances", "emblem", "INTEGER NOT NULL DEFAULT 0");
 function allianceRanking() {
-  return db
-    .prepare("SELECT id, name, tag, emblem FROM alliances")
-    .all()
-    .map((a) => {
-      const members = allianceMembers(a.id);
-      return { id: a.id, name: a.name, tag: a.tag, emblem: a.emblem || 0, members: members.length, points: members.reduce((n, m) => n + playerPoints(m.id), 0) };
-    })
-    .sort((a, b) => b.points - a.points);
+  const totals = new Map();
+  for (const row of db.prepare(`SELECT am.alliance_id, u.id AS user_id, c.state
+    FROM alliance_members am JOIN users u ON u.id = am.user_id
+    LEFT JOIN colonies c ON c.user_id = u.id`).all()) {
+    if (!totals.has(row.alliance_id)) totals.set(row.alliance_id, { members: new Set(), points: 0 });
+    const t = totals.get(row.alliance_id);
+    t.members.add(row.user_id);
+    if (row.state !== null) t.points += colonyPoints(JSON.parse(row.state));
+  }
+  return db.prepare("SELECT id, name, tag, emblem FROM alliances").all().map(a => {
+    const t = totals.get(a.id);
+    return { id: a.id, name: a.name, tag: a.tag, emblem: a.emblem || 0, members: t ? t.members.size : 0, points: t ? t.points : 0 };
+  }).sort((a, b) => b.points - a.points);
 }
 
 app.get("/api/alliance", requireLogin, (req, res) => {
@@ -9891,11 +9896,16 @@ function awardLeagues(now) {
   }
   setSetting("league_week", String(lastStart));
 }
+let leagueViewShared = null;
 function leagueView(myId, now) {
   const start = weekStart(now), C = leagueContest(start);
-  const table = leagueTable(), me = table.find((r) => r.id === myId);
+  // Only presentation is cached. The weekly award still reads fresh data.
+  if (!leagueViewShared || leagueViewShared.start !== start || now >= leagueViewShared.until) {
+    leagueViewShared = { start, until: now + 10000, table: leagueTable(), sc: leagueScores(C.key, start, now + 1) };
+  }
+  const { table, sc } = leagueViewShared;
+  const me = table.find((r) => r.id === myId);
   if (!me) return null;
-  const sc = leagueScores(C.key, start, now + 1);
   const mates = table.filter((r) => r.league === me.league).map((r) => ({ player: r.name, value: sc.get(r.id) || 0, me: r.id === myId })).sort((a, b) => b.value - a.value || a.player.localeCompare(b.player));
   const lo = mates.length ? Math.min.apply(null, table.filter((r) => r.league === me.league).map((r) => r.points)) : 0;
   return { league: me.league, icon: LEAGUES[me.league].icon, name: LEAGUES[me.league].name, contest: C, size: mates.length, rank: mates.findIndex((m) => m.me) + 1, top: mates.slice(0, 5), mine: sc.get(myId) || 0, ends: start + 7 * 86400000, from: lo, next: LEAGUE_CONTESTS[(LEAGUE_CONTESTS.indexOf(C) + 1) % LEAGUE_CONTESTS.length] };
@@ -10439,16 +10449,16 @@ app.get("/api/farm", requireLogin, (req, res) => {
 //  - monster camps: their treasure grows at a known speed
 //  - colonies: how fast they refilled between the last two raids
 // null = no idea yet (counts as ready)
-function farmReadyAt(x, y, last, now) {
+function farmReadyAt(x, y, last, now, occupied) {
   if (!last || !last.at) return null;
   const want = last.carry || 0;
   if (!want) return null;
-  const isCamp = terrainAt(x, y) === "n" && !db.prepare("SELECT 1 FROM colonies WHERE x = ? AND y = ?").get(x, y);
+  const isCamp = terrainAt(x, y) === "n" && !occupied;
   if (isCamp) {
     // Only what the raider knows: their own last raid + the camp's public regrowth.
     // The camp's current stash stays hidden (scout it with spies to know for sure).
-    const info = campInfo(x, y, now);
-    const perHour = RESOURCES.reduce((n, r) => n + info.income[r], 0);
+    const income = campIncome(x, y);
+    const perHour = RESOURCES.reduce((n, r) => n + income[r], 0);
     const cap = RESOURCES.reduce((n, r) => n + freshCamp(x, y).treasure[r], 0);
     const need = Math.min(want, cap);
     if (last.loot >= want * 0.98) return last.at; // bags were full: there was more
@@ -10462,27 +10472,39 @@ function farmReadyAt(x, y, last, now) {
 }
 
 // What the farm lists achieved: { "x|y": { raids, total, last, readyAt } }
+// Fetch known target colonies and owners in one indexed lookup, not once per target.
+function farmTargetRows(coords) {
+  if (!coords.length) return new Map();
+  const rows = db.prepare(`SELECT c.x, c.y, c.user_id, c.state, u.username
+    FROM json_each(?) j JOIN colonies c
+      ON c.x = json_extract(j.value, '$[0]') AND c.y = json_extract(j.value, '$[1]')
+    LEFT JOIN users u ON u.id = c.user_id`).all(JSON.stringify(coords));
+  return new Map(rows.map(r => [r.x + "|" + r.y, r]));
+}
 app.get("/api/farm/stats", requireLogin, (req, res) => {
-  const out = {};
-  for (const r of db.prepare("SELECT x, y, raids, total, last FROM farm_stats WHERE user_id = ?").all(req.user.id)) {
-    let last = {};
-    try { last = JSON.parse(r.last); } catch (e) {}
-    out[r.x + "|" + r.y] = { raids: r.raids, total: r.total, last, readyAt: farmReadyAt(r.x, r.y, last, Date.now()) };
-  }
-  // who lives at each target of the saved lists, and how many points the colony has
-  const info = {};
+  const out = {}, info = {}, now = Date.now();
+  const stats = db.prepare("SELECT x, y, raids, total, last FROM farm_stats WHERE user_id = ?").all(req.user.id);
+  let entries = [];
   try {
     const saved = JSON.parse((db.prepare("SELECT farm FROM users WHERE id = ?").get(req.user.id) || {}).farm || "{}");
-    for (const l of saved.lists || []) for (const e of l.entries || []) {
-      const key = e.x + "|" + e.y;
-      if (info[key]) continue;
-      const tc = db.prepare("SELECT user_id, state FROM colonies WHERE x = ? AND y = ?").get(e.x, e.y);
-      if (!tc) continue;
-      let pts = 0;
-      try { pts = colonyPoints(JSON.parse(tc.state)); } catch (err) {}
-      info[key] = { owner: BOT_IDS.has(tc.user_id) ? "inactive" : usernameOf(tc.user_id), points: pts };
-    }
+    entries = (saved.lists || []).flatMap(l => l.entries || []);
   } catch (err) {}
+  const coords = new Map();
+  for (const e of [...stats, ...entries]) coords.set(e.x + "|" + e.y, [e.x, e.y]);
+  const targets = farmTargetRows(Array.from(coords.values()));
+  for (const r of stats) {
+    let last = {};
+    try { last = JSON.parse(r.last); } catch (e) {}
+    const key = r.x + "|" + r.y;
+    out[key] = { raids: r.raids, total: r.total, last, readyAt: farmReadyAt(r.x, r.y, last, now, targets.has(key)) };
+  }
+  for (const e of entries) {
+    const key = e.x + "|" + e.y, tc = targets.get(key);
+    if (!tc || info[key]) continue;
+    let pts = 0;
+    try { pts = colonyPoints(JSON.parse(tc.state)); } catch (err) {}
+    info[key] = { owner: BOT_IDS.has(tc.user_id) ? "inactive" : (tc.username || "???"), points: pts };
+  }
   const q = db.prepare("SELECT farm_quiet FROM users WHERE id = ?").get(req.user.id) || {};
   const outgoing = {};
   for (const m of db.prepare("SELECT m.attacker_id, m.target_x, m.target_y, COUNT(*) AS n FROM movements m JOIN colonies c ON c.id = m.attacker_id WHERE c.user_id = ? AND m.phase = 'out' AND m.mission IN ('raid', 'attack') AND m.arrive_at > ? GROUP BY m.attacker_id, m.target_x, m.target_y").all(req.user.id, Date.now())) {

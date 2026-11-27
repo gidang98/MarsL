@@ -103,3 +103,35 @@ test('mail queue encrypts links, survives worker restart, retries transient fail
     assert.equal(deliveries,2);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM background_mail').get().n,0);
   } finally {db.close();}
 });
+
+test('farm target lookup batches indexed coordinates, preserves missing tiles and owner names', () => {
+  const db=new DatabaseSync(':memory:');
+  try {
+    db.exec("CREATE TABLE users(id INTEGER PRIMARY KEY, username TEXT); CREATE TABLE colonies(x INTEGER,y INTEGER,user_id INTEGER,state TEXT); CREATE UNIQUE INDEX colonies_position ON colonies(x,y); INSERT INTO users VALUES(1,'player'); INSERT INTO colonies VALUES(2,3,1,'{}'),(-4,5,1,'{}'),(7,8,2,'{}')");
+    const lookup=new Function('db',section('function farmTargetRows(coords) {','app.get("/api/farm/stats"')+';return farmTargetRows')(db);
+    const rows=lookup([[2,3],[-4,5],[0,0],[7,8]]);
+    assert.equal(rows.size,3);assert.equal(rows.get('2|3').username,'player');
+    assert.equal(rows.get('7|8').username,null);assert.equal(rows.has('0|0'),false);
+    assert.equal(lookup([]).size,0);
+  } finally {db.close();}
+});
+test('alliance ranking batches membership and colonies while preserving zero-colony members', () => {
+  const db=new DatabaseSync(':memory:');
+  try {
+    db.exec("CREATE TABLE alliances(id INTEGER,name TEXT,tag TEXT,emblem INTEGER); CREATE TABLE users(id INTEGER PRIMARY KEY); CREATE TABLE alliance_members(alliance_id INTEGER,user_id INTEGER); CREATE TABLE colonies(user_id INTEGER,state TEXT); INSERT INTO alliances VALUES(1,'A','a',0),(2,'B','b',0),(3,'Empty','e',0); INSERT INTO users VALUES(1),(2),(3); INSERT INTO alliance_members VALUES(1,1),(1,2),(2,3);");
+    const insert=db.prepare("INSERT INTO colonies VALUES(?,?)");
+    insert.run(1,'{"points":5}');insert.run(1,'{"points":7}');insert.run(3,'{"points":2}');
+    const rank=new Function('db','colonyPoints',section('function allianceRanking() {','app.get("/api/alliance"')+';return allianceRanking')(db,s=>s.points);
+    assert.deepEqual(rank().map(a=>[a.id,a.members,a.points]),[[1,2,12],[2,1,2],[3,0,0]]);
+  } finally {db.close();}
+});
+test('league view shares reads between players without sharing personal rank', () => {
+  let reads=0;
+  const view=new Function('weekStart','leagueContest','leagueTable','leagueScores','LEAGUES','LEAGUE_CONTESTS',section('let leagueViewShared = null;','// 🎖️ across rounds:')+';return leagueView')(
+    ()=>0,()=>({key:'atk'}),()=>{reads++;return [{id:1,name:'A',league:0,points:5},{id:2,name:'B',league:0,points:10}]},
+    ()=>{reads++;return new Map([[1,4],[2,9]])},[{icon:'x',name:'test'}],[{key:'atk'}]);
+  const a=view(1,1000), b=view(2,2000);
+  assert.equal(reads,2);assert.equal(a.rank,2);assert.equal(b.rank,1);
+  assert.equal(a.top[0].me,false);assert.equal(b.top[0].me,true);
+  view(1,12000);assert.equal(reads,4);
+});
