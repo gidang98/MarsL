@@ -4982,7 +4982,11 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
 <div id="sheet"></div>
 <div id="toast"><span class="toast-bar"></span></div>
 <div id="tut"></div>
+<script>function marslLoad(el){var src=(el&&el.getAttribute&&el.getAttribute("src")||marslLoad.src||"").split("?")[0];if(!src||window.__marslUp||marslLoad.t)return;marslLoad.src=src;var n=marslLoad.n=(marslLoad.n||0)+1;if(n>3){var a=document.getElementById("app");if(a)a.innerHTML='<div class="boot"><span>The game could not load. Check your connection.</span><br><button type="button" onclick="location.reload()">Try again</button></div>';return}marslLoad.t=setTimeout(function(){marslLoad.t=0;var s=document.createElement("script");s.src=src+"?r="+n;s.onerror=function(){marslLoad(s)};document.body.appendChild(s)},n*1500)}
+addEventListener("error",function(e){if(!window.__marslUp&&(e.filename||"").indexOf("game-assets")>0)marslLoad()});
+addEventListener("online",function(){if(!window.__marslUp&&marslLoad.n>3){marslLoad.n=0;marslLoad()}})</script>
 <script>
+window.__marslUp = 1;
 var RES = ["wood", "stone", "metal", "food"];
 var RES_ICON = { wood: "🪵", stone: "🪨", metal: "🔩", food: "🥔" };
 // 🏺 clay icons (sprite in the page); text keeps its emoji

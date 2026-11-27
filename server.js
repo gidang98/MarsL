@@ -547,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.571";
+const GAME_VERSION = "1.0.572";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -18005,6 +18005,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.572",date:"2026-11-27",title:"The game recovers from a failed download",groups:[["🔧 Fixed",["If the game script fails to download on a weak connection, the page now retries by itself up to three times instead of staying on the loading screen.","If it still fails, it says so and offers a Try again button. It also tries again when the connection comes back."]]]},
   {v:"1.0.571",date:"2026-11-27",title:"Every bounty goes to the commander",groups:[["📦 Bounty stash",["The bounty for monsters you beat at a camp now always goes into your commander inventory, even when the commander stays home. Before, it travelled home with the troops into the colony.","Collect it into any of your colonies, or use the 📦 cost chips when a build is short.","Troops still have to survive the fight to bring a bounty. Commander bounty bonuses (gear and Monster Hunter) still only count when the commander leads the attack."]]]},
   {v:"1.0.570",date:"2026-11-27",title:"Clearer monster bounty in reports",groups:[["📜 Reports",["The bounty for beaten monsters is now called Monster bounty in battle reports. Without a commander it says it comes on top of the loot (it does not use your carrying space). With a commander it says it was added to the commander inventory."]]]},
   {v:"1.0.569",date:"2026-11-27",title:"Translating made easy",groups:[["✏️ Help translate",["Help translate shows work again: every text players actually meet in the game can now be found and translated, also new texts, and the phrases seen most often come first. A progress bar shows how much of your language is done.","👆 Translate on screen: switch it on, tap any text in the game and fix it right there, where you can see what it means and how much room it has.","🔁 When the English text of a phrase changes, its translation is not lost: it is shown again for a check, next to what the English said before.","👁 While you type you see your text with real numbers in place of #, and a warning if it is much longer than the English and may not fit."]]]},
@@ -23950,7 +23951,7 @@ function renderGamePage() {
       const filename = hash + "." + extension;
       assets.set(filename, { body, extension, etag: 'W/"' + hash + '"' });
       const url = "/game-assets/" + filename;
-      return tag === "style" ? '<link rel="stylesheet" href="' + url + '">' : '<script src="' + url + '"></script>';
+      return tag === "style" ? '<link rel="stylesheet" href="' + url + '">' : '<script src="' + url + '" onerror="marslLoad(this)"></script>';
     });
 
   gamePage = { html, assets };
