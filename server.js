@@ -127,6 +127,7 @@ app.get("/fonts/:file", (req, res) => {
 // than a real player ever needs, but stops scripts that hammer the server.
 const REQUEST_LIMIT = 150;
 const requestCounts = new Map(); // ip -> { n, reset }
+const accountRequestCounts = new Map(); // logged-in account -> bounded action burst
 function limitRequest(req, res, next) {
   const now = Date.now();
   let c = requestCounts.get(req.ip);
@@ -146,9 +147,23 @@ function limitRequest(req, res, next) {
   }
   next();
 }
+function limitAccountActions(id, req, res) {
+  if (req.method !== "POST") return true;
+  const now = Date.now();
+  let c = accountRequestCounts.get(id);
+  if (!c || c.reset < now) {
+    if (!c && accountRequestCounts.size >= 50000) {
+      res.setHeader("Retry-After", "10"); res.status(503).json({ error: "Server busy. Try again shortly." }); return false;
+    }
+    c = { n: 0, reset: now + 10000 }; accountRequestCounts.set(id, c);
+  }
+  if (++c.n <= 120) return true;
+  res.setHeader("Retry-After", String(Math.max(1, Math.ceil((c.reset - now) / 1000))));
+  res.status(429).json({ error: "Too many actions. Try again shortly." }); return false;
+}
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, c] of requestCounts) if (c.reset < now) requestCounts.delete(ip);
+  for (const counts of [requestCounts, accountRequestCounts]) for (const [key, c] of counts) if (c.reset < now) counts.delete(key);
 }, 10000).unref();
 
 // ---------- only our own page may change things ----------
@@ -2548,6 +2563,7 @@ function requireLogin(req, res, next) {
   if (!row || Date.now() - row.created_at > SESSION_DAYS * 86400000 || Date.now() - (row.last_used || row.created_at) > SESSION_IDLE_DAYS * 86400000 || row.banned) {
     return res.status(401).json({ error: row && row.banned ? "This account is blocked" : "Please log in" });
   }
+  if (!limitAccountActions(row.id, req, res)) return;
   if (Date.now() - (row.last_used || 0) > 600000) db.prepare("UPDATE sessions SET last_used = ? WHERE token = ?").run(Date.now(), token);
   if (maintenanceOn() && !isOwner({ username: row.username })) return res.status(503).json({ error: "🛠️ MarsL is being repaired right now. " + settingOf("maintenance_note", "Back soon!") });
   if(!sitTarget(row)) retentionReturn(row.id,row.last_seen,Date.now());
@@ -8818,8 +8834,12 @@ app.get("/api/ranking", requireLogin, (req, res) => {
 });
 
 // The best players of this week (and the winners of last week)
+let weeklyShared = null;
 function weeklyRanking(myId, now) {
   const start = weekStart(now);
+  const mark = (p) => p ? { player: p.player, value: p.value, me: p.id === myId } : null;
+  const decorate = (entry) => ({ since: entry.since, ends: entry.ends, lists: Object.fromEntries(Object.entries(entry.lists).map(([k, rows]) => [k, rows.map(mark)])), last: Object.fromEntries(Object.entries(entry.last).map(([k, row]) => [k, mark(row)])) });
+  if (weeklyShared && weeklyShared.since === start && now < weeklyShared.until) return decorate(weeklyShared);
   const lastStart = weekStart(start - 1);
   const top = (key, from, to, limit) =>
     db
@@ -8830,7 +8850,7 @@ function weeklyRanking(myId, now) {
          GROUP BY users.id ORDER BY total DESC, users.username LIMIT ?`
       )
       .all(key, from, to, limit)
-      .map((r) => ({ player: r.username, value: r.total, me: r.id === myId }));
+      .map((r) => ({ id: r.id, player: r.username, value: r.total }));
   const lists = {};
   const lastWinners = {};
   for (const key of WEEKLY_KEYS) {
@@ -8838,7 +8858,8 @@ function weeklyRanking(myId, now) {
     const w = top(key, lastStart, start, 1)[0];
     lastWinners[key] = w || null;
   }
-  return { since: start, ends: start + 7 * 86400000, lists, last: lastWinners };
+  weeklyShared = { since: start, ends: start + 7 * 86400000, lists, last: lastWinners, until: now + 10000 };
+  return decorate(weeklyShared);
 }
 
 // =====================================================================

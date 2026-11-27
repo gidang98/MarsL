@@ -1,5 +1,9 @@
 # MarsL working handoff
 
+## 1.0.578 optimization candidate — ChatGPT-opt-20261127
+
+Branch `chatgpt/optimization-batch-20261127`, based on `7cdfcf2`. Candidate only; do not merge until candidate CI passes and main is refreshed. Main deploys automatically. Changes: bound per-IP and account request bursts before forwarding/expensive auth; reuse existing SQLite single handle, prepared statements and disk-aware WAL; add hot indexes, paginated mail/reports/ranking with global counters and ranking card, batch ranking/league/market lookups, cache public HTML and shared ranking/weekly projections, encrypted bounded persistent retry queue for noncritical mail. Add archive of successful deploys and an owner-dispatched rollback workflow with checksum and commit verification plus explicit schema compatibility/backup confirmation. No live rollback test yet; first verified archive must exist. Retention 90 days. Initial signup still awaits mail delivery, game-state ticks stay synchronous for correctness. Direct player uploads and outgoing SMS not found in inspected server source; existing art is uploaded directly by SFTP, no object storage credentials available. Edge DDoS controls, physical disk/hosting check, other list pagination and broader query/worker audit remain open. No live deployment claimed. Verify with PR CI, npm test and smoke on all presets; rebase and use next available game version if main advanced.
+
 ## 1.0.462 mobile controls candidate
 
 Based on main at a7c97b4. The active client in client/game-page.js fixes narrow map and protection layouts, sheet gestures and scroll restoration, touch controls and quantity inputs. Rankings and mail retain their previous data on failed requests. server.js carries the version and patch notes.
