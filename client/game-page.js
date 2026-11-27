@@ -3491,6 +3491,7 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .lp p { margin: 0; line-height: 1.5; }
   .lp-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 24px; align-items: center; padding: 8px 4px 12px; }
   .lp-copy { display: grid; gap: 16px; min-width: 0; }
+  .lp-lang .more { font-size: 13px; padding: 5px 12px; }
   .lp-kind { justify-self: start; font-size: 14px; font-weight: 800; padding: 5px 12px; border-radius: 999px; background: var(--ink); color: #fff1e0; }
   .lp-loop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; list-style: none; margin: 0; padding: 0; max-width: 520px; }
   .lp-loop li { position: relative; display: grid; justify-items: center; text-align: center; gap: 1px; padding: 8px 4px; background: rgba(255,241,224,.92); border: 2px solid var(--ink); border-left-width: 0; line-height: 1.15; }
@@ -5462,7 +5463,7 @@ var I18N = {
   "Plan your colony": "Plane deine Kolonie",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Fülle deine Bauplätze: Lager, Kaserne, Markt, Labor, Mauern. Später wählt jede Kolonie einen Schwerpunkt: Kornkammer, Industriestadt oder Garnison.",
   "Raise an army": "Stelle ein Heer auf",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Von Pickerlingen bis zu Tentakel-Titanen: Jede Einheit hat eine Eigenschaft, Luft und Boden kämpfen ihre eigene Schlacht, und dein Kommandant gibt die Befehle.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Von Pickerlingen bis zu Tentakel-Titanen: Jede Einheit hat eine Eigenschaft, Luft und Boden kämpfen ihre eigene Schlacht, und dein Kommandant gibt die Befehle.",
   "Explore Mars": "Erkunde den Mars",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Überfalle Monsterlager, sichere dir reiche Standorte vor deinen Nachbarn, handle mit anderen Spielern und gründe neue Kolonien.",
   "Two minutes are enough": "Zwei Minuten reichen",
@@ -5509,7 +5510,7 @@ var I18N = {
   "Plan your colony": "Pianifica la colonia",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Riempi i tuoi lotti: magazzini, caserma, mercato, laboratorio, mura. Più avanti ogni colonia sceglie un ruolo: Granaio, Città industriale o Guarnigione.",
   "Raise an army": "Forma un esercito",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Dai Beccucci ai Titani Tentacolati: ogni unità ha una caratteristica, aria e terra combattono ciascuna la propria battaglia e il tuo comandante dà gli ordini.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Dai Beccucci ai Titani Tentacolati: ogni unità ha una caratteristica, aria e terra combattono ciascuna la propria battaglia e il tuo comandante dà gli ordini.",
   "Explore Mars": "Esplora Marte",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Assalta i campi dei mostri, prendi i siti ricchi prima dei vicini, commercia con gli altri giocatori e fonda nuove colonie.",
   "Two minutes are enough": "Due minuti bastano",
@@ -5556,7 +5557,7 @@ var I18N = {
   "Plan your colony": "Organisez votre colonie",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Remplissez vos emplacements : entrepôts, caserne, marché, laboratoire, remparts. Plus tard, chaque colonie choisit un rôle : Grenier, Ville industrielle ou Garnison.",
   "Raise an army": "Levez une armée",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Des Picoteurs aux Titans Tentaculaires : chaque unité a son trait, l'air et le sol livrent chacun leur propre bataille, et votre commandant donne les ordres.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Des Picoteurs aux Titans Tentaculaires : chaque unité a son trait, l'air et le sol livrent chacun leur propre bataille, et votre commandant donne les ordres.",
   "Explore Mars": "Explorez Mars",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Attaquez les camps de monstres, saisissez les sites riches avant vos voisins, commerçez avec les autres joueurs et fondez de nouvelles colonies.",
   "Two minutes are enough": "Deux minutes suffisent",
@@ -5603,7 +5604,7 @@ var I18N = {
   "Plan your colony": "Kolonini planla",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Yapı alanlarını doldur: depo, kışla, pazar, laboratuvar, surlar. Sonra her koloni bir görev seçer: Ekmek Ambarı, Sanayi Kasabası veya Muhafız.",
   "Raise an army": "Ordu topla",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Gagalardan Ahtapot Titanlarına kadar: her birimin bir özelliği var, hava ve kara kendi savaşını yapar ve komutanın emirleri verir.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Gagalardan Ahtapot Titanlarına kadar: her birimin bir özelliği var, hava ve kara kendi savaşını yapar ve komutanın emirleri verir.",
   "Explore Mars": "Mars'ı keşfet",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Canavar kamplarına baskın yap, zengin bölgeleri komşularından önce ele geçir, diğer oyuncularla ticaret yap ve yeni koloniler kur.",
   "Two minutes are enough": "İki dakika yeter",
@@ -5650,7 +5651,7 @@ var I18N = {
   "Plan your colony": "Planifica tu colonia",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Llena tus solares: almacenes, cuartel, mercado, laboratorio, muros. Más adelante cada colonia elige un papel: Granero, Pueblo industrial o Guarnición.",
   "Raise an army": "Forma un ejército",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Desde Picotazos hasta Titanes Tentaculares: cada unidad tiene un rasgo, el aire y la tierra libran su propia batalla y tu comandante da las órdenes.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Desde Picotazos hasta Titanes Tentaculares: cada unidad tiene un rasgo, el aire y la tierra libran su propia batalla y tu comandante da las órdenes.",
   "Explore Mars": "Explora Marte",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Asalta campamentos de monstruos, toma los sitios ricos antes que tus vecinos, comercia con otros jugadores y funda nuevas colonias.",
   "Two minutes are enough": "Dos minutos bastan",
@@ -5697,7 +5698,7 @@ var I18N = {
   "Plan your colony": "Спланируй колонию",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Заполни участки застройки: склады, казармы, рынок, лабораторию, стены. Позже каждая колония выбирает роль: Хлебная, Промышленный город или Гарнизон.",
   "Raise an army": "Собери армию",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "От Цыплят до Титанов-Щупалец: у каждого отряда своя черта, воздух и земля воюют отдельно, а приказы отдаёт твой командир.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "От Цыплят до Титанов-Щупалец: у каждого отряда своя черта, воздух и земля воюют отдельно, а приказы отдаёт твой командир.",
   "Explore Mars": "Исследуй Марс",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Громи лагеря монстров, занимай богатые места раньше соседей, торгуй с другими игроками и основывай новые колонии.",
   "Two minutes are enough": "Двух минут достаточно",
@@ -5744,7 +5745,7 @@ var I18N = {
   "Plan your colony": "Lập kế hoạch thuộc địa",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Lấp đầy các ô xây dựng: kho, doanh trại, chợ, phòng thí nghiệm, tường thành. Sau đó mỗi thuộc địa chọn một vai trò: Vựa lúa, Thị trấn công nghiệp hoặc Đồn trú.",
   "Raise an army": "Lập quân đội",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Từ Gà con đến Titan Xúc tu: mỗi đơn vị có một đặc tính, không quân và bộ binh chiến đấu riêng, và chỉ huy của bạn ra lệnh.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Từ Gà con đến Titan Xúc tu: mỗi đơn vị có một đặc tính, không quân và bộ binh chiến đấu riêng, và chỉ huy của bạn ra lệnh.",
   "Explore Mars": "Khám phá sao Hỏa",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Đột kích trại quái vật, chiếm địa điểm giàu có trước hàng xóm, giao thương với người chơi khác và lập thuộc địa mới.",
   "Two minutes are enough": "Hai phút là đủ",
@@ -5791,7 +5792,7 @@ var I18N = {
   "Plan your colony": "Planeje sua colônia",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Preencha seus lotes: armazéns, quartel, mercado, laboratório, muralhas. Depois cada colônia escolhe uma função: Celeiro, Cidade Industrial ou Guarnição.",
   "Raise an army": "Monte um exército",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "De Pintinhos a Titãs Tentáculo: cada unidade tem uma característica, o ar e o solo travam batalhas separadas, e seu comandante dá as ordens.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "De Pintinhos a Titãs Tentáculo: cada unidade tem uma característica, o ar e o solo travam batalhas separadas, e seu comandante dá as ordens.",
   "Explore Mars": "Explore Marte",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Ataque acampamentos de monstros, pegue locais ricos antes dos vizinhos, negocie com outros jogadores e funde novas colônias.",
   "Two minutes are enough": "Dois minutos bastam",
@@ -5838,7 +5839,7 @@ var I18N = {
   "Plan your colony": "Rencanakan koloni",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Isi lahan bangunanmu: gudang, barak, pasar, laboratorium, tembok. Nanti setiap koloni memilih tugas: Lumbung, Kota Industri, atau Garnisun.",
   "Raise an army": "Kumpulkan pasukan",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Dari Anak Ayam hingga Titan Tentakel: setiap unit punya sifat, udara dan darat bertarung sendiri-sendiri, dan komandanmu memberi perintah.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Dari Anak Ayam hingga Titan Tentakel: setiap unit punya sifat, udara dan darat bertarung sendiri-sendiri, dan komandanmu memberi perintah.",
   "Explore Mars": "Jelajahi Mars",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Serang kamp monster, rebut lokasi kaya sebelum tetangga, berdagang dengan pemain lain, dan dirikan koloni baru.",
   "Two minutes are enough": "Dua menit cukup",
@@ -5885,7 +5886,7 @@ var I18N = {
   "Plan your colony": "Zaplanuj kolonię",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Zapełnij działki budynkami: magazyny, koszary, targ, laboratorium, mury. Później każda kolonia wybiera zajęcie: Spichlerz, Miasto przemysłowe lub Garnizon.",
   "Raise an army": "Zbuduj armię",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Od Kurczaków po Tytany Macek: każda jednostka ma cechę, powietrze i ziemia walczą osobno, a rozkazy wydaje twój dowódca.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Od Kurczaków po Tytany Macek: każda jednostka ma cechę, powietrze i ziemia walczą osobno, a rozkazy wydaje twój dowódca.",
   "Explore Mars": "Odkrywaj Marsa",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Napadaj obozy potworów, zdobywaj bogate miejsca przed sąsiadami, handluj z innymi graczami i zakładaj nowe kolonie.",
   "Two minutes are enough": "Dwie minuty wystarczą",
@@ -5932,7 +5933,7 @@ var I18N = {
   "Plan your colony": "Naplánuj kolonii",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Zaplň stavební parcely: sklady, kasárny, tržiště, laboratoř, hradby. Později si každá kolonie vybere roli: Obilnice, Průmyslové město nebo Posádka.",
   "Raise an army": "Postav armádu",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Od Kuřátek po Chapadlové titány: každá jednotka má vlastnost, vzduch a země bojují zvlášť a rozkazy dává tvůj velitel.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Od Kuřátek po Chapadlové titány: každá jednotka má vlastnost, vzduch a země bojují zvlášť a rozkazy dává tvůj velitel.",
   "Explore Mars": "Objevuj Mars",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Přepadávej tábory monster, zabírej bohatá místa dřív než sousedé, obchoduj s hráči a zakládej nové kolonie.",
   "Two minutes are enough": "Dvě minuty stačí",
@@ -5979,7 +5980,7 @@ var I18N = {
   "Plan your colony": "Naplánuj kolóniu",
   "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison.": "Zaplň stavebné parcely: sklady, kasárne, trh, laboratórium, hradby. Neskôr si každá kolónia vyberie úlohu: Obilnica, Priemyselné mesto alebo Posádka.",
   "Raise an army": "Postav armádu",
-  "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders.": "Od Kuriatok po Chapadlové titány: každá jednotka má vlastnosť, vzduch a zem bojujú osobitne a rozkazy dáva tvoj veliteľ.",
+  "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders.": "Od Kuriatok po Chapadlové titány: každá jednotka má vlastnosť, vzduch a zem bojujú osobitne a rozkazy dáva tvoj veliteľ.",
   "Explore Mars": "Objavuj Mars",
   "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies.": "Prepadaj tábory príšer, obsaď bohaté miesta skôr ako susedia, obchoduj s hráčmi a zakladaj nové kolónie.",
   "Two minutes are enough": "Dve minúty stačia",
@@ -8360,8 +8361,9 @@ try {
 setInterval(function () { if (!document.hidden) i18nBoot(); }, 5000);
 var LANG_MAIN = ["en", "de", "es", "fr", "pt"]; // the languages shown up front
 var langMoreOpen = false;
-function langPicker() {
+function langPicker(compact) {
   var cur = curLang(), all = Object.keys(LANG_NAMES);
+  if (compact && !langMoreOpen) return '<div class="lang-pick lp-lang" role="group" aria-label="Language"><button type="button" class="more" data-langmore="1" lang="' + cur + '">🌐 ' + LANG_NAMES[cur] + " · change language</button></div>";
   var more = all.filter(function (k) { return LANG_MAIN.indexOf(k) < 0; });
   var open = langMoreOpen || more.indexOf(cur) >= 0;
   var btn = function (k) {
@@ -8392,8 +8394,20 @@ function renderLanding() {
   var lpOn = 0, lpAll = 0;
   (config.servers || []).forEach(function (s) { lpOn += s.online || 0; lpAll += s.players || 0; });
   if (lpAll >= 50) h += '<p class="lp-live"><i></i>' + (lpOn >= 5 ? lpOn.toLocaleString("en-US") + " colonists online now · " : "") + lpAll.toLocaleString("en-US") + " colonists have landed</p>";
-  h += langPicker();
+  h += langPicker(true);
   h += '</div><div class="lp-art"><img class="lp-hero-img" src="/art/' + (FX_ART.t["bg-login"] ? "bg-login" : "hero") + '.webp?v=' + FX_ART.v + '" width="1531" height="1027" alt="Chickens, humans and aliens clash across the red sands of Mars">' + lpPhone("fields", "The Fields tab in the game", "lp-front") + "</div></section>";
+
+  var steps = [
+    ["fields", "Build up", "Twelve fields around your dome produce wood, stone, metal and food around the clock, even while you sleep. Plan the next upgrades and they start by themselves."],
+    ["colony", "Plan your colony", "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison."],
+    ["army", "Raise an army", "From tiny chick soldiers to giant tentacle monsters: every unit has a strength, air and ground troops fight their own battle, and your commander gives the orders."],
+    ["map", "Explore Mars", "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies."]
+  ];
+  h += '<section class="lp-steps"><h3>How you play</h3><div class="lp-grid">';
+  steps.forEach(function (s, i) {
+    h += '<article class="lp-step"><div class="lp-step-t"><i>' + (i + 1) + "</i><h4>" + s[1] + "</h4><p>" + s[2] + '</p></div><div class="lp-shot">' + lpPhone(s[0], s[1]) + "</div></article>";
+  });
+  h += "</div></section>";
 
   h += '<section class="lp-band lp-ten"><h3>Your first ten minutes</h3><ol class="lp-min">';
   h += "<li><b>0:00</b><span><i>Crash-land</i> Pick a name and a tribe. Your colony and its twelve fields are ready at once.</span></li>";
@@ -8413,20 +8427,8 @@ function renderLanding() {
   });
   h += "</div></section>";
 
-  var steps = [
-    ["fields", "Build up", "Twelve fields around your dome produce wood, stone, metal and food around the clock, even while you sleep. Plan the next upgrades and they start by themselves."],
-    ["colony", "Plan your colony", "Fill your building lots: storage, barracks, a market, a lab, walls. Later every colony picks a job: Breadbasket, Industrial Town or Garrison."],
-    ["army", "Raise an army", "From Pecklings to Tentacle Titans: every unit has a trait, air and ground fight their own battle, and your commander gives the orders."],
-    ["map", "Explore Mars", "Raid monster camps, grab rich sites before your neighbours, trade with other players and found new colonies."]
-  ];
-  h += '<section class="lp-steps"><h3>How you play</h3><div class="lp-grid">';
-  steps.forEach(function (s, i) {
-    h += '<article class="lp-step"><div class="lp-step-t"><i>' + (i + 1) + "</i><h4>" + s[1] + "</h4><p>" + s[2] + '</p></div><div class="lp-shot">' + lpPhone(s[0], s[1]) + "</div></article>";
-  });
-  h += "</div></section>";
-
-  h += '<section class="lp-band lp-two"><div class="lp-two-t"><h3>Two minutes are enough</h3><ul class="lp-list">';
-  h += "<li><b>Mission Board</b> One build, one army and one world mission at a time, each with a reward.</li>";
+  h += '<section class="lp-band lp-two"><div class="lp-two-t"><h3>More to discover</h3><ul class="lp-list">';
+  h += "<li><b>📋 Mission Board</b> One build, one army and one world mission at a time, each with a reward.</li>";
   h += "<li><b>🐶 Beppo guides you</b> A talking dog explains the game as you go, in short speech bubbles. Turn him off any time.</li>";
   h += "<li><b>🎖️ A commander with character</b> Battle orders, an archetype, a silly quirk and adventures with choices.</li>";
   h += "<li><b>🪤 Traps and prisoners</b> Build traps to catch raiders, then keep them fed or let them go.</li>";
@@ -8435,25 +8437,6 @@ function renderLanding() {
   h += "<li><b>🥔 Weekly leagues</b> Four leagues by size, so small colonies win too.</li>";
   h += "<li><b>📲 Alerts</b> Your phone rings when an attack is coming, even with the game closed.</li>";
   h += '</ul></div><div class="lp-shot">' + lpPhone("board", "The Mission Board") + "</div></section>";
-
-  h += '<details class="lp-band lp-win"><summary><h3>A round in six acts</h3></summary><ol class="lp-road">';
-  h += "<li><span>🛬</span><b>Landing</b><p>Crash-land under protection and grab the first rich sites.</p></li>";
-  h += "<li><span>🏗️</span><b>Expansion</b><p>Colonies pick their job. New colonies spread out.</p></li>";
-  h += "<li><span>🗿</span><b>Discovery</b><p>Ancient landmarks open, and the monster camps grow up.</p></li>";
-  h += "<li><span>⚡</span><b>Storm Season</b><p>Ion storms roll in and the monster camps grow again.</p></li>";
-  h += "<li><span>🏆</span><b>Relic Hunt</b><p>Hold several landmarks at once to win a relic for your team.</p></li>";
-  h += "<li><span>🌌</span><b>Aurora</b><p>Alliances charge four pylons and race to light the sky. The first one wins the round.</p></li>";
-  h += "</ol></details>";
-
-  h += '<details class="lp-band lp-win lp-faq"><summary><h3>Quick answers</h3></summary><dl>';
-  h += "<dt>What kind of game is MarsL?</dt><dd>A multiplayer strategy game that runs in your browser. Everyone plays on the same big map at the same time. You grow your colony, build an army, trade, attack and defend, and team up with other players in an alliance. A round ends when one alliance lights the Aurora, then a fresh Mars starts and everyone begins again.</dd>";
-  h += "<dt>Is it really free?</dt><dd>Yes. MarsL is free to play and runs in your browser, with nothing to download.</dd>";
-  h += "<dt>Do I have to stay online?</dt><dd>No. Your fields produce around the clock and queued builds finish on their own. If an attack is coming, your phone rings, even with the game closed.</dd>";
-  h += "<dt>What if someone attacks me early?</dt><dd>New colonies are under beginner protection, so you can learn the game in peace.</dd>";
-  h += "<dt>Which tribe should I pick?</dt><dd>Take the one marked Best first pick. Every tribe shows how hard it is to play and how much time it needs.</dd>";
-  h += "<dt>How does a round end?</dt><dd>Alliances charge four pylons and race to light the Aurora. The first alliance to light it wins the round.</dd>";
-  h += "<dt>Can I play on my phone?</dt><dd>Yes. MarsL is built for phones first. Add it to your Home Screen to play fullscreen.</dd>";
-  h += "</dl></details>";
 
   var srv = (config.servers || []).filter(function (s) { return s.speed; });
   var minSpeed = Math.min.apply(null, srv.map(function (x) { return x.speed; }));
@@ -8465,6 +8448,24 @@ function renderLanding() {
     });
     h += "</div></section>";
   }
+
+  h += '<details class="lp-band lp-win"><summary><h3>A round in six acts</h3></summary><ol class="lp-road">';
+  h += "<li><span>🛬</span><b>Landing</b><p>Crash-land under protection and grab the first rich sites.</p></li>";
+  h += "<li><span>🏗️</span><b>Expansion</b><p>Colonies pick their job. New colonies spread out.</p></li>";
+  h += "<li><span>🗿</span><b>Discovery</b><p>Ancient landmarks open, and the monster camps grow up.</p></li>";
+  h += "<li><span>⚡</span><b>Storm Season</b><p>Ion storms roll in and the monster camps grow again.</p></li>";
+  h += "<li><span>🏆</span><b>Relic Hunt</b><p>Hold several landmarks at once to win a relic for your team.</p></li>";
+  h += "<li><span>🌌</span><b>Aurora</b><p>Alliances charge four pylons and race to light the sky. The first one wins the round.</p></li>";
+  h += "</ol></details>";
+
+  h += '<details class="lp-band lp-win lp-faq"><summary><h3>Quick answers</h3></summary><dl>';
+  h += "<dt>What kind of game is MarsL?</dt><dd>A multiplayer strategy game that runs in your browser. Everyone plays on the same big map at the same time. You grow your colony, build an army, trade, attack and defend, and team up with other players in an alliance. A round ends when one alliance charges four pylons and lights the Aurora, then a fresh Mars starts and everyone begins again.</dd>";
+  h += "<dt>Is it really free?</dt><dd>Yes. MarsL is free to play and runs in your browser, with nothing to download.</dd>";
+  h += "<dt>Do I have to stay online?</dt><dd>No. Your fields produce around the clock and queued builds finish on their own. If an attack is coming, your phone rings, even with the game closed.</dd>";
+  h += "<dt>What if someone attacks me early?</dt><dd>New colonies are under beginner protection, so you can learn the game in peace.</dd>";
+  h += "<dt>Which tribe should I pick?</dt><dd>Take the one marked Best first pick. Every tribe shows how hard it is to play and how much time it needs.</dd>";
+  h += "<dt>Can I play on my phone?</dt><dd>Yes. MarsL is built for phones first. Add it to your Home Screen to play fullscreen.</dd>";
+  h += "</dl></details>";
 
   h += '<section class="lp-final"><h3>Your landing pod is ready</h3><p>Pick a tribe, crash-land and build your first field in under a minute.</p><button class="btn" data-landing="register">' + "🚀" + ' Play for free</button></section>';
   h += '<div class="lp-sticky" id="lpsticky"><button class="btn" data-landing="register">🚀 Play for free</button></div>';
