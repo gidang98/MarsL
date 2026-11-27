@@ -4,13 +4,15 @@
 
 - Source of truth: [main](https://github.com/gidang98/MarsL/tree/main). Check HEAD and GAME_VERSION in server.js before editing. Never reuse a release number for a different commit.
 - Active task ledger: [#108](https://github.com/gidang98/MarsL/issues/108). Shared AI claims/handoffs: [#1](https://github.com/gidang98/MarsL/issues/1). Read latest comments before starting, before integrating and before deploying. Record blockers and verification evidence there; do not make a main-only documentation commit that triggers a same-version deployment.
-- Latest recorded successful production deployment: 1.0.578, commit 90ef1d9, [run 46073128208](https://github.com/gidang98/MarsL/actions/runs/46073128208), all three worlds; 236 tests passed; verified release artifact 15233831617 retained for 90 days. Check the ledger for newer verification.
-- Candidate 1.0.579: [PR #107](https://github.com/gidang98/MarsL/pull/107), boot recovery branch based on 90ef1d9. Candidate is not a verified live release until CI and deployment evidence exists. No database changes in the startup patch.
+- Latest recorded successful production deployment: 1.0.579, commit 966f578e, [run 46081305952](https://github.com/gidang98/MarsL/actions/runs/46081305952), all three worlds; 237 tests passed; verified release artifact 15237347120. Check the ledger for newer verification.
+- Candidate 1.0.580: building illustration UI and managed art. The candidate must pass PR CI and deployment checks before it is considered live. No database changes.
 - Use Node 22, npm ci, npm test, node --check server.js, node scripts/build-release.js, node --check dist/server.js, node scripts/smoke-release.js. PR verification additionally runs mobile Chromium and WebKit with BROWSER_SMOKE=1. Use isolated temporary data, never production databases for tests.
 - Source: server.js (game/backend/version/patch notes), client/game-page.js (active browser template), scripts/build-release.js (standalone dist/server.js). Search symbols with bounded reads. Never deploy a scratch copy.
 - Main pushes automatically deploy to all three servers. Manual verify is read-only. Merge only reviewed, tested, fresh candidates; do not merge outdated release branches wholesale.
 
 ## Current release scope
+
+1.0.580 building art: versioned atlases and manifest in `assets/buildings/`, 72 registry-matched sprites extracted by `scripts/extract-building-art.py`. The colony list, build cards and detail panel use tribe/type artwork with responsive dimensions and separate level badges. Deploy preflight compares public WebP checksums, archives original changed sprites, uploads changed files only, restarts normally and verifies all 72 live bytes per server. The code-only rollback workflow does not restore original artwork; use the separate pre-deployment building-art backup for that if required. Never overwrite unrelated art or player data.
 
 1.0.579 startup recovery: independent boot/media/action request budgets, no-store shell, immutable current asset hashes, retired-script one-shot navigation recovery, startup watchdog/manual retry and Retry-After handling. HTTP and browser regression checks added. Root HTTP cause on the reported device is not yet independently reproduced. Verify candidate and deployed release.
 

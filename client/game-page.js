@@ -4944,6 +4944,34 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
     .nav-glide { display: none; }
     #app.quake, #beppo-say, #scene, .sc-img.hop { animation: none !important; }
     .tut-p.fin::after, .bs-t.fin::after { animation: none; } }
+
+  /* Building illustrations: one fixed artwork column, never overlay the level tag. */
+  .building-art { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:56px; height:48px; vertical-align:middle; }
+  .building-art-img { display:block; width:100%; height:100%; max-width:none; object-fit:contain; object-position:center; }
+  .building-art-img[hidden], .building-art-fallback[hidden] { display:none !important; }
+  .building-art-fallback { font-size:25px; line-height:1; }
+  .bli { align-items:center; min-height:76px; gap:8px; padding:6px 8px; }
+  .bli-visual { display:flex; flex:0 0 auto; flex-direction:column; align-items:center; gap:1px; }
+  .bli .building-art { width:52px; height:42px; }
+  .bli .bli-lv { position:static; min-width:24px; font-size:11px; line-height:15px; padding:0 4px; box-shadow:none; white-space:nowrap; }
+  .bli-t { align-self:center; min-width:0; }
+  .bli-t b { white-space:normal; overflow-wrap:anywhere; line-height:1.15; }
+  .building-option-head .building-art { width:64px; height:52px; }
+  .building-lockrow .building-art { width:48px; height:42px; }
+  .building-sheet-head .building-art { width:78px; height:64px; }
+  @media (max-width:559px) {
+    .bli { min-height:68px; gap:6px; padding:5px 6px; align-items:center; }
+    .bli .building-art { width:44px; height:36px; }
+    .bli .bli-lv { min-width:22px; line-height:14px; }
+    .bli-t b { font-size:12px; }
+    .building-option-head .building-art { width:54px; height:46px; }
+    .building-sheet-head .building-art { width:66px; height:56px; }
+  }
+  @media (max-width:359px) {
+    .blist { grid-template-columns: minmax(0,1fr); }
+    .bli .building-art { width:44px; height:36px; }
+  }
+
 </style>
 </head>
 <body>
@@ -9695,6 +9723,15 @@ function lotPosition(slot) {
 // little things in the corners outside the round plan
 var DECOR = [["🛰️", 7, 8], ["🚀", 93, 9], ["🌵", 6, 92], ["📡", 94, 91]];
 
+// The same tribe/type key used by colonyScene, never a generic food or tool icon.
+function buildingSprite(d, b) {
+  var tribe = d && d.tribe && d.tribe.key, type = b && b.type;
+  var key = tribe + "-" + type;
+  var registered = (tribe === "human" || tribe === "chicken" || tribe === "alien") && /^[a-z]+$/.test(type || "") && FX_ART && FX_ART.t[key];
+  var fallback = '<span class="building-art-fallback"' + (registered ? ' hidden' : '') + '>🏗️</span>';
+  return '<span class="building-art" aria-hidden="true">' + (registered ? '<img class="building-art-img" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" width="56" height="48" draggable="false" loading="lazy" decoding="async" onerror="this.hidden=true;this.nextElementSibling.hidden=false">' : '') + fallback + '</span>';
+}
+
 function renderBuildings(d) {
   var bySlot = {};
   d.buildings.forEach(function (b) { bySlot[b.slot] = b; });
@@ -9721,8 +9758,8 @@ function renderBuildings(d) {
     list.forEach(function (b) {
       if (used[b.slot]) return;
       used[b.slot] = true;
-      h += '<button class="bli" data-lot="' + b.slot + '" title="' + b.name + '"><span class="bli-i">' + (b.icon==null?"":String(b.icon)) + '</span><span class="bli-t"><b>' + b.name + "</b><small>" + (b.level === 0 ? "🔨" + " being built" : String(b.effectNow).split(" · ")[0]) + "</small></span>";
-      h += '<span class="bli-lv' + (b.level >= b.maxLevel ? " max" : b.pending > 0 ? " bld" : b.canBuild ? " up" : "") + '">' + b.level + (b.pending > 0 ? "<i>+" + b.pending + "</i>" : "") + "</span></button>";
+      h += '<button class="bli" data-lot="' + b.slot + '" title="' + esc(b.name) + '"><span class="bli-visual">' + buildingSprite(d, b);
+      h += '<span class="bli-lv' + (b.level >= b.maxLevel ? " max" : b.pending > 0 ? " bld" : b.canBuild ? " up" : "") + '">' + b.level + (b.pending > 0 ? "<i>+" + b.pending + "</i>" : "") + '</span></span><span class="bli-t"><b>' + b.name + "</b><small>" + (b.level === 0 ? "🔨" + " being built" : String(b.effectNow).split(" · ")[0]) + "</small></span></button>";
     });
     h += "</div>";
   });
@@ -9751,7 +9788,7 @@ function buildList(d, action, id) {
   if (locked.length) {
     h += '<details class="lockedlist"><summary>' + '🔒' + ' ' + trStr("Unlocks later") + ' <span class="count">' + locked.length + "</span></summary>";
     locked.forEach(function (o) {
-      h += '<div class="lockrow"><span class="oi">' + o.icon + "</span><div><b>" + o.name + "</b><small>" + o.info + "</small>" + perkChips(o.perks, true);
+      h += '<div class="lockrow building-lockrow">' + buildingSprite(d, o) + "<div><b>" + o.name + "</b><small>" + o.info + "</small>" + perkChips(o.perks, true);
       if (!o.locked && o.reason) h += '<small class="lockwhy">' + '🔒' + ' ' + o.reason + "</small>";
       h += '<div class="needs">' + o.needs.map(function (n) {
         return '<span class="need' + (n.ok ? " ok" : "") + '">' + (n.ok ? "✅" : "🔒") + " " + n.icon + " " + n.name + (n.level ? " " + n.level : "") + "</span>";
@@ -9769,7 +9806,7 @@ function sortedBuildable(d) {
 
 function newCard(o, d, action) {
   var h = '<div class="newcard' + (o.locked ? " locked" : "") + '">';
-  h += '<div class="option-head"><span class="oi">' + o.icon + "</span><div><b>" + o.name + (o.another ? " (one more)" : "") + "</b><small>" + o.info + "</small>" + perkChips(o.perks, true) + "</div></div>";
+  h += '<div class="option-head building-option-head">' + buildingSprite(d, o) + "<div><b>" + o.name + (o.another ? " (one more)" : "") + "</b><small>" + o.info + "</small>" + perkChips(o.perks, true) + "</div></div>";
   // what is needed first: "✅" done, 🔒 still missing
   if (o.needs && o.needs.length) {
     h += '<div class="needs">';
@@ -16448,7 +16485,7 @@ function renderSheet() {
       if (!d.buildable.length) h += '<p class="empty">Nothing left to build right now.</p>';
       h += '<div class="lotlist">' + buildList(d, function (o) { return 'data-build-at="' + sheet.slot + ":" + o.type + '"'; }).replace('<h2 class="section">Build something new</h2>', "") + "</div>";
     } else {
-      h += '<div class="sheet-head"><span class="hi">' + b.icon + "</span><div><h3>" + b.name + "</h3><b>Level " + b.level + "</b>";
+      h += '<div class="sheet-head building-sheet-head">' + buildingSprite(d, b) + "<div><h3>" + b.name + "</h3><b>Level " + b.level + "</b>";
       if (b.pending > 0) h += " · 🔨 +" + b.pending + " queued";
       h += "</div></div>";
       h += '<p class="info">' + b.info + ' <button class="wk-link" data-wiki-open="b:' + b.type + '">' + '📖' + ' All levels</button></p>' + perkChips(b.perks);

@@ -578,7 +578,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.579";
+const GAME_VERSION = "1.0.580";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -18228,6 +18228,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.580",date:"2026-11-28",title:"Building illustrations everywhere",groups:[["Look",["Colony building lists, construction choices and upgrade panels show the same tribe-specific building illustrations as the colony slots.","Refreshed the complete building artwork set for all three tribes. Cards use consistent artwork sizes and keep level badges separate from illustrations."]]]},
   {v:"1.0.579",date:"2026-11-27",title:"Reliable game startup",groups:[["Fixes",["Game startup automatically recovers from outdated release files, including on mobile.","Artwork and script requests no longer consume the same flood-protection budget as gameplay actions."]]]},
   {v:"1.0.578",date:"2026-11-27",title:"Server efficiency",groups:[["Performance",["Mail, battle reports and rankings load in smaller pages, ranking and market lookups are batched and shared data is reused briefly.","Improved request flood protection, added indexes for common database lookups and queued retryable mail delivery."]]]},
   {v:"1.0.576",date:"2026-11-27",title:"Release recovery",groups:[["Deployment",["Restored all changes through 1.0.575, registered the Spore Flak portrait and added safeguards against stale deployments."]]]},

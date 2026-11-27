@@ -40,6 +40,37 @@ async function browserSmoke(base) {
       await page.waitForFunction(()=>window.__marslUp===1 && !!document.querySelector('#app .lp, #app .panel.auth:not(.boot .auth)'),{},{timeout:45000});
       assert.equal(errors.length,0,device+': '+errors.join('; '));
       assert.ok(!new URL(page.url()).searchParams.has('_marsl_reload'));
+      if (process.env.BUILDING_ART_SMOKE === '1') {
+        // Use the real building-list renderer and stylesheet with isolated fixture data.
+        const fixtures = require('../assets/buildings/manifest.json').sprites;
+        for (const width of [320,390,844,1280]) {
+          await page.setViewportSize({width,height:844});
+          for (const tribe of ['human','chicken','alien']) {
+            const rows = fixtures.filter(r=>r.tribe===tribe);
+            await page.evaluate(({tribe,rows})=>{
+              const old = [window.buildAdvice,window.colonyScene,window.specPanel,window.renderQueue];
+              try {
+                window.buildAdvice=window.colonyScene=window.specPanel=window.renderQueue=()=> '';
+                const buildings=rows.map((r,slot)=>({type:r.building_id,name:r.name,slot,level:9,maxLevel:20,pending:1,canBuild:true,effectNow:'Stores 19677 resources',icon:'🍯'}));
+                let fixture=document.getElementById('building-art-fixture');
+                if(!fixture){fixture=document.createElement('div');fixture.id='building-art-fixture';document.getElementById('app').replaceChildren(fixture);}
+                fixture.innerHTML=window.renderBuildings({tribe:{key:tribe},buildings,buildable:[],lotsUsed:24,lotsTotal:24});
+                fixture.querySelectorAll('.building-art-img').forEach(im=>im.loading='eager');
+              } finally {
+                [window.buildAdvice,window.colonyScene,window.specPanel,window.renderQueue]=old;
+              }
+            },{tribe,rows});
+            await page.waitForFunction(()=>[...document.querySelectorAll('#building-art-fixture .building-art-img')].length===24 && [...document.querySelectorAll('#building-art-fixture .building-art-img')].every(im=>im.complete&&im.naturalWidth>0),{},{timeout:20000});
+            const sizes=await page.evaluate(()=>[...document.querySelectorAll('#building-art-fixture .bli')].map(card=>{
+              const a=card.querySelector('.building-art').getBoundingClientRect(), l=card.querySelector('.bli-lv').getBoundingClientRect(), t=card.querySelector('.bli-t').getBoundingClientRect();
+              return {w:a.width,h:a.height,levelBelow:l.top>=a.bottom-1,textClear:t.left>=a.right-1,fits:card.scrollWidth<=card.clientWidth+2};
+            }));
+            assert.equal(sizes.length,24);
+            for(const s of sizes)assert.ok(s.w>=40&&s.w<=56&&s.h>=34&&s.levelBelow&&s.textClear&&s.fits,device+' '+width+' '+tribe+' '+JSON.stringify(s));
+          }
+        }
+        console.log(device+' building artwork layout: all 72 sprites loaded at 320, 390, 844 and 1280px');
+      }
       await context.close();
       console.log(device+' browser stale-shell recovery passed');
     } finally {await browser.close();}
@@ -88,6 +119,21 @@ async function smoke(serverId) {
       if (extension === 'js') { new Script(body); assert.ok(body.lastIndexOf('window.__marslUp = 1;') > body.lastIndexOf('gtrLoad(curLang(), startGame);')); }
       const cached = await fetch(base + url, { headers: { 'If-None-Match': asset.headers.get('etag'), 'Cache-Control': 'max-age=0' } });
       assert.equal(cached.status, 304);
+    }
+
+    if (process.env.BUILDING_ART_SMOKE === '1') {
+      const expected = require('../dist/building-art-sha256.json');
+      assert.equal(Object.keys(expected).length,72);
+      const entries=Object.entries(expected);
+      for(let i=0;i<entries.length;i+=8){
+        await Promise.all(entries.slice(i,i+8).map(async ([name,sha])=>{
+          const response=await fetch(base+'/art/'+name);
+          assert.ok(response.ok,name);
+          assert.match(response.headers.get('content-type'),/image\/webp/);
+          assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'),sha,name);
+        }));
+      }
+      console.log(serverId+' all 72 building sprite HTTP checksums passed');
     }
 
     async function post(route, body, cookie) {
