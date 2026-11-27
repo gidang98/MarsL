@@ -547,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.566";
+const GAME_VERSION = "1.0.567";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -17932,6 +17932,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.567",date:"2026-11-27",title:"The start page says what MarsL is",groups:[["🏠 Start page",["The top of the start page now says plainly that MarsL is a multiplayer strategy game in your browser, explains in one sentence what you do, and shows the game in four steps: build, train, raid, ally. Quick answers start with \"What kind of game is MarsL?\", and search results and shared links describe the game the same way."]]]},
   {v:"1.0.566",date:"2026-11-27",title:"A start page that explains the game",groups:[["🏠 Start page",["New \"Your first ten minutes\" strip, a \"Quick answers\" section and a live player count tell new players what to expect before they sign up. The weather forecast line now says what the weather does.","🌤️ Weather: the last places that still said \"Sol\", including every translation, now say weather."]]]},
   {v:"1.0.565",date:"2026-11-27",title:"The clash of Mars on the start page",groups:[["🏠 Start page",["The picture on the start page is now the big clash between chickens, humans and aliens, in place of the clay colony."]]]},
   {v:"1.0.564",date:"2026-11-26",title:"Switching servers on the single address",groups:[["🌍 Servers",["Fixed: with the single address turned on, opening the Speed or Classic server showed an old-link error instead of the game."]]]},

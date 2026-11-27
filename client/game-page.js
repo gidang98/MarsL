@@ -14,12 +14,12 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="/icon-192.png">
-<title>MarsL</title>
-<meta name="description" content="Build a colony on Mars, train troops, clear monster camps and raid your neighbours. Free in your browser.">
+<title>MarsL: free multiplayer strategy game in your browser</title>
+<meta name="description" content="MarsL is a free multiplayer strategy game in your browser. Build a colony on Mars, train an army, join an alliance and fight other players for the planet. No download.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MarsL">
-<meta property="og:title" content="MarsL: build your colony on Mars">
-<meta property="og:description" content="Build a colony, train troops, clear monster camps and raid your neighbours. Free in your browser.">
+<meta property="og:title" content="MarsL: free multiplayer strategy game in your browser">
+<meta property="og:description" content="Build a colony on Mars, train an army, join an alliance and fight other players for the planet. Free in your browser.">
 <meta property="og:image" content="__ORIGIN__/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -3491,6 +3491,15 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .lp p { margin: 0; line-height: 1.5; }
   .lp-hero { display: grid; grid-template-columns: 1.05fr 1fr; gap: 24px; align-items: center; padding: 8px 4px 12px; }
   .lp-copy { display: grid; gap: 16px; min-width: 0; }
+  .lp-kind { justify-self: start; font-size: 14px; font-weight: 800; padding: 5px 12px; border-radius: 999px; background: var(--ink); color: #fff1e0; }
+  .lp-loop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; list-style: none; margin: 0; padding: 0; max-width: 520px; }
+  .lp-loop li { position: relative; display: grid; justify-items: center; text-align: center; gap: 1px; padding: 8px 4px; background: rgba(255,241,224,.92); border: 2px solid var(--ink); border-left-width: 0; line-height: 1.15; }
+  .lp-loop li:first-child { border-left-width: 2px; border-radius: 14px 0 0 14px; }
+  .lp-loop li:last-child { border-radius: 0 14px 14px 0; }
+  .lp-loop li + li::before { content: "›"; position: absolute; left: -7px; top: 50%; transform: translateY(-55%); font-weight: 900; font-size: 18px; color: var(--accent); }
+  .lp-loop span { font-size: 24px; line-height: 1.1; }
+  .lp-loop b { font-size: 15px; color: var(--ink); }
+  .lp-loop small { font-size: 11px; color: #6a5560; }
   .lp-copy h2 { font-size: clamp(34px, 5.4vw, 56px); line-height: 1.02; color: #fff; -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 5px 0 var(--ink); letter-spacing: .5px; }
   .lp-copy > p { font-size: 18px; font-weight: 500; max-width: 34ch; background: rgba(255,241,224,.92); padding: 12px 14px; border-radius: var(--radius-md); border: 2px solid var(--ink); }
   .lp-cta { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -8374,11 +8383,12 @@ function renderLanding() {
   document.body.classList.add("landing");
   var h = '<div class="lp">';
   h += '<section class="lp-hero"><div class="lp-copy">';
+  h += '<div class="lp-kind">🎮 Multiplayer strategy game · in your browser</div>';
   h += "<h2>Build a colony.<br>Raise an army.<br>Win Mars together.</h2>";
-  h += "<p>A free strategy game in your browser. Your colony keeps growing while you sleep: farm space potatoes, train Turkey Tanks, raid monster camps and team up with an alliance to light the Aurora over Mars.</p>";
+  h += "<p>Build up a base on Mars, train troops and battle real players for the planet, side by side with your alliance. Your colony keeps working while you are away, so a few minutes a day are enough.</p>";
   h += '<div class="lp-cta"><button class="btn" data-landing="register">' + "🚀" + ' Play for free</button><button class="btn ghost" data-landing="login">Log in</button></div>';
-  h += '<ol class="lp-go"><li><b>1</b>Pick a name</li><li><b>2</b>Choose a tribe</li><li><b>3</b>Crash-land</li></ol>';
-  h += '<ul class="lp-facts"><li>Free to play</li><li>No download</li><li>Beginner protection</li></ul>';
+  h += '<ul class="lp-loop" aria-label="What you do in MarsL"><li><span>🏗️</span><b>Build</b><small>fields and buildings</small></li><li><span>⚔️</span><b>Train</b><small>an army</small></li><li><span>🗺️</span><b>Raid</b><small>monsters and players</small></li><li><span>🤝</span><b>Ally</b><small>and win the round</small></li></ul>';
+  h += '<ul class="lp-facts"><li>Free to play</li><li>No download</li><li>Phone or computer</li><li>Beginner protection</li></ul>';
   var lpOn = 0, lpAll = 0;
   (config.servers || []).forEach(function (s) { lpOn += s.online || 0; lpAll += s.players || 0; });
   if (lpAll >= 50) h += '<p class="lp-live"><i></i>' + (lpOn >= 5 ? lpOn.toLocaleString("en-US") + " colonists online now · " : "") + lpAll.toLocaleString("en-US") + " colonists have landed</p>";
@@ -8436,6 +8446,7 @@ function renderLanding() {
   h += "</ol></details>";
 
   h += '<details class="lp-band lp-win lp-faq"><summary><h3>Quick answers</h3></summary><dl>';
+  h += "<dt>What kind of game is MarsL?</dt><dd>A multiplayer strategy game that runs in your browser. Everyone plays on the same big map at the same time. You grow your colony, build an army, trade, attack and defend, and team up with other players in an alliance. A round ends when one alliance lights the Aurora, then a fresh Mars starts and everyone begins again.</dd>";
   h += "<dt>Is it really free?</dt><dd>Yes. MarsL is free to play and runs in your browser, with nothing to download.</dd>";
   h += "<dt>Do I have to stay online?</dt><dd>No. Your fields produce around the clock and queued builds finish on their own. If an attack is coming, your phone rings, even with the game closed.</dd>";
   h += "<dt>What if someone attacks me early?</dt><dd>New colonies are under beginner protection, so you can learn the game in peace.</dd>";
