@@ -7950,8 +7950,10 @@ app.post("/api/trade", requireLogin, (req, res) => {
 });
 
 // How long merchants need one way: 🪶 Low Gravity and the 🐪 Caravans project make them faster
-function merchantTrip(colony, x, y, now) {
-  const boost = (eventActive("gravity", now) ? GRAVITY_BONUS : 0) + allyBoost(colony.userId, "caravan") + (forecastNow(now).trip || 0);
+function merchantTripBoost(colony, now) {
+  return (eventActive("gravity", now) ? GRAVITY_BONUS : 0) + allyBoost(colony.userId, "caravan") + (forecastNow(now).trip || 0);
+}
+function merchantTrip(colony, x, y, now, boost = merchantTripBoost(colony, now)) {
   return Math.round(travelMs(distance(colony.x, colony.y, x, y), MERCHANT_SPEED) / (1 + boost));
 }
 
@@ -14176,19 +14178,90 @@ async function sendMail(to, subject, lines, label, link) {
     return;
   }
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
+    method: "POST", signal: AbortSignal.timeout(10000),
     headers: { "api-key": MAIL_KEY, "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({ sender: { name: MAIL_FROM_NAME, email: MAIL_FROM }, to: [{ email: to }], subject, htmlContent: mailHtml(subject, lines, label, link), textContent: text }),
   });
   if (!r.ok) {
     // the mail service says why (e.g. the sender address is not verified yet); keep it short
     const why = (await r.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 160);
-    throw new Error("mail service said " + r.status + (why ? ": " + why : ""));
+    const error = new Error("mail service said " + r.status + (why ? ": " + why : ""));
+    error.mailStatus = r.status;
+    throw error;
   }
 }
-function mailTry(to, subject, lines, label, link) {
-  sendMail(to, subject, lines, label, link).catch((e) => console.error("Mail to " + to + " failed:", e.message));
+// One asynchronous mail worker per world. SQLite claims survive restarts.
+// Delivery is at-least-once: a process crash after provider acceptance may
+// resend the same short-lived link, never a game action or resource change.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS background_mail (
+    id TEXT PRIMARY KEY, payload TEXT NOT NULL, next_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+    lease_until INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS background_mail_due ON background_mail(next_at);
+  CREATE INDEX IF NOT EXISTS background_mail_expiry ON background_mail(expires_at);
+`);
+const MAIL_QUEUE_KEY = MAIL_KEY ? crypto.createHash("sha256").update("MarsL mail queue v1\0" + MAIL_KEY).digest() : null;
+function sealMail(args) {
+  const nonce = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", MAIL_QUEUE_KEY, nonce);
+  const data = Buffer.concat([cipher.update(JSON.stringify(args), "utf8"), cipher.final()]);
+  return Buffer.concat([nonce, cipher.getAuthTag(), data]).toString("base64");
 }
+function openMail(payload) {
+  const bytes = Buffer.from(payload, "base64");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", MAIL_QUEUE_KEY, bytes.subarray(0, 12));
+  decipher.setAuthTag(bytes.subarray(12, 28));
+  return JSON.parse(Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString("utf8"));
+}
+let mailWorkerBusy = false;
+function mailTry(to, subject, lines, label, link) {
+  if (MAIL_DEV) { sendMail(to, subject, lines, label, link).catch(() => console.warn("Development mail failed")); return; }
+  if (!MAIL_QUEUE_KEY || !mailReady()) return;
+  const now = Date.now(), id = crypto.createHash("sha256").update(JSON.stringify([to, subject, link])).digest("hex");
+  try {
+    db.prepare("DELETE FROM background_mail WHERE expires_at <= ?").run(now);
+    if (db.prepare("SELECT COUNT(*) AS n FROM background_mail").get().n >= 1000) {
+      mailProblem = "Mail queue is full; try again shortly.";
+      return;
+    }
+    db.prepare("INSERT OR IGNORE INTO background_mail(id,payload,next_at,expires_at) VALUES (?,?,?,?)").run(id, sealMail([to, subject, lines, label, link]), now, now + 600000);
+  } catch (e) { mailProblem = "Could not queue mail"; console.warn(mailProblem); }
+}
+async function runMailQueue() {
+  if (mailWorkerBusy || !MAIL_QUEUE_KEY || !mailReady() || MAIL_DEV) return;
+  mailWorkerBusy = true;
+  try {
+    const now = Date.now();
+    const due = db.prepare("SELECT id FROM background_mail WHERE next_at <= ? AND lease_until <= ? ORDER BY next_at, id LIMIT 1").get(now, now);
+    if (!due) return;
+    const job = db.prepare("UPDATE background_mail SET lease_until = ?, attempts = attempts + 1 WHERE id = ? AND lease_until <= ? RETURNING *").get(now + 60000, due.id, now);
+    if (!job) return;
+    if (job.expires_at <= now || job.attempts > 3) { db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id); return; }
+    let args;
+    try { args = openMail(job.payload); } catch (e) {
+      db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id);
+      mailProblem = "Queued mail could not be decrypted (provider key may have changed)";
+      return;
+    }
+    try {
+      await sendMail(...args);
+      db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id);
+    } catch (e) {
+      const retry = !e.mailStatus || e.mailStatus === 429 || e.mailStatus >= 500;
+      if (retry && job.attempts < 3) {
+        db.prepare("UPDATE background_mail SET lease_until = 0, next_at = ? WHERE id = ?").run(Date.now() + 15000 * 2 ** (job.attempts - 1), job.id);
+      } else {
+        db.prepare("DELETE FROM background_mail WHERE id = ?").run(job.id);
+        mailProblem = "Queued mail failed" + (e.mailStatus ? " (HTTP " + e.mailStatus + ")" : "");
+        console.warn(mailProblem);
+      }
+    }
+  } catch (e) { console.warn("Mail worker failed"); }
+  finally { mailWorkerBusy = false; }
+}
+setInterval(() => { void runMailQueue(); }, 2000).unref();
 if (MAIL_DEV) app.get("/api/dev/mail", (req, res) => res.json(mailOutbox));
 
 // ---------- addresses ----------
@@ -14663,7 +14736,7 @@ app.get("/api/admin/accounts", requireOwner, (req, res) => {
     return out;
   };
   res.json({
-    mail: { ready: mailReady(), dev: MAIL_DEV, from: MAIL_FROM || null, problem: mailProblem },
+    mail: { ready: mailReady(), dev: MAIL_DEV, from: MAIL_FROM || null, problem: mailProblem, queued: db.prepare("SELECT COUNT(*) AS n FROM background_mail").get().n },
     emailRequired: emailRequired(),
     deviceCap: deviceCap(),
     verified: db.prepare("SELECT COUNT(*) AS n FROM users WHERE email_verified = 1").get().n,
@@ -18104,7 +18177,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
-  {v:"1.0.578",date:"2026-11-27",title:"Server efficiency",groups:[["Performance",["Mail loads in smaller pages, ranking lookups are batched and shared data is reused briefly.","Improved request flood protection and added indexes for common database lookups."]]]},
+  {v:"1.0.578",date:"2026-11-27",title:"Server efficiency",groups:[["Performance",["Mail, battle reports and rankings load in smaller pages, ranking and market lookups are batched and shared data is reused briefly.","Improved request flood protection, added indexes for common database lookups and queued retryable mail delivery."]]]},
   {v:"1.0.576",date:"2026-11-27",title:"Release recovery",groups:[["Deployment",["Restored all changes through 1.0.575, registered the Spore Flak portrait and added safeguards against stale deployments."]]]},
   {v:"1.0.575",date:"2026-11-27",title:"Alert status you can trust",groups:[["🔔 Attack alerts",["The line under the alert switch now says what is true on this device: off, on only while MarsL is open, on also when MarsL is closed, or a warning if this device could not be set up for closed-app alerts (with a Try again button).","It also lists what is covered. Closed or not: incoming attacks and raids. Finished construction only while you are away. Nothing else (training, research, trade and reports do not send alerts).","On an iPhone in a Safari tab it tells you to add MarsL to your home screen for closed-app alerts."]]]},
   {v:"1.0.574",date:"2026-11-27",title:"Easier with keyboard and screen reader",groups:[["♿ Accessibility",["Popups are now real dialogs for screen readers: they have a name, the page behind them is switched off while they are open, Tab stays inside and focus goes back to the button you used when you close them.","The tab bar is a navigation with the current page marked. The drawn fields, lots and the colony dome can be opened with Enter or Space.","The troop traffic panel is skipped by Tab while it is slid out of sight, and its buttons say whether it is open.","Buttons that only show a picture now have a name (their tooltip). Messages that pop up are read out."]]]},
@@ -19954,20 +20027,20 @@ function offerSweep(now) {
 }
 setInterval(() => { try { offerSweep(Date.now()); } catch (e) { console.error(e); } }, 60000);
 
-function offerRow(o, colony, userId, now) {
+function offerRow(o, colony, userId, now, boost) {
   const c = { name: o.seller_colony, x: o.seller_x, y: o.seller_y, username: o.seller_name };
   const dist = distance(colony.x, colony.y, c.x, c.y);
   return {
     id: o.id, mine: o.user_id === userId, give: o.give_res, giveAmt: o.give_amt, want: o.want_res, wantAmt: o.want_amt,
     allyOnly: !!o.ally_only, owner: c.username, colony: c.name, x: c.x, y: c.y,
-    dist: Math.round(dist * 10) / 10, tripMs: merchantTrip(colony, c.x, c.y, now), endsAt: o.expires_at,
+    dist: Math.round(dist * 10) / 10, tripMs: merchantTrip(colony, c.x, c.y, now, boost), endsAt: o.expires_at,
   };
 }
 
 function offersView(colony, userId, now) {
-  const ally = allianceOf(userId);
+  const ally = allianceOf(userId), boost = merchantTripBoost(colony, now);
   const joined = "SELECT o.*, c.name AS seller_colony, c.x AS seller_x, c.y AS seller_y, u.username AS seller_name FROM market_offers o JOIN colonies c ON c.id = o.colony_id JOIN users u ON u.id = c.user_id";
-  const mine = db.prepare(joined + " WHERE o.user_id = ? ORDER BY o.id").all(userId).map((o) => offerRow(o, colony, userId, now)).filter(Boolean);
+  const mine = db.prepare(joined + " WHERE o.user_id = ? ORDER BY o.id").all(userId).map((o) => offerRow(o, colony, userId, now, boost)).filter(Boolean);
   const open = db.prepare(joined + ` LEFT JOIN users seller ON seller.id = o.user_id
     LEFT JOIN alliance_members am ON am.user_id = o.user_id
     WHERE o.user_id != ? AND o.expires_at > ?
@@ -19975,7 +20048,7 @@ function offersView(colony, userId, now) {
     AND (COALESCE(seller.multi_ok, 0) = 1 OR EXISTS (SELECT 1 FROM users WHERE id = ? AND multi_ok = 1)
       OR NOT EXISTS (SELECT 1 FROM device_links x JOIN device_links y ON x.device = y.device WHERE x.user_id = ? AND y.user_id = o.user_id))
     ORDER BY o.id`).all(userId, now, ally ? ally.id : null, userId, userId)
-    .map((o) => offerRow(o, colony, userId, now)).filter(Boolean)
+    .map((o) => offerRow(o, colony, userId, now, boost)).filter(Boolean)
     .sort((a, b) => a.dist - b.dist).slice(0, OFFER_LIST);
   return { mine, open, max: OFFER_MAX, min: OFFER_MIN, ratioMin: OFFER_RATIO_MIN, ratioMax: OFFER_RATIO_MAX, lastsMs: offerMs() };
 }
@@ -24126,10 +24199,19 @@ app.get("/game-assets/:filename", (req, res) => {
   res.type(asset.extension).send(asset.body);
 });
 
+const publicPageCache = new Map();
 app.get("/", (req, res) => {
+  // A gateway can select a world by cookie; keep HTTP revalidation and cache
+  // only the public HTML inside this particular world process.
   res.setHeader("Cache-Control", "no-cache");
   const host = String(req.get("host") || ""), origin = /^[a-z0-9.:-]{1,100}$/i.test(host) ? req.protocol + "://" + host : "";
-  res.send(renderGamePage().html.split("__ORIGIN__").join(origin).split("__APPNAME__").join(appName()));
+  let html = publicPageCache.get(origin);
+  if (!html) {
+    html = renderGamePage().html.split("__ORIGIN__").join(origin).split("__APPNAME__").join(appName());
+    if (publicPageCache.size >= 8) publicPageCache.delete(publicPageCache.keys().next().value);
+    publicPageCache.set(origin, html);
+  }
+  res.send(html);
 });
 // the picture shown when the game's link is shared (chat apps, forums): 1200x630, kept in the art folder
 app.get("/og.jpg", (req, res) => {
