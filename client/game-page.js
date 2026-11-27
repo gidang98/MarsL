@@ -11498,17 +11498,27 @@ function pushKey(b) {
   for (var i = 0; i < raw.length; i++) a[i] = raw.charCodeAt(i);
   return a;
 }
+// what the alert switch really does on this device: "unknown" (not checked yet) · "checking" · "closed" (the server has this device's
+// push address, so alerts arrive even when MarsL is closed) · "failed" (the browser or the server refused it)
+var pushState = "unknown";
 function pushSubscribe() {
-  if (!pushOk()) return;
-  navigator.serviceWorker.register("/sw.js").then(function (reg) {
+  if (!pushOk()) return Promise.resolve(false);
+  pushState = "checking";
+  return navigator.serviceWorker.register("/sw.js").then(function (reg) {
     return fetch("/api/push/key").then(function (r) { return r.json(); }).then(function (k) {
       return reg.pushManager.getSubscription().then(function (old) { return old || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushKey(k.key) }); });
     });
   }).then(function (sub) {
-    if (sub) return fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub.toJSON()) });
-  }).catch(function () {});
+    if (!sub) throw new Error("no subscription");
+    return fetch("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub.toJSON()) });
+  }).then(function (r) { if (!r.ok) throw new Error("refused"); return true; }).catch(function () { return false; }).then(function (ok) {
+    pushState = ok ? "closed" : "failed";
+    if (sheet && sheet.kind === "account") renderSheet();
+    return ok;
+  });
 }
 function pushUnsubscribe() {
+  pushState = "unknown";
   if (!pushOk()) return;
   navigator.serviceWorker.getRegistration().then(function (reg) {
     if (!reg) return;
@@ -11518,6 +11528,18 @@ function pushUnsubscribe() {
       return sub.unsubscribe();
     });
   }).catch(function () {});
+}
+// one line that says exactly where the alerts reach you and what they cover (this device only)
+function alertStatus() {
+  var cover = "incoming attacks and raids, and finished construction while you are away", coverOpen = "incoming attacks";
+  var on = alertsOn && typeof Notification !== "undefined" && Notification.permission === "granted";
+  var t, retry = "";
+  if (!on) t = "Turn on to be alerted on this device about " + (pushOk() ? cover : coverOpen) + ".";
+  else if (!pushOk()) t = "✅ On this device while MarsL is open (a tab or the app). Covers " + coverOpen + "." + (iosSafariTab() ? " To be alerted when it is closed, add MarsL to your home screen." : " This browser can’t alert you when MarsL is closed.");
+  else if (pushState === "closed") t = "✅ On this device, also when MarsL is closed. Covers " + cover + ".";
+  else if (pushState === "failed") { t = "⚠️ On this device while MarsL is open. Covers " + coverOpen + ". Alerts when MarsL is closed could not be set up."; retry = '<button class="btn small ghost" data-alerts-retry="1">Try again</button>'; }
+  else { t = "⏳ Checking this device…"; if (pushState === "unknown") setTimeout(pushSubscribe, 0); }
+  return '<p class="hint left" role="status">' + t + "</p>" + retry;
 }
 function openProfile(name) {
   fetch("/api/profile?name=" + encodeURIComponent(name)).then(function (r) {
@@ -16277,7 +16299,7 @@ function renderSheet() {
     var nsup = typeof Notification !== "undefined", al;
     if (!nsup) al = '<p class="hint left">This browser can’t show alerts. Tip: add MarsL to your home screen.</p>';
     else if (Notification.permission === "denied") al = '<p class="hint left">Alerts are blocked for this site in your browser settings.</p>';
-    else al = '<div class="setgrid one"><button class="btn ghost" data-alerts="1">' + (alertsOn && Notification.permission === "granted" ? "🔔 On: alert me about attacks" : "🔕 Off: tap to get attack alerts") + '</button></div><p class="hint left">' + (pushOk() ? "Also when MarsL is closed: attacks and finished construction come to this device." : "Works while MarsL is open (also in a background tab).") + "</p>";
+    else al = '<div class="setgrid one"><button class="btn ghost" data-alerts="1">' + (alertsOn && Notification.permission === "granted" ? "🔔 On: alert me about attacks" : "🔕 Off: tap to get attack alerts") + '</button></div>' + alertStatus();
     h += card(ico("bell", "sm") + " Attack alerts", al);
     // 🏖️ vacation and 🪑 sitters
     var away = vacationBox(d) + sitBox(d);
@@ -20422,7 +20444,7 @@ document.addEventListener("click", function (e) {
     "[data-goto],[data-send-zone],[data-switch],[data-cancel-move],[data-recall-open],[data-recall-all],[data-recall-go],[data-redirect-open],[data-redirect-cancel],[data-redirect-to],[data-redirect-go]," +
     "[data-settle],[data-send-support],[data-build-at],[data-build-at-crew],[data-terraform],[data-terra-open],[data-heal],[data-market-to],[data-mk-all],[data-mk-step],[data-mk-fill],[data-mk-even],[data-mk-clear],[data-route-toggle],[data-route-del],[data-mk-tab],[data-of-filter],[data-of-cancel],[data-of-take],[data-route-mode],[data-quest],[data-quests-toggle],[data-mboard-toggle]," +
     "[data-progress-tab],[data-ally-emblem],[data-colony-delete],[data-progress],[data-social-share],[data-journey-next],[data-journey-daily],[data-retention],[data-recruit-board],[data-rep-filter],[data-rep-sub],[data-rep-unread],[data-rep-sim],[data-rep-repeat],[data-rep-share],[data-shared],[data-shared-rm],[data-rep-more],[data-ptab],[data-daily],[data-tpower],[data-disc-ask],[data-disc-recruit],[data-profile],[data-ally-answer],[data-ally-create],[data-ally-about],[data-ally-lead],[data-ally-role],[data-ally-kick],[data-ally-invite],[data-ally-uninvite],[data-ally-post],[data-ally-leave],[data-ally-invite-name],[data-flags-save],[data-bio-save],[data-badge],[data-send-lm]," +
-    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
+    "[data-marks-open],[data-mark-edit],[data-mark-icon],[data-mark-cancel],[data-mark-save],[data-mark-del],[data-wiki-open],[data-plan-toggle],[data-wiki-fold],[data-wiki-foldall],[data-ally-join],[data-plan-in],[data-plan-sel],[data-plan-send],[data-wiki-jump],[data-wiki-ftype],[data-wiki-view],[data-wiki-cum],[data-wiki-goto-b],[data-wiki-b],[data-wiki],[data-wiki-tab],[data-wiki-tribe],[data-wiki-sort],[data-wiki-unit],[data-pyl-go],[data-pyl-fill],[data-rep-collapse],[data-rep-allread],[data-ally-deposit],[data-ally-give],[data-ally-psel],[data-ally-pfill],[data-ally-pgive],[data-ally-pbank],[data-ally-plan],[data-ally-unplan],[data-overview],[data-alerts],[data-alerts-retry],[data-farm-send-ready],[data-nd-lock],[data-nd-even],[data-nd-spread],[data-nd-reset],[data-nd-go],[data-fund],[data-fit],[data-farm-quiet],[data-quest-skip],[data-demolish],[data-quests-phone],[data-quest-go],[data-main-info],[data-make-main],[data-tile-close],[data-farm-add],[data-farm-pick],[data-farm-unpick],[data-army-template],[data-army-template-save],[data-army-template-remove],[data-farm-apply],[data-farm-addconfirm],[data-farm-confirm],[data-farm-dismiss],[data-farm-start-all],[data-farm-stop],[data-farm-select],[data-farm-copy],[data-overview-filter],[data-farm-open],[data-farm-new],[data-farm-send],[data-farm-toggle],[data-farm-del],[data-farm-dellist],[data-farm-dellist-confirm],[data-farm-dellist-cancel],[data-farm-delete-selected],[data-farm-sort],[data-farm-move]," +
     "[data-sim-open],[data-sim-free],[data-sim-mission],[data-sim-mine],[data-sim-hero],[data-sim-send],[data-sim-view],[data-sim-save],[data-sim-plan],[data-sim-plan-del],[data-sim-cmp-open],[data-sim-cmp-send],[data-sim-cmp-again],[data-sim-enough],[data-sim-held],[data-sim-back],[data-sim-clear],[data-sim-at],[data-open-report],[data-targets],[data-sink],[data-sink-train],[data-away-open],[data-away-ok],[data-holdings],[data-amark-open],[data-amark-kind],[data-amark-save],[data-amark-del],[data-ally-note],[data-lfa],[data-targets-army],[data-tg],[data-npc-trade],[data-milestone-ok]"
   ) : null;
   if (!el) return;
@@ -21446,6 +21468,9 @@ document.addEventListener("click", function (e) {
     openSheet("market", null);
     sheet.fundReturn = fundReturn;
     toast("💱 Filled in - review the swap and tap Redistribute", true);
+  } else if (has("data-alerts-retry")) {
+    pushSubscribe();
+    renderSheet();
   } else if (has("data-alerts")) {
     if (alertsOn && Notification.permission === "granted") {
       alertsOn = false;

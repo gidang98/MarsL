@@ -547,7 +547,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.574";
+const GAME_VERSION = "1.0.575";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
 // Picking another server opens its address. A server's preset only counts while
@@ -18005,6 +18005,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.575",date:"2026-11-27",title:"Alert status you can trust",groups:[["🔔 Attack alerts",["The line under the alert switch now says what is true on this device: off, on only while MarsL is open, on also when MarsL is closed, or a warning if this device could not be set up for closed-app alerts (with a Try again button).","It also lists what is covered. Closed or not: incoming attacks and raids. Finished construction only while you are away. Nothing else (training, research, trade and reports do not send alerts).","On an iPhone in a Safari tab it tells you to add MarsL to your home screen for closed-app alerts."]]]},
   {v:"1.0.574",date:"2026-11-27",title:"Easier with keyboard and screen reader",groups:[["♿ Accessibility",["Popups are now real dialogs for screen readers: they have a name, the page behind them is switched off while they are open, Tab stays inside and focus goes back to the button you used when you close them.","The tab bar is a navigation with the current page marked. The drawn fields, lots and the colony dome can be opened with Enter or Space.","The troop traffic panel is skipped by Tab while it is slid out of sight, and its buttons say whether it is open.","Buttons that only show a picture now have a name (their tooltip). Messages that pop up are read out."]]]},
   {v:"1.0.573",date:"2026-11-27",title:"A much smaller first download",groups:[["⚡ Faster start",["The translations are no longer part of the first download. The game loads only your language, so the first download is less than half the size: about 470 KB instead of 1.1 MB for English, about 560 KB for another language (compressed).","On a slow phone connection the game starts about twice as fast. Switching language loads the new language when you pick it.","If a language file cannot be downloaded, the game stays in English instead of waiting."]]]},
   {v:"1.0.572",date:"2026-11-27",title:"The game recovers from a failed download",groups:[["🔧 Fixed",["If the game script fails to download on a weak connection, the page now retries by itself up to three times instead of staying on the loading screen.","If it still fails, it says so and offers a Try again button. It also tries again when the connection comes back."]]]},
