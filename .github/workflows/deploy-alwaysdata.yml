@@ -65,6 +65,7 @@ jobs:
         run: |
           python3 -m venv "$RUNNER_TEMP/marsl-art-venv"
           "$RUNNER_TEMP/marsl-art-venv/bin/python" -m pip install --quiet Pillow==11.3.0
+          "${RUNNER_TEMP}/marsl-art-venv/bin/python" scripts/test-character-art.py
           "$RUNNER_TEMP/marsl-art-venv/bin/python" scripts/extract-building-art.py
 
       - name: Build and verify the release

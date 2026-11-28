@@ -8,9 +8,12 @@ const worlds = {OpenTest:'https://marsl-game.com',Classic:'https://classic.marsl
 assert.ok(Object.hasOwn(worlds,label) && ['plan','verify'].includes(mode), 'Invalid world or mode');
 const hashes = JSON.parse(fs.readFileSync('dist/building-art-sha256.json','utf8'));
 const entries = Object.entries(hashes);
-assert.equal(entries.length,120);
+const characterManifest = JSON.parse(fs.readFileSync('assets/characters/manifest.json','utf8'));
+const characterNames = Object.keys(characterManifest).map(key=>key+'.webp');
+assert.equal(entries.length,120+characterNames.length);
+for (const name of characterNames) assert.equal(hashes[name],characterManifest[name.slice(0,-5)]);
 for (const [file, hash] of entries) {
-  assert.match(file,/^(human|chicken|alien)-(?:[a-z]+|(?:wood|stone|metal|food)-[1-4])\.webp$/);
+  assert.match(file,/^(?:(human|chicken|alien)-(?:[a-z]+|(?:wood|stone|metal|food)-[1-4])|(?:mascot|commander)-(?:human|chicken|alien))\.webp$/);
   assert.match(hash,/^[0-9a-f]{64}$/);
 }
 const plans = 'dist/building-art-plans', backups = path.join('dist/building-art-backup',label);
@@ -47,9 +50,9 @@ async function read(file) {
     ]).join('\n');
     fs.writeFileSync(path.join(plans,label+'.sftp'),batch+(batch?'\n':''));
     fs.writeFileSync(path.join(backups,'backup-manifest.json'),JSON.stringify({world:label,changed,missing},null,2));
-    console.log(label+': '+changed.length+' changed building files; '+(120-changed.length)+' already match');
+    console.log(label+': '+changed.length+' changed building files; '+(entries.length-changed.length)+' already match');
   }else{
-    const line='- '+label+': all 120 building and field sprite checksums match.';
+    const line='- '+label+': all '+entries.length+' managed sprite checksums match.';
     console.log(line);
     if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,line+'\n');
     fs.appendFileSync('live-verification.md',line+'\n');

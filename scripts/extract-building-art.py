@@ -2,6 +2,7 @@
 """Extract versioned building atlases into dist/art, validating every crop."""
 import hashlib
 import json
+import importlib.util
 from pathlib import Path
 from PIL import Image
 
@@ -92,6 +93,10 @@ def main():
                 raise ValueError(f"Saved image mismatch: {name}")
         hashes[name] = digest(target.read_bytes())
     hashes.update(extract_field_art())
+    spec = importlib.util.spec_from_file_location("character_art", ROOT / "scripts" / "extract-character-art.py")
+    character_art = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(character_art)
+    hashes.update(character_art.extract_character_art(ROOT, OUT))
     (OUT.parent / "building-art-sha256.json").write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     print(f"Validated and extracted {len(hashes)} transparent building and field sprites")
 
