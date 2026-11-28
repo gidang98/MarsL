@@ -5241,6 +5241,74 @@ setInterval(function () {
 syncFromServer();
 setInterval(function () { if (!document.hidden) syncFromServer(); }, 60000);
 
+
+ // Tribe feedback is cosmetic only; confirmed actions and snapshot changes are its inputs.
+var feelMode = "full", feelActive = 0, feelLast = {}, feelPrev = null;
+try { var fm = localStorage.getItem("marsl-feel"); if (["full","reduced","minimal"].indexOf(fm)>=0) feelMode=fm; } catch(e) {}
+var FEEL = {
+ chicken:{bits:["🪶","🥚","✦"],color:"#e5ab38",wave:"triangle",notes:[392,523,659]},
+ human:{bits:["✧","⚙️","◆"],color:"#55a8e8",wave:"pulse25",notes:[330,495,660]},
+ alien:{bits:["●","✦","○"],color:"#99d95b",wave:"sine",notes:[294,440,587]}
+};
+var FEEL_EVENTS = {build:[4,240],built:[10,650],dispatch:[6,400],bounty:[8,750],gear:[10,900],rare:[14,1200],level:[15,1400],quest:[10,800],chapter:[18,1800]};
+function feelMotion() {
+ return feelMode!=="minimal" && !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+function feelModeHtml() {
+ return '<section class="setcard"><h4>Game effects</h4><label>Intensity <select data-feel-mode aria-label="Game effect intensity">'+["full","reduced","minimal"].map(function(m){return '<option value="'+m+'"'+(feelMode===m?' selected':'')+'>'+m.charAt(0).toUpperCase()+m.slice(1)+'</option>';}).join("")+'</select></label><p class="hint">Reduced uses fewer particles. Minimal keeps standard action feedback. System reduced motion is respected.</p></section>';
+}
+document.addEventListener("change",function(e){
+ var t=e.target;if(!t||!t.matches||!t.matches("[data-feel-mode]"))return;
+ if(["full","reduced","minimal"].indexOf(t.value)<0)return;
+ feelMode=t.value;try{localStorage.setItem("marsl-feel",feelMode);}catch(err){}
+});
+function feelEvent(kind, target, label, snapshot) {
+ try {
+  var d=snapshot||data, p=FEEL[d&&d.tribe&&d.tribe.key], ev=FEEL_EVENTS[kind];
+  if(!p||!ev||document.hidden||feelMode==="minimal")return;
+  var now=Date.now();if(now-(feelLast[kind]||0)<350)return;feelLast[kind]=now;
+  if(sound.on && typeof SFX!=="undefined"){
+   var count=kind==="chapter"||kind==="level"||kind==="rare"?3:kind==="build"||kind==="dispatch"?1:2;
+   SFX["tribe-feel"]=p.notes.slice(0,count).map(function(n,i){return [n,i*.105,.12,p.wave,.03,p===FEEL.alien?n*1.12:0,0];});
+   sfx("tribe-feel");
+  }
+  if(!feelMotion()||!document.body.animate)return;
+  var anchor=target&&target.isConnected?target:document.querySelector(kind==="dispatch"?".traffic":kind==="bounty"||kind==="gear"||kind==="rare"||kind==="level"?".herochip":kind==="quest"||kind==="chapter"?"#quests":".nav [data-view=buildings]");
+  var rect=anchor&&anchor.getBoundingClientRect(), x=rect&&rect.width?rect.left+rect.width/2:innerWidth/2, y=rect&&rect.height?rect.top+rect.height/2:innerHeight*.38;
+  x=Math.max(24,Math.min(innerWidth-24,x));y=Math.max(42,Math.min(innerHeight-42,y));
+  var mobile=innerWidth<600, limit=mobile?12:24, n=Math.min(ev[0],feelMode==="reduced"?4:limit,limit-feelActive);
+  if(anchor&&anchor.animate){var frames=p===FEEL.chicken?[{transform:"none"},{transform:"scale(1.055,.95)"},{transform:"scale(.98,1.04)"},{transform:"none"}]:p===FEEL.human?[{opacity:1},{opacity:.66},{opacity:1}]:[{transform:"none"},{transform:"scale(1.035)"},{transform:"none"}];anchor.animate(frames,{duration:Math.min(450,ev[1]),easing:"ease-out"});}
+  for(var i=0;i<n;i++) (function(i){
+   var node=document.createElement("span");node.setAttribute("aria-hidden","true");node.textContent=p.bits[i%p.bits.length];
+   node.style.cssText="position:fixed;pointer-events:none;z-index:10000;font-size:16px;font-weight:bold;left:"+x+"px;top:"+y+"px;color:"+p.color+";text-shadow:0 1px 2px #30243c;";
+   document.body.appendChild(node);feelActive++;
+   var angle=(i/Math.max(1,n))*Math.PI*2, radius=kind==="dispatch"?44:30+ev[0]*2, dx=Math.cos(angle)*radius+(kind==="dispatch"?44:0), dy=Math.sin(angle)*radius-24;
+   var anim=node.animate([{transform:"translate(-50%,-50%) scale(.6)",opacity:1},{transform:"translate("+dx+"px,"+dy+"px) rotate("+(i%2?70:-70)+"deg) scale(1.15)",opacity:.95,offset:.55},{transform:"translate("+(dx*1.2)+"px,"+(dy*1.3)+"px) scale(.5)",opacity:0}],{duration:ev[1],easing:"ease-out"});
+   var done=false;function clean(){if(done)return;done=true;node.remove();feelActive--;}anim.onfinish=anim.oncancel=clean;setTimeout(clean,ev[1]+100);
+  })(i);
+ } catch(e) { /* Cosmetic feedback must never interrupt the game. */ }
+}
+function feelAction(url,body,button){
+ if(url==="/api/construct"||url.indexOf("/api/field/")===0||url.indexOf("/api/building/")===0)feelEvent("build",button);
+ else if(url==="/api/send")feelEvent("dispatch",button);
+ else if(url==="/api/quest"||url==="/api/daily") {feelEvent("quest",button);if(feelMotion())coinFly(button);}
+ else if(url==="/api/retention"&&body&&body.action==="chapter")feelEvent("chapter",button);
+}
+function feelObserve(d){
+ try {
+  var H=d.hero, identity=d.player+"|"+d.colonyId+"|"+(d.tribe&&d.tribe.key);
+  if(!H){feelPrev=null;return;}
+  var items={};(H.bag||[]).concat(Object.keys(H.gear||{}).map(function(k){return H.gear[k];})).forEach(function(it){if(it&&it.id!=null&&it.kind!=="crate")items[it.id]=it.tier||1;});
+  var stash={};Object.keys(H.stash||{}).forEach(function(k){stash[k]=Number(H.stash[k])||0;});
+  var old=feelPrev;feelPrev={identity:identity,level:H.level,items:items,stash:stash};
+  if(!old||old.identity!==identity)return;
+  if(H.level>old.level)feelEvent("level",null,null,d);
+  var added=Object.keys(items).filter(function(k){return !Object.prototype.hasOwnProperty.call(old.items,k);});
+  if(added.length)feelEvent(added.some(function(k){return items[k]>=2;})?"rare":"gear",null,null,d);
+  if(Object.keys(stash).some(function(k){return stash[k]>(old.stash[k]||0);}))feelEvent("bounty",null,null,d);
+ }catch(e){}
+}
+
 function confetti() {
   var bits = ["🎉", "✨", "🥔", "⭐", "🐔", "🚀", "👽", "🎊"];
   for (var i = 0; i < 22; i++) {
@@ -10886,7 +10954,7 @@ function farmSendLists(lists, onlyReady) {
     if(farmCancelled || run.done>=todo.length){
       farmSending=false;farmSave();redraw();
       toast(run.sent+' raids sent · '+run.skipped+' skipped'+(farmCancelled?' · remaining cancelled':''),run.sent>0);
-      if(run.sent)sfx('march');loadColony(false);loadFarmStats();return;
+      if(run.sent){sfx('march');feelEvent('dispatch',null);}loadColony(false);loadFarmStats();return;
     }
     var e=todo[run.done++], list=e.list;
     if (e.first) { list.lastStarted = serverNow(); farmSave(); }
@@ -16382,6 +16450,7 @@ function renderSheet() {
     h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (function (r) { return r("🔊 Master volume", "master", sound.mv) + r("🎮 Game sounds", "sfx", sound.sv); })(function (lab, k, v) { return '<label class="msl"><span>' + lab + '</span><input type="range" min="0" max="100" step="1" value="' + v + '" data-vol="' + k + '" aria-label="' + lab + '"><b class="msl-v">' + v + "%</b></label>"; }) + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🎵 Music</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
+    h += feelModeHtml();
     // 🎮 play
     h += card("🎮 Play", '<div class="setgrid"><button class="btn ghost" data-progress="1">' + '🏅' + ' Progress &amp; tasks</button>' + shareTextButton("Join me on MarsL · " + d.player + " · " + location.origin).replace("↗ Share", "↗ Invite friends").replace("btn small ghost", "btn ghost") + "</div>" + discordBtn());
     // 🔔 alerts
@@ -16662,7 +16731,7 @@ function noticeChanges(d) {
       toast("🎉 " + first.name + " reached level " + first.targetLevel + "!", true);
       popBuilt(first.name);
       beppoSay("built");
-      confetti();
+      feelEvent("built",null,null,d);
       sfx("done");
     }
   }
@@ -16949,6 +17018,7 @@ function renderColony(d) {
   // 🎉 milestones are celebrated on the mission board now
   if (d.awayPending && !awayShown) setTimeout(function () { if (data) checkAway(data); }, 900);
   noticeChanges(d);
+  feelObserve(d);
   attackPill(d);
   pulseNow = d.pulse || null;
   gazetteNow = d.gazette || [];
@@ -20010,7 +20080,7 @@ function post(url, body, after) {
     .then(function (r) { return r.json().then(function (d) {
       if (r.status === 401) { loggedIn = false; renderAuth(); return; }
       if (!r.ok) { toast(d.error || 'The action could not be completed.'); sfx('error'); return; }
-      actionEpoch++; sfx('pop'); if (after) after(d);
+      actionEpoch++; sfx('pop'); feelAction(url,body,button); if (after) after(d);
       if (d.ok) loadColony(false); else renderColony(d);
     }); })
     .catch(function () { toast('Connection interrupted. Refresh to check whether the action completed before trying again.'); })
@@ -20547,7 +20617,7 @@ document.addEventListener("click", function (e) {
   var has = function (n) { return el.hasAttribute(n); };
 
   if (!has("data-close") && !has("data-sound")) sfx("click");
-  if (has("data-quest") || has("data-daily") || has("data-journey-daily") || has("data-journey-next")) coinFly(el);
+  // Reward flight is now triggered only after a successful response.
   if (has("data-specfold")) {
     specUi = !specUi;
     var spEl = el.closest(".tfold");
@@ -21320,7 +21390,7 @@ document.addEventListener("click", function (e) {
     else window.prompt('Copy this to share',shareText);
   } else if (has("data-retention")) {
     var retentionAction=attr("data-retention");
-    post("/api/retention", {action:retentionAction}, function(){if(retentionAction==='chapter'){confetti();toast('🎉 Chapter complete! Your next step is ready.',true);}else toast("Supplies collected", true); });
+    post("/api/retention", {action:retentionAction}, function(){if(retentionAction==='chapter'){toast('🎉 Chapter complete! Your next step is ready.',true);}else toast("Supplies collected", true); });
   } else if (has("data-recruit-board")) {
     playersTab="discover"; view="ranking"; loadDiscover(); if(data)renderColony(data);
   } else if (has("data-daily")) {
@@ -21744,7 +21814,6 @@ document.addEventListener("click", function (e) {
     post("/api/quest", { id: attr("data-quest") }, function () {
       toast("🎁 Reward collected!", true);
       sfx("coins");
-      confetti();
       // phones: fold the quest list away again, back to the game
       if (document.body.classList.contains("qopen")) { document.body.classList.remove("qopen"); questsOpen = false; }
     });
