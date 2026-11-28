@@ -578,7 +578,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.585";
+const GAME_VERSION = "1.0.586";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -4262,7 +4262,7 @@ function resolveCamp(m) {
     // 🎖️ a commander keeps the bounty in its inventory
     const heroNote = hero ? heroAfterFight(att.userId, hero, { xp: (f.D * f.defFrac) / heroXpDiv(), dmg: heroDmg(f.atkFrac, HERO_DMG_LEAD), beaten: (countUnits(survivors) === 0 && countUnits(troops) > 0) || (!f.attackerWins && f.atkFrac >= HERO_FALL_FRAC), won: f.attackerWins, campTier: campTier(m.target_x, m.target_y), bounty: bountyAll, at: T, bonus: heroBonus(hero).atk }) : null;
     // 📦 every bounty goes into the commander inventory, with or without the commander
-    const bounty = heroNote && heroNote.stash ? null : bountyAll && lootTotal(bountyAll) > 0 && questInventoryReward(att.userId, bountyAll, T) ? bountyAll : null;
+    const bounty = heroNote && heroNote.stash ? null : bountyAll && lootTotal(bountyAll) > 0 && questInventoryReward(att.userId, bountyAll, T, "camp") ? bountyAll : null;
     haul = loot ? Object.assign({}, loot) : null;
     const titanHere = titanAt(m.target_x, m.target_y);
     saveCamp(m.target_x, m.target_y, camp, T);
@@ -6633,7 +6633,12 @@ function colonyQuests(colony) {
   }
   return colony.id === retention.questStarterColony ? QUESTS : EXPANSION_QUESTS;
 }
-function questInventoryReward(userId, resources, now) {
+function heroRewardEvent(h, source) {
+  const events = h.rewardEvents && typeof h.rewardEvents === "object" ? h.rewardEvents : {};
+  events[source] = (Number(events[source]) || 0) + 1;
+  h.rewardEvents = events;
+}
+function questInventoryReward(userId, resources, now, source = "mission") {
   const hero = heroOf(userId, now);
   if (!hero) return false;
   let crate = heroCrate(hero);
@@ -6642,6 +6647,7 @@ function questInventoryReward(userId, resources, now) {
     hero.bag.push(crate);
   }
   for (const resource of RESOURCES) crate.res[resource] = (crate.res[resource] || 0) + (resources[resource] || 0);
+  if (lootTotal(resources) > 0) heroRewardEvent(hero, source);
   heroSave(userId, hero);
   return true;
 }
@@ -15756,6 +15762,7 @@ function heroAfterFight(userId, h, o) {
       if (crate) {
         for (const r of RESOURCES) crate.res[r] = (crate.res[r] || 0) + (o.bounty[r] || 0);
         note.stash = o.bounty;
+        heroRewardEvent(h, o.campTier !== undefined ? "camp" : "adventure");
       }
     }
     if (o.campTier !== undefined && o.won) {
@@ -16521,6 +16528,7 @@ function heroView(userId, colonyId, now) {
     bag: h.bag.map((x) => (x.kind === "crate" ? Object.assign({}, x, { total: lootTotal(x.res) }) : Object.assign({ kind: "gear" }, x))),
     consumables: Object.keys(HERO_CONSUMABLES).map(k=>Object.assign({key:k,count:Math.max(0,Math.floor(Number((h.consumables||{})[k])||0))},HERO_CONSUMABLES[k])),
     bagMax: HERO_BAG,
+    rewardEvents: h.rewardEvents || {},
     stash: crate ? crate.res : null,
     // room in the colony you are looking at (the stash pours into it), so the player sees what fits
     stashTo: (db.prepare("SELECT name FROM colonies WHERE id = ?").get(colonyId) || {}).name || "",
@@ -18229,6 +18237,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.586",date:"2026-11-28",title:"More responsive colony feedback",groups:[["Game feel",["Construction feedback follows actual upgrades; resource-field stages animate when they change; newly ready missions receive distinct feedback.","Camp bounty and other commander inventory rewards are distinguished."]]]},
   {v:"1.0.585",date:"2026-11-28",title:"New artwork and expressive game feedback",groups:[["Art",["Updated all 24 Human and 24 Chicken building illustrations."]],["Dialogue",["Punctuation beats, animated happy and angry words, dialogue speed and sound preferences, and optional colony chatter."]],["Game feel",["Tribe-specific construction, dispatch and reward feedback, adjustable effects and independent vibration."]]]},
   {v:"1.0.584",date:"2026-11-28",title:"New chicken building illustrations",groups:[["Art",["Replaced all 24 chicken building illustrations with the new transparent artwork throughout the colony and construction queues."]]]},
   {v:"1.0.583",date:"2026-11-28",title:"Construction queue illustrations",groups:[["Art",["Construction, crew and planned jobs show their tribe-specific building or resource-field illustrations."]]]},
