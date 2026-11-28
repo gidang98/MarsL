@@ -4,8 +4,7 @@
 
 - Source of truth: [main](https://github.com/gidang98/MarsL/tree/main). Check HEAD and GAME_VERSION in server.js before editing. Never reuse a release number for a different commit.
 - Active task ledger: [#108](https://github.com/gidang98/MarsL/issues/108). Shared AI claims/handoffs: [#1](https://github.com/gidang98/MarsL/issues/1). Read latest comments before starting, before integrating and before deploying. Record blockers and verification evidence there; do not make a main-only documentation commit that triggers a same-version deployment.
-- Latest successful production deployment before this candidate: 1.0.589, commit 24f1b0e4, [run 46170896215](https://github.com/gidang98/MarsL/actions/runs/46170896215), all three worlds. Check the ledger for newer verification.
-- Candidate 1.0.590 adds phase 2 colony ambience, mascot reactions, battle report reveals, visible movement markers and weather refinements. No schema migration.
+- Latest successful production deployment: 1.0.590, commit 960aaa6b, [run 46172318302](https://github.com/gidang98/MarsL/actions/runs/46172318302), all three worlds. Check the ledger for newer verification.
 - Use Node 22, npm ci, npm test, node --check server.js, node scripts/build-release.js, node --check dist/server.js, node scripts/smoke-release.js. PR verification additionally runs mobile Chromium and WebKit with BROWSER_SMOKE=1. Use isolated temporary data, never production databases for tests.
 - Source: server.js (game/backend/version/patch notes), client/game-page.js (active browser template), scripts/build-release.js (standalone dist/server.js). Search symbols with bounded reads. Never deploy a scratch copy.
 - Main pushes automatically deploy to all three servers. Manual verify is read-only. Merge only reviewed, tested, fresh candidates; do not merge outdated release branches wholesale.
@@ -26,6 +25,10 @@
 - Verify exact version, release commit, server ID and homepage asset loading. Check art/unit-alien-spitter.webp on each world.
 - Provider edge DDoS controls, current disk/journal mode, physical mobile devices and rollback rehearsal remain tracked in #108. Never send attack traffic, expose credentials, or replace player data. A real rollback requires compatible schema and recent backup confirmation.
 - Use .github/workflows/deploy-alwaysdata.yml; archived releases are produced only after successful verification. Rollback workflow restores code only. Database backups use VACUUM INTO or sqlite3 .backup; never copy a live WAL database unsafely.
+
+## Rehearse code and artwork rollback
+
+Run **Verify release candidate** with `rollback_run_id` set to the previous successful all-world deployment and `rollback_from_run_id` set to the newer deployment whose backup was captured immediately before that deploy. Both runs must be on `main` and their artifacts must still be available. An artwork-changing fixture is 46147059290 → 46146166424. The verification job checks the archive digests and each world's backup, then tests the two archived builds against the same temporary database and verifies all managed sprite checksums before and after. Supplying only `rollback_run_id` rehearses code rollback from the checked-out build.
 
 ## Source navigation
 
