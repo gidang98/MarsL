@@ -40,14 +40,34 @@ test('successful action routing excludes navigation and unrelated actions',()=>{
   assert.deepEqual(h.events,['build','build','build','dispatch','quest','coins','chapter']);
   assert.ok(source.indexOf('if (!r.ok) { toast(d.error') < source.indexOf('feelAction(url,body,button);'));
 });
-test('commander snapshot baseline, independent stash rewards, equipment and level',()=>{
+test('commander reward provenance, baseline and equipment',()=>{
   const h=setup();h.ctx.feelEvent=k=>h.events.push(k);
-  const snap=(level,wood,bag=[],gear={},colonyId=1)=>({player:'p',colonyId,tribe:{key:'human'},hero:{level,stash:{wood},bag,gear}});
-  h.ctx.feelObserve(snap(1,0));h.ctx.feelObserve(snap(1,100));
-  const item={id:7,tier:2};h.ctx.feelObserve(snap(2,100,[item]));
-  h.ctx.feelObserve(snap(2,100,[],{weapon:item}));
-  h.ctx.feelObserve(snap(3,200,[],{},2));
-  assert.deepEqual(h.events,['bounty','level','rare']);
+  const snap=(level,wood,bag=[],gear={},colonyId=1,rewardEvents={})=>({player:'p',colonyId,tribe:{key:'human'},hero:{level,stash:{wood},bag,gear,rewardEvents}});
+  h.ctx.feelObserve(snap(1,0));h.ctx.feelObserve(snap(1,100,[],{},1,{mission:1}));
+  h.ctx.feelObserve(snap(1,200,[],{},1,{mission:1,camp:1}));
+  h.ctx.feelObserve(snap(1,300,[],{},1,{mission:1,camp:1,adventure:1}));
+  const item={id:7,tier:2};h.ctx.feelObserve(snap(2,300,[item],{},1,{camp:1,adventure:1}));
+  h.ctx.feelObserve(snap(2,300,[],{weapon:item},1,{camp:1,adventure:1}));
+  h.ctx.feelObserve(snap(3,400,[],{},2,{camp:2,adventure:1}));
+  assert.deepEqual(h.events,['bounty','adventure','level','rare']);
+});
+test('construction and mission feedback only on actual progress in same colony',()=>{
+  const h=setup();h.ctx.feelEvent=k=>h.events.push(k);
+  h.ctx.toast=()=>{};h.ctx.beppoSay=()=>{};
+  h.ctx.fxStage=n=>n<=4?1:n<=9?2:n<=15?3:4;
+  const snap=(level,ready,colonyId=1)=>({player:'p',colonyId,tribe:{key:'human'},fields:[{slot:0,type:'wood',name:'Wood',level}],quests:{list:[{id:'q',ready}]}});
+  h.ctx.feelProgress(snap(4,false));
+  h.ctx.feelProgress(snap(4,false));
+  h.ctx.feelProgress(snap(5,true));
+  h.ctx.feelProgress(snap(5,true));
+  h.ctx.feelProgress(snap(9,true,2));
+  assert.deepEqual(h.events,['built','ready']);
+});
+test('server attaches reward source to persisted commander state',()=>{
+  const server=fs.readFileSync(require.resolve('../server'),'utf8');
+  assert.ok(server.includes('questInventoryReward(att.userId, bountyAll, T, "camp")'));
+  assert.ok(server.includes('heroRewardEvent(h, o.campTier !== undefined ? "camp" : "adventure")'));
+  assert.ok(server.includes('rewardEvents: h.rewardEvents || {}'));
 });
 
 test('one shared effect preference and independent haptics',()=>{
