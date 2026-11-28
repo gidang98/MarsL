@@ -578,7 +578,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.585";
+const GAME_VERSION = "1.0.587";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -18229,6 +18229,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.587",date:"2026-11-28",title:"Chicken building depth",groups:[["Art",["Restored the taller Chicken building illustrations across colony lots, construction queues and building cards."]]]},
   {v:"1.0.585",date:"2026-11-28",title:"New artwork and expressive game feedback",groups:[["Art",["Updated all 24 Human and 24 Chicken building illustrations."]],["Dialogue",["Punctuation beats, animated happy and angry words, dialogue speed and sound preferences, and optional colony chatter."]],["Game feel",["Tribe-specific construction, dispatch and reward feedback, adjustable effects and independent vibration."]]]},
   {v:"1.0.584",date:"2026-11-28",title:"New chicken building illustrations",groups:[["Art",["Replaced all 24 chicken building illustrations with the new transparent artwork throughout the colony and construction queues."]]]},
   {v:"1.0.583",date:"2026-11-28",title:"Construction queue illustrations",groups:[["Art",["Construction, crew and planned jobs show their tribe-specific building or resource-field illustrations."]]]},
