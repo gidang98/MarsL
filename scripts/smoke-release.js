@@ -77,7 +77,7 @@ async function browserSmoke(base) {
           window.view='buildings';
           const fixture=document.createElement('div');
           fixture.style.cssText='position:fixed;inset:12px auto auto 12px;width:330px';
-          fixture.innerHTML=window.colonyScene({tribe:{key:'chicken'},buildings:[],lotsTotal:21})+
+          fixture.innerHTML='<div class="cx-stage">'+window.colonyScene({tribe:{key:'chicken'},buildings:[],lotsTotal:21})+'</div>'+
             '<div id="tiles">'+Array.from({length:6},()=>window.moveMark('raid')).join('')+'</div>'+
             '<div class="report open"><button data-report="17">Report</button><div class="report-body">Battle details</div></div>'+
             window.juice.settings();
@@ -87,11 +87,22 @@ async function browserSmoke(base) {
           window.applyWorld({tribe:{key:'chicken'},forecast:{today:{key:'ion'}}});
           window.phaseFeel.watch();
         });
-        await page.waitForFunction(()=>{
-          const markers=[...document.querySelectorAll('[data-feel-move]')];
-          return document.querySelector('.phase-ambient').getAnimations().length===1 &&
-            markers.filter(el=>el.getAnimations().length).length===4 && !markers[5].getAnimations().length;
-        });
+        try {
+          await page.waitForFunction(()=>{
+            const markers=[...document.querySelectorAll('[data-feel-move]')];
+            return document.querySelector('.phase-ambient').getAnimations().length===1 &&
+              markers.filter(el=>el.getAnimations().length).length===4 && !markers[5].getAnimations().length;
+          }, {}, {timeout:8000});
+        } catch (error) {
+          const state=await page.evaluate(()=>({
+            mode:window.juice.motion(),
+            viewport:[innerWidth,innerHeight],
+            elements:[...document.querySelectorAll('.cx-stage,.phase-ambient,[data-feel-move]')].map(el=>({
+              rect:el.getBoundingClientRect().toJSON(), animations:el.getAnimations().length
+            }))
+          }));
+          throw new Error(device+' phase 2 visibility: '+JSON.stringify(state), {cause:error});
+        }
         assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('#sky'),'::after').animationName),'wxion');
         await page.locator('[data-juice-mode]').selectOption('low');
         await page.waitForFunction(()=>!document.querySelector('.phase-ambient').getAnimations().length &&

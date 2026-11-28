@@ -9156,7 +9156,9 @@ var phaseFeel = (function () {
     var mode = juice.motion(), wanted = new Set(), markers = 0;
     if (mode === "full") visible.forEach(function (el) {
       if (!el.isConnected || !el.animate) return;
-      if (el.hasAttribute("data-feel-move") && markers++ >= 4) return;
+      if (el.hasAttribute("data-feel-move")) {
+        if (markers++ >= 4) return;
+      } else if (!el.querySelector(".phase-ambient")) return;
       wanted.add(el);
     });
     active.forEach(function (animation, el) {
@@ -9166,7 +9168,7 @@ var phaseFeel = (function () {
     });
     wanted.forEach(function (el) {
       if (active.has(el)) return;
-      var ambient = el.classList.contains("phase-ambient");
+      var ambient = el.querySelector(".phase-ambient");
       var frames = ambient ? [
         { opacity: .1, transform: "translateY(2px)" },
         { opacity: .64, transform: "translateY(-4px)" },
@@ -9177,14 +9179,14 @@ var phaseFeel = (function () {
         { transform: "translateY(0)", offset: .42 },
         { transform: "translateY(0)", offset: 1 }
       ];
-      active.set(el, el.animate(frames, { duration: ambient ? 6800 : 3000, easing: "ease-in-out", iterations: Infinity }));
+      active.set(el, (ambient || el).animate(frames, { duration: ambient ? 6800 : 3000, easing: "ease-in-out", iterations: Infinity }));
     });
     if (cue && (mode === "off" || (cue.fullOnly && mode !== "full") || !cue.el.isConnected)) stopCue();
   }
 
   function watch(enabled) {
     if (!observer) return;
-    var next = new Set(enabled === false ? [] : document.querySelectorAll("#app .phase-ambient, #tiles [data-feel-move]"));
+    var next = new Set(enabled === false ? [] : document.querySelectorAll("#app .cx-stage, #tiles [data-feel-move]"));
     watched.forEach(function (el) {
       if (next.has(el)) return;
       observer.unobserve(el);

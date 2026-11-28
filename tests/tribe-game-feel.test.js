@@ -90,7 +90,7 @@ test('ambient and map motion run only on visible nodes and respect the marker ca
     return {
       isConnected:true,
       hasAttribute:()=>!ambient,
-      classList:{contains:()=>ambient},
+      querySelector:()=>ambient ? nodes[6] : null,
       getBoundingClientRect:()=>({left:10,top:10,right:30,bottom:30,width:20,height:20}),
       animate(frames, options){
         this.animation={frames,options,cancelled:false,cancel(){this.cancelled=true;}};
