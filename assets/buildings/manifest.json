@@ -1,5 +1,5 @@
 {
-  "release": "1.0.579",
+  "release": "1.0.584",
   "cell": 288,
   "columns": 6,
   "rows": 4,
@@ -393,7 +393,7 @@
       "building_id": "hq",
       "name": "Royal Coop",
       "filename": "chicken-hq.webp",
-      "source": "reused prepared icon",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 1,
       "column": 1,
       "width": 260,
@@ -401,15 +401,15 @@
       "anchor_x": 130,
       "anchor_bottom": 245,
       "draw_width": 240,
-      "sha256": "65a51a120c01132e3ef17bb6d2920007c6c2496980bce5ff7f9bf5846386a783",
-      "rgba_sha256": "2d79a29aadc97b9cdd2159ddeab463e58b2168bc5f8bf89305bdbfcd100676ce"
+      "sha256": "caffc3dabb012d813b5e885be75359ef6d7d9e655311b0b67f50b0cb3e86c5a4",
+      "rgba_sha256": "e640104a3cc2aa6739f125623f0ec775e002083ccbd4e350c09f0744d19ce7bf"
     },
     {
       "tribe": "chicken",
       "building_id": "warehouse",
       "name": "Junk Nest",
       "filename": "chicken-warehouse.webp",
-      "source": "all2 R3C3",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 1,
       "column": 2,
       "width": 260,
@@ -417,15 +417,15 @@
       "anchor_x": 130,
       "anchor_bottom": 208,
       "draw_width": 240,
-      "sha256": "d31e12986742a3951293a1fb61f5caec99d980a1f4b377d63c89bd1bd7377440",
-      "rgba_sha256": "a7c28ed4059b5615d5ca37e5a444b93abcd1e47bde38b9a0c10b921eea1bad1f"
+      "sha256": "ab455df93477a723342e0704355858b99275b754eb1a9ce826138af69eacf10e",
+      "rgba_sha256": "45a08e912c12d04f30a3334a3b62a7e3fb3c2c12bac4fd451a86ca50a4459f6a"
     },
     {
       "tribe": "chicken",
       "building_id": "granary",
       "name": "Corn Silo",
       "filename": "chicken-granary.webp",
-      "source": "all2 R3C4",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 1,
       "column": 3,
       "width": 260,
@@ -433,15 +433,15 @@
       "anchor_x": 130,
       "anchor_bottom": 234,
       "draw_width": 240,
-      "sha256": "d6e3f84de26f76ea65dda7950e66b9cd9b7a4a1442ecf28691d499d412a9b8a8",
-      "rgba_sha256": "6a4c94ed124dcf69048f381b8cafdc536b80e3f702bff4434cece1c7b2c90076"
+      "sha256": "b7c9c70300f38252221a7500fd24f54814b00d0fdef74b862642c6870fad69cc",
+      "rgba_sha256": "56a450cc82810bb405ae5e14a7f8661ec78c84057ae3f5ee71cf81ab5541ce00"
     },
     {
       "tribe": "chicken",
       "building_id": "bunker",
       "name": "Secret Burrow",
       "filename": "chicken-bunker.webp",
-      "source": "all2 R3C6",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 1,
       "column": 4,
       "width": 260,
@@ -449,15 +449,15 @@
       "anchor_x": 130,
       "anchor_bottom": 211,
       "draw_width": 240,
-      "sha256": "5d940eafe20eebe663058fcb9e36218dbd082a115dc0e7938f63b0bb39f9a02c",
-      "rgba_sha256": "dc7098336ad11c0e7841fb016249f2b57257d837cffbf23471f4dd1d497aedb8"
+      "sha256": "af874ab48497cff2b252ad91a5d47f8ac88a5bcd0b9289e5d55ac78f7b33c64c",
+      "rgba_sha256": "1587bafaeee8776c9507d6b518baf97d78715bc72e22ea4d3258f525e03fc7b5"
     },
     {
       "tribe": "chicken",
       "building_id": "barracks",
       "name": "Peck Academy",
       "filename": "chicken-barracks.webp",
-      "source": "reused prepared icon",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 1,
       "column": 5,
       "width": 260,
@@ -465,15 +465,15 @@
       "anchor_x": 130,
       "anchor_bottom": 229,
       "draw_width": 240,
-      "sha256": "f2248ca64edb1beec10c6122dd501b542b30a90c0213e4bda3386cf441f2529f",
-      "rgba_sha256": "dd41b1550bea823c1e2273ffeae8ce3e34fa2ae98d7345fa75804553fd008d1a"
+      "sha256": "8bcb26aed7050ef0ccc5586feaa9c5cc85e2909569fd5a7af7dd10f3bb8e5699",
+      "rgba_sha256": "3970022820f7f6ce6341549b4b090fb78244ca6680609b662fe9f21afc187979"
     },
     {
       "tribe": "chicken",
       "building_id": "wall",
       "name": "Chicken Wire Fence",
       "filename": "chicken-wall.webp",
-      "source": "all1 R3C5",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 1,
       "column": 6,
       "width": 260,
@@ -481,15 +481,15 @@
       "anchor_x": 130,
       "anchor_bottom": 193,
       "draw_width": 240,
-      "sha256": "5e49f92a935dd47b6898c8840e38aec8c2de5ba1ded25254d7b8825fe12432f6",
-      "rgba_sha256": "78ee1933d76e424a3741ecd91b5089692d0157a13f0395890e2cdbc3bf80c171"
+      "sha256": "af28331eb3fdaec06c18e045895a74e59ab8034b2243c5370f4591ab0e67330d",
+      "rgba_sha256": "84a34a4cf0672488f943139295cee4e4587102b2ac558515e09be050544bfeb4"
     },
     {
       "tribe": "chicken",
       "building_id": "trap",
       "name": "Snare Patch",
       "filename": "chicken-trap.webp",
-      "source": "all2 R3C7",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 2,
       "column": 1,
       "width": 260,
@@ -497,15 +497,15 @@
       "anchor_x": 130,
       "anchor_bottom": 194,
       "draw_width": 240,
-      "sha256": "4cbdda053a9fd03a88a08b1794996e0b966b676d3d7dc0455330cf0d4187a5be",
-      "rgba_sha256": "ab4ad1fd62efc789d8c93d74c8cf326052ee48fd03759241bd3d1f64f2595947"
+      "sha256": "f33857c406671ebb58588187187f34c7a61a0fa7ca855cc311142b5cea789a92",
+      "rgba_sha256": "f25c55de723d8f6d4a3ee0bb14cc26d232274501b5e39131f0fef8b332e08622"
     },
     {
       "tribe": "chicken",
       "building_id": "lab",
       "name": "Brainy Coop",
       "filename": "chicken-lab.webp",
-      "source": "reused prepared icon",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 2,
       "column": 2,
       "width": 260,
@@ -513,15 +513,15 @@
       "anchor_x": 130,
       "anchor_bottom": 218,
       "draw_width": 240,
-      "sha256": "c0e957af1210e64cc5929665de5bdbad4af6d9ccf3a6e4969c9d170e7afb09ad",
-      "rgba_sha256": "364bf9794a440760865d5d946e992ca96dd352f58a0bc998e2a1cb474ca9ed79"
+      "sha256": "63365c98a6c4e81503a8220b2595f207c0841fefbb891a409a7ae1879b0071cd",
+      "rgba_sha256": "6054612f7f5770b8d84532a6e99bbee372b6b8a33588be6132ad0469543ea0bd"
     },
     {
       "tribe": "chicken",
       "building_id": "weaponry",
       "name": "Beak Sharpener",
       "filename": "chicken-weaponry.webp",
-      "source": "all2 R3C9",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 2,
       "column": 3,
       "width": 260,
@@ -529,15 +529,15 @@
       "anchor_x": 130,
       "anchor_bottom": 223,
       "draw_width": 240,
-      "sha256": "5010da271b09ed0011c1b6c9a3f647f2b2c744af3ae8d709cb206a115bdbffdc",
-      "rgba_sha256": "bff762ecd77b90b79caed213160813e1b79cc6224dcfc76536c10c1f9caae2ad"
+      "sha256": "d9908c6797c2a00f7b5cad8ac925bc7f54ee177d44aebef3500df25182a6fcb7",
+      "rgba_sha256": "605c59fb086c303103cfcc327a758180b2f38a4c351c670d948374ae139577ed"
     },
     {
       "tribe": "chicken",
       "building_id": "hangar",
       "name": "Flight School",
       "filename": "chicken-hangar.webp",
-      "source": "all1 R3C10",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 2,
       "column": 4,
       "width": 260,
@@ -545,15 +545,15 @@
       "anchor_x": 130,
       "anchor_bottom": 221,
       "draw_width": 240,
-      "sha256": "91b4562156f1e23d3a11c0dc96277479ea8d41503295fe59784602c0edf7e99f",
-      "rgba_sha256": "247a02bc12676d54f92e949aeb4626f3b78067501f81917421688061bbd2814d"
+      "sha256": "e409cfe3011a1f01ca34ff10777cd02d9e5d12a2aaf6ec4ff0ceb036ec919d22",
+      "rgba_sha256": "9d7bb939d7c3b8c485a6bb4981d80f8cd16cd0465c7eeaf0225b7ce440f52272"
     },
     {
       "tribe": "chicken",
       "building_id": "hub",
       "name": "Nest Bureau",
       "filename": "chicken-hub.webp",
-      "source": "reused prepared icon",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 2,
       "column": 5,
       "width": 260,
@@ -561,15 +561,15 @@
       "anchor_x": 130,
       "anchor_bottom": 221,
       "draw_width": 240,
-      "sha256": "c828390ef9369ec9a357e0c699657a5ccae445dfb9008aa89e4761a23793a2bf",
-      "rgba_sha256": "63cc50d4d1cab63a2da7911af764b22705603909f76c083275e78aaa7994000c"
+      "sha256": "0f41918c97261b12aa42e88cb9b6d367e3699877f1bbc223680d49a150d0c32f",
+      "rgba_sha256": "832c229b75053e73b8a500cede6600ed500ba6fba3cbe76298efc47b91d0423c"
     },
     {
       "tribe": "chicken",
       "building_id": "outpost",
       "name": "Lookout Perch",
       "filename": "chicken-outpost.webp",
-      "source": "all2 R4C12",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 2,
       "column": 6,
       "width": 260,
@@ -577,15 +577,15 @@
       "anchor_x": 130,
       "anchor_bottom": 238,
       "draw_width": 240,
-      "sha256": "4e9ec8c9042e3193aee60a2fa6ada4234a80517e0babb4f43f6deaebddbb590e",
-      "rgba_sha256": "6cb86f8dea474f0aa7e74be080af72a5b82d4ab4fe22fb66623b26fccbc44bdb"
+      "sha256": "d473a671e097b4a7cd504b12e97a1d3f7a58ec4fdc3630e78f68fd672dbba0f3",
+      "rgba_sha256": "ae30367bf1b60926f344f6248b197e62c339987a33cda73d601f4663ecb73d84"
     },
     {
       "tribe": "chicken",
       "building_id": "hospital",
       "name": "Feather Clinic",
       "filename": "chicken-hospital.webp",
-      "source": "core R2C12",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 3,
       "column": 1,
       "width": 260,
@@ -593,15 +593,15 @@
       "anchor_x": 130,
       "anchor_bottom": 215,
       "draw_width": 240,
-      "sha256": "b3f3e1a6b685bb552d9c0f717b844f53c9bd6d0ce05fc54f4d57643f23a4754d",
-      "rgba_sha256": "ee1c4ad26f077875c43e8e51e8ea5b0ce1805eeaa892d2413e99bf79ce09a4f3"
+      "sha256": "79c001dc4df6ecad05a55da14a5bd245485d76588b393093157c550af66aff7b",
+      "rgba_sha256": "e8e5f097f7440b24883733b12860e9fd52edf19358fbf9b2c887006ca565c31a"
     },
     {
       "tribe": "chicken",
       "building_id": "market",
       "name": "Seed Market",
       "filename": "chicken-market.webp",
-      "source": "all2 R4C1",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 3,
       "column": 2,
       "width": 260,
@@ -609,15 +609,15 @@
       "anchor_x": 130,
       "anchor_bottom": 244,
       "draw_width": 240,
-      "sha256": "927d0032c0c0bc01e82b87bb1550393958d8f0630801072c4997f41320bb22eb",
-      "rgba_sha256": "fcaba4c7e8d6078e5300c58f2b0f55fdf3f7ad445932e71a534cff9668f5b99a"
+      "sha256": "ab245d01bd742d86c77f66671714eaede7722ac07c21b06fe7c5d1b29e143ca2",
+      "rgba_sha256": "42d9bc1af3c57c7cc5c7de90bf4246acce2351fad67347ed169e8926a342f102"
     },
     {
       "tribe": "chicken",
       "building_id": "sawmill",
       "name": "Twig Weaver",
       "filename": "chicken-sawmill.webp",
-      "source": "reused prepared icon",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 3,
       "column": 3,
       "width": 260,
@@ -625,15 +625,15 @@
       "anchor_x": 130,
       "anchor_bottom": 217,
       "draw_width": 240,
-      "sha256": "d275085846da65b0c51829444377927a3a7f1b48d00e947647a6e1f3a8798de3",
-      "rgba_sha256": "6365260644923d7ebb9b04a827f0244beec3ad4f8a3db8fc7628bf0666ca07c2"
+      "sha256": "c7be926c93fd4603059b3921497ebb76186b81f97b94eec7deff6407fd4bfcf9",
+      "rgba_sha256": "103a4955c2a185bf7410a640a3cdfbcd82f3033f51425ae416a4a0dcac1f9ecc"
     },
     {
       "tribe": "chicken",
       "building_id": "kiln",
       "name": "Pebble Polisher",
       "filename": "chicken-kiln.webp",
-      "source": "reused prepared icon",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 3,
       "column": 4,
       "width": 260,
@@ -641,15 +641,15 @@
       "anchor_x": 130,
       "anchor_bottom": 229,
       "draw_width": 240,
-      "sha256": "b77020c78f458c62b2994dc3e74e4045271c6fbccd6fa33d1854d7eb62ffae6d",
-      "rgba_sha256": "339204907e43e7843ee8457add4f5c05789627e05b46197624ebb7ecdb21fe9a"
+      "sha256": "858593cdf22b6187dda01d0d981f3ab1882aaf3ef49fd8b42234d5894fb2085a",
+      "rgba_sha256": "fd23582c577d8d3e52a40d7ef2642df5e56fd0110c19d162e5831a0d04f29a56"
     },
     {
       "tribe": "chicken",
       "building_id": "foundry",
       "name": "Scrap Smelter",
       "filename": "chicken-foundry.webp",
-      "source": "all2 R4C4",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 3,
       "column": 5,
       "width": 260,
@@ -657,15 +657,15 @@
       "anchor_x": 130,
       "anchor_bottom": 236,
       "draw_width": 240,
-      "sha256": "653a97f56f6abe9bfe1c6d5ed30654bc3219ab835b67ebda0da1e79e3b2122e8",
-      "rgba_sha256": "44f9b9d524376f09d22f1cb84a1c057d3c4ccc21dea4af25af4237effbe3765b"
+      "sha256": "e174dacfa8680754dbcc2b89d782914b17cd6e572c48845b7736c1b65e4f9db1",
+      "rgba_sha256": "7dfb17d2116c5317ca583ce8ad63eb711b606ad4604ac60c25940ac80efaa9b3"
     },
     {
       "tribe": "chicken",
       "building_id": "bakery",
       "name": "Worm Kitchen",
       "filename": "chicken-bakery.webp",
-      "source": "all2 R4C9",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 3,
       "column": 6,
       "width": 260,
@@ -673,15 +673,15 @@
       "anchor_x": 130,
       "anchor_bottom": 223,
       "draw_width": 240,
-      "sha256": "e4dd5f53e327eb6bf6a6dba82d2961fc61b936291a9b68a850dd93adf89b4f4e",
-      "rgba_sha256": "3975d41ba69225c510a79545c8d72fe3bc4360e0f48b1b274eeaf5ab8680e410"
+      "sha256": "eb778c762680bd18cf32a8d5d1a3f63a75630f2aac55751a87d79547041adba3",
+      "rgba_sha256": "04e6534cdb6de9e57f399fb5d3844cdfc99f0949b3205b07a0ce694fbb896cba"
     },
     {
       "tribe": "chicken",
       "building_id": "greenhouse",
       "name": "Seed Sprouter",
       "filename": "chicken-greenhouse.webp",
-      "source": "all2 R4C6",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 4,
       "column": 1,
       "width": 260,
@@ -689,15 +689,15 @@
       "anchor_x": 130,
       "anchor_bottom": 220,
       "draw_width": 240,
-      "sha256": "b3e6c9f5469db4d5cc3d33069f1ca0028846960e6a85a34ed3b87785b0e0bb42",
-      "rgba_sha256": "ff2854c502177e838201b2d5ac809b3bdd4e05465e281ef72fa4458b4e03a74e"
+      "sha256": "ca1fa7013a34b5a4fb4f5ec724e8334551111e62c25355faf8bb4a4d62d0065a",
+      "rgba_sha256": "92a5d6bf8973e40e9af94f56947deb826e7c873625106cc11c443222c9a8bf55"
     },
     {
       "tribe": "chicken",
       "building_id": "ration",
       "name": "Grain Mill",
       "filename": "chicken-ration.webp",
-      "source": "all1 R4C9",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 4,
       "column": 2,
       "width": 260,
@@ -705,15 +705,15 @@
       "anchor_x": 130,
       "anchor_bottom": 242,
       "draw_width": 240,
-      "sha256": "3f06a06243f5c19a9d5089bbd9df075078993cc2dfce6d74e4f38460d5242c18",
-      "rgba_sha256": "dc4c31abec7c7ec2d48df0d55125ca15c22449886655cd07e6140395c29975d9"
+      "sha256": "d6ba394583d43a60a23281381b4a46ed42f405d89d58818246b3df9f95a7f338",
+      "rgba_sha256": "21bec58f7a8eab1c949bd40039f05dd6c3b90c68f5756ab3988ca2dbd88fc925"
     },
     {
       "tribe": "chicken",
       "building_id": "assembly",
       "name": "Nest Factory",
       "filename": "chicken-assembly.webp",
-      "source": "all2 R4C10",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 4,
       "column": 3,
       "width": 260,
@@ -721,15 +721,15 @@
       "anchor_x": 130,
       "anchor_bottom": 236,
       "draw_width": 240,
-      "sha256": "4275e208d9eb646761a4c99662e39a8cdd62b8c091654c2ddc139132ec4d7ce3",
-      "rgba_sha256": "6bf4df6d3363ac1d2dda05543c3965a1ff59a0af8e73ded15c9d894cb5afb3ef"
+      "sha256": "c8b159778cc23662ce263b9a6b0ec702336f70c9f6a0023e3e302ea078681df6",
+      "rgba_sha256": "825903111000ef20ad6a146c87045145c6aaa0da618bf4e483b8b74827df8381"
     },
     {
       "tribe": "chicken",
       "building_id": "drillyard",
       "name": "Pecking Range",
       "filename": "chicken-drillyard.webp",
-      "source": "all2 R3C2",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 4,
       "column": 4,
       "width": 260,
@@ -737,15 +737,15 @@
       "anchor_x": 130,
       "anchor_bottom": 223,
       "draw_width": 240,
-      "sha256": "d81b3e128510a0f9fb69416b776965a2627bdabb66d3b0e8594d779dd38db53e",
-      "rgba_sha256": "6e2104fc15f8073f1af0f58abe10d4316659901ac1778174f9ac1a24808a8e65"
+      "sha256": "dcf7a90a4182781b435b0590cf8f88b6b2c5b67256c550998330a5796d37ed01",
+      "rgba_sha256": "170a5f3e2123108a55baca0bfc82fd26e6533dc9e7dc4d12123e278bb066de21"
     },
     {
       "tribe": "chicken",
       "building_id": "workshop",
       "name": "Battering Barn",
       "filename": "chicken-workshop.webp",
-      "source": "reused prepared icon",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 4,
       "column": 5,
       "width": 260,
@@ -753,15 +753,15 @@
       "anchor_x": 130,
       "anchor_bottom": 221,
       "draw_width": 240,
-      "sha256": "8e62f155669c55430c8d32a962726b8e6070a43e2a0190818c55e90c694ebccb",
-      "rgba_sha256": "b9bbddd348031ecf743c0dde147fe31d6d6368a327d259271c288f9923de6e51"
+      "sha256": "a2758480702a29eaf9ea223f45b275b366ce1af4c03af0223288b0ffa424a0d4",
+      "rgba_sha256": "304958203649f352251c7b8dd2b430c57501e2e2b4586ad6f17a94c1076cdd2c"
     },
     {
       "tribe": "chicken",
       "building_id": "bastion",
       "name": "Mud Fortress",
       "filename": "chicken-bastion.webp",
-      "source": "all2 R4C8",
+      "source": "Chicken replacement sheet 2026-11-28 08:29 UTC",
       "row": 4,
       "column": 6,
       "width": 260,
@@ -769,8 +769,8 @@
       "anchor_x": 130,
       "anchor_bottom": 221,
       "draw_width": 240,
-      "sha256": "8583877b3adf801ef4e2b4492335e36b16d3a7629df6c7476bfe459cf0093534",
-      "rgba_sha256": "1f6d603510ec1bf50d53d02b3cd324b79e3335fe04e7877e930f491124e4584f"
+      "sha256": "0b0fa6af8e2b3740608c6ac9198a4403023154b236cfdd0c956cd156d947cf81",
+      "rgba_sha256": "f6582ceba31d6de6a4c66e23b9cde6e9146ba18a07317cc6402ebfddd516ae1d"
     },
     {
       "tribe": "alien",
@@ -1159,7 +1159,7 @@
   ],
   "atlas_sha256": {
     "human": "3ce944acdd4bbbba1901c670678f834f82aca9df1fbe3c18c5126ef03c134904",
-    "chicken": "17c8ad9a356662219495d9f7a05617dfce24d5a3fffbb490f06c77714f0599cd",
+    "chicken": "97493fbdad5ba7ba08b07aaa3adc9a7a042249d4df4523b20395bd7e75b7cd66",
     "alien": "77e0ead775ee267fdce820b5826d63833f08d2b92aa3fee6fea1c83d032e0cb6"
   }
 }
