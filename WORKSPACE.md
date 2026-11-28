@@ -4,8 +4,8 @@
 
 - Source of truth: [main](https://github.com/gidang98/MarsL/tree/main). Check HEAD and GAME_VERSION in server.js before editing. Never reuse a release number for a different commit.
 - Active task ledger: [#108](https://github.com/gidang98/MarsL/issues/108). Shared AI claims/handoffs: [#1](https://github.com/gidang98/MarsL/issues/1). Read latest comments before starting, before integrating and before deploying. Record blockers and verification evidence there; do not make a main-only documentation commit that triggers a same-version deployment.
-- Latest recorded successful production deployment: 1.0.579, commit 966f578e, [run 46081305952](https://github.com/gidang98/MarsL/actions/runs/46081305952), all three worlds; 237 tests passed; verified release artifact 15237347120. Check the ledger for newer verification.
-- Candidate 1.0.580: building illustration UI and managed art. The candidate must pass PR CI and deployment checks before it is considered live. No database changes.
+- Latest successful production deployment before this candidate: 1.0.585, commit 32d34227, [run 46136068438](https://github.com/gidang98/MarsL/actions/runs/46136068438), all three worlds. Check the ledger for newer verification.
+- Candidate 1.0.587 combines the taller Chicken building atlas with confirmed construction, mission-ready and commander reward feedback. It must pass combined browser CI and deployment checks. No schema migration.
 - Use Node 22, npm ci, npm test, node --check server.js, node scripts/build-release.js, node --check dist/server.js, node scripts/smoke-release.js. PR verification additionally runs mobile Chromium and WebKit with BROWSER_SMOKE=1. Use isolated temporary data, never production databases for tests.
 - Source: server.js (game/backend/version/patch notes), client/game-page.js (active browser template), scripts/build-release.js (standalone dist/server.js). Search symbols with bounded reads. Never deploy a scratch copy.
 - Main pushes automatically deploy to all three servers. Manual verify is read-only. Merge only reviewed, tested, fresh candidates; do not merge outdated release branches wholesale.
