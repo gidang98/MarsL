@@ -182,9 +182,16 @@ jobs:
             {
               cat "dist/building-art-plans/$label.sftp"
               printf '%s\n' \
+                '-mkdir fonts' \
                 'put dist/server.js .server.js.deploy-new' \
                 'rename .server.js.deploy-new server.js' \
                 'chmod 644 server.js'
+              for font in dist/fonts/*; do
+                name="${font##*/}"
+                printf 'put "%s" "fonts/.%s.deploy-new"\n' "$font" "$name"
+                printf 'rename "fonts/.%s.deploy-new" "fonts/%s"\n' "$name" "$name"
+                printf 'chmod 644 "fonts/%s"\n' "$name"
+              done
             } | sftp -q -b - \
                   -i "$HOME/.ssh/id_ed25519" \
                   -o BatchMode=yes \
@@ -286,6 +293,7 @@ jobs:
           const fs = require('node:fs');
           const {createHash} = require('node:crypto');
           const worlds = [['opentest','open-test','https://marsl-game.com'], ['classic','classic','https://classic.marsl-game.com'], ['speed','speed-test','https://speed.marsl-game.com']];
+          const fontManifest = JSON.parse(fs.readFileSync('dist/fonts/manifest.json', 'utf8'));
           const lines = [];
           async function get(url) { return fetch(url, {redirect:'error', signal:AbortSignal.timeout(20000), headers:{'Cache-Control':'no-cache'}}); }
           (async () => {
@@ -306,7 +314,14 @@ jobs:
                 }
                 const stale = await get(base+'/game-assets/'+'0'.repeat(64)+'.js');
                 assert.ok(stale.ok); assert.match(stale.headers.get('cache-control')||'',/no-store/); assert.match(await stale.text(),/location.replace/);
+                const fontCss = await get(base+'/fonts.css'); assert.ok(fontCss.ok); const fontCssText = await fontCss.text(); assert.ok(!/https?:\/\//i.test(fontCssText));
+                for (const name of fontManifest.files) {
+                  const response = await get(base+'/fonts/'+encodeURIComponent(name)); assert.ok(response.ok, name);
+                  assert.match(response.headers.get('content-type')||'', /font\/woff2?/);
+                  assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), fontManifest.sha256[name], name);
+                }
                 lines.push('- '+id+': exact version/commit, correct server ID, shell, CSS/JS checksums and stale-script recovery passed.');
+                lines.push('- '+id+': all '+fontManifest.files.length+' self-hosted font files match the release checksums.');
               } catch (e) { failed=true; lines.push('- '+id+': public startup checks FAILED.'); console.error(id,e.message); }
               try {
                 const art = await get(base+'/art/unit-alien-spitter.webp');
