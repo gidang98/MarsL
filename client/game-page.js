@@ -8756,6 +8756,10 @@ function renderAuth() {
   h += '<label for="u">Colonist name' + (reg ? ' <small id="uok" class="uok"></small>' : "") + '</label><input id="u" autocomplete="username" maxlength="20" required' + (reg ? ' data-namecheck="1"' : "") + ">";
   h += '<label for="p">Password' + (reg ? " (at least 6 characters)" : "") + '</label><input id="p" type="password" autocomplete="' + (reg ? "new-password" : "current-password") + '" required' + (reg ? ' minlength="6" data-pwmeter="1"' : "") + ">";
   if (reg) h += '<div class="pwmeter" id="pwmeter"><i></i></div><p class="pwwarn">' + "⚠️" + ' Never use an important password! Pick one you use nowhere else.</p>';
+  if (reg) {
+    var ageCutoff = new Date(); ageCutoff.setUTCFullYear(ageCutoff.getUTCFullYear() - 13);
+    h += '<label for="dob">Date of birth (you must be at least 13)</label><input id="dob" type="date" autocomplete="bday" min="1900-01-01" max="' + ageCutoff.toISOString().slice(0, 10) + '" required><small class="hint">Used only for the age check. Your birth date is not saved.</small>';
+  }
   if (reg && config.emailRequired) h += '<label for="em">Email (we send you a confirmation link once)</label><input id="em" type="email" autocomplete="email" maxlength="120" required>';
   if (reg && config.invite) h += '<label for="inv">Invite code</label><input id="inv" autocomplete="off" maxlength="60" required>';
   h += '<p></p><button class="btn" type="submit">' + (reg ? "🛸 Make my account" : "🔑 Log in") + "</button>";
@@ -9045,6 +9049,7 @@ function submitAuth() {
     server: selServer || config.server || "",
     invite: document.getElementById("inv") ? document.getElementById("inv").value : "",
     email: document.getElementById("em") ? document.getElementById("em").value : "",
+    dob: document.getElementById("dob") ? document.getElementById("dob").value : "",
     lang: curLang(),
   };
   fetch("/api/" + authMode, {
