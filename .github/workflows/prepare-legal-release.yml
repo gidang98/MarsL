@@ -1,0 +1,55 @@
+name: Prepare legal release 1.0.589
+
+on:
+  push:
+    branches: [kimi/legal-v1.0.589]
+    paths: ['.github/workflows/prepare-legal-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prepare-legal-1-0-589
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply reviewed legal patch
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "43535bbc6a84a416698ab06a6a6255c4bfe30fe5"
+          test "$(git rev-parse HEAD^^)" = "61e94c781eea7b754b6ca2dd1a35434d55709950"
+          cat .release/legal-patch-part-00 .release/legal-patch-part-01 .release/legal-patch-part-02 .release/legal-patch-part-03 .release/legal-patch-part-04 > "$RUNNER_TEMP/legal.patch"
+          echo "40c7639801d5e590f524f17c3e9e8ffbb93614956a1570b7db5e4a9d97146446  $RUNNER_TEMP/legal.patch" | sha256sum -c -
+          git reset --hard 61e94c781eea7b754b6ca2dd1a35434d55709950
+          git apply --check -p1 "$RUNNER_TEMP/legal.patch"
+          git apply -p1 "$RUNNER_TEMP/legal.patch"
+      - name: Install pinned packages and generate licensed fonts
+        run: npm ci --no-audit --no-fund
+      - name: Run unit and syntax checks
+        run: |
+          npm test
+          node --check server.js
+          node --check client/game-page.js
+      - name: Build and smoke all three server presets
+        run: |
+          node scripts/build-release.js
+          node --check dist/server.js
+          node scripts/smoke-release.js
+      - name: Publish verified release candidate
+        run: |
+          set -euo pipefail
+          git config user.name "Kimi"
+          git config user.email "kimi@moonshot.ai"
+          git add .gitignore client/game-page.js package.json package-lock.json server.js scripts/build-release.js scripts/prepare-fonts.js scripts/smoke-release.js tests/legal-release.test.js .github/workflows/deploy-alwaysdata.yml
+          git add -A .release .github/workflows/prepare-legal-release.yml
+          git commit -m "Release 1.0.589: age eligibility, local fonts and DMCA guidance"
+          git push origin HEAD:kimi/legal-v1.0.589
