@@ -1,0 +1,68 @@
+const { describe, it } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const root = path.resolve(__dirname, '..');
+const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+const client = fs.readFileSync(path.join(root, 'client/game-page.js'), 'utf8');
+
+function ageCheck(value, now) {
+  const start = server.indexOf('const MIN_ACCOUNT_AGE = 13;');
+  const end = server.indexOf('function acctRegister', start);
+  assert.ok(start >= 0 && end > start);
+  const context = {};
+  vm.runInNewContext(server.slice(start, end) + ';this.check = registrationAgeProblem;', context);
+  return context.check(value, now);
+}
+
+describe('Signup age eligibility', () => {
+  const now = new Date('2026-11-28T12:00:00Z');
+  it('accepts the exact 13th-birthday boundary and older players', () => {
+    assert.equal(ageCheck('2013-11-28', now), null);
+    assert.equal(ageCheck('2000-01-01', now), null);
+  });
+  it('rejects underage, missing, impossible and future dates', () => {
+    for (const value of ['2013-11-29', '', '2026-02-30', '2027-01-01', 'not-a-date']) assert.ok(ageCheck(value, now), value);
+  });
+  it('enforces the check on the server without storing birth dates', () => {
+    assert.match(server, /registrationAgeProblem\(body\.dob\)/);
+    assert.doesNotMatch(server, /INSERT INTO (?:accounts|pending_signups|users)[^;]*(?:dob|birth)/i);
+    assert.match(client, /id="dob" type="date"/);
+    assert.match(client, /dob: document\.getElementById\("dob"\)/);
+    assert.match(client, /Your birth date is not saved/);
+  });
+});
+
+describe('Self-hosted fonts', () => {
+  it('packages licensed WOFF2 files and only same-origin URLs', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'fonts/manifest.json'), 'utf8'));
+    const css = fs.readFileSync(path.join(root, 'fonts/fonts.css'), 'utf8');
+    assert.ok(manifest.files.length >= 8);
+    assert.equal(manifest.licenses.length, 4);
+    assert.ok(!/https?:\/\//i.test(css));
+    for (const file of manifest.files) {
+      assert.ok(file.endsWith('.woff2') || file.endsWith('.woff'));
+      assert.ok(fs.statSync(path.join(root, 'fonts', file)).size > 1000);
+      assert.ok(css.includes("/fonts/" + file));
+    }
+    for (const license of manifest.licenses) assert.ok(fs.readFileSync(path.join(root, 'fonts', license), 'utf8').length > 500);
+  });
+});
+
+describe('Legal and privacy disclosures', () => {
+  it('renders a DMCA section with escaped configured agent details and official guidance', () => {
+    assert.match(server, /id="copyright"/);
+    assert.match(server, /copyright\.gov\/dmca-directory/);
+    assert.match(server, /escHtml\(copyrightAgent/);
+    assert.match(server, /escHtml\(copyrightEmail/);
+    assert.match(server, /renew it every three years/);
+    assert.match(server, /birth date entered at signup is used only for the 13\+ check/i);
+    assert.match(server, /does not record browsing-session replays/);
+  });
+  it('does not introduce browsing replay, marketing or subscription services', () => {
+    assert.doesNotMatch(server + client, /posthog|hotjar|fullstory|sessionrecording|session-replay/i);
+    assert.doesNotMatch(server, /marketing.*unsubscribe|renewal.*subscribe/i);
+  });
+});
