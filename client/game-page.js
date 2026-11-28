@@ -4950,6 +4950,9 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   .building-art-img { display:block; width:100%; height:100%; max-width:none; object-fit:contain; object-position:center; }
   .building-art-img[hidden], .building-art-fallback[hidden] { display:none !important; }
   .building-art-fallback { font-size:25px; line-height:1; }
+  .qitem .building-art { width:48px; height:42px; }
+  .qitem .qbody { min-width:0; overflow-wrap:anywhere; }
+  @media (max-width:559px) { .qitem .building-art { width:40px; height:36px; } .qitem { gap:6px; } }
   .bli { align-items:center; min-height:76px; gap:8px; padding:6px 8px; }
   .bli-visual { display:flex; flex:0 0 auto; flex-direction:column; align-items:center; gap:1px; }
   .bli .building-art { width:52px; height:42px; }
@@ -9221,6 +9224,18 @@ function renderResbar(d) {
   return h + "</div>";
 }
 
+function constructionSprite(d, q) {
+  if (!q) return "";
+  if (q.kind === "building") return buildingSprite(d, q);
+  if (q.kind === "field") {
+    var tribe = d && d.tribe && d.tribe.key, type = q.type;
+    var key = tribe + "-" + type + "-" + fxStage(Number(q.targetLevel || q.target || 1));
+    if ((tribe === "human" || tribe === "chicken" || tribe === "alien") && ["wood","stone","metal","food"].indexOf(type) >= 0 && FX_ART && FX_ART.t[key]) {
+      return '<span class="building-art" aria-hidden="true"><img class="building-art-img" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" width="56" height="48" draggable="false" loading="lazy" decoding="async" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="building-art-fallback" hidden>🌱</span></span>';
+    }
+  }
+  return '<span class="building-art" aria-hidden="true"><span class="building-art-fallback">🏗️</span></span>';
+}
 function queueTotal(ms, label) {
   if (ms <= 0) return "";
   return '<div class="qtotal"><span>⏱ ' + label + " in <b>" + fmt(ms) + "</b></span><span>🕐 at <b>" + clockText(serverNow() + ms) + "</b></span></div>";
@@ -9233,7 +9248,7 @@ function crewQueueHtml(d) {
   if (C.job) {
     var q = C.job;
     var pct = Math.round((1 - q.remainingMs / q.durationMs) * 100);
-    var h = '<div class="qitem crew"><span class="big">' + q.icon + "</span>";
+    var h = '<div class="qitem crew">' + constructionSprite(d, q);
     h += '<div class="qbody"><b>' + q.name + "</b> → Level " + q.targetLevel + ' <i class="crewtag">🎖️ Crew</i>';
     h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
     h += "<small>🤖 " + fmt(q.remainingMs) + " left · ready at " + clockText(serverNow() + q.remainingMs) + "</small></div>";
@@ -9310,7 +9325,7 @@ function planHtml(d) {
     else if (p.why === "Not enough resources") st = w < 0 ? "waits for resources (production too low)" : "affordable in about " + fmt(w) + " · then starts";
     else if (p.why === "Build queue is full") st = "starts when a slot frees up";
     else st = p.why ? p.why : "starts now";
-    h += '<div class="qitem plan-item"><span class="big">' + p.icon + '</span><div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">' + "❌" + '</button></div>';
+    h += '<div class="qitem plan-item">' + constructionSprite(d, p) + '<div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">' + "❌" + '</button></div>';
   });
   var R = P.reserve, held = RES.filter(function (k) { return R[k] > 0; });
   if (held.length) h += '<small class="plan-held">' + '🔒' + ' Held for the plan: ' + held.map(function (k) { return RES_ICON[k] + " " + shortNum(R[k]); }).join(" ") + " · trade routes leave these alone</small>";
@@ -9336,7 +9351,7 @@ function renderQueue(d) {
   d.queue.forEach(function (q) {
     var pct = q.active ? Math.round((1 - q.remainingMs / q.durationMs) * 100) : 0;
     sum += q.active ? q.remainingMs : q.durationMs;
-    h += '<div class="qitem"><span class="big">' + q.icon + "</span>";
+    h += '<div class="qitem">' + constructionSprite(d, q);
     h += '<div class="qbody"><b>' + q.name + "</b> → Level " + q.targetLevel;
     h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
     h += "<small>" + (q.active ? "🤖 " + fmt(q.remainingMs) + " left" : "💤 Waiting · takes " + fmt(q.durationMs)) + " · ready at " + clockText(serverNow() + sum) + (q.asked ? " · 🤝 " + q.helpers : "") + "</small></div>";
@@ -9371,7 +9386,7 @@ function boostSheet(d) {
   if (!q) return null;
   var B = d.boost;
   var left = q.active ? q.remainingMs : q.durationMs;
-  var h = '<div class="sheet-head t-wood"><span class="hi">' + q.icon + "</span><div><h3>" + q.name + " → Level " + q.targetLevel + "</h3><b>⚡ " + (q.active ? fmt(left) + " left" : "Waiting · takes " + fmt(left)) + (q.crew ? " · 🎖️ Crew" : "") + "</b></div></div>";
+  var h = '<div class="sheet-head t-wood building-sheet-head">' + constructionSprite(d, q) + "<div><h3>" + q.name + " → Level " + q.targetLevel + "</h3><b>⚡ " + (q.active ? fmt(left) + " left" : "Waiting · takes " + fmt(left)) + (q.crew ? " · 🎖️ Crew" : "") + "</b></div></div>";
   var used = q.freeMaxMs ? Math.min(100, Math.round((q.cutMs / q.freeMaxMs) * 100)) : 100;
   h += '<div class="boostfree"><small>Free help: ' + fmt(Math.min(q.cutMs, q.freeMaxMs)) + " of " + fmt(q.freeMaxMs) + " (" + B.pct.free + "% of the job)</small>";
   h += '<div class="meter thin"><i style="width:' + used + '%"></i></div></div>';
