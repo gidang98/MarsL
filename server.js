@@ -557,7 +557,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.589";
+const GAME_VERSION = "1.0.590";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -18228,6 +18228,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.590",date:"2026-11-28",title:"A livelier colony and map",groups:[["Game feel",["Tribe-specific colony ambience and mascot reactions to progress and incoming trouble.","Subtle battle report reveals, clearer movement markers and gentler weather effects that follow the Game Feel settings."]]]},
   {v:"1.0.589",date:"2026-11-28",title:"Safer signup and complete local fonts",groups:[["Accounts",["New accounts require a valid birth date showing that the player is at least 13. The date is checked transiently and is not saved."]],["Privacy and legal",["All interface fonts and language subsets are bundled locally with their licenses. The legal page now includes designated copyright-agent contact details and official registration guidance.","The privacy page explains the transient age check and distinguishes in-game battle replays from browsing-session recording. MarsL has no browsing-session replay service, marketing email flow or paid subscription renewal flow."]]]},
   {v:"1.0.588",date:"2026-11-28",title:"Taller new Chicken buildings",groups:[["Art",["The newer Chicken illustrations stand taller in colony lots, construction queues and building cards."]]]},
   {v:"1.0.587",date:"2026-11-28",title:"Chicken building depth and colony feedback",groups:[["Art",["Restored taller Chicken building illustrations across colony lots, construction queues and building cards."]],["Game feel",["Construction feedback follows actual upgrades; resource-field stages animate when they change; newly ready missions receive distinct feedback.","Camp bounty and other commander inventory rewards are distinguished."]]]},

@@ -84,6 +84,53 @@ async function browserSmoke(base) {
           }
         }
         console.log(device+' building artwork layout: all 72 sprites loaded at 320, 390, 844 and 1280px');
+        await page.setViewportSize({width:390,height:844});
+        await page.evaluate(()=>{
+          document.body.classList.add('in');
+          document.body.classList.remove('landing');
+          window.view='buildings';
+          const fixture=document.createElement('div');
+          fixture.style.cssText='position:fixed;inset:12px auto auto 12px;width:330px';
+          fixture.innerHTML='<div class="cx-stage">'+window.colonyScene({tribe:{key:'chicken'},buildings:[],lotsTotal:21})+'</div>'+
+            '<div id="tiles">'+Array.from({length:6},()=>window.moveMark('raid')).join('')+'</div>'+
+            '<div class="report open"><button data-report="17">Report</button><div class="report-body">Battle details</div></div>'+
+            window.juice.settings();
+          const markers=fixture.querySelectorAll('[data-feel-move]');
+          markers.forEach((el,index)=>{el.style.cssText='position:relative;top:auto;right:auto;display:inline-block;width:20px;height:20px;'+(index===5?'left:200vw':'');});
+          document.querySelector('#app').replaceChildren(fixture);
+          window.applyWorld({tribe:{key:'chicken'},forecast:{today:{key:'ion'}}});
+          window.phaseFeel.watch();
+        });
+        try {
+          await page.waitForFunction(()=>{
+            const markers=[...document.querySelectorAll('[data-feel-move]')];
+            return document.querySelector('.phase-ambient').getAnimations().length===1 &&
+              markers.filter(el=>el.getAnimations().length).length===4 && !markers[5].getAnimations().length;
+          }, {}, {timeout:8000});
+        } catch (error) {
+          const state=await page.evaluate(()=>({
+            mode:window.juice.motion(),
+            viewport:[innerWidth,innerHeight],
+            elements:[...document.querySelectorAll('.cx-stage,.phase-ambient,[data-feel-move]')].map(el=>({
+              rect:el.getBoundingClientRect().toJSON(), animations:el.getAnimations().length
+            }))
+          }));
+          throw new Error(device+' phase 2 visibility: '+JSON.stringify(state), {cause:error});
+        }
+        assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('#sky'),'::after').animationName),'wxion');
+        await page.locator('[data-juice-mode]').selectOption('low');
+        await page.waitForFunction(()=>!document.querySelector('.phase-ambient').getAnimations().length &&
+          [...document.querySelectorAll('[data-feel-move]')].every(el=>!el.getAnimations().length));
+        assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('#sky'),'::after').animationName),'none');
+        assert.ok(await page.evaluate(()=>{
+          window.phaseFeel.report(17);
+          return document.querySelector('.report-body').getAnimations().length===1;
+        }),device+' low-intensity report reveal');
+        await page.emulateMedia({reducedMotion:'reduce'});
+        await page.waitForFunction(()=>document.documentElement.getAttribute('data-juice')==='off' &&
+          !document.querySelector('.report-body').getAnimations().length);
+        assert.deepEqual(errors,[],device+' browser runtime errors');
+        console.log(device+' phase 2 motion, viewport cap, low intensity and reduced motion passed');
       }
       await context.close();
       console.log(device+' browser stale-shell recovery passed');
