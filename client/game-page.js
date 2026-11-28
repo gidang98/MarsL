@@ -4966,6 +4966,7 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
   /* Building illustrations: one fixed artwork column, never overlay the level tag. */
   .building-art { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; width:56px; height:48px; vertical-align:middle; }
   .building-art-img { display:block; width:100%; height:100%; max-width:none; object-fit:contain; object-position:center; }
+  .building-art-img[style] { height:calc(100% / var(--building-art-height)); transform:scaleY(var(--building-art-height)); }
   .building-art-img[hidden], .building-art-fallback[hidden] { display:none !important; }
   .building-art-fallback { font-size:25px; line-height:1; }
   .qitem .building-art { width:48px; height:42px; }
@@ -9629,8 +9630,9 @@ function fxStage(level, max) { return level <= 4 ? 1 : level <= 9 ? 2 : level <=
 function fxImg(key, cx, cy, W) {
   var m = FX_ART.t[key];
   if (!m) return "";
-  var k = W / m.dw;
-  return '<image href="/art/' + key + '.webp?v=' + FX_ART.v + '" x="' + (cx - m.dcx * k).toFixed(1) + '" y="' + (cy - (m.db - 0.41 * m.dw) * k).toFixed(1) + '" width="' + (m.w * k).toFixed(1) + '" height="' + (m.h * k).toFixed(1) + '"/>';
+  var k = W / m.dw, sy = m.sy || 1;
+  var y = cy + 0.41 * W - m.db * k * sy;
+  return '<image href="/art/' + key + '.webp?v=' + FX_ART.v + '" x="' + (cx - m.dcx * k).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (m.w * k).toFixed(1) + '" height="' + (m.h * k * sy).toFixed(1) + '"' + (m.sy ? ' preserveAspectRatio="none"' : '') + '/>';
 }
 function fxDisc(cx, cy, W) {
   var rx = W / 2, ry = W * 0.27, t = W * 0.12;
@@ -9881,7 +9883,8 @@ function buildingSprite(d, b) {
   var key = tribe + "-" + type;
   var registered = (tribe === "human" || tribe === "chicken" || tribe === "alien") && /^[a-z]+$/.test(type || "") && FX_ART && FX_ART.t[key];
   var fallback = '<span class="building-art-fallback"' + (registered ? ' hidden' : '') + '>🏗️</span>';
-  return '<span class="building-art" aria-hidden="true">' + (registered ? '<img class="building-art-img" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" width="56" height="48" draggable="false" loading="lazy" decoding="async" onerror="this.hidden=true;this.nextElementSibling.hidden=false">' : '') + fallback + '</span>';
+  var heightStyle = registered && registered.sy ? ' style="--building-art-height:' + registered.sy + '"' : '';
+  return '<span class="building-art" aria-hidden="true">' + (registered ? '<img class="building-art-img" src="/art/' + key + '.webp?v=' + FX_ART.v + '" alt="" width="56" height="48"' + heightStyle + ' draggable="false" loading="lazy" decoding="async" onerror="this.hidden=true;this.nextElementSibling.hidden=false">' : '') + fallback + '</span>';
 }
 
 function renderBuildings(d) {
