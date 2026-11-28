@@ -24,7 +24,25 @@ test('all 72 building sprites match registry dimensions, anchor and tribe/type U
     const html=view.buildingSprite({tribe:{key:r.tribe}},{type:r.building_id,icon:'🍯'});
     assert.ok(html.includes('/art/'+r.filename+'?v=testhash'),key);
     assert.ok(html.includes('loading="lazy"') && html.includes('onerror='));
+    assert.equal(m.sy, r.height_scale, key);
+    assert.equal(html.includes('--building-art-height:' + r.height_scale), r.tribe === 'chicken', key);
     assert.ok(!html.includes('🍯'));
+  }
+});
+test('taller Chicken lot sprites retain their ground anchor and width',()=>{
+  const start = source.indexOf('function fxImg(');
+  const end = source.indexOf('function fxDisc(',start);
+  const render = new Function('FX_ART',source.slice(start,end)+';return fxImg')({v:'testhash',t:registry});
+  for(const r of manifest.sprites){
+    const key=r.tribe+'-'+r.building_id;
+    const img=render(key,190,176,44);
+    const sy=r.height_scale || 1;
+    const get=name=>Number(img.match(new RegExp(' '+name+'="([^"]+)"'))[1]);
+    const k=44/r.draw_width;
+    assert.ok(Math.abs(get('width')-r.width*k)<0.06,key);
+    assert.ok(Math.abs(get('height')-r.height*k*sy)<0.06,key);
+    assert.ok(Math.abs(get('y')+r.anchor_bottom*k*sy-(176+0.41*44))<0.06,key);
+    assert.equal(img.includes('preserveAspectRatio="none"'),r.tribe === 'chicken',key);
   }
 });
 test('compact lists use the correct art with separate level, pending count and action',()=>{
