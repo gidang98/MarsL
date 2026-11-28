@@ -578,7 +578,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.581";
+const GAME_VERSION = "1.0.582";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -18228,6 +18228,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.582",date:"2026-11-28",title:"Character artwork fix",groups:[["Art",["Fixed transparent spaces in the human colony mascot and added verified character artwork to the release pipeline."]]]},
   {v:"1.0.581",date:"2026-11-28",title:"Four-stage resource fields",groups:[["Art",["All three tribes have new resource-field illustrations. Field artwork progresses at levels 5, 10 and 16; production and upgrade costs are unchanged."]]]},
   {v:"1.0.580",date:"2026-11-28",title:"Building illustrations everywhere",groups:[["Look",["Colony building lists, construction choices and upgrade panels show the same tribe-specific building illustrations as the colony slots.","Refreshed the complete building artwork set for all three tribes. Cards use consistent artwork sizes and keep level badges separate from illustrations."]]]},
   {v:"1.0.579",date:"2026-11-27",title:"Reliable game startup",groups:[["Fixes",["Game startup automatically recovers from outdated release files, including on mobile.","Artwork and script requests no longer consume the same flood-protection budget as gameplay actions."]]]},
