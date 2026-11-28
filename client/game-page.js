@@ -4614,6 +4614,24 @@ body.side-open[data-tut] #tut { z-index: 18; }
 .dark-mode .compass, .dark-mode .pan { background: rgba(40,35,45,.88) !important; color: var(--ink) !important; }
 .dark-mode .mb-daily, .dark-mode .ord.on { background: #4a3a1c !important; color: var(--ink) !important; }
 .dark-mode .sheet-head:not(.t-food):not(.t-metal):not(.t-stone):not(.t-war):not(.t-wood) { background: #3a3045 !important; }
+
+/* Dialogue refresh: shared cartoon surfaces and word-level motion */
+.bs-bub,.sc-bub,.tut-bub{border-radius:20px 15px 21px 16px;border-width:2px;overflow-wrap:anywhere;line-height:1.55}
+.bs-bub>b,.sc-bub>b{display:table;opacity:1;background:#e8ac63;color:#35251b;border:1px solid #493526;border-radius:8px;padding:2px 9px;margin:-17px 0 5px;font-weight:800}
+.bs-bub[data-tone="shout"],.sc-bub[data-tone="shout"],.tut-bub[data-tone="shout"]{border-style:double;border-width:4px;border-radius:10px 24px 10px 24px}
+.bs-bub[data-tone="whisper"],.sc-bub[data-tone="whisper"],.tut-bub[data-tone="whisper"]{border-style:dashed;font-style:italic}
+.bs-bub[data-tone="thought"],.sc-bub[data-tone="thought"],.tut-bub[data-tone="thought"]{border-radius:32px;font-style:italic}
+[data-tone="thought"]::before{border:2px solid currentColor;border-radius:50%;width:9px;height:9px;transform:none;box-shadow:-8px 8px 0 -3px currentColor}
+.dlg-word{display:inline-block;white-space:nowrap;max-width:100%}.dlg-happy{display:inline-block;animation:dlgWave 1.1s ease-in-out infinite;font-weight:750}.dlg-angry{display:inline-block;animation:dlgShake .19s linear infinite;font-weight:850}
+@keyframes dlgWave{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes dlgShake{0%,100%{transform:translateX(-1px) rotate(-1deg)}50%{transform:translateX(1px) rotate(1deg)}}
+#beppo-say:not(.top){left:8px;max-width:min(400px,calc(100% - 16px));pointer-events:auto}
+#beppo-say img{width:72px;height:72px}.bs-t{max-height:30vh;overflow:auto}.sc-t{max-height:45vh;overflow:auto}.sc-skip{min-height:44px}
+#beppo-say.ambient{pointer-events:none}.ambient .bs-bub{margin-bottom:0}.ambient .bs-bub>b{margin-top:-10px}
+.dlg-history{max-height:220px;overflow:auto;font-size:13px}.dlg-history p{margin:5px 0}
+@media(max-width:559px){#beppo-say img{width:52px;height:52px}.sc-img{width:84px;height:84px}.bs-bub,.sc-bub{font-size:14px}.tut-bub{min-width:0}}
+@media(prefers-reduced-motion:reduce){.dlg-happy,.dlg-angry,.bs-t.fin::after,.sc-t.fin::after,.tut-p.fin::after{animation:none!important}}
+
 /* the Mission Board title keeps its full name in the narrow desktop side panel */
 @media (min-width: 560px) { .mboard .qhead { flex-wrap: wrap; row-gap: 4px; } .mboard .qhead b { flex: 1 1 100%; } }
 /* phone tab labels */
@@ -10542,7 +10560,7 @@ function blip(pitch, soft, wave) {
   var t = ctx.currentTime + 0.005, o = ctx.createOscillator(), g = ctx.createGain();
   setWave(o, ctx, wave || "square"); // every voice has its own 8-bit wave
   o.frequency.value = pitch * (0.94 + Math.random() * 0.12);
-  g.gain.setValueAtTime(waveVol(wave || "square", soft), t);
+  g.gain.setValueAtTime(waveVol(wave || "square", soft) * Number(dlgPref("volume","70")) / 70, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
   o.connect(g); g.connect(sound.sfxBus || ctx.destination);
   o.start(t); o.stop(t + 0.06);
@@ -10551,7 +10569,7 @@ function blip(pitch, soft, wave) {
 var sayBox = null;
 function say(lines, opts) {
   opts = opts || {};
-  if (sayBox) { clearInterval(sayBox.timer); sayBox.el.remove(); sayBox = null; }
+  if (sayBox) { if(sayBox.finish)sayBox.finish(); sayBox.el.remove(); sayBox = null; }
   if (!lines || !lines.length) { if (opts.done) opts.done(); return; }
   var el = document.createElement("div");
   el.className = "say";
@@ -10566,26 +10584,19 @@ function say(lines, opts) {
     el.querySelector(".sp").textContent = L.icon || "";
     el.querySelector("b").textContent = L.who || "";
     var p = el.querySelector("p");
-    p.textContent = "";
-    st.n = 0; st.typing = true;
-    clearInterval(st.timer);
-    if (calm) { p.textContent = L.text; st.typing = false; return; }
-    st.timer = setInterval(function () {
-      st.n++;
-      p.textContent = L.text.slice(0, st.n);
-      if (L.text.charAt(st.n - 1).trim() && st.n % 2) blip(L.pitch || 400);
-      if (st.n >= L.text.length) { clearInterval(st.timer); st.typing = false; }
-    }, 28);
+    p.textContent=L.text;st.typing=true;
+    st.finish=typeHtml(p,L.pitch||400,null,L.mood,true,function(){st.typing=false;});
+
   }
   function close() {
-    clearInterval(st.timer);
+    if(st.finish)st.finish();
     el.remove();
     if (sayBox === st) sayBox = null;
     if (st.opts.done) st.opts.done();
   }
   el.addEventListener("click", function (e) {
     e.stopPropagation();
-    if (st.typing) { clearInterval(st.timer); el.querySelector("p").textContent = st.lines[st.i].text; st.typing = false; return; }
+    if (st.typing) { if(st.finish)st.finish(); return; }
     st.i++;
     if (st.i >= st.lines.length) close(); else show();
   });
@@ -13774,7 +13785,7 @@ var calmAt = {};
 function calm(key, ms) { var t = Date.now(); if (calmAt[key] && t - calmAt[key] < ms) return false; calmAt[key] = t; return true; }
 function sfx(name) {
   if (sound.on && BUZZ[name] && navigator.vibrate) { try { navigator.vibrate(BUZZ[name]); } catch (e) {} }
-  if (!sound.on || !SFX[name]) return;
+  if (!sound.on || !SFX[name] || (name.indexOf("v-")===0 && Number(dlgPref("volume","70"))===0)) return;
   var ctx = audio();
   if (!ctx) return;
   var t0 = ctx.currentTime + 0.01;
@@ -14387,10 +14398,10 @@ function beppoSay(id, top) {
   try { fetch("/api/tips-seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id }) }); } catch (e) {} // also on the account, so other devices stay quiet too
   voiceShow(m[2] || "beppo", m[0], m[1], top);
 }
-function voiceFree() { return beppoOn() && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy && !(sheet && sheet.kind === "casino"); }
+function voiceFree() { return beppoOn() && !document.hidden && !document.querySelector(".say") && !(data && data.onboarding) && !(tut.step >= 0 && tut.step < TUTORIAL.length) && !document.getElementById("beppo-say") && !document.getElementById("scene") && !villainBusy && !(sheet && sheet.kind === "casino"); }
 // 🗣️ a remark that can come again, but not before its cooldown is over (remembered in this browser)
 function voiceSay(id, who, mood, text, cdMs, top) {
-  if (!voiceFree()) return false;
+  if (!voiceFree() || dlgPref("ambient","on")==="off" || Date.now()-dlgLastAmbient<60000) return false;
   var mem = {};
   try { mem = JSON.parse(localStorage.getItem("marsl-voice-t") || "{}") || {}; } catch (e) {}
   if (mem[id] && Date.now() - mem[id] < cdMs) return false;
@@ -14400,13 +14411,14 @@ function voiceSay(id, who, mood, text, cdMs, top) {
     var last = {};
     try { last = JSON.parse(localStorage.getItem("marsl-voice-l") || "{}") || {}; } catch (e) {}
     var opts = text.map(function (t, i) { return i; }).filter(function (i) { return i !== last[id]; });
-    var pick = opts[Math.floor(Math.random() * opts.length)];
+    var pick = opts.length ? opts[Math.floor(Math.random() * opts.length)] : 0;
     last[id] = pick;
     try { localStorage.setItem("marsl-voice-l", JSON.stringify(last)); } catch (e) {}
     text = text[pick];
   }
   try { localStorage.setItem("marsl-voice-t", JSON.stringify(mem)); } catch (e) {}
-  voiceShow(who, mood, text, top);
+  dlgLastAmbient=Date.now();
+  voiceShow(who, mood, text, top, !top);
   return true;
 }
 function voiceTune(whoKey, mood) { return whoKey === "beppo" && SFX["v-beppo-" + mood] ? "beppo-" + mood : whoKey; }
@@ -14417,32 +14429,32 @@ function themeLen(k) {
 }
 // 1 in 50 of Beppo's remarks slips into something odd
 var BEPPO_RARE = ["Do you ever wonder who writes my lines? Me neither. Okay, a little.", "I counted the pixels on this screen. Some of them are very good pixels.", "Sometimes I say a thing and a number somewhere goes up. I do not ask questions.", "If you read this, you are my favourite commander. Do not tell the others. They also read this.", "I was told to stay in the bubble. The bubble is cozy. The bubble is small. Help.", "Fun fact: I am a dog. This is not a fun fact. It is a lifestyle."];
-function voiceShow(whoKey, mood, text, top) {
+function voiceShow(whoKey, mood, text, top, ambient) {
   if (whoKey === "beppo" && Math.random() < 0.02) { text = pickOne(BEPPO_RARE); mood = "surprised"; }
   var who = CAST[whoKey] || CAST.beppo, own = whoKey !== "beppo";
   var bk = own ? who.art : "beppo-" + mood, el = document.createElement("div");
   el.id = "beppo-say";
   if (top) el.className = "top";
-  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + trStr(text) + "</div></div>";
+  if(ambient) el.classList.add("ambient");
+  el.innerHTML = (FX_ART.t[bk] ? '<img src="/art/' + bk + '.webp?v=' + FX_ART.v + '" alt="" draggable="false">' : who.icon) + '<div class="bs-bub"><b>' + who.name + '</b><div class="bs-t">' + esc(trStr(text)) + "</div></div>";
   var sc = document.createElement("div");
   sc.id = "beppo-scrim"; // a very light veil so the bubble never gets lost on busy screens
   if (top) sc.className = "top";
-  document.body.appendChild(sc);
+  if(!ambient) document.body.appendChild(sc);
   document.body.appendChild(el);
   var t = el.querySelector(".bs-t"), gone = 0;
   var bye = function () {
     if (gone) return;
     gone = 1;
-    if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
+    if(t._dlgFinish)t._dlgFinish();
     el.classList.add("bye");
     sc.classList.add("bye");
     setTimeout(function () { el.remove(); sc.remove(); }, calmMotion ? 0 : 220);
   };
-  t.style.visibility = "hidden"; // the words wait for the arrival tune, then type out
-  sfx("v-" + voiceTune(whoKey, mood)); // each voice has its own little arrival tune, Beppo one per mood
-  setTimeout(function () { if (!gone) { typeHtml(t, own ? who.pitch : mood === "worried" ? 300 : mood === "surprised" ? 470 : CAST.beppo.pitch, who.wave, own ? null : mood); t.style.visibility = ""; } }, Math.min(900, themeLen(voiceTune(whoKey, mood))));
-  el.addEventListener("click", function () { if (tut.timer && tut.finish) tut.finish(); else bye(); });
-  setTimeout(bye, 9500);
+  sfx("v-" + voiceTune(whoKey,mood));
+  typeHtml(t,own?who.pitch:CAST.beppo.pitch,who.wave,mood,true,function(){if(!gone)setTimeout(bye,ambient?6500:9500);});
+  el.addEventListener("click",function(){if(t._dlgFinish)t._dlgFinish();else bye();});
+
 }
 // 🎭 the first defense as a little play: a big Beppo sprite, one line per tap
 var villainBusy = false;
@@ -14492,7 +14504,7 @@ function beppoScene(lines, who, opts) {
     nm.textContent = who0.name;
     tx.textContent = trStr(L[1]);
     if (i === 0) sfx("v-" + who);
-    typeHtml(tx, who0.pitch, who0.wave);
+    typeHtml(tx, who0.pitch, who0.wave, L[0].replace("villain-", ""));
     if (opts && opts.btn) { var b = el.querySelector(".sc-go"); if (b) b.remove(); }
     if (i === lines.length - 1 && opts && opts.btn) {
       var g = document.createElement("button");
@@ -14573,6 +14585,7 @@ function voiceWatch(d) {
   var se = d.world && d.world.season;
   if (se && se.active && se.kind === "aurora") voiceSay("aurora", "void", "neutral", ["The light stirs. Charge the pylons. Or do not. The void is patient. It has had practice.", "The Aurora wakes. I would hurry. I would also like to say I told you so. In advance. Efficient.", "Something glows beyond the pylons. It is not a lamp. I checked. Twice. Politely."], 7 * 24 * HOUR);
   if (!mem.say) {
+    if(view==="colony" && !sheet && d.res && d.capacity && RES.some(function(k){return d.capacity[k]>0 && d.res[k]/d.capacity[k]>=.9;})) voiceSay("storage-near","beppo","worried",["We are running out of places to put stuff!","The storage is nearly full. I checked twice."],3*HOUR);
     if (mem.rdySince && now - mem.rdySince > 24 * HOUR) voiceSay("rdy", "beppo", "neutral", ["Your mission rewards have waited a day. They do not spoil. I do. Out of boredom.", "Rewards are sitting on the board. Looking at me. I have started to feel judged.", "A whole day, and the rewards are still there. Very patient rewards. Take them!"], 24 * HOUR);
     return;
   }
@@ -14631,34 +14644,78 @@ function startTutorial() {
 }
 
 // types an HTML text out letter by letter (tags stay in place), with a soft blip; tap the text to show it all
-function typeHtml(el, pitch, wave, mood) {
-  if (tut.timer) { clearInterval(tut.timer); tut.timer = 0; }
-  // typing out text is not movement, so it stays on with Reduce Motion
-  el.style.minHeight = el.offsetHeight + "px"; // the bubble keeps its final size while the text types
-  el.classList.remove("fin");
-  var w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null), nodes = [], n;
-  while ((n = w.nextNode())) { nodes.push({ node: n, full: n.nodeValue }); n.nodeValue = ""; }
-  var ni = 0, ci = 0, tick = 0, gap = mood === "worried" ? 17 : mood === "surprised" ? 20 : 24; // worried babbles, surprised rushes in
-  musicDuck(Math.min(9000, nodes.reduce(function (n, x) { return n + x.full.length; }, 0) * gap / 2 + 900)); // the music steps back while somebody talks
-  function finish() { clearInterval(tut.timer); tut.timer = 0; nodes.forEach(function (x) { x.node.nodeValue = x.full; }); el.style.minHeight = ""; el.classList.add("fin"); }
-  tut.finish = finish;
-  tut.timer = setInterval(function () {
-    for (var k = 0; k < 2 && ni < nodes.length; k++) {
-      var x = nodes[ni];
-      ci++;
-      x.node.nodeValue = x.full.slice(0, ci);
-      if (x.full.charAt(ci - 1).trim() && ++tick % 2) {
-        var pp = pitch || 380;
-        if (mood === "happy") pp *= tick % 8 < 4 ? 1 : 1.122; // bouncy: hops up a whole step every few letters
-        else if (mood === "worried") pp *= 1 - Math.min(0.14, tick * 0.0016) + (tick % 6 < 3 ? 0.02 : -0.02); // sags and shivers
-        else if (mood === "surprised") pp *= 1 + Math.min(0.3, tick * 0.006); // climbs
-        blip(pp, true, wave);
-      }
-      if (ci >= x.full.length) { ni++; ci = 0; }
+var dlgHistory = [], dlgLastAmbient = 0;
+function dlgPref(k, fallback) { try { var v = localStorage.getItem("marsl-dialogue-" + k); return v === null ? fallback : v; } catch(e) { return fallback; } }
+function dlgSave(k,v) { try { localStorage.setItem("marsl-dialogue-" + k,v); } catch(e) {} }
+document.addEventListener("change",function(e){var t=e.target;if(t && t.hasAttribute("data-dlg-pref"))dlgSave(t.getAttribute("data-dlg-pref"),t.value);});
+function dlgPause(c,prev,next) {
+  if ((c === "." || c === ",") && /[0-9]/.test(prev) && /[0-9]/.test(next)) return 0;
+  if (c === "." && next === ".") return 0;
+  if (c === "." && prev === ".") return 650;
+  if (c === "…") return 650;
+  if (c === ",") return 180;
+  if (c === ";" || c === ":") return 220;
+  if (c === ".") return next && /[a-z]/i.test(next) ? 0 : 320;
+  if (c === "!" || c === "?") return next === "!" || next === "?" ? 0 : 350;
+  return c === "\\n" ? 450 : 0;
+}
+function dlgTone(el,mood,text) {
+  var b=el.closest(".bs-bub,.sc-bub,.tut-bub,.say");
+  if(b) b.setAttribute("data-tone", mood==="angry" || mood==="surprised" ? "shout" : mood==="whisper" ? "whisper" : mood==="thought" ? "thought" : "normal");
+}
+function dlgDecorate(el,mood) {
+  var walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null), nodes=[], n;
+  while((n=walker.nextNode())) nodes.push(n);
+  nodes.forEach(function(n){
+    var full=n.nodeValue, re=/\\[(happy|angry)\\]([\\s\\S]*?)\\[\\/\\1\\]/g, at=0, m, f=document.createDocumentFragment(), matched=false;
+    function words(value,emotion) {
+      value.split(/(\\s+)/).forEach(function(word){
+        if(!word || /^\\s+$/.test(word)){f.appendChild(document.createTextNode(word));return;}
+        var w=document.createElement("span");w.className="dlg-word";
+        if(emotion==="happy") Array.from(word).forEach(function(ch,i){var x=document.createElement("span");x.className="dlg-happy";x.style.animationDelay=(i*70)+"ms";x.textContent=ch;w.appendChild(x);});
+        else {w.classList.add("dlg-angry");w.textContent=word;}
+        f.appendChild(w);
+      });
     }
-    el.scrollTop = el.scrollHeight; // long texts follow the typing
-    if (ni >= nodes.length) finish();
-  }, gap);
+    while((m=re.exec(full))){matched=true;f.appendChild(document.createTextNode(full.slice(at,m.index)));words(m[2],m[1]);at=re.lastIndex;}
+    if(matched){f.appendChild(document.createTextNode(full.slice(at)));n.replaceWith(f);}
+    else if(mood==="happy" || mood==="angry"){
+      // Animate selected expressive words only, not the whole paragraph.
+      var parts=full.split(/(\\s+)/), changed=false;
+      parts.forEach(function(word){if(/^(?:[A-Z]{2,}[!?.,]*|woohoo[!.]*|hooray[!.]*|yay[!.]*|excellent[!.]*|great[!.]*|perfect[!.]*|wonderful[!.]*|finally[!.]*)$/i.test(word) && (word===word.toUpperCase() || /^(woohoo|hooray|yay|excellent|great|perfect|wonderful|finally)/i.test(word))){words(word,mood);changed=true;}else f.appendChild(document.createTextNode(word));});
+      if(changed)n.replaceWith(f);
+    }
+  });
+}
+function typeHtml(el, pitch, wave, mood, independent, done) {
+  if (!independent && tut.finish && tut.timer) tut.finish();
+  if (el._dlgFinish) el._dlgFinish();
+  dlgTone(el,mood,el.textContent);
+  dlgDecorate(el,mood);
+  var text=el.textContent;
+  if(text && dlgHistory[dlgHistory.length-1]!==text){dlgHistory.push(text);if(dlgHistory.length>40)dlgHistory.shift();}
+  el.style.minHeight=el.offsetHeight+"px";el.classList.remove("fin");
+  var w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null), nodes=[], chars=[], n;
+  while((n=w.nextNode())){var x={node:n,full:n.nodeValue,shown:""};nodes.push(x);Array.from(x.full).forEach(function(c){chars.push({x:x,c:c});});n.nodeValue="";}
+  var i=0,timer=0,finished=false, tick=0;
+  var speed=dlgPref("speed","normal"), factor=speed==="fast"?.55:speed==="slow"?1.5:1;
+  function finish(){if(finished)return;finished=true;clearTimeout(timer);if(!independent && tut.finish===finish)tut.timer=0;nodes.forEach(function(x){x.node.nodeValue=x.full;});el.style.minHeight="";el.classList.add("fin");el._dlgFinish=null;if(done)done();}
+  el._dlgFinish=finish;
+  if(!independent)tut.finish=finish;
+  function step(){
+    if(!el.isConnected || (!independent && tut.finish!==finish)){finish();return;}
+    if(i>=chars.length){finish();return;}
+    var c=chars[i].c, x=chars[i].x; x.shown+=c;x.node.nodeValue=x.shown;
+    var pause=dlgPause(c,i?chars[i-1].c:"",i+1<chars.length?chars[i+1].c:"");
+    if(/[a-z0-9]/i.test(c) && ++tick%2 && Number(dlgPref("volume","70"))>0){var pp=pitch||380;if(mood==="happy")pp*=tick%8<4?1:1.122;else if(mood==="angry")pp*=.86;blip(pp,true,wave);}
+    i++;el.scrollTop=el.scrollHeight;
+    if(i>=chars.length){finish();return;}
+    timer=setTimeout(step,(28+pause)*factor);if(!independent)tut.timer=timer;
+  }
+  if(speed==="instant" || !chars.length){finish();return finish;}
+  if(Number(dlgPref("volume","70"))>0)musicDuck(Math.min(9000,chars.length*28*factor+900));
+  timer=setTimeout(step,28*factor);if(!independent)tut.timer=timer;
+  return finish;
 }
 // the quick tour is the core steps; "More tips" adds the rest
 function tutEnd() { if (tut.more) return TUTORIAL.length; for (var i = 0; i < TUTORIAL.length; i++) if (TUTORIAL[i].more) return i; return TUTORIAL.length; }
@@ -16381,6 +16438,7 @@ function renderSheet() {
     h += '<div class="sheet-head"><span class="hi">⚙️</span><div><h3>Settings</h3><b>' + '👤' + ' ' + esc(d.player) + "</b></div></div>";
     h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (function (r) { return r("🔊 Master volume", "master", sound.mv) + r("🎮 Game sounds", "sfx", sound.sv); })(function (lab, k, v) { return '<label class="msl"><span>' + lab + '</span><input type="range" min="0" max="100" step="1" value="' + v + '" data-vol="' + k + '" aria-label="' + lab + '"><b class="msl-v">' + v + "%</b></label>"; }) + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🎵 Music</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
+    h += '<div class="setcard"><h4>Dialogue</h4><label>Text speed <select data-dlg-pref="speed"><option value="slow"'+(dlgPref("speed","normal")==="slow"?" selected":"")+'>Slow</option><option value="normal"'+(dlgPref("speed","normal")==="normal"?" selected":"")+'>Normal</option><option value="fast"'+(dlgPref("speed","normal")==="fast"?" selected":"")+'>Fast</option><option value="instant"'+(dlgPref("speed","normal")==="instant"?" selected":"")+'>Instant</option></select></label><label class="msl"><span>Dialogue volume</span><input type="range" min="0" max="100" value="'+Number(dlgPref("volume","70"))+'" data-dlg-pref="volume" aria-label="Dialogue volume"></label><label>Ambient chatter <select data-dlg-pref="ambient"><option value="on"'+(dlgPref("ambient","on")==="on"?" selected":"")+'>On</option><option value="off"'+(dlgPref("ambient","on")==="off"?" selected":"")+'>Off</option></select></label><details><summary>Dialogue history</summary><div class="dlg-history">'+dlgHistory.slice().reverse().map(function(line){return "<p>"+esc(line)+"</p>";}).join("")+'</div></details></div>';
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
     // 🎮 play
     h += card("🎮 Play", '<div class="setgrid"><button class="btn ghost" data-progress="1">' + '🏅' + ' Progress &amp; tasks</button>' + shareTextButton("Join me on MarsL · " + d.player + " · " + location.origin).replace("↗ Share", "↗ Invite friends").replace("btn small ghost", "btn ghost") + "</div>" + discordBtn());
@@ -16662,6 +16720,7 @@ function noticeChanges(d) {
       toast("🎉 " + first.name + " reached level " + first.targetLevel + "!", true);
       popBuilt(first.name);
       beppoSay("built");
+      if(view==="colony" && !sheet) voiceSay("built-ambient","beppo","happy",["[happy]Perfect![/happy] Only three pieces left over.","[happy]Great![/happy] Another building finished."],30*60000);
       confetti();
       sfx("done");
     }
