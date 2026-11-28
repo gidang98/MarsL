@@ -5271,7 +5271,7 @@ var FEEL = {
  human:{bits:["✧","⚙️","◆"],color:"#55a8e8",wave:"pulse25",notes:[330,495,660]},
  alien:{bits:["●","✦","○"],color:"#99d95b",wave:"sine",notes:[294,440,587]}
 };
-var FEEL_EVENTS = {build:[4,240],built:[10,650],dispatch:[6,400],bounty:[8,750],gear:[10,900],rare:[14,1200],level:[15,1400],quest:[10,800],ready:[5,450],chapter:[18,1800]};
+var FEEL_EVENTS = {build:[4,240],built:[10,650],dispatch:[6,400],bounty:[8,750],adventure:[6,600],gear:[10,900],rare:[14,1200],level:[15,1400],quest:[10,800],ready:[5,450],chapter:[18,1800]};
 function feelMotion() { return juice.motion() !== "off"; }
 function feelEvent(kind, target, label, snapshot) {
  try {
@@ -5284,7 +5284,7 @@ function feelEvent(kind, target, label, snapshot) {
    sfx("tribe-feel");
   }
   if(!feelMotion()||!document.body.animate)return;
-  var anchor=target&&target.isConnected?target:document.querySelector(kind==="dispatch"?".traffic":kind==="bounty"||kind==="gear"||kind==="rare"||kind==="level"?".herochip":kind==="quest"||kind==="ready"||kind==="chapter"?"#quests":".nav [data-view=buildings]");
+  var anchor=target&&target.isConnected?target:document.querySelector(kind==="dispatch"?".traffic":kind==="bounty"||kind==="adventure"||kind==="gear"||kind==="rare"||kind==="level"?".herochip":kind==="quest"||kind==="ready"||kind==="chapter"?"#quests":".nav [data-view=buildings]");
   var rect=anchor&&anchor.getBoundingClientRect(), x=rect&&rect.width?rect.left+rect.width/2:innerWidth/2, y=rect&&rect.height?rect.top+rect.height/2:innerHeight*.38;
   x=Math.max(24,Math.min(innerWidth-24,x));y=Math.max(42,Math.min(innerHeight-42,y));
   var mobile=innerWidth<600, limit=mobile?12:24, n=Math.min(ev[0],juice.motion()==="low"?4:limit,limit-feelActive);
@@ -5345,13 +5345,14 @@ function feelObserve(d){
   var H=d.hero, identity=d.player+"|"+d.colonyId+"|"+(d.tribe&&d.tribe.key);
   if(!H){feelPrev=null;return;}
   var items={};(H.bag||[]).concat(Object.keys(H.gear||{}).map(function(k){return H.gear[k];})).forEach(function(it){if(it&&it.id!=null&&it.kind!=="crate")items[it.id]=it.tier||1;});
-  var stash={};Object.keys(H.stash||{}).forEach(function(k){stash[k]=Number(H.stash[k])||0;});
-  var old=feelPrev;feelPrev={identity:identity,level:H.level,items:items,stash:stash};
+  var rewards={};Object.keys(H.rewardEvents||{}).forEach(function(k){rewards[k]=Number(H.rewardEvents[k])||0;});
+  var old=feelPrev;feelPrev={identity:identity,level:H.level,items:items,rewards:rewards};
   if(!old||old.identity!==identity)return;
   if(H.level>old.level)feelEvent("level",null,null,d);
   var added=Object.keys(items).filter(function(k){return !Object.prototype.hasOwnProperty.call(old.items,k);});
   if(added.length)feelEvent(added.some(function(k){return items[k]>=2;})?"rare":"gear",null,null,d);
-  if(Object.keys(stash).some(function(k){return stash[k]>(old.stash[k]||0);}))feelEvent("bounty",null,null,d);
+  if(rewards.camp>(old.rewards.camp||0))feelEvent("bounty",null,null,d);
+  if(rewards.adventure>(old.rewards.adventure||0))feelEvent("adventure",null,null,d);
  }catch(e){}
 }
 
