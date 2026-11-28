@@ -4975,6 +4975,10 @@ body .fl-sort.repsub button .gi { width: 20px; height: 20px; }
     .bli .building-art { width:44px; height:36px; }
   }
 
+html[data-juice="off"] .fx-mascot,html[data-juice="off"] .fx-bld,html[data-juice="off"] .ready-pulse,html[data-juice="off"] .pop {animation:none!important}
+html[data-juice="full"] button:not(:disabled):active {scale:.97}
+html[data-juice="low"] button:not(:disabled):active {scale:.99}
+@media(prefers-reduced-motion:reduce){html[data-juice] button:active{scale:1}}
 </style>
 </head>
 <body>
@@ -5242,8 +5246,9 @@ syncFromServer();
 setInterval(function () { if (!document.hidden) syncFromServer(); }, 60000);
 
 function confetti() {
+  if (!juice.count() || document.querySelectorAll(".confetti").length) return;
   var bits = ["🎉", "✨", "🥔", "⭐", "🐔", "🚀", "👽", "🎊"];
-  for (var i = 0; i < 22; i++) {
+  for (var i = 0; i < juice.count(); i++) {
     var c = document.createElement("span");
     c.className = "confetti";
     c.textContent = bits[i % bits.length];
@@ -8971,7 +8976,28 @@ var lastCashShown = null, lastCrShown = null;
 // the exact amount with every digit (1,204,517), for the wallet window and the hunt window; the top bar chip is shortened (1.2M)
 function cashText(v) { return v < 1e6 ? v.toLocaleString("en-US") : shortNum(v); } // millions and up are short: 2M, 2B (the exact amount sits in the tooltip)
 function numText(n) { return n < 1e6 ? n.toLocaleString("en-US") : shortNum(n); }
-var calmMotion = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+var juice = (function () {
+  var mode = "low", haptics = false, media = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)");
+  try { var saved = localStorage.getItem("marsl-juice"); if (["off","low","full"].indexOf(saved) >= 0) mode = saved; haptics = localStorage.getItem("marsl-haptics") === "on"; } catch(e) {}
+  function motion() { return document.hidden || (media && media.matches) ? "off" : mode; }
+  function apply() { document.documentElement.setAttribute("data-juice", motion()); }
+  function set(key,value) {
+    if (key === "mode" && ["off","low","full"].indexOf(value) >= 0) mode = value;
+    if (key === "haptics") haptics = !!value;
+    try { localStorage.setItem("marsl-juice",mode); localStorage.setItem("marsl-haptics",haptics ? "on" : "off"); } catch(e) {}
+    calmMotion = motion() === "off"; apply();
+    if (motion() === "off") document.querySelectorAll(".confetti,.gainglow,.gainflash,.lossflash").forEach(function(el){el.remove();});
+  }
+  function count() { return motion() === "full" ? 22 : motion() === "low" ? 6 : 0; }
+  function settings() { return '<div class="setcard"><h4>Game feel</h4><label>Effects <select data-juice-mode aria-label="Animation intensity">' + ["off","low","full"].map(function(v){return '<option value="' + v + '"' + (v === mode ? ' selected' : '') + '>' + v.charAt(0).toUpperCase()+v.slice(1) + '</option>';}).join("") + '</select></label><label><input type="checkbox" data-juice-haptics' + (haptics ? ' checked' : '') + '> Vibration</label><p class="hint left">Device reduced-motion settings take priority.</p></div>'; }
+  document.addEventListener("change",function(e){var t=e.target;if(t.hasAttribute("data-juice-mode")) set("mode",t.value);if(t.hasAttribute("data-juice-haptics")) set("haptics",t.checked);});
+  function refresh(){set("mode",mode);}
+  document.addEventListener("visibilitychange",refresh);
+  if(media){if(media.addEventListener)media.addEventListener("change",refresh);else if(media.addListener)media.addListener(refresh);}
+  apply();
+  return {motion:motion,count:count,settings:settings,buzz:function(){return haptics && !document.hidden;}};
+})();
+var calmMotion = juice.motion() === "off";
 // a small "+N" that floats up from the element, so you can see the money arrive
 function cashPop(host, text, color) {
   if (!host || calmMotion) return;
@@ -13773,7 +13799,7 @@ function waveVol(wave, soft) { return SFX_LEVEL * (soft ? 0.8 : 1) * (WAVE_GAIN[
 var calmAt = {};
 function calm(key, ms) { var t = Date.now(); if (calmAt[key] && t - calmAt[key] < ms) return false; calmAt[key] = t; return true; }
 function sfx(name) {
-  if (sound.on && BUZZ[name] && navigator.vibrate) { try { navigator.vibrate(BUZZ[name]); } catch (e) {} }
+  if (juice.buzz() && BUZZ[name] && navigator.vibrate) { try { navigator.vibrate(BUZZ[name]); } catch (e) {} }
   if (!sound.on || !SFX[name]) return;
   var ctx = audio();
   if (!ctx) return;
@@ -16382,6 +16408,7 @@ function renderSheet() {
     h += '<div class="setquick"><button class="btn ghost" data-dark-mode="1">' + (darkModeOn() ? '' + '🌙' + ' Dark mode: on' : '☀️ Dark mode: off') + '</button><button class="btn ghost" data-sound="1">' + (sound.on ? "🔊 Sound" : "🔇 Muted") + '</button>' + (MUSIC.list.length ? '<button class="btn ghost" data-music="1">' + (MUSIC.on ? "🎵 Music: on" : "🎵 Music: off") + "</button>" : "") + '<button class="btn ghost" data-tutorial="1">' + '❓' + ' Tour</button><button class="btn ghost" data-beppo="1">' + (beppoOn() ? "💬 Voices: on" : "💬 Voices: off") + '</button><button class="btn ghost" data-wiki="basics">' + '📖' + ' Guide</button><button class="btn ghost" data-logout="1">' + '🚪' + ' Log out</button>' + (function (r) { return r("🔊 Master volume", "master", sound.mv) + r("🎮 Game sounds", "sfx", sound.sv); })(function (lab, k, v) { return '<label class="msl"><span>' + lab + '</span><input type="range" min="0" max="100" step="1" value="' + v + '" data-vol="' + k + '" aria-label="' + lab + '"><b class="msl-v">' + v + "%</b></label>"; }) + (MUSIC.list.length && MUSIC.on ? '<label class="msl"><span>🎵 Music</span><input type="range" min="0" max="100" step="1" value="' + MUSIC.lvl + '" data-music-level="1" aria-label="Music volume"><b class="msl-v">' + MUSIC.lvl + "%</b></label>" : "") + '</div>';
     h += '<div class="setcard"><h4>' + '🌍' + ' Language</h4>' + langPicker() + (LANG_IDX[curLang()] !== undefined ? '<div class="trhelp"><button class="btn ghost" data-trl-open="1">✏️ Help translate</button></div>' : "") + "</div>";
     var card = function (t, body) { return body ? '<section class="setcard"><h4>' + t + "</h4>" + body + "</section>" : ""; };
+    h += juice.settings();
     // 🎮 play
     h += card("🎮 Play", '<div class="setgrid"><button class="btn ghost" data-progress="1">' + '🏅' + ' Progress &amp; tasks</button>' + shareTextButton("Join me on MarsL · " + d.player + " · " + location.origin).replace("↗ Share", "↗ Invite friends").replace("btn small ghost", "btn ghost") + "</div>" + discordBtn());
     // 🔔 alerts
@@ -16576,6 +16603,7 @@ function renderParts(parts) {
 // 🟢 resources that arrive all at once (loot coming home, a trade, collected supplies, a claimed reward) rise out of their box
 var prevRes = null, prevReturns = null, gainSoundAt = 0;
 function flashGain(gain) {
+  if (juice.motion() === "off" || document.querySelectorAll(".gainflash").length) return;
   var boxes = document.querySelectorAll(".resbar .res"), any = false;
   RES.forEach(function (k, i) {
     var b = boxes[i];
@@ -16629,6 +16657,7 @@ var prevTrain = null, justCancelledTrain = false;
 
 // Little red "-200" numbers flying off the resource bar
 function flashLoss(loot) {
+  if (juice.motion() === "off" || document.querySelectorAll(".lossflash").length) return;
   var boxes = document.querySelectorAll(".resbar .res");
   RES.forEach(function (k, i) {
     if (!loot[k] || !boxes[i]) return;
@@ -16748,7 +16777,9 @@ function coinFly(from) {
 }
 // 🔨 the finished building squashes and bounces
 function popBuilt(name) {
+  if (juice.motion() === "off") return;
   setTimeout(function () {
+    if (juice.motion() === "off") return;
     var all = document.querySelectorAll(".fx-stage [aria-label]");
     for (var i = 0; i < all.length; i++) if ((all[i].getAttribute("aria-label") || "").indexOf(name) === 0) all[i].classList.add("pop");
     var ic = document.querySelector('.nav [data-view="buildings"] .ci');
