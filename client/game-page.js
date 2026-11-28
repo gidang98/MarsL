@@ -9233,7 +9233,7 @@ function crewQueueHtml(d) {
   if (C.job) {
     var q = C.job;
     var pct = Math.round((1 - q.remainingMs / q.durationMs) * 100);
-    var h = '<div class="qitem crew"><span class="big">' + q.icon + "</span>";
+    var h = '<div class="qitem crew"><span class="big">' + constructionJobArt(d, q) + "</span>";
     h += '<div class="qbody"><b>' + q.name + "</b> → Level " + q.targetLevel + ' <i class="crewtag">🎖️ Crew</i>';
     h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
     h += "<small>🤖 " + fmt(q.remainingMs) + " left · ready at " + clockText(serverNow() + q.remainingMs) + "</small></div>";
@@ -9310,7 +9310,7 @@ function planHtml(d) {
     else if (p.why === "Not enough resources") st = w < 0 ? "waits for resources (production too low)" : "affordable in about " + fmt(w) + " · then starts";
     else if (p.why === "Build queue is full") st = "starts when a slot frees up";
     else st = p.why ? p.why : "starts now";
-    h += '<div class="qitem plan-item"><span class="big">' + p.icon + '</span><div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">' + "❌" + '</button></div>';
+    h += '<div class="qitem plan-item"><span class="big">' + constructionJobArt(d, p) + '</span><div class="qbody"><b>' + esc(p.name) + "</b> → Level " + p.target + (p.cost ? costChips(p.cost, d.res, p.ms) : "") + "<small>⏳ " + esc(st) + '</small></div><button class="x" data-plan-del="' + i + '" title="Remove from the plan">' + "❌" + '</button></div>';
   });
   var R = P.reserve, held = RES.filter(function (k) { return R[k] > 0; });
   if (held.length) h += '<small class="plan-held">' + '🔒' + ' Held for the plan: ' + held.map(function (k) { return RES_ICON[k] + " " + shortNum(R[k]); }).join(" ") + " · trade routes leave these alone</small>";
@@ -9322,6 +9322,11 @@ function planBtn(d, reason, spec) {
   if (!d.plan || d.plan.list.length >= d.plan.slots) return "";
   if (reason !== "Not enough resources" && reason !== "Build queue is full") return "";
   return '<button class="btn small ghost" type="button" data-plan-add="' + spec + '" title="Starts by itself when the queue has room and you can pay">📋 Plan it</button>';
+}
+function constructionJobArt(d, q) {
+  // Building jobs use the same tribe-specific illustration as the building list.
+  // Field jobs keep their existing field icon instead of accidentally showing a building.
+  return q && q.kind === "building" && q.type ? buildingSprite(d, q) : (q && q.icon || "🏗️");
 }
 function renderQueue(d) {
   var crew = crewQueueHtml(d);
@@ -9336,7 +9341,7 @@ function renderQueue(d) {
   d.queue.forEach(function (q) {
     var pct = q.active ? Math.round((1 - q.remainingMs / q.durationMs) * 100) : 0;
     sum += q.active ? q.remainingMs : q.durationMs;
-    h += '<div class="qitem"><span class="big">' + q.icon + "</span>";
+    h += '<div class="qitem"><span class="big">' + constructionJobArt(d, q) + "</span>";
     h += '<div class="qbody"><b>' + q.name + "</b> → Level " + q.targetLevel;
     h += '<div class="meter stripes"><i style="width:' + pct + '%"></i></div>';
     h += "<small>" + (q.active ? "🤖 " + fmt(q.remainingMs) + " left" : "💤 Waiting · takes " + fmt(q.durationMs)) + " · ready at " + clockText(serverNow() + sum) + (q.asked ? " · 🤝 " + q.helpers : "") + "</small></div>";
@@ -9371,7 +9376,7 @@ function boostSheet(d) {
   if (!q) return null;
   var B = d.boost;
   var left = q.active ? q.remainingMs : q.durationMs;
-  var h = '<div class="sheet-head t-wood"><span class="hi">' + q.icon + "</span><div><h3>" + q.name + " → Level " + q.targetLevel + "</h3><b>⚡ " + (q.active ? fmt(left) + " left" : "Waiting · takes " + fmt(left)) + (q.crew ? " · 🎖️ Crew" : "") + "</b></div></div>";
+  var h = '<div class="sheet-head t-wood"><span class="hi">' + constructionJobArt(d, q) + "</span><div><h3>" + q.name + " → Level " + q.targetLevel + "</h3><b>⚡ " + (q.active ? fmt(left) + " left" : "Waiting · takes " + fmt(left)) + (q.crew ? " · 🎖️ Crew" : "") + "</b></div></div>";
   var used = q.freeMaxMs ? Math.min(100, Math.round((q.cutMs / q.freeMaxMs) * 100)) : 100;
   h += '<div class="boostfree"><small>Free help: ' + fmt(Math.min(q.cutMs, q.freeMaxMs)) + " of " + fmt(q.freeMaxMs) + " (" + B.pct.free + "% of the job)</small>";
   h += '<div class="meter thin"><i style="width:' + used + '%"></i></div></div>';
