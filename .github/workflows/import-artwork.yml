@@ -1,0 +1,97 @@
+name: Import MarsL artwork safely
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: 'HTTPS URL of a direct WebP download (for example a GitHub release asset)'
+        required: true
+        type: string
+      expected_sha256:
+        description: 'SHA-256 of the original WebP (64 hex characters)'
+        required: true
+        type: string
+      destination:
+        description: 'Repository path: assets/buildings/*.webp or assets/fields/*.webp'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: marsl-artwork-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate inputs and fetch artwork
+        env:
+          SOURCE_URL: ${{ inputs.source_url }}
+          EXPECTED_SHA256: ${{ inputs.expected_sha256 }}
+          DESTINATION: ${{ inputs.destination }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, ipaddress, os, pathlib, re, socket, urllib.parse, urllib.request
+          url = os.environ['SOURCE_URL']
+          sha = os.environ['EXPECTED_SHA256'].lower()
+          target = os.environ['DESTINATION']
+          if not re.fullmatch(r'[0-9a-f]{64}', sha):
+              raise SystemExit('Invalid SHA-256')
+          if not re.fullmatch(r'assets/(?:buildings|fields)/[A-Za-z0-9_-]+\.webp', target):
+              raise SystemExit('Invalid target path')
+          parsed = urllib.parse.urlsplit(url)
+          # Only fetch assets hosted by GitHub; never fetch arbitrary URLs with a privileged token.
+          hosts = {'github.com', 'objects.githubusercontent.com', 'release-assets.githubusercontent.com'}
+          if parsed.scheme != 'https' or parsed.hostname not in hosts or parsed.username or parsed.password or parsed.port:
+              raise SystemExit('Use a direct HTTPS GitHub asset URL')
+          class GuardedRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  u = urllib.parse.urlsplit(newurl)
+                  if u.scheme != 'https' or u.hostname not in hosts:
+                      raise ValueError('Unsafe redirect destination')
+                  return super().redirect_request(req, fp, code, msg, headers, newurl)
+          opener = urllib.request.build_opener(GuardedRedirect)
+          with opener.open(urllib.request.Request(url, headers={'User-Agent':'MarsL-art-import'}), timeout=30) as resp:
+              data = resp.read(20_000_001)
+          if len(data) > 20_000_000 or len(data) < 16:
+              raise SystemExit('Artwork must be 16 bytes to 20 MB')
+          if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
+              raise SystemExit('Source is not WebP')
+          if hashlib.sha256(data).hexdigest() != sha:
+              raise SystemExit('SHA-256 mismatch; refusing import')
+          pathlib.Path('/tmp/marsl-art.webp').write_bytes(data)
+          pathlib.Path('/tmp/marsl-target').write_text(target)
+          print('Validated WebP, SHA-256 and destination:', target)
+          PY
+      - name: Check out latest main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Create review branch and commit binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          target="$(cat /tmp/marsl-target)"
+          branch="artwork/import-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git checkout -b "$branch"
+          mkdir -p "$(dirname "$target")"
+          cp /tmp/marsl-art.webp "$target"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$target"
+          if git diff --cached --quiet; then
+            echo "Artwork is already identical to main. Nothing to import."
+            exit 0
+          fi
+          git commit -m "Import verified WebP artwork: $target"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Artwork: import verified $target" \
+            --body "Automated binary artwork import. SHA-256 checked before commit. Review the asset, manifest, mapping and tests before merging. This workflow does not deploy."
