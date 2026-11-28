@@ -1105,9 +1105,11 @@ module.exports = function gamePageTemplate(TRIBES, MONSTERS) {
   .mvmark {
     position: absolute; right: -40%; top: -45%; font-size: 0.75em; font-style: normal; line-height: 1; pointer-events: none;
   }
-  /* only hostile trips wiggle; merchants, help and settlers just sit there calmly */
-  .mvmark.mv-attack, .mvmark.mv-raid { animation: wiggle 0.6s ease-in-out infinite; }
-  .mvmark.mv-scout { animation: wiggle 1.4s ease-in-out infinite; }
+  .phase-ambient { opacity: 0; pointer-events: none; }
+  .phase-ambient[data-tribe="chicken"] { fill: #fff0bd; }
+  .phase-ambient[data-tribe="human"] { fill: #b8edff; }
+  .phase-ambient[data-tribe="alien"] { fill: #d7ffa2; }
+  .phase-mascot { transform-box: fill-box; transform-origin: center bottom; }
   .camp { position: relative; }
   @keyframes glow { 50% { box-shadow: 0 2px 6px rgba(62,34,38,0.1), 0 0 0 calc(var(--T) * 0.12) rgba(255,255,255,0.8); } }
   .col-name {
@@ -4383,14 +4385,28 @@ body.trmode #app, body.trmode #side { cursor: text; }
   @keyframes wxbreathe { from { opacity: .65; } to { opacity: 1; } }
   body.in .sky[data-wx="flare"]::after { background: radial-gradient(60% 50% at 85% 0%, rgba(255, 214, 120, .7), rgba(255, 214, 120, 0) 70%); animation: wxbreathe 6s ease-in-out infinite alternate; }
   body.in .sky[data-wx="ion"]::after { background: linear-gradient(180deg, rgba(150, 110, 255, .5), rgba(150, 110, 255, 0) 55%); animation: wxion 8s linear infinite; }
-  @keyframes wxion { 0%, 86%, 100% { opacity: 0; } 88% { opacity: .9; } 90% { opacity: .1; } 92% { opacity: .75; } 96% { opacity: 0; } }
+  @keyframes wxion { 0%, 100% { opacity: .2; } 50% { opacity: .52; } }
   body.in .sky[data-wx="wind"]::after { opacity: 1; background: repeating-linear-gradient(100deg, rgba(255, 255, 255, 0) 0 70px, rgba(255, 255, 255, .26) 71px 73px, rgba(255, 255, 255, 0) 74px 150px); -webkit-mask-image: linear-gradient(180deg, transparent 25%, #000 50%, transparent 85%); mask-image: linear-gradient(180deg, transparent 25%, #000 50%, transparent 85%); animation: wxwind 3s linear infinite; }
   @keyframes wxwind { from { background-position: 0 0; } to { background-position: 300px 0; } }
-  body.in .sky[data-wx="quake"] { animation: wxquake 10s linear infinite; }
-  @keyframes wxquake { 0%, 94%, 100% { transform: none; } 95% { transform: translate(-3px, 2px); } 96% { transform: translate(3px, -2px); } 97% { transform: translate(-2px, -2px); } 98% { transform: translate(2px, 2px); } }
+  body.in .sky[data-wx="quake"]::after { background: linear-gradient(0deg, rgba(163,82,50,.36), transparent 45%); animation: wxdrift 13s ease-in-out infinite alternate; opacity: .65; }
+  html:not([data-juice="full"]) body.in .sky[data-wx]::after,
+  body.in:not([data-feel-scenery]) .sky[data-wx]::after { animation: none; }
+  html[data-juice="low"] body.in[data-feel-scenery] .sky[data-wx]::after { opacity: .25; }
+  html[data-juice="off"] body.in .sky[data-wx]::after,
+  body.in:not([data-feel-scenery]) .sky[data-wx]::after { opacity: 0; }
+  .phase-map-weather { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(165deg, var(--map-weather, transparent), transparent 62%); }
+  body[data-feel-weather="dust"], body[data-feel-weather="quake"] { --map-weather: rgba(238,165,99,.25); }
+  body[data-feel-weather="frost"] { --map-weather: rgba(196,231,255,.28); }
+  body[data-feel-weather="flare"] { --map-weather: rgba(255,215,110,.27); }
+  body[data-feel-weather="ion"] { --map-weather: rgba(187,158,255,.32); }
+  body[data-feel-weather="wind"] { --map-weather: rgba(255,231,207,.2); }
+  html[data-juice="low"] .phase-map-weather { opacity: .55; }
+  html[data-juice="off"] .phase-map-weather { display: none; }
   body.in .critter { position: absolute; left: -80px; bottom: 6px; width: 58px; height: 58px; pointer-events: none; animation: stroll 110s linear infinite -30s; }
   body.in .critter i { display: block; width: 100%; height: 100%; background: center bottom / contain no-repeat; filter: drop-shadow(0 3px 2px rgba(80, 30, 20, .35)); transform-origin: 50% 100%; animation: bob .5s ease-in-out infinite alternate; }
-  @keyframes stroll { from { left: -80px; } to { left: calc(100% + 80px); } }
+  html:not([data-juice="full"]) body.in .critter,
+  body.in:not([data-feel-scenery]) .critter { display: none; }
+  @keyframes stroll { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 160px)); } }
   @keyframes bob { from { transform: translateY(0) rotate(-3deg); } to { transform: translateY(-5px) rotate(3deg); } }
   @media (max-width: 559px) { body.in .critter { bottom: calc(78px + env(safe-area-inset-bottom)); width: 46px; height: 46px; } }
   @media (prefers-reduced-motion: reduce) {
@@ -5279,6 +5295,7 @@ function feelEvent(kind, target, label, snapshot) {
   var d=snapshot||data, p=FEEL[d&&d.tribe&&d.tribe.key], ev=FEEL_EVENTS[kind];
   if(!p||!ev||document.hidden||juice.motion()==="off")return;
   var now=Date.now();if(now-(feelLast[kind]||0)<350)return;feelLast[kind]=now;
+  if (["built","quest","chapter","bounty","adventure","level"].indexOf(kind) >= 0) phaseFeel.mascot("cheer", d);
   if(sound.on && typeof SFX!=="undefined"){
    var count=kind==="chapter"||kind==="level"||kind==="rare"?3:kind==="build"||kind==="dispatch"?1:2;
    SFX["tribe-feel"]=p.notes.slice(0,count).map(function(n,i){return [n,i*.105,.12,p.wave,.03,p===FEEL.alien?n*1.12:0,0];});
@@ -8719,6 +8736,7 @@ function lpStickyWatch() {
   }, { passive: true });
 }
 function renderAuth() {
+  phaseFeel.watch(false);
   setTribeColor("#ffd23f");
   document.body.classList.remove("in", "side-open", "landing");
   var side = document.getElementById("side");
@@ -9098,6 +9116,7 @@ var juice = (function () {
     if (key === "haptics") haptics = !!value;
     try { localStorage.setItem("marsl-juice",mode); localStorage.setItem("marsl-haptics",haptics ? "on" : "off"); } catch(e) {}
     calmMotion = motion() === "off"; apply();
+    if (phaseFeel) phaseFeel.refresh();
     if (motion() === "off") document.querySelectorAll(".confetti,.gainglow,.gainflash,.lossflash").forEach(function(el){el.remove();});
   }
   function count() { return motion() === "full" ? 22 : motion() === "low" ? 6 : 0; }
@@ -9110,6 +9129,105 @@ var juice = (function () {
   return {motion:motion,count:count,settings:settings,buzz:function(){return haptics && !document.hidden;}};
 })();
 var calmMotion = juice.motion() === "off";
+
+// Only visible scene details can animate, with a shared cap on map markers.
+var phaseFeel = (function () {
+  var watched = new Set(), visible = new Set(), active = new Map(), cue = null;
+  var observer = window.IntersectionObserver ? new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      var el = entry.target;
+      if (cue && cue.el === el && !entry.isIntersecting) stopCue();
+      if (!watched.has(el)) return;
+      if (entry.isIntersecting) visible.add(el);
+      else visible.delete(el);
+    });
+    refresh();
+  }) : null;
+
+  function stopCue() {
+    if (!cue) return;
+    var el = cue.el, animation = cue.animation;
+    cue = null;
+    if (observer && !watched.has(el)) observer.unobserve(el);
+    animation.cancel();
+  }
+
+  function refresh() {
+    var mode = juice.motion(), wanted = new Set(), markers = 0;
+    if (mode === "full") visible.forEach(function (el) {
+      if (!el.isConnected || !el.animate) return;
+      if (el.hasAttribute("data-feel-move") && markers++ >= 4) return;
+      wanted.add(el);
+    });
+    active.forEach(function (animation, el) {
+      if (wanted.has(el)) return;
+      animation.cancel();
+      active.delete(el);
+    });
+    wanted.forEach(function (el) {
+      if (active.has(el)) return;
+      var ambient = el.classList.contains("phase-ambient");
+      var frames = ambient ? [
+        { opacity: .1, transform: "translateY(2px)" },
+        { opacity: .64, transform: "translateY(-4px)" },
+        { opacity: .1, transform: "translateY(2px)" }
+      ] : [
+        { transform: "translateY(0)", offset: 0 },
+        { transform: "translateY(-3px)", offset: .21 },
+        { transform: "translateY(0)", offset: .42 },
+        { transform: "translateY(0)", offset: 1 }
+      ];
+      active.set(el, el.animate(frames, { duration: ambient ? 6800 : 3000, easing: "ease-in-out", iterations: Infinity }));
+    });
+    if (cue && (mode === "off" || (cue.fullOnly && mode !== "full") || !cue.el.isConnected)) stopCue();
+  }
+
+  function watch(enabled) {
+    if (!observer) return;
+    var next = new Set(enabled === false ? [] : document.querySelectorAll("#app .phase-ambient, #tiles [data-feel-move]"));
+    watched.forEach(function (el) {
+      if (next.has(el)) return;
+      observer.unobserve(el);
+      visible.delete(el);
+    });
+    next.forEach(function (el) {
+      if (!watched.has(el)) observer.observe(el);
+    });
+    watched = next;
+    if (enabled === false) stopCue();
+    refresh();
+  }
+
+  function play(el, frames, duration, fullOnly) {
+    if (!el || !el.animate || juice.motion() === "off") return;
+    var box = el.getBoundingClientRect();
+    if (!box.width || !box.height || box.right <= 0 || box.left >= innerWidth || box.bottom <= 0 || box.top >= innerHeight) return;
+    stopCue();
+    var animation = el.animate(frames, { duration: duration, easing: "ease-out" });
+    cue = { el: el, animation: animation, fullOnly: fullOnly };
+    if (observer) observer.observe(el);
+    animation.onfinish = function () { if (cue && cue.animation === animation) stopCue(); };
+  }
+
+  function mascot(mood, snapshot) {
+    if (view !== "resources" || sheet || juice.motion() !== "full") return;
+    var tribe = snapshot && snapshot.tribe && snapshot.tribe.key;
+    var accent = mood === "alert" ? { transform: "translateY(-3px) scale(.98,1.04)" } :
+      tribe === "chicken" ? { transform: "translateY(-7px) rotate(-5deg)" } :
+      tribe === "human" ? { transform: "translateY(-4px) rotate(4deg)" } :
+      { transform: "translateY(-6px) scale(1.07,.97)" };
+    play(document.querySelector(".fx-dome .phase-mascot"), [{ transform: "none" }, accent, { transform: "none" }], 540, true);
+  }
+
+  function report(id) {
+    var head = document.querySelector('[data-report="' + Number(id) + '"]');
+    var card = head && head.closest(".report.open");
+    var banner = card && card.querySelector(".rep-banner, .report-body");
+    play(banner, [{ opacity: .72, transform: juice.motion() === "full" ? "translateY(4px)" : "none" }, { opacity: 1, transform: "none" }], 300);
+  }
+
+  return { watch: watch, refresh: refresh, mascot: mascot, report: report };
+})();
 // a small "+N" that floats up from the element, so you can see the money arrive
 function cashPop(host, text, color) {
   if (!host || calmMotion) return;
@@ -9674,8 +9792,9 @@ function fieldScene(d, order) {
   // the centre: your tribe's mascot on its own clay disc, never covered by a field
   var mk = "mascot-" + d.tribe.key, WM = d.tribe.key === "human" ? 98 : 84;
   g += '<g class="fx-dome" data-view="buildings" role="button" tabindex="0" aria-label="' + (curLang() === "en" ? "Enter " + esc(d.colony) : trf("Enter {0}", esc(trStr(d.colony)))) + '"><title>' + (curLang() === "en" ? "Enter " + esc(d.colony) : trf("Enter {0}", esc(trStr(d.colony)))) + "</title>";
-  if (FX_ART.t[mk]) g += fxShadow(CX, CY, WM) + fxImg(mk, CX, CY, WM);
-  else g += '<g class="fx-mascot"><svg x="' + (CX - 26) + '" y="' + (CY - 56) + '" width="52" height="60" viewBox="0 0 80 92">' + (FX_MASCOT[d.tribe.key] || FX_MASCOT.human) + "</svg></g>";
+  if (FX_ART.t[mk]) g += fxShadow(CX, CY, WM);
+  g += '<g class="phase-mascot">' + (FX_ART.t[mk] ? fxImg(mk, CX, CY, WM) :
+    '<g class="fx-mascot"><svg x="' + (CX - 26) + '" y="' + (CY - 56) + '" width="52" height="60" viewBox="0 0 80 92">' + (FX_MASCOT[d.tribe.key] || FX_MASCOT.human) + "</svg></g>") + "</g>";
   g += "</g>";
   cells.filter(function (c) { return c.y > CY + 20; }).forEach(function (c) { g += tile(c); });
   // one level tag per field, always on the front rim of its own disc
@@ -9815,6 +9934,12 @@ function colonyScene(d) {
   var sm = FX_ART.t["colony-slab"];
   if (sm) g += '<ellipse cx="' + (CX + 8) + '" cy="' + (LY + 14) + '" rx="182" ry="100" fill="rgba(150,70,60,.18)" filter="url(#fxsoft)"/>' + slabImg(CX, LY, 404, 1.3);
   else g += '<path d="M' + (CX - 175) + " " + CY + "v14a175 112 0 0 0 350 0v-14z" + '" fill="#D27358"/><ellipse cx="' + CX + '" cy="' + CY + '" rx="175" ry="112" fill="#F2A27F"/>';
+  var motes = {
+    chicken: '<path d="M84 169q4-6 9-6-1 6-9 6m195 27q4-6 9-6-1 6-9 6m-37-81q3-5 7-5-1 5-7 5"/>',
+    human: '<path d="M84 166l3-3 3 3-3 3zm196 27 3-3 3 3-3 3zm-37-81 3-3 3 3-3 3z"/>',
+    alien: '<circle cx="86" cy="165" r="3"/><circle cx="283" cy="194" r="2.5"/><circle cx="245" cy="112" r="2"/>'
+  };
+  if (motes[tribe]) g += '<g class="phase-ambient" data-tribe="' + tribe + '" aria-hidden="true">' + motes[tribe] + "</g>";
   var inner = fxOval(8, CX, LY, 84, 46, -90), outer = fxOval(Math.max(1, d.lotsTotal - 9), CX, LY, 146, 76, -75);
   var cells = [];
   for (var slot = 0; slot < d.lotsTotal; slot++) {
@@ -16876,7 +17001,7 @@ function noticeChanges(d) {
   var threats = d.movements.filter(isThreat).length;
   if (prevIncoming !== null && threats > prevIncoming) {
     // one alarm for a train of attack waves: more arriving within 12 s add to the incoming count without ringing again
-    if (calm("alarm", 12000)) { toast("🚨 Incoming attack! Grab your frying pans!"); sfx("alarm"); quake(); }
+    if (calm("alarm", 12000)) { toast("🚨 Incoming attack! Grab your frying pans!"); sfx("alarm"); quake(); phaseFeel.mascot("alert", d); }
     beppoSay("threat");
   }
   prevIncoming = threats;
@@ -16889,11 +17014,13 @@ function applyWorld(d) {
   if (!sky) return;
   var wx = d.forecast && d.forecast.today ? d.forecast.today.key : "";
   if (sky.getAttribute("data-wx") !== wx) sky.setAttribute("data-wx", wx);
+  if (document.body.getAttribute("data-feel-weather") !== wx) document.body.setAttribute("data-feel-weather", wx);
+  document.body.toggleAttribute("data-feel-scenery", view === "resources" || view === "buildings" || view === "map");
   var key = d.tribe && d.tribe.key, cr = document.getElementById("critter");
   if (key && (!cr || cr.getAttribute("data-k") !== key)) {
     if (cr) cr.remove();
     cr = document.createElement("div");
-    cr.id = "critter"; cr.className = "critter"; cr.setAttribute("data-k", key);
+    cr.id = "critter"; cr.className = "critter"; cr.setAttribute("data-k", key); cr.setAttribute("aria-hidden", "true");
     cr.innerHTML = '<i style="background-image:url(/art/mascot-' + key + '.webp?v=' + FX_ART.v + ')"></i>';
     sky.appendChild(cr);
   }
@@ -17158,6 +17285,7 @@ function renderColony(d) {
   else if (view === "ranking") h += renderPlayers();
   else if (view === "messages") h += renderMessages();
   renderParts(h.split(PART));
+  phaseFeel.watch();
   // jump to a report that was opened from the map
   if (view === "reports" && reportFocus && reports) {
     var rel = document.querySelector('[data-report="' + reportFocus + '"]');
@@ -17261,7 +17389,7 @@ function mapShell() {
   h += '<button class="tbtn" data-zoom="-1" title="Zoom out">' + '➖' + '</button><button class="tbtn" data-zoom="1" title="Zoom in">' + '➕' + '</button>';
   h += '<button class="tbtn" data-map-home="1" title="Back to my colony">' + '🏠' + '</button>';
   h += '<button class="tbtn map-enter" data-map-full="1" title="Full screen">' + giSvg("expand") + '</button><button class="tbtn map-exit" data-map-full="0" title="Leave full screen">' + giSvg("shrink") + '</button></div></div>';
-  h += '<div class="mapview" id="mapview"><div class="world" id="world"><div id="tiles"></div><div class="selbox" id="selbox"></div></div>';
+  h += '<div class="mapview" id="mapview"><div class="world" id="world"><div id="tiles"></div><div class="selbox" id="selbox"></div></div><i class="phase-map-weather" aria-hidden="true"></i>';
   h += '<span class="coords" id="coords"></span><span class="compass">N</span>';
   // one drawn arrow, rotated: the text triangles ▶ ◀ turn into coloured emoji on phones
   var PAN_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 6.5 19 17H5z" fill="currentColor" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/></svg>';
@@ -17289,7 +17417,11 @@ function openMap() {
   var app = document.getElementById("app");
   app._html = null; // always build a fresh map
   setHTML(app, mapShell());
-  if (data) setHTML(document.getElementById("maptop"), renderTop(data) + renderAlarm(data));
+  phaseFeel.watch();
+  if (data) {
+    applyWorld(data);
+    setHTML(document.getElementById("maptop"), renderTop(data) + renderAlarm(data));
+  }
   var start = map.pending || (data ? { x: data.x, y: data.y } : { x: 0, y: 0 });
   map.cam = { x: start.x, y: start.y };
   map.sel = map.pending ? { x: start.x, y: start.y } : null; // no info popup when the map just opens
@@ -17530,6 +17662,7 @@ function drawTiles() {
     });
   }
   box._html = null;
+  phaseFeel.watch();
 }
 
 
@@ -17538,7 +17671,7 @@ var MOVE_MARK = { attack: ["⚔️", "Your troops attack here"], raid: ["💰", 
 function moveMark(kind) {
   if (!kind) return "";
   var mm = MOVE_MARK[kind] || MOVE_MARK.attack;
-  return '<i class="mvmark mv-' + kind + '" title="' + mm[1] + '">' + mm[0] + "</i>";
+  return '<i class="mvmark mv-' + kind + '" data-feel-move title="' + mm[1] + '">' + mm[0] + "</i>";
 }
 
 function clampCam() {
@@ -22274,6 +22407,8 @@ document.addEventListener("click", function (e) {
       fetch("/api/reports/seen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: Number(id) }) }).then(function () { loadColony(false); });
     }
     if (data) renderColony(data);
+    if (openReports[id] && rr && rr.data && rr.data.attack !== undefined &&
+        (rr.data.mission === "attack" || rr.data.mission === "raid")) phaseFeel.report(id);
   } else if (has("data-side-toggle")) {
     toggleSide(!document.body.classList.contains("side-open"));
   } else if (has("data-side-close")) {

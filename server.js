@@ -578,7 +578,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.588";
+const GAME_VERSION = "1.0.589";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -18237,6 +18237,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.589",date:"2026-11-28",title:"A livelier colony and map",groups:[["Game feel",["Tribe-specific colony ambience and mascot reactions to progress and incoming trouble.","Subtle battle report reveals, clearer movement markers and gentler weather effects that follow the Game Feel settings."]]]},
   {v:"1.0.588",date:"2026-11-28",title:"Taller new Chicken buildings",groups:[["Art",["The newer Chicken illustrations stand taller in colony lots, construction queues and building cards."]]]},
   {v:"1.0.587",date:"2026-11-28",title:"Chicken building depth and colony feedback",groups:[["Art",["Restored taller Chicken building illustrations across colony lots, construction queues and building cards."]],["Game feel",["Construction feedback follows actual upgrades; resource-field stages animate when they change; newly ready missions receive distinct feedback.","Camp bounty and other commander inventory rewards are distinguished."]]]},
   {v:"1.0.585",date:"2026-11-28",title:"New artwork and expressive game feedback",groups:[["Art",["Updated all 24 Human and 24 Chicken building illustrations."]],["Dialogue",["Punctuation beats, animated happy and angry words, dialogue speed and sound preferences, and optional colony chatter."]],["Game feel",["Tribe-specific construction, dispatch and reward feedback, adjustable effects and independent vibration."]]]},

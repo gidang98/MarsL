@@ -12,7 +12,7 @@ function setup(reduced = false) {
   let mode = 'full';
   const ctx=vm.createContext({juice:{motion:()=>doc.hidden || reduced ? 'off' : mode},document:doc,window:{matchMedia:()=>({matches:reduced})},
     localStorage:{getItem(){return null;}},innerWidth:390,innerHeight:800,
-    data:{tribe:{key:'chicken'}},sound:{on:true},SFX:{},sfx:n=>sounds.push(n),
+    data:{tribe:{key:'chicken'}},phaseFeel:{mascot:mood=>events.push('mascot:'+mood)},sound:{on:true},SFX:{},sfx:n=>sounds.push(n),
     setTimeout:fn=>timers.push(fn),coinFly:()=>events.push('coins')});
   vm.runInContext(engine,ctx);
   return {ctx,events,sounds,nodes,timers,setMode:v=>{mode=v;}};
@@ -75,4 +75,68 @@ test('one shared effect preference and independent haptics',()=>{
   assert.ok(!source.includes('data-feel-mode'));
   assert.ok(source.includes('juice.buzz() && BUZZ[name]'));
   assert.ok(source.includes('document.hidden||juice.motion()==="off"'));
+});
+
+test('ambient and map motion run only on visible nodes and respect the marker cap',()=>{
+  const nodes=[];
+  let notify;
+  let mode='full';
+  class Observer {
+    constructor(callback){notify=callback;}
+    observe(){}
+    unobserve(){}
+  }
+  function makeNode(ambient = false) {
+    return {
+      isConnected:true,
+      hasAttribute:()=>!ambient,
+      classList:{contains:()=>ambient},
+      getBoundingClientRect:()=>({left:10,top:10,right:30,bottom:30,width:20,height:20}),
+      animate(frames, options){
+        this.animation={frames,options,cancelled:false,cancel(){this.cancelled=true;}};
+        return this.animation;
+      }
+    };
+  }
+  for(let n=0;n<6;n++)nodes.push(makeNode());
+  const ambient=makeNode(true), mascot=makeNode(), report=makeNode();
+  nodes.push(ambient);
+  const document={
+    querySelectorAll:()=>nodes,
+    querySelector:selector=>selector.includes('data-report')
+      ? {closest:()=>({querySelector:()=>report})}
+      : mascot
+  };
+  const ctx=vm.createContext({window:{IntersectionObserver:Observer},IntersectionObserver:Observer,
+    juice:{motion:()=>mode},document,view:'resources',sheet:null,innerWidth:390,innerHeight:800});
+  const code=source.slice(source.indexOf('var phaseFeel ='),source.indexOf('// a small "+N"'));
+  vm.runInContext(code,ctx);
+  const feel=ctx.phaseFeel;
+  const show=(targets,isIntersecting)=>notify(targets.map(target=>({target,isIntersecting})));
+  feel.watch();
+  assert.ok(nodes.every(node=>!node.animation));
+  show(nodes,true);
+  assert.equal(nodes.filter(node=>node.animation).length,5);
+  assert.equal(ambient.animation.options.iterations,Infinity);
+  const first=nodes[0].animation;
+  show([nodes[0]],false);
+  assert.ok(first.cancelled);
+  assert.ok(nodes[4].animation);
+  feel.mascot('cheer',{tribe:{key:'chicken'}});
+  const reaction=mascot.animation;
+  assert.equal(reaction.options.duration,540);
+  assert.match(reaction.frames[1].transform,/rotate/);
+  mode='low';
+  feel.refresh();
+  assert.ok(reaction.cancelled);
+  assert.ok(nodes.filter(node=>node.animation).every(node=>node.animation.cancelled));
+  feel.report(17);
+  const reveal=report.animation;
+  assert.equal(reveal.frames[0].transform,'none');
+  show([report],false);
+  assert.ok(reveal.cancelled);
+  mode='off';
+  feel.report(17);
+  assert.equal(report.animation,reveal);
+  feel.watch(false);
 });
