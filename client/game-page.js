@@ -5265,13 +5265,13 @@ setInterval(function () { if (!document.hidden) syncFromServer(); }, 60000);
 
 
  // Tribe feedback is cosmetic only; confirmed actions and snapshot changes are its inputs.
-var feelActive = 0, feelLast = {}, feelPrev = null;
+var feelActive = 0, feelLast = {}, feelPrev = null, feelProgressPrev = null;
 var FEEL = {
  chicken:{bits:["🪶","🥚","✦"],color:"#e5ab38",wave:"triangle",notes:[392,523,659]},
  human:{bits:["✧","⚙️","◆"],color:"#55a8e8",wave:"pulse25",notes:[330,495,660]},
  alien:{bits:["●","✦","○"],color:"#99d95b",wave:"sine",notes:[294,440,587]}
 };
-var FEEL_EVENTS = {build:[4,240],built:[10,650],dispatch:[6,400],bounty:[8,750],gear:[10,900],rare:[14,1200],level:[15,1400],quest:[10,800],chapter:[18,1800]};
+var FEEL_EVENTS = {build:[4,240],built:[10,650],dispatch:[6,400],bounty:[8,750],gear:[10,900],rare:[14,1200],level:[15,1400],quest:[10,800],ready:[5,450],chapter:[18,1800]};
 function feelMotion() { return juice.motion() !== "off"; }
 function feelEvent(kind, target, label, snapshot) {
  try {
@@ -5284,7 +5284,7 @@ function feelEvent(kind, target, label, snapshot) {
    sfx("tribe-feel");
   }
   if(!feelMotion()||!document.body.animate)return;
-  var anchor=target&&target.isConnected?target:document.querySelector(kind==="dispatch"?".traffic":kind==="bounty"||kind==="gear"||kind==="rare"||kind==="level"?".herochip":kind==="quest"||kind==="chapter"?"#quests":".nav [data-view=buildings]");
+  var anchor=target&&target.isConnected?target:document.querySelector(kind==="dispatch"?".traffic":kind==="bounty"||kind==="gear"||kind==="rare"||kind==="level"?".herochip":kind==="quest"||kind==="ready"||kind==="chapter"?"#quests":".nav [data-view=buildings]");
   var rect=anchor&&anchor.getBoundingClientRect(), x=rect&&rect.width?rect.left+rect.width/2:innerWidth/2, y=rect&&rect.height?rect.top+rect.height/2:innerHeight*.38;
   x=Math.max(24,Math.min(innerWidth-24,x));y=Math.max(42,Math.min(innerHeight-42,y));
   var mobile=innerWidth<600, limit=mobile?12:24, n=Math.min(ev[0],juice.motion()==="low"?4:limit,limit-feelActive);
@@ -5304,6 +5304,41 @@ function feelAction(url,body,button){
  else if(url==="/api/send")feelEvent("dispatch",button);
  else if(url==="/api/quest"||url==="/api/daily") {feelEvent("quest",button);if(feelMotion())coinFly(button);}
  else if(url==="/api/retention"&&body&&body.action==="chapter")feelEvent("chapter",button);
+}
+function feelProgress(d){
+  var identity=JSON.stringify([d.player,d.colonyId,d.tribe&&d.tribe.key]);
+  var levels={}, ready={};
+  (d.fields||[]).forEach(function(f){levels["field:"+f.slot+":"+f.type]=f;});
+  (d.buildings||[]).forEach(function(b){levels["building:"+b.slot+":"+b.type]=b;});
+  ((d.quests&&d.quests.list)||[]).forEach(function(q){if(q.ready)ready["quest:"+q.id]=true;});
+  var r=d.retention||{};
+  if(r.chapter&&r.chapter.ready)ready["chapter"]=true;
+  if(d.daily&&d.daily.can)ready["daily"]=true;
+  ["trainingTask","contract","weeklyPersonal"].forEach(function(k){var t=r[k];if(t&&!t.claimed&&t.need>0&&t.have>=t.need)ready[k]=true;});
+  if(r.allyGift&&r.allyGift.ready)ready.ally=true;
+  var old=feelProgressPrev;
+  feelProgressPrev={identity:identity,levels:Object.keys(levels).reduce(function(o,k){o[k]=levels[k].level;return o;},{}),ready:ready};
+  if(!old||old.identity!==identity)return;
+  var changed=Object.keys(levels).filter(function(k){return Number(levels[k].level)>(old.levels[k]||0);});
+  if(changed.length){
+    var first=levels[changed[0]];
+    toast("🎉 "+first.name+" reached level "+first.level+(changed.length>1?" (+"+(changed.length-1)+" more)":"")+"!",true);
+    beppoSay("built");feelEvent("built",null,null,d);
+    changed.slice(0,4).forEach(function(k){
+      var f=levels[k], isField=k.indexOf("field:")===0;
+      var stage=isField&&fxStage(f.level)!==fxStage(old.levels[k]||0);
+      var selector=(isField?".fx-f[data-field=":".cx-lot[data-lot=")+'"'+Number(f.slot)+'"]';
+      if(!feelMotion())return;
+      setTimeout(function(){
+        if(!data||JSON.stringify([data.player,data.colonyId,data.tribe&&data.tribe.key])!==identity||!feelMotion())return;
+        var el=document.querySelector(selector);
+        if(!el||!el.animate)return;
+        var image=el.querySelector("image")||el;
+        image.animate(stage?[{opacity:.15},{opacity:1}]:[{opacity:.6},{opacity:1}],{duration:stage?650:350,easing:"ease-out"});
+      },0);
+    });
+  }
+  if(Object.keys(ready).some(function(k){return !old.ready[k];}))feelEvent("ready",null,null,d);
 }
 function feelObserve(d){
  try {
@@ -16799,18 +16834,7 @@ function noticeChanges(d) {
   if (prevMaxField !== null && mf >= 10 && prevMaxField < 10) setTimeout(function () { beppoSay("field10"); }, 900);
   if (prevCamps !== null && cw > prevCamps) setTimeout(function () { beppoSay("camp"); }, 900);
   prevMaxField = mf; prevCamps = cw;
-  if (prevQueue && prevQueue.length && !justCancelled) {
-    var first = prevQueue[0];
-    var still = d.queue.some(function (q) { return q.name === first.name && q.targetLevel === first.targetLevel; });
-    if (!still) {
-      toast("🎉 " + first.name + " reached level " + first.targetLevel + "!", true);
-      popBuilt(first.name);
-      beppoSay("built");
-      if(view==="colony" && !sheet) voiceSay("built-ambient","beppo","happy",["[happy]Perfect![/happy] Only three pieces left over.","[happy]Great![/happy] Another building finished."],30*60000);
-      feelEvent("built",null,null,d);
-      sfx("done");
-    }
-  }
+  feelProgress(d);
   justCancelled = false;
   prevQueue = d.queue;
   // 🪖 a training order finished while the game was open
