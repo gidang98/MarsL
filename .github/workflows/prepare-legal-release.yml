@@ -53,5 +53,6 @@ jobs:
           git config user.email "kimi@moonshot.ai"
           git add .gitignore client/game-page.js package.json package-lock.json server.js scripts/build-release.js scripts/prepare-fonts.js scripts/smoke-release.js tests/legal-release.test.js .github/workflows/deploy-alwaysdata.yml
           git add -A
+          git restore --staged --worktree .github/workflows
           git commit -m "Release 1.0.589: age eligibility, local fonts and DMCA guidance"
           git push origin HEAD:kimi/legal-v1.0.589
