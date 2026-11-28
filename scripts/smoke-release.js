@@ -40,6 +40,20 @@ async function browserSmoke(base) {
       await page.waitForFunction(()=>window.__marslUp===1 && !!document.querySelector('#app .lp, #app .panel.auth:not(.boot .auth)'),{},{timeout:45000});
       assert.equal(errors.length,0,device+': '+errors.join('; '));
       assert.ok(!new URL(page.url()).searchParams.has('_marsl_reload'));
+      await page.locator('[data-landing="register"]').first().click();
+      await page.waitForSelector('#authform #dob');
+      const ageControl = await page.locator('#dob').evaluate(input => {
+        const cutoff = new Date(); cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 13);
+        const max = cutoff.toISOString().slice(0, 10);
+        const underage = new Date(cutoff.getTime() + 86400000).toISOString().slice(0, 10);
+        input.value = underage;
+        const rejectsUnderage = !input.validity.valid;
+        input.value = max;
+        return { required: input.required, max: input.max, expectedMax: max, rejectsUnderage, acceptsBoundary: input.validity.valid };
+      });
+      assert.ok(ageControl.required && ageControl.max === ageControl.expectedMax && ageControl.rejectsUnderage && ageControl.acceptsBoundary, device + ' age control');
+      const fontOrigins = await page.evaluate(() => performance.getEntriesByType('resource').filter(r => /\/fonts(?:\.css|\/)/.test(r.name)).map(r => new URL(r.name).origin));
+      assert.ok(fontOrigins.every(origin => origin === new URL(base).origin), device + ' external font request');
       if (process.env.BUILDING_ART_SMOKE === '1') {
         // Use the real building-list renderer and stylesheet with isolated fixture data.
         const fixtures = require('../assets/buildings/manifest.json').sprites;
@@ -121,6 +135,24 @@ async function smoke(serverId) {
       assert.equal(cached.status, 304);
     }
 
+    const fontManifest = require('../dist/fonts/manifest.json');
+    assert.ok(fontManifest.files.length >= 8);
+    assert.equal(fontManifest.licenses.length, 4);
+    const fontCssResponse = await fetch(base + '/fonts.css');
+    assert.ok(fontCssResponse.ok);
+    assert.match(fontCssResponse.headers.get('content-type'), /text\/css/);
+    const fontCss = await fontCssResponse.text();
+    assert.ok(!/https?:\/\//i.test(fontCss));
+    for (const name of fontManifest.files) {
+      assert.ok(fontCss.includes('/fonts/' + name), name + ' missing from fonts.css');
+      const response = await fetch(base + '/fonts/' + encodeURIComponent(name));
+      assert.ok(response.ok, name);
+      assert.match(response.headers.get('content-type'), /font\/woff2?/);
+      assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'), fontManifest.sha256[name], name);
+    }
+    assert.equal((await fetch(base + '/fonts/not-registered.woff2')).status, 404);
+    console.log(serverId + ' ' + fontManifest.files.length + ' same-origin font files and licenses verified');
+
     if (process.env.BUILDING_ART_SMOKE === '1') {
       const expected = require('../dist/building-art-sha256.json');
       assert.equal(Object.keys(expected).length,120+Object.keys(require('../assets/characters/manifest.json')).length);
@@ -146,7 +178,19 @@ async function smoke(serverId) {
       assert.ok(response.ok, route + ': ' + JSON.stringify(data));
       return { data, cookies: response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ') };
     }
-    const account = await post('/api/register', { username: 'SmokeTester', password: 'MarsL-Smoke-Only-7839!' });
+    const dateYearsAgo = years => { const d = new Date(); d.setUTCFullYear(d.getUTCFullYear() - years); return d.toISOString().slice(0, 10); };
+    const validDob = dateYearsAgo(13);
+    const underageDob = new Date(validDob + 'T00:00:00Z'); underageDob.setUTCDate(underageDob.getUTCDate() + 1);
+    const futureDob = new Date(); futureDob.setUTCFullYear(futureDob.getUTCFullYear() + 1);
+    const invalidRegistrations = [
+      ['MissingDob', undefined], ['BadDob', '2026-02-30'], ['FutureDob', futureDob.toISOString().slice(0, 10)], ['UnderageDob', underageDob.toISOString().slice(0, 10)],
+    ];
+    for (const [username, dob] of invalidRegistrations) {
+      const response = await fetch(base + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base }, body: JSON.stringify({ username, password: 'MarsL-Smoke-Only-7839!', ...(dob === undefined ? {} : { dob }) }) });
+      assert.equal(response.status, 400, username);
+      assert.ok((await response.json()).error, username);
+    }
+    const account = await post('/api/register', { username: 'SmokeTester', password: 'MarsL-Smoke-Only-7839!', dob: validDob });
     const hop = await post('/api/hop', { server: serverId }, account.cookies);
     const token = new URL(hop.data.url, base).searchParams.get('hop');
     assert.ok(token, 'Missing server-entry token');
@@ -179,7 +223,21 @@ async function smoke(serverId) {
       } catch(e){db.exec('ROLLBACK');throw e;}
       const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index'").all().map(r=>r.name);
       for(const name of ['perf_messages_inbox','perf_reports_kind','perf_accounts_email','perf_stats_weekly']) assert.ok(indexes.includes(name),name);
+      for (const table of ['accounts','pending_signups','users']) {
+        const columns = db.prepare('PRAGMA table_info(' + table + ')').all().map(column => column.name);
+        assert.ok(!columns.some(name => /birth|dob|age/i.test(name)), table + ' must not store birth dates');
+      }
+      db.prepare("INSERT INTO settings(key,value) VALUES('legal',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify({name:'Owner <script>alert(1)</script>',street:'1 Example <b>Street</b>',city:'Testville',email:'legal@example.com',copyrightAgent:'Agent <img src=x onerror=alert(1)>',copyrightEmail:'dmca@example.com'}));
     } finally {db.close();}
+    const legalResponse = await fetch(base + '/legal#copyright');
+    assert.ok(legalResponse.ok);
+    const legalHtml = await legalResponse.text();
+    assert.match(legalHtml, /id="copyright"/);
+    assert.match(legalHtml, /copyright\.gov\/dmca-directory/);
+    assert.match(legalHtml, /birth date entered at signup is used only for the 13\+ check/i);
+    assert.match(legalHtml, /does not record browsing-session replays/);
+    assert.ok(legalHtml.includes('Agent &lt;img src=x onerror=alert(1)&gt;'));
+    assert.ok(!legalHtml.includes('<img src=x onerror=alert(1)>'));
     const headers = { Cookie: colony.cookies };
     async function get(route) {
       const r=await fetch(base+route,{headers});assert.ok(r.ok,route+' '+r.status);return r.json();

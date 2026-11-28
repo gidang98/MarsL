@@ -16,6 +16,13 @@ for (const [statement, bundled] of imports) {
   source = source.replace(statement, () => bundled);
 }
 
+const fontSource = path.join(root, 'fonts');
+const fontManifest = path.join(fontSource, 'manifest.json');
+if (!fs.existsSync(fontManifest)) throw new Error('Missing self-hosted fonts; run node scripts/prepare-fonts.js');
+const fontOutput = path.join(root, 'dist', 'fonts');
+fs.rmSync(fontOutput, { recursive: true, force: true });
+fs.cpSync(fontSource, fontOutput, { recursive: true });
+
 const output = path.join(root, 'dist', 'server.js');
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, source);

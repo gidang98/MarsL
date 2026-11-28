@@ -75,37 +75,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// ---------- fonts: served from this server, never from Google ----------
-// (loading Google Fonts from Google's servers sends the player's IP address
-// to Google, which is not allowed in the EU without consent). Put the font
-// files from fonts.google.com (Barlow, Chakra Petch; free, SIL Open Font
-// License) into a "fonts" folder next to server.js. Without them the game
-// simply uses the device's own fonts.
-const FONT_FILES = [
-  ["Barlow", 400, "Barlow-Regular"], ["Barlow", 500, "Barlow-Medium"], ["Barlow", 600, "Barlow-SemiBold"], ["Barlow", 700, "Barlow-Bold"],
-  ["Chakra Petch", 600, "ChakraPetch-SemiBold"], ["Chakra Petch", 700, "ChakraPetch-Bold"],
-  // Toybox Deluxe (1.0.222): variable fonts, one file each
-  ["Fredoka", "300 700", "Fredoka-Variable"], ["Figtree", "300 900", "Figtree-Variable"],
-];
-// The game finds its font files itself: any file in the "fonts" folder whose name starts with the
-// font's name and contains the wanted style works (for example "Fredoka-VariableFont_wdth,wght.ttf"
-// straight from fonts.google.com). Only fonts that are really there are announced.
+// ---------- fonts: complete self-hosted bundles, never third-party font CDNs ----------
+// scripts/prepare-fonts.js copies the pinned Fontsource packages, every available
+// language subset and their SIL Open Font License texts into this directory.
 const FONT_DIR = require("path").join(__dirname, "fonts");
-function fontFileFor(f) {
-  let list = [];
-  try { list = require("fs").readdirSync(FONT_DIR); } catch (e) { return null; }
-  const base = f[0].replace(/\s+/g, "").toLowerCase(), style = f[2].split("-").pop().toLowerCase();
-  const ok = list.filter((n) => /\.(woff2|ttf)$/i.test(n) && n.replace(/[\s_-]/g, "").toLowerCase().startsWith(base) && !/italic/i.test(n));
-  const pick = (re) => ok.filter((n) => re.test(n)).sort((x, y) => (/\.woff2$/i.test(y) ? 1 : 0) - (/\.woff2$/i.test(x) ? 1 : 0) || x.length - y.length)[0];
-  return pick(new RegExp("^" + f[2].replace(/[-]/g, "[-_ ]?") + "\\.", "i")) || pick(new RegExp(style, "i")) || null;
-}
-const FONT_PICK = {};
-const FONTS_CSS = FONT_FILES.map((f) => {
-  const file = fontFileFor(f);
-  if (!file) return "";
-  FONT_PICK[file] = true;
-  return '@font-face{font-family:"' + f[0] + '";font-style:normal;font-weight:' + f[1] + ";font-display:swap;src:url(/fonts/" + encodeURIComponent(file) + ') format("' + (/\.woff2$/i.test(file) ? "woff2" : "truetype") + '")}';
-}).filter(Boolean).join("\n");
+let FONTS_CSS = "", FONT_PICK = {};
+try {
+  FONTS_CSS = require("fs").readFileSync(require("path").join(FONT_DIR, "fonts.css"), "utf8");
+  const manifest = JSON.parse(require("fs").readFileSync(require("path").join(FONT_DIR, "manifest.json"), "utf8"));
+  for (const file of manifest.files || []) FONT_PICK[file] = true;
+} catch (e) { /* A missing bundle falls back to device fonts; release checks reject it. */ }
 app.get("/fonts.css", (req, res) => {
   res.setHeader("Content-Type", "text/css; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=86400");
@@ -116,8 +95,8 @@ app.get("/fonts/:file", (req, res) => {
   if (!FONT_PICK[file] || /[\/\\]/.test(file)) return res.status(404).end();
   require("fs").readFile(require("path").join(FONT_DIR, file), (err, buf) => {
     if (err) return res.status(404).end();
-    res.setHeader("Content-Type", /\.woff2$/i.test(file) ? "font/woff2" : "font/ttf");
-    res.setHeader("Cache-Control", "public, max-age=2592000");
+    res.setHeader("Content-Type", /\.woff2$/i.test(file) ? "font/woff2" : "font/woff");
+    res.setHeader("Cache-Control", "public, max-age=2592000, immutable");
     res.end(buf);
   });
 });
@@ -578,7 +557,7 @@ const FIELD_TYPES = {
 //  multi: true = you may build more than one (when the first is maxed)
 // =====================================================================
 // MarsL is in Open Beta. Bump this with every delivery (shown small on the page, the wiki and the admin page).
-const GAME_VERSION = "1.0.588";
+const GAME_VERSION = "1.0.589";
 const RELEASE_COMMIT = "local";
 // The servers a player can pick on the login screen. Every server is its own
 // program with its own database (same server.js, started with SERVER_ID=...).
@@ -18062,6 +18041,8 @@ const LEGAL_FIELDS = [
   ["responsible", "Responsible for the content, if not you (optional)", "", "imprint", false],
   ["vat", "VAT ID (optional)", "", "imprint", false],
   ["extraImprint", "More for the legal notice (optional)", "", "imprint", false, true],
+  ["copyrightAgent", "Copyright agent name (empty = name above)", "", "imprint", false],
+  ["copyrightEmail", "Copyright agent email (empty = email above)", "", "imprint", false],
   ["privacyEmail", "Email for data requests (empty = the email above)", "", "privacy", false],
   ["hostName", "Hosting provider", "alwaysdata", "privacy", false],
   ["hostAddress", "Hosting provider address", "", "privacy", false],
@@ -18141,7 +18122,7 @@ function legalPage(lang) {
   const mail = mailReady() || emailRequired();
   const missing = legalMissing(L);
   let h = "";
-  h += '<h1>MarsL</h1><p class="sub">' + escHtml(thisServerName()) + ' · <a href="#imprint">' + T.legal + '</a> · <a href="#privacy">' + T.privacy + '</a> · <a href="/">' + T.back + '</a></p>';
+  h += '<h1>MarsL</h1><p class="sub">' + escHtml(thisServerName()) + ' · <a href="#imprint">' + T.legal + '</a> · <a href="#privacy">' + T.privacy + '</a> · <a href="#copyright">Copyright / DMCA</a> · <a href="/">' + T.back + '</a></p>';
   if (missing.length) h += '<p class="warn">' + T.incomplete + '</p>';
 
   h += '<section id="imprint"><h2>' + T.imprint + '</h2>';
@@ -18157,6 +18138,8 @@ function legalPage(lang) {
   h += "<h3>" + T.store + "</h3><ul>";
   h += "<li><b>" + B.acct + "</b>" + B.acctTxt + (mail ? B.mailTxt : "") + "</li>";
   h += "<li><b>" + B.game + "</b>" + B.gameTxt + "</li>";
+  h += "<li><b>Age eligibility</b> The birth date entered at signup is used only for the 13+ check and is not saved.</li>";
+  h += "<li><b>Replays and analytics</b> MarsL does not record browsing-session replays and uses no third-party analytics. In-game battle replays only replay combat data generated by the game.</li>";
   h += "<li><b>" + B.tech + "</b>" + B.techTxt.split("{host}").join(host) + "</li>";
   h += "</ul>";
   h += "<p>" + T.legalBasis + ":" + B.basisTxt + "</p>";
@@ -18167,6 +18150,14 @@ function legalPage(lang) {
   h += "<h3>" + T.howLong + "</h3><p>" + B.howLongTxt + "</p>";
   h += "<h3>" + T.rights + "</h3><p>" + B.rights1 + "<b>" + B.rightsBold + "</b>" + B.rights2 + T.questions + ": " + (dataMail ? '<a href="mailto:' + escHtml(dataMail) + '">' + escHtml(dataMail) + "</a>" : T.seeContact) + ". " + T.complain + (L.authority ? ": " + escHtml(L.authority) : "") + ".</p>";
   if (L.extraPrivacy) h += "<p>" + legalLines(L.extraPrivacy) + "</p>";
+  h += "</section>";
+
+  const copyrightAgent = L.copyrightAgent || L.name;
+  const copyrightEmail = L.copyrightEmail || L.email;
+  h += '<section id="copyright"><h2>Copyright / DMCA agent</h2>';
+  h += "<p>Send copyright-infringement notices to the designated agent below. Include the work involved, the exact material location, your contact details, a good-faith statement, an accuracy statement made under penalty of perjury, and your signature.</p>";
+  h += "<p><b>Agent:</b> " + escHtml(copyrightAgent || "—") + "<br>" + (copyrightEmail ? '<a href="mailto:' + escHtml(copyrightEmail) + '">' + escHtml(copyrightEmail) + "</a>" : "—") + (addr ? "<br>" + addr : "") + "</p>";
+  h += '<p><b>Registration is separate:</b> publishing these details does not register the agent with the U.S. Copyright Office. The service provider must register through the official <a href="https://www.copyright.gov/dmca-directory/" target="_blank" rel="noopener noreferrer">DMCA Designated Agent Directory</a>, keep the listing current, and renew it every three years.</p>';
   h += "</section>";
   return h;
 }
@@ -18237,6 +18228,7 @@ function escHtml(t) {
 //  Entry: { v, date?, title, groups: [[heading, [lines]]] }
 // =====================================================================
 const PATCH_NOTES = [
+  {v:"1.0.589",date:"2026-11-28",title:"Safer signup and complete local fonts",groups:[["Accounts",["New accounts require a valid birth date showing that the player is at least 13. The date is checked transiently and is not saved."]],["Privacy and legal",["All interface fonts and language subsets are bundled locally with their licenses. The legal page now includes designated copyright-agent contact details and official registration guidance.","The privacy page explains the transient age check and distinguishes in-game battle replays from browsing-session recording. MarsL has no browsing-session replay service, marketing email flow or paid subscription renewal flow."]]]},
   {v:"1.0.588",date:"2026-11-28",title:"Taller new Chicken buildings",groups:[["Art",["The newer Chicken illustrations stand taller in colony lots, construction queues and building cards."]]]},
   {v:"1.0.587",date:"2026-11-28",title:"Chicken building depth and colony feedback",groups:[["Art",["Restored taller Chicken building illustrations across colony lots, construction queues and building cards."]],["Game feel",["Construction feedback follows actual upgrades; resource-field stages animate when they change; newly ready missions receive distinct feedback.","Camp bounty and other commander inventory rewards are distinguished."]]]},
   {v:"1.0.585",date:"2026-11-28",title:"New artwork and expressive game feedback",groups:[["Art",["Updated all 24 Human and 24 Chicken building illustrations."]],["Dialogue",["Punctuation beats, animated happy and angry words, dialogue speed and sound preferences, and optional colony chatter."]],["Game feel",["Tribe-specific construction, dispatch and reward feedback, adjustable effects and independent vibration."]]]},
@@ -21582,8 +21574,25 @@ function requireAcct(req, res, next) {
 }
 setInterval(() => db.prepare("DELETE FROM acct_sessions WHERE created_at < ?").run(Date.now() - SESSION_DAYS * 86400000), 3600000);
 
+const MIN_ACCOUNT_AGE = 13;
+function registrationAgeProblem(value, now = new Date()) {
+  const raw = String(value || "");
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!match) return "Enter your date of birth.";
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  const birth = new Date(Date.UTC(year, month - 1, day));
+  if (birth.getUTCFullYear() !== year || birth.getUTCMonth() !== month - 1 || birth.getUTCDate() !== day || year < 1900) return "Enter a valid date of birth.";
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  if (birth > today) return "Enter a valid date of birth.";
+  const cutoff = new Date(today);
+  cutoff.setUTCFullYear(cutoff.getUTCFullYear() - MIN_ACCOUNT_AGE);
+  if (birth > cutoff) return "You must be at least 13 years old to create an account.";
+  return null;
+}
 function acctRegister(req, res) {
   const body = req.body || {};
+  const ageBad = registrationAgeProblem(body.dob);
+  if (ageBad) return res.status(400).json({ error: ageBad });
   if (registrationClosed()) return res.status(400).json({ error: "Registration is closed right now." });
   const username = String(body.username || "").trim();
   const password = String(body.password || "");
