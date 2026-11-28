@@ -9473,7 +9473,7 @@ function slabImg(cx, cy, Ws, k) {
   var m = FX_ART.t["colony-slab"], Hs = Ws * m.h / m.w * k;
   return '<image href="/art/colony-slab.webp?v=' + FX_ART.v + '" x="' + (cx - SLAB.cx * Ws).toFixed(1) + '" y="' + (cy - SLAB.cy * Hs).toFixed(1) + '" width="' + Ws + '" height="' + Hs.toFixed(1) + '" preserveAspectRatio="none"/>';
 }
-function fxStage(level, max) { return level <= Math.ceil(max * 0.3) ? 1 : level <= Math.ceil(max * 0.7) ? 2 : 3; }
+function fxStage(level, max) { return level <= 4 ? 1 : level <= 9 ? 2 : level <= 15 ? 3 : 4; }
 function fxImg(key, cx, cy, W) {
   var m = FX_ART.t[key];
   if (!m) return "";

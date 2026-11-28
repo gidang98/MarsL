@@ -21,6 +21,37 @@ def pixel_hash(image):
             raw[i:i + 3] = b"\x00\x00\x00"
     return digest(raw)
 
+def extract_field_art():
+    folder = ROOT / "assets" / "fields"
+    manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+    expected = {f"{t}-{r}-{s}.webp" for t in TRIBES for r in ("wood", "stone", "metal", "food") for s in range(1,5)}
+    entries = manifest["sprites"]
+    if len(entries) != 48 or {r["filename"] for r in entries} != expected:
+        raise ValueError("Invalid 48-field manifest")
+    images = {}
+    for tribe in TRIBES:
+        atlas = folder / f"{tribe}.webp"
+        if digest(atlas.read_bytes()) != manifest["atlas_sha256"][tribe]:
+            raise ValueError(f"Field atlas checksum mismatch: {tribe}")
+        with Image.open(atlas) as im:
+            if im.size != (1024,1024): raise ValueError("Invalid field atlas dimensions")
+            images[tribe] = im.convert("RGBA")
+    out = {}
+    for r in entries:
+        x = (r["stage"]-1)*256
+        y = ("wood", "stone", "metal", "food").index(r["resource"])*256
+        name = f'{r["tribe"]}-{r["resource"]}-{r["stage"]}.webp'
+        if r["filename"] != name: raise ValueError("Wrong field filename")
+        im = images[r["tribe"]].crop((x,y,x+256,y+256))
+        if im.getchannel("A").getextrema()[0] != 0 or im.getchannel("A").getextrema()[1] < 245 or pixel_hash(im) != r["rgba_sha256"]:
+            raise ValueError(f"Field pixel mismatch: {name}")
+        target = OUT / name
+        im.save(target, format="WEBP", lossless=True, method=6)
+        with Image.open(target) as saved:
+            if pixel_hash(saved) != r["rgba_sha256"]: raise ValueError(f"Field output mismatch: {name}")
+        out[name] = digest(target.read_bytes())
+    return out
+
 def main():
     m = json.loads((ASSETS / "manifest.json").read_text(encoding="utf-8"))
     rows = m["sprites"]
@@ -60,8 +91,9 @@ def main():
             if pixel_hash(check) != sha:
                 raise ValueError(f"Saved image mismatch: {name}")
         hashes[name] = digest(target.read_bytes())
+    hashes.update(extract_field_art())
     (OUT.parent / "building-art-sha256.json").write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
-    print(f"Validated and extracted {len(hashes)} transparent building sprites")
+    print(f"Validated and extracted {len(hashes)} transparent building and field sprites")
 
 if __name__ == "__main__":
     main()

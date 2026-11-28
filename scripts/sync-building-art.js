@@ -8,9 +8,9 @@ const worlds = {OpenTest:'https://marsl-game.com',Classic:'https://classic.marsl
 assert.ok(Object.hasOwn(worlds,label) && ['plan','verify'].includes(mode), 'Invalid world or mode');
 const hashes = JSON.parse(fs.readFileSync('dist/building-art-sha256.json','utf8'));
 const entries = Object.entries(hashes);
-assert.equal(entries.length,72);
+assert.equal(entries.length,120);
 for (const [file, hash] of entries) {
-  assert.match(file,/^(human|chicken|alien)-[a-z]+\.webp$/);
+  assert.match(file,/^(human|chicken|alien)-(?:[a-z]+|(?:wood|stone|metal|food)-[1-4])\.webp$/);
   assert.match(hash,/^[0-9a-f]{64}$/);
 }
 const plans = 'dist/building-art-plans', backups = path.join('dist/building-art-backup',label);
@@ -47,9 +47,9 @@ async function read(file) {
     ]).join('\n');
     fs.writeFileSync(path.join(plans,label+'.sftp'),batch+(batch?'\n':''));
     fs.writeFileSync(path.join(backups,'backup-manifest.json'),JSON.stringify({world:label,changed,missing},null,2));
-    console.log(label+': '+changed.length+' changed building files; '+(72-changed.length)+' already match');
+    console.log(label+': '+changed.length+' changed building files; '+(120-changed.length)+' already match');
   }else{
-    const line='- '+label+': all 72 building sprite checksums match.';
+    const line='- '+label+': all 120 building and field sprite checksums match.';
     console.log(line);
     if(process.env.GITHUB_STEP_SUMMARY)fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,line+'\n');
     fs.appendFileSync('live-verification.md',line+'\n');

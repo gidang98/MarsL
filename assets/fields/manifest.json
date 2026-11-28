@@ -1,0 +1,685 @@
+{
+  "release": "1.0.581",
+  "cell": 256,
+  "columns": 4,
+  "rows": 4,
+  "sprites": [
+    {
+      "tribe": "human",
+      "resource": "wood",
+      "stage": 1,
+      "filename": "human-wood-1.webp",
+      "rgba_sha256": "934be38a5fa9fee98e5bdbed2a78d91614dc5ee079638b75b8dd9e7203bd6b1d",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "wood",
+      "stage": 2,
+      "filename": "human-wood-2.webp",
+      "rgba_sha256": "9b2b4a95a9d6833d3c4a8b80174ac8603cccb0e85655f476fb261cc3a5b32655",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "wood",
+      "stage": 3,
+      "filename": "human-wood-3.webp",
+      "rgba_sha256": "ea075e9ed3e645c37118bfafe2705b187f4fde726a0f9346426ec593c6776c69",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "wood",
+      "stage": 4,
+      "filename": "human-wood-4.webp",
+      "rgba_sha256": "8311bada2bc0c3e1a3c59e4041f095245be3a7f5e7f99243ceb2dece161c9234",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "stone",
+      "stage": 1,
+      "filename": "human-stone-1.webp",
+      "rgba_sha256": "ed0eb8f2559ce1f07281cefec59e72e8955c382ffd520d4467d68e0e4d63d534",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "stone",
+      "stage": 2,
+      "filename": "human-stone-2.webp",
+      "rgba_sha256": "91cd44997e5bb37bd4be8c5d042ba72ea38a4a5a1523081538a8d34e6f0a8f38",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "stone",
+      "stage": 3,
+      "filename": "human-stone-3.webp",
+      "rgba_sha256": "0af2d46b9890f07dc76bc0de4fae22e99c133668e020bc5d415880f11d90cc23",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "stone",
+      "stage": 4,
+      "filename": "human-stone-4.webp",
+      "rgba_sha256": "2b4eadabe1ae18b2e353b2be6774908c46e21dbb81bece8c490cba47987a1c23",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "metal",
+      "stage": 1,
+      "filename": "human-metal-1.webp",
+      "rgba_sha256": "be204472799a14cdeba53e71cb30c027bddab4e9c3c1c8ce2a0de864349f5e78",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "metal",
+      "stage": 2,
+      "filename": "human-metal-2.webp",
+      "rgba_sha256": "05c45f5326013dda0a4afcabf93cb27559629fa79edc9af670acec6272049f5a",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "metal",
+      "stage": 3,
+      "filename": "human-metal-3.webp",
+      "rgba_sha256": "fe0d33c0d13f0c2899544657fe6ccca20f28d9384b3d57f0c03212eddfb1d3dd",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "metal",
+      "stage": 4,
+      "filename": "human-metal-4.webp",
+      "rgba_sha256": "3fe646979f611dd384cf4172a7412e9d1c4dc9a881ea5d95244f0f71bf0e98bf",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "food",
+      "stage": 1,
+      "filename": "human-food-1.webp",
+      "rgba_sha256": "0bb63bf85fb0e724a07c36e1dc240bd22ca60dc8dfac4d53fbd72e02679ebf75",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "food",
+      "stage": 2,
+      "filename": "human-food-2.webp",
+      "rgba_sha256": "b0309b132b2b78b9389963b21b636ab7a5b920a09758ab339ce25c38faca560c",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "food",
+      "stage": 3,
+      "filename": "human-food-3.webp",
+      "rgba_sha256": "3550e2f557432c8b99bcd714d73c27add1bbde765834835dda1b1d4a79f1337a",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "human",
+      "resource": "food",
+      "stage": 4,
+      "filename": "human-food-4.webp",
+      "rgba_sha256": "144b4b8cdc805536921300b3075f1f6fe222190707ec1fd1e4ff75389e8cde9f",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "wood",
+      "stage": 1,
+      "filename": "chicken-wood-1.webp",
+      "rgba_sha256": "79048c9637dc870fd8fcdd19af5a0f97780c82d0149d591d02fe2ef3dd505f3f",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "wood",
+      "stage": 2,
+      "filename": "chicken-wood-2.webp",
+      "rgba_sha256": "e7f4b2cb5bd1118eca3657f14a99b7ee52bc8606509d3a72bf8dc36a7ab0e646",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "wood",
+      "stage": 3,
+      "filename": "chicken-wood-3.webp",
+      "rgba_sha256": "1e154bec9ff0dfb8767c05818416ee62617a1e11a4ba6e290c0b62591b8df8a3",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "wood",
+      "stage": 4,
+      "filename": "chicken-wood-4.webp",
+      "rgba_sha256": "fb5ee705bfbef87b70288c23355ea3e636ab28c4473ba549f03306f64d8cf226",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "stone",
+      "stage": 1,
+      "filename": "chicken-stone-1.webp",
+      "rgba_sha256": "7c1c8dbd4406a83236d50be77a4998c64bc2e2f595c7ed89d53c2597b8451292",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "stone",
+      "stage": 2,
+      "filename": "chicken-stone-2.webp",
+      "rgba_sha256": "48e0fb01f1a4bc8b4fd1bb80aeabe9dd6ec7eef8b881a7728131d5a86f4cc0f4",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "stone",
+      "stage": 3,
+      "filename": "chicken-stone-3.webp",
+      "rgba_sha256": "db5dc2b93d434f60d48603c5bd65bb4d66dcbd53e59c537edd430791ccda4abd",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "stone",
+      "stage": 4,
+      "filename": "chicken-stone-4.webp",
+      "rgba_sha256": "83ef67379f5b74fa42ec5870e10a25f3067be050889e4abcfff379899e1a16a7",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "metal",
+      "stage": 1,
+      "filename": "chicken-metal-1.webp",
+      "rgba_sha256": "7a3bae1c3637514bb1c5fa47de058841bf47ffc7b2dc6a33c377148a449da9a9",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "metal",
+      "stage": 2,
+      "filename": "chicken-metal-2.webp",
+      "rgba_sha256": "43bfd393f228aba3f43abe222253c474ad04c6e62be3cb84b6980ecaba651630",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "metal",
+      "stage": 3,
+      "filename": "chicken-metal-3.webp",
+      "rgba_sha256": "bf84fc88f08daf09147341c8257f544183c2b332f5dad9a55ac4636343c12b88",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "metal",
+      "stage": 4,
+      "filename": "chicken-metal-4.webp",
+      "rgba_sha256": "f2733cecdef4a2f3cd3447eb4cc2d400fbd89185c7ff768377828fd0245278d2",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "food",
+      "stage": 1,
+      "filename": "chicken-food-1.webp",
+      "rgba_sha256": "a57de5a8a7572c7ddff58b2ee717805dbeb42852a64f37457132044859228cad",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "food",
+      "stage": 2,
+      "filename": "chicken-food-2.webp",
+      "rgba_sha256": "8cc5e1fa5093f68cf42ad36b93014e88d269c47e9cd0c272e53885377bd425ad",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "food",
+      "stage": 3,
+      "filename": "chicken-food-3.webp",
+      "rgba_sha256": "48c327777804a8383d23beb619ff5d8abc58866f557807c7c29a097eaedd44cc",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "chicken",
+      "resource": "food",
+      "stage": 4,
+      "filename": "chicken-food-4.webp",
+      "rgba_sha256": "ebfa7a6218cc7dc68f49fcea9b10d22ccd77d8b0ea844182b248ea79623b2be3",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "wood",
+      "stage": 1,
+      "filename": "alien-wood-1.webp",
+      "rgba_sha256": "4217c8d3452f8d824f318d8966770d0c51991b93758da7df9fe95e85b5921689",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "wood",
+      "stage": 2,
+      "filename": "alien-wood-2.webp",
+      "rgba_sha256": "638f94b2ae05381a7e50724e0ec5a9fe97a82b65807faf88a1d3e3e92a5947ec",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "wood",
+      "stage": 3,
+      "filename": "alien-wood-3.webp",
+      "rgba_sha256": "93bbe60d4887a479cd3179ce487dc5d3730f93e5ecedb76201e4d904ae43b1cf",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "wood",
+      "stage": 4,
+      "filename": "alien-wood-4.webp",
+      "rgba_sha256": "9a2af9afc931fccf686450f00abbca7db1591ac93e931bcb0a50d194ebf1ad7c",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "stone",
+      "stage": 1,
+      "filename": "alien-stone-1.webp",
+      "rgba_sha256": "f96414a3793a66d89aeed61cc4af98ac65bbb9e4856e71468ae7476cb8909bbd",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "stone",
+      "stage": 2,
+      "filename": "alien-stone-2.webp",
+      "rgba_sha256": "06118f9bf267ef5f7b922a0140888c9c03d2b0a0a7adffb8f84e33fe26155ecb",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "stone",
+      "stage": 3,
+      "filename": "alien-stone-3.webp",
+      "rgba_sha256": "dec72e12dbe83e46212389e822ed1a4f65b10b01f427347abcb06d977edbc87a",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "stone",
+      "stage": 4,
+      "filename": "alien-stone-4.webp",
+      "rgba_sha256": "3ba47d8967ce08e470cce7391f3a06494b2c63c91d2174398f81a8c69a0b1eb1",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "metal",
+      "stage": 1,
+      "filename": "alien-metal-1.webp",
+      "rgba_sha256": "604b3ad532462871cc5c435e7b6cc8e6a833b87bcdd2de3460c20f9270a413a0",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "metal",
+      "stage": 2,
+      "filename": "alien-metal-2.webp",
+      "rgba_sha256": "8bcfe54f8ff371969d5c06ac65f8db8175993fa88006258be7b697f6e84f7bf8",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "metal",
+      "stage": 3,
+      "filename": "alien-metal-3.webp",
+      "rgba_sha256": "010b0a8c5ffc9c396513fb8375bf12afdd879ab2c8aa74da98c94e6e9c46c410",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "metal",
+      "stage": 4,
+      "filename": "alien-metal-4.webp",
+      "rgba_sha256": "a615cf4195f47ff4a51b2abf2ac712a884d05c40ed1274c285b056dd0b08ee9a",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "food",
+      "stage": 1,
+      "filename": "alien-food-1.webp",
+      "rgba_sha256": "1584a206363ab629d2ea91de29feab1a2ce1a0fdaeb8ce9b1ed8e407d8dd3af2",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "food",
+      "stage": 2,
+      "filename": "alien-food-2.webp",
+      "rgba_sha256": "bb7ff08421c6c39205fd1a11ce7976bcaee5ab070335b4fcd3cb3b6f5a8bb3c2",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "food",
+      "stage": 3,
+      "filename": "alien-food-3.webp",
+      "rgba_sha256": "b747ee69cb9257e2e3eb959f8925727ab1829dcc693932fc4f1e6d16d1b3c2be",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    },
+    {
+      "tribe": "alien",
+      "resource": "food",
+      "stage": 4,
+      "filename": "alien-food-4.webp",
+      "rgba_sha256": "c56f38a9eb714f55cf4fa9a2ad9597e9b8155a1ae4b29bfa4caec230eea1e230",
+      "meta": {
+        "w": 256,
+        "h": 256,
+        "dcx": 128,
+        "db": 238,
+        "dw": 216
+      }
+    }
+  ],
+  "atlas_sha256": {
+    "human": "e1c7c9e45190037152af7bd2b0f4fea3cdbc1855c4a68e222cfb71f47d862260",
+    "chicken": "e53a61a7821f9e7b6c5cf7c9dda70d9e3834b500e7158749f133b804476b7d4d",
+    "alien": "463a4483747443ae2f2a4e12803366d4216d018a501cd7cc536c5963d562b735"
+  }
+}
