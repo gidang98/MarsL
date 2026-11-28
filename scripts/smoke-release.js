@@ -123,7 +123,7 @@ async function smoke(serverId) {
 
     if (process.env.BUILDING_ART_SMOKE === '1') {
       const expected = require('../dist/building-art-sha256.json');
-      assert.equal(Object.keys(expected).length,120);
+      assert.equal(Object.keys(expected).length,120+Object.keys(require('../assets/characters/manifest.json')).length);
       const entries=Object.entries(expected);
       for(let i=0;i<entries.length;i+=8){
         await Promise.all(entries.slice(i,i+8).map(async ([name,sha])=>{
@@ -133,7 +133,7 @@ async function smoke(serverId) {
           assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'),sha,name);
         }));
       }
-      console.log(serverId+' all 120 building and field sprite HTTP checksums passed');
+      console.log(serverId+' all '+Object.keys(expected).length+' managed sprite HTTP checksums passed');
     }
 
     async function post(route, body, cookie) {
