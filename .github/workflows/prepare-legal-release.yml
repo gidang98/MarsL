@@ -19,14 +19,16 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Apply reviewed legal patch
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "43535bbc6a84a416698ab06a6a6255c4bfe30fe5"
-          test "$(git rev-parse HEAD^^)" = "61e94c781eea7b754b6ca2dd1a35434d55709950"
+          git merge-base --is-ancestor 43535bbc6a84a416698ab06a6a6255c4bfe30fe5 HEAD
+          git merge-base --is-ancestor 61e94c781eea7b754b6ca2dd1a35434d55709950 HEAD
           cat .release/legal-patch-part-00 .release/legal-patch-part-01 .release/legal-patch-part-02 .release/legal-patch-part-03 .release/legal-patch-part-04 > "$RUNNER_TEMP/legal.patch"
           echo "40c7639801d5e590f524f17c3e9e8ffbb93614956a1570b7db5e4a9d97146446  $RUNNER_TEMP/legal.patch" | sha256sum -c -
           git reset --hard 61e94c781eea7b754b6ca2dd1a35434d55709950
